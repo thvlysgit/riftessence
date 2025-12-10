@@ -1,0 +1,442 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Region {
+  NA
+  EUW
+  EUNE
+  KR
+  JP
+  OCE
+  LAN
+  LAS
+  BR
+  RU
+}
+
+enum Role {
+  TOP
+  JUNGLE
+  MID
+  ADC
+  SUPPORT
+  FILL
+}
+
+enum VCPreference {
+  ALWAYS
+  SOMETIMES
+  NEVER
+}
+
+enum DuoType {
+  SHORT_TERM
+  LONG_TERM
+  BOTH
+}
+
+enum CommunityRole {
+  MEMBER
+  MODERATOR
+  ADMIN
+}
+
+enum MatchResult {
+  WIN
+  LOSS
+  DRAW
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AppealStatus {
+  OPEN
+  REVIEWED
+  RESOLVED
+}
+
+enum ChampionPoolDisplayMode {
+  LIST
+  TIERLIST
+}
+
+enum Rank {
+  IRON
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+  EMERALD
+  DIAMOND
+  MASTER
+  GRANDMASTER
+  CHALLENGER
+  UNRANKED
+}
+
+model User {
+  id             String    @id @default(cuid())
+  email          String?   @unique
+  username       String    @unique
+  password       String?   // Hashed password (bcrypt) - null if only using Riot login
+  name           String?
+  bio            String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  anonymous      Boolean   @default(false)
+  vcPreference   VCPreference @default(SOMETIMES)
+  languages      String[]  @default([])
+  playstyles     String[]  @default([])
+  primaryRole    Role?     
+  preferredRole  Role?     // Auto-detected from match history
+  region         Region?   
+  verified       Boolean   @default(false)
+  lastUsernameChange DateTime? @default(now())
+  lastPostCreated DateTime?
+  reportCount    Int       @default(0) // Number of accepted reports against this user
+  
+  // Champion pool settings
+  championPoolMode ChampionPoolDisplayMode @default(LIST)
+  championList     String[]  @default([]) // Array of champion names (max 5)
+  championTierlist Json?                  // JSON structure for tierlist {S: [...], A: [...], B: [...], C: [...]}
+
+  // relations
+  riotAccounts   RiotAccount[]
+  discordAccount DiscordAccount?
+  posts          Post[]
+  ratingsGiven   Rating[]  @relation("RatingGiver")
+  ratingsReceived Rating[] @relation("RatingReceiver")
+  matchHistories MatchHistory[] @relation("UserMatches")
+  badges         Badge[]
+  verificationRequests VerificationRequest[]
+  ratingAppeals  RatingAppeal[]
+  blocksSent     Block[]   @relation("Blocker")
+  blocksReceived Block[]   @relation("Blocked")
+  communityMemberships CommunityMembership[]
+  reportsMade    Report[]  @relation("Reporter")
+  reportsReceived Report[] @relation("Reported")
+  lftPosts       LftPost[]
+
+  @@index([region, primaryRole, createdAt])
+}
+
+model RiotAccount {
+  id           String   @id @default(cuid())
+  puuid        String
+  summonerName String
+  gameName     String?  // Riot account game name (e.g., "PlayerName")
+  tagLine      String?  // Riot account tag line (e.g., "NA1")
+  region       Region
+  verified     Boolean  @default(false)
+  verificationIconId Int?
+  isMain       Boolean  @default(false)
+  hidden       Boolean  @default(false)
+  rank         Rank?    @default(UNRANKED)
+  division     String?  // I, II, III, IV (null for Master+)
+  lp           Int?     // League Points (only meaningful for Master+ tiers)
+  winrate      Float?   // Percentage (0-100)
+  profileIconId Int?
+  gamesPerDay  Int?     @default(0)
+  gamesPerWeek Int?     @default(0)
+  lastStatsUpdate DateTime?
+  createdAt    DateTime @default(now())
+  user         User?    @relation(fields: [userId], references: [id])
+  userId       String?
+
+  @@unique([puuid, region])
+  @@index([region, createdAt])
+}
+
+model DiscordAccount {
+  id          String  @id @default(cuid())
+  discordId   String  @unique
+  username    String?
+  discriminator String?
+  user        User    @relation(fields: [userId], references: [id])
+  userId      String  @unique
+  createdAt   DateTime @default(now())
+}
+
+model Community {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  slug            String   @unique
+  description     String?
+  language        String   @default("English")
+  regions         Region[] @default([])
+  inviteLink      String?
+  discordServerId String?  @unique
+  isPartner       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  memberships     CommunityMembership[]
+  posts           Post[]
+  lftPosts        LftPost[]
+  feedChannels    DiscordFeedChannel[]
+
+  @@index([isPartner, createdAt])
+  @@index([createdAt])
+}
+
+model CommunityMembership {
+  id          String        @id @default(cuid())
+  user        User          @relation(fields: [userId], references: [id])
+  userId      String
+  community   Community     @relation(fields: [communityId], references: [id])
+  communityId String
+  role        CommunityRole @default(MEMBER)
+  joinedAt    DateTime      @default(now())
+
+  @@unique([userId, communityId])
+  @@index([communityId, role])
+}
+
+model Post {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  
+  // Author info
+  author           User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId         String
+  
+  // Post fields - anonymous controlled by User.anonymous at time of posting
+  postingRiotAccountId String
+  region             Region
+  role               Role
+  message            String?
+  languages          String[] @default([])
+  vcPreference       VCPreference
+  duoType            DuoType  @default(BOTH)
+  
+  // Community integration
+  community          Community? @relation(fields: [communityId], references: [id])
+  communityId        String?
+  source             String     @default("app") // "app" or "discord"
+  discordMirrored    Boolean    @default(false)
+  discordMessageId   String?    // ID of message in Discord (for discord-sourced posts)
+
+  @@index([createdAt])
+  @@index([authorId])
+  @@index([region, role, createdAt])
+  @@index([communityId, createdAt])
+  @@index([source, discordMirrored])
+}
+
+enum NotificationType {
+  CONTACT_REQUEST
+  FEEDBACK_RECEIVED
+  REPORT_RECEIVED
+  REPORT_ACCEPTED
+  REPORT_REJECTED
+  ADMIN_TEST
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  type        NotificationType
+  fromUserId  String?
+  postId      String?
+  feedbackId  String?
+  reportId    String?
+  message     String?
+  read        Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  @@index([userId, read, createdAt])
+}
+
+model Rating {
+  id                 String   @id @default(cuid())
+  stars              Int      @default(0)
+  moons              Int      @default(0)
+  sharedMatchesCount Int      @default(0)
+  comment            String?
+  createdAt          DateTime @default(now())
+
+  // who gave the rating
+  rater   User @relation("RatingGiver", fields: [raterId], references: [id])
+  raterId String
+
+  // who received the rating
+  receiver User @relation("RatingReceiver", fields: [receiverId], references: [id])
+  receiverId String
+
+  ratingAppeals RatingAppeal[]
+
+  @@index([receiverId, createdAt])
+}
+
+model MatchHistory {
+  id                String   @id @default(cuid())
+  user              User     @relation("UserMatches", fields: [userId], references: [id])
+  userId            String
+  opponentId        String
+  result            MatchResult
+  matchDate         DateTime @default(now())
+  sharedMatchesCount Int     @default(1)
+
+  @@index([userId, matchDate])
+}
+
+model Block {
+  id         String   @id @default(cuid())
+  blocker    User     @relation("Blocker", fields: [blockerId], references: [id])
+  blockerId  String
+  blocked    User     @relation("Blocked", fields: [blockedId], references: [id])
+  blockedId  String
+  createdAt  DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+}
+
+model Badge {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  name        String
+  description String?
+  users       User[]
+}
+
+model VerificationRequest {
+  id         String             @id @default(cuid())
+  user       User               @relation(fields: [userId], references: [id])
+  userId     String
+  status     VerificationStatus @default(PENDING)
+  submittedAt DateTime          @default(now())
+  resolvedAt DateTime?
+  reviewerId String?
+
+  @@index([userId, status])
+}
+
+model RatingAppeal {
+  id         String       @id @default(cuid())
+  rating     Rating       @relation(fields: [ratingId], references: [id])
+  ratingId   String
+  user       User         @relation(fields: [userId], references: [id])
+  userId     String
+  reason     String
+  status     AppealStatus @default(OPEN)
+  createdAt  DateTime     @default(now())
+
+  @@index([ratingId, status])
+}
+
+enum ReportStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  DISMISSED
+}
+
+model Report {
+  id          String       @id @default(cuid())
+  reporter    User         @relation("Reporter", fields: [reporterId], references: [id])
+  reporterId  String
+  reported    User         @relation("Reported", fields: [reportedId], references: [id])
+  reportedId  String
+  reason      String
+  status      ReportStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  resolvedAt  DateTime?
+  resolvedBy  String?      // Admin userId who resolved
+
+  @@index([reportedId, status])
+  @@index([status, createdAt])
+}
+
+// LFT (Looking For Team) Models
+enum LftPostType {
+  TEAM   // Team looking for players
+  PLAYER // Player looking for team
+}
+
+enum TeamExperience {
+  FIRST_TEAM
+  A_LITTLE_EXPERIENCE
+  EXPERIMENTED
+}
+
+enum CoachingAvailability {
+  DEDICATED_COACH
+  FREQUENT
+  OCCASIONAL
+  NONE
+}
+
+enum TeamAvailability {
+  ONCE_A_WEEK
+  TWICE_A_WEEK
+  THRICE_A_WEEK
+  FOUR_TIMES_A_WEEK
+  EVERYDAY
+}
+
+model LftPost {
+  id         String      @id @default(cuid())
+  type       LftPostType
+  createdAt  DateTime    @default(now())
+  
+  // Author (user who created the post)
+  author     User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId   String
+  
+  // Common fields
+  region     Region
+  
+  // Community integration
+  community   Community? @relation(fields: [communityId], references: [id])
+  communityId String?
+  
+  // Team-specific fields (when type = TEAM)
+  teamName             String?
+  rolesNeeded          Role[]  @default([])
+  averageRank          Rank?
+  averageDivision      String?  // I, II, III, IV (null for Master+)
+  scrims               Boolean?
+  minAvailability      TeamAvailability?
+  coachingAvailability CoachingAvailability?
+  details              String?
+  
+  // Player-specific fields (when type = PLAYER)
+  mainRole       Role?
+  rank           Rank?
+  division       String?  // I, II, III, IV (null for Master+)
+  experience     TeamExperience?
+  languages      String[] @default([])
+  skills         String[] @default([]) // Shotcaller, Weakside, Ocean Champion Pool, Vision, Duels, Consistency
+  age            Int?
+  availability   TeamAvailability?
+  
+  @@index([type, createdAt])
+  @@index([authorId])
+  @@index([region, type, createdAt])
+  @@index([communityId, createdAt])
+}
+
+// Discord integration models
+model DiscordFeedChannel {
+  id          String    @id @default(cuid())
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  communityId String
+  guildId     String    // Discord server ID
+  channelId   String    // Discord channel ID
+  createdAt   DateTime  @default(now())
+  
+  @@unique([communityId, channelId])
+  @@index([guildId])
+  @@index([communityId])
+}

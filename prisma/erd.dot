@@ -1,0 +1,174 @@
+digraph PrismaERD {
+  graph [rankdir=LR, fontsize=12];
+  node [shape=plaintext];
+  User [label=<<table border='0' cellborder='1' cellspacing='0'>
+  <tr><td colspan='2'><b>User</b></td></tr>
+	<tr><td align='left'><b>id</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>email</b></td><td align='left'>String?</td></tr>
+	<tr><td align='left'><b>username</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>name</b></td><td align='left'>String?</td></tr>
+	<tr><td align='left'><b>bio</b></td><td align='left'>String?</td></tr>
+	<tr><td align='left'><b>createdAt</b></td><td align='left'>DateTime</td></tr>
+	<tr><td align='left'><b>updatedAt</b></td><td align='left'>DateTime</td></tr>
+	<tr><td align='left'><b>anonymous</b></td><td align='left'>Boolean</td></tr>
+	<tr><td align='left'><b>vcPreference</b></td><td align='left'>VCPreference</td></tr>
+	<tr><td align='left'><b>languages</b></td><td align='left'>String[]</td></tr>
+	<tr><td align='left'><b>playstyles</b></td><td align='left'>String[]</td></tr>
+	<tr><td align='left'><b>primaryRole</b></td><td align='left'>Role?</td></tr>
+	<tr><td align='left'><b>region</b></td><td align='left'>Region?</td></tr>
+	<tr><td align='left'><b>verified</b></td><td align='left'>Boolean</td></tr>
+	<tr><td align='left'><b>riotAccounts</b></td><td align='left'>RiotAccount[]</td></tr>
+	<tr><td align='left'><b>discordAccount</b></td><td align='left'>DiscordAccount?</td></tr>
+	<tr><td align='left'><b>posts</b></td><td align='left'>Post[]</td></tr>
+	<tr><td align='left'><b>ratingsGiven</b></td><td align='left'>Rating[]</td></tr>
+	<tr><td align='left'><b>ratingsReceived</b></td><td align='left'>Rating[]</td></tr>
+	<tr><td align='left'><b>matchHistories</b></td><td align='left'>MatchHistory[]</td></tr>
+	<tr><td align='left'><b>badges</b></td><td align='left'>Badge[]</td></tr>
+	<tr><td align='left'><b>verificationRequests</b></td><td align='left'>VerificationRequest[]</td></tr>
+	<tr><td align='left'><b>ratingAppeals</b></td><td align='left'>RatingAppeal[]</td></tr>
+	<tr><td align='left'><b>blocksSent</b></td><td align='left'>Block[]</td></tr>
+	<tr><td align='left'><b>blocksReceived</b></td><td align='left'>Block[]</td></tr>
+	<tr><td align='left'><b>communityMemberships</b></td><td align='left'>CommunityMembership[]</td></tr>
+</table>>];
+  RiotAccount [label=<<table border='0' cellborder='1' cellspacing='0'>
+  <tr><td colspan='2'><b>RiotAccount</b></td></tr>
+	<tr><td align='left'><b>id</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>puuid</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>summonerName</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>region</b></td><td align='left'>Region</td></tr>
+	<tr><td align='left'><b>createdAt</b></td><td align='left'>DateTime</td></tr>
+	<tr><td align='left'><b>user</b></td><td align='left'>User?</td></tr>
+	<tr><td align='left'><b>userId</b></td><td align='left'>String?</td></tr>
+</table>>];
+  DiscordAccount [label=<<table border='0' cellborder='1' cellspacing='0'>
+  <tr><td colspan='2'><b>DiscordAccount</b></td></tr>
+	<tr><td align='left'><b>id</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>discordId</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>username</b></td><td align='left'>String?</td></tr>
+	<tr><td align='left'><b>discriminator</b></td><td align='left'>String?</td></tr>
+	<tr><td align='left'><b>user</b></td><td align='left'>User</td></tr>
+	<tr><td align='left'><b>userId</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>createdAt</b></td><td align='left'>DateTime</td></tr>
+</table>>];
+  Community [label=<<table border='0' cellborder='1' cellspacing='0'>
+  <tr><td colspan='2'><b>Community</b></td></tr>
+	<tr><td align='left'><b>id</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>name</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>slug</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>description</b></td><td align='left'>String?</td></tr>
+	<tr><td align='left'><b>region</b></td><td align='left'>Region?</td></tr>
+	<tr><td align='left'><b>createdAt</b></td><td align='left'>DateTime</td></tr>
+	<tr><td align='left'><b>memberships</b></td><td align='left'>CommunityMembership[]</td></tr>
+</table>>];
+  CommunityMembership [label=<<table border='0' cellborder='1' cellspacing='0'>
+  <tr><td colspan='2'><b>CommunityMembership</b></td></tr>
+	<tr><td align='left'><b>id</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>user</b></td><td align='left'>User</td></tr>
+	<tr><td align='left'><b>userId</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>community</b></td><td align='left'>Community</td></tr>
+	<tr><td align='left'><b>communityId</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>role</b></td><td align='left'>CommunityRole</td></tr>
+	<tr><td align='left'><b>joinedAt</b></td><td align='left'>DateTime</td></tr>
+</table>>];
+  Post [label=<<table border='0' cellborder='1' cellspacing='0'>
+  <tr><td colspan='2'><b>Post</b></td></tr>
+	<tr><td align='left'><b>id</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>title</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>content</b></td><td align='left'>String?</td></tr>
+	<tr><td align='left'><b>createdAt</b></td><td align='left'>DateTime</td></tr>
+	<tr><td align='left'><b>author</b></td><td align='left'>User?</td></tr>
+	<tr><td align='left'><b>authorId</b></td><td align='left'>String?</td></tr>
+	<tr><td align='left'><b>externalDiscordId</b></td><td align='left'>String?</td></tr>
+	<tr><td align='left'><b>anonymous</b></td><td align='left'>Boolean</td></tr>
+</table>>];
+  Rating [label=<<table border='0' cellborder='1' cellspacing='0'>
+  <tr><td colspan='2'><b>Rating</b></td></tr>
+	<tr><td align='left'><b>id</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>stars</b></td><td align='left'>Int</td></tr>
+	<tr><td align='left'><b>moons</b></td><td align='left'>Int</td></tr>
+	<tr><td align='left'><b>sharedMatchesCount</b></td><td align='left'>Int</td></tr>
+	<tr><td align='left'><b>comment</b></td><td align='left'>String?</td></tr>
+	<tr><td align='left'><b>createdAt</b></td><td align='left'>DateTime</td></tr>
+	<tr><td align='left'><b>rater</b></td><td align='left'>User</td></tr>
+	<tr><td align='left'><b>raterId</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>receiver</b></td><td align='left'>User</td></tr>
+	<tr><td align='left'><b>receiverId</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>ratingAppeals</b></td><td align='left'>RatingAppeal[]</td></tr>
+</table>>];
+  MatchHistory [label=<<table border='0' cellborder='1' cellspacing='0'>
+  <tr><td colspan='2'><b>MatchHistory</b></td></tr>
+	<tr><td align='left'><b>id</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>user</b></td><td align='left'>User</td></tr>
+	<tr><td align='left'><b>userId</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>opponentId</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>result</b></td><td align='left'>MatchResult</td></tr>
+	<tr><td align='left'><b>matchDate</b></td><td align='left'>DateTime</td></tr>
+	<tr><td align='left'><b>sharedMatchesCount</b></td><td align='left'>Int</td></tr>
+</table>>];
+  Block [label=<<table border='0' cellborder='1' cellspacing='0'>
+  <tr><td colspan='2'><b>Block</b></td></tr>
+	<tr><td align='left'><b>id</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>blocker</b></td><td align='left'>User</td></tr>
+	<tr><td align='left'><b>blockerId</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>blocked</b></td><td align='left'>User</td></tr>
+	<tr><td align='left'><b>blockedId</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>createdAt</b></td><td align='left'>DateTime</td></tr>
+</table>>];
+  Badge [label=<<table border='0' cellborder='1' cellspacing='0'>
+  <tr><td colspan='2'><b>Badge</b></td></tr>
+	<tr><td align='left'><b>id</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>key</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>name</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>description</b></td><td align='left'>String?</td></tr>
+	<tr><td align='left'><b>users</b></td><td align='left'>User[]</td></tr>
+</table>>];
+  VerificationRequest [label=<<table border='0' cellborder='1' cellspacing='0'>
+  <tr><td colspan='2'><b>VerificationRequest</b></td></tr>
+	<tr><td align='left'><b>id</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>user</b></td><td align='left'>User</td></tr>
+	<tr><td align='left'><b>userId</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>status</b></td><td align='left'>VerificationStatus</td></tr>
+	<tr><td align='left'><b>submittedAt</b></td><td align='left'>DateTime</td></tr>
+	<tr><td align='left'><b>resolvedAt</b></td><td align='left'>DateTime?</td></tr>
+	<tr><td align='left'><b>reviewerId</b></td><td align='left'>String?</td></tr>
+</table>>];
+  RatingAppeal [label=<<table border='0' cellborder='1' cellspacing='0'>
+  <tr><td colspan='2'><b>RatingAppeal</b></td></tr>
+	<tr><td align='left'><b>id</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>rating</b></td><td align='left'>Rating</td></tr>
+	<tr><td align='left'><b>ratingId</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>user</b></td><td align='left'>User</td></tr>
+	<tr><td align='left'><b>userId</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>reason</b></td><td align='left'>String</td></tr>
+	<tr><td align='left'><b>status</b></td><td align='left'>AppealStatus</td></tr>
+	<tr><td align='left'><b>createdAt</b></td><td align='left'>DateTime</td></tr>
+</table>>];
+  User -> RiotAccount [arrowhead=none, dir=both]; // riotAccounts
+  User -> DiscordAccount; // discordAccount
+  User -> Post [arrowhead=none, dir=both]; // posts
+  User -> Rating [arrowhead=none, dir=both]; // ratingsGiven
+  User -> Rating [arrowhead=none, dir=both]; // ratingsReceived
+  User -> MatchHistory [arrowhead=none, dir=both]; // matchHistories
+  User -> Badge [arrowhead=none, dir=both]; // badges
+  User -> VerificationRequest [arrowhead=none, dir=both]; // verificationRequests
+  User -> RatingAppeal [arrowhead=none, dir=both]; // ratingAppeals
+  User -> Block [arrowhead=none, dir=both]; // blocksSent
+  User -> Block [arrowhead=none, dir=both]; // blocksReceived
+  User -> CommunityMembership [arrowhead=none, dir=both]; // communityMemberships
+  RiotAccount -> User; // user
+  DiscordAccount -> User; // user
+  Community -> CommunityMembership [arrowhead=none, dir=both]; // memberships
+  CommunityMembership -> User; // user
+  CommunityMembership -> Community; // community
+  Post -> User; // author
+  Rating -> User; // rater
+  Rating -> User; // receiver
+  Rating -> RatingAppeal [arrowhead=none, dir=both]; // ratingAppeals
+  MatchHistory -> User; // user
+  Block -> User; // blocker
+  Block -> User; // blocked
+  Badge -> User [arrowhead=none, dir=both]; // users
+  VerificationRequest -> User; // user
+  RatingAppeal -> Rating; // rating
+  RatingAppeal -> User; // user
+}

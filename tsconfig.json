@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@lfd/types": ["packages/types/src"],
+      "@lfd/ui": ["packages/ui/src"]
+    },
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "exclude": ["node_modules","**/dist","**/.next"]
+}

@@ -1,0 +1,226 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS Variables for theming - defaults to Classic Dark theme */
+:root {
+  --color-bg-primary: #0B0D12;
+  --color-bg-secondary: #1A1A1D;
+  --color-bg-tertiary: #2B2B2F;
+  --color-text-primary: #F5F5F5;
+  --color-text-secondary: #C4C4C4;
+  --color-text-muted: #888888;
+  --color-accent-1: #C8AA6E;
+  --color-accent-2: #9A8352;
+  --color-accent-3: #D4B678;
+  --color-border: #3B3B3F;
+  --color-border-hover: #C8AA6E;
+  --color-success: #22c55e;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --border-radius: 0.75rem;
+  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -1px rgb(0 0 0 / 0.2);
+  --shadow-lg: 0 10px 20px -5px rgb(0 0 0 / 0.5), 0 6px 10px -3px rgb(0 0 0 / 0.3);
+  --border-width: 1px;
+  
+  /* Additional variables for enhanced styling */
+  --bg-card: #1F1F23;
+  --border-card: #3B3B3F;
+  --text-main: #F5F5F5;
+  --text-secondary: #C4C4C4;
+  --text-muted: #888888;
+  --accent-primary: #C8AA6E;
+  --accent-primary-bg: rgba(200, 170, 110, 0.15);
+  --accent-primary-border: rgba(200, 170, 110, 0.4);
+  --bg-input: #2B2B2F;
+  --btn-gradient: linear-gradient(135deg, #C8AA6E 0%, #D4B678 100%);
+  --btn-gradient-text: #1A1A1D;
+  --gradient-card: linear-gradient(135deg, rgba(200, 170, 110, 0.1) 0%, rgba(212, 182, 120, 0.05) 100%);
+  --accent-success: #22c55e;
+  --accent-success-bg: rgba(34, 197, 94, 0.15);
+  --accent-success-border: rgba(34, 197, 94, 0.4);
+  --accent-danger: #ef4444;
+  --accent-danger-bg: rgba(239, 68, 68, 0.15);
+  --accent-danger-border: rgba(239, 68, 68, 0.4);
+  --accent-discord: #5865F2;
+  --accent-discord-bg: rgba(88, 101, 242, 0.15);
+  --accent-discord-border: rgba(88, 101, 242, 0.4);
+  --accent-info: #3b82f6;
+  --accent-info-bg: rgba(59, 130, 246, 0.15);
+  --accent-info-border: rgba(59, 130, 246, 0.4);
+  --btn-disabled-bg: #2B2B2F;
+  --color-accent-1-bg: rgba(200, 170, 110, 0.15);
+  --color-accent-1-border: rgba(200, 170, 110, 0.4);
+}
+
+html, body, #__next {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* Custom scrollbar styling - themed */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: var(--color-bg-tertiary);
+  border-radius: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--color-accent-1);
+  border-radius: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent-2);
+}
+
+/* Utility classes for themed components */
+.bg-primary {
+  background-color: var(--color-bg-primary);
+}
+
+.bg-secondary {
+  background-color: var(--color-bg-secondary);
+}
+
+.bg-tertiary {
+  background-color: var(--color-bg-tertiary);
+}
+
+.text-primary {
+  color: var(--color-text-primary);
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.text-accent {
+  color: var(--color-accent-1);
+}
+
+.border-themed {
+  border-color: var(--color-border);
+}
+
+.border-hover-themed:hover {
+  border-color: var(--color-border-hover);
+}
+
+.rounded-themed {
+  border-radius: var(--border-radius);
+}
+
+.shadow-themed {
+  box-shadow: var(--shadow);
+}
+
+/* Button variants */
+.btn-primary {
+  background: linear-gradient(to right, var(--color-accent-1), var(--color-accent-2));
+  color: var(--color-bg-primary);
+  font-weight: bold;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--border-radius);
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background-color: var(--color-bg-tertiary);
+  border: var(--border-width) solid var(--color-accent-1);
+  color: var(--color-accent-1);
+  font-weight: bold;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--border-radius);
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+/* Card styling */
+.card {
+  background-color: var(--color-bg-secondary);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  padding: 1.5rem;
+}
+
+/* Input styling */
+.input-themed {
+  background-color: var(--color-bg-tertiary);
+  border: var(--border-width) solid var(--color-border);
+  color: var(--color-text-secondary);
+  border-radius: var(--border-radius);
+  padding: 0.75rem 1rem;
+  transition: all 0.2s;
+}
+
+.input-themed:focus {
+  border-color: var(--color-border-hover);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--color-accent-1-rgb, 200, 170, 110), 0.1);
+}
+
+/* Themed checkbox styling (applies to native checkboxes) */
+input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  border-radius: 0.35rem;
+  display: inline-block;
+  vertical-align: middle;
+  position: relative;
+  transition: all 0.12s ease-in-out;
+}
+
+input[type="checkbox"]:focus {
+  box-shadow: 0 0 0 3px rgba(200,170,110,0.12);
+  outline: none;
+  border-color: var(--color-border-hover);
+}
+
+input[type="checkbox"]:checked {
+  background: linear-gradient(135deg, var(--color-accent-1), var(--color-accent-2));
+  border-color: var(--color-accent-1);
+}
+
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 3px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--color-bg-primary);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Slightly larger clickable area for existing checkbox classes */
+.w-5.h-5[type="checkbox"], input[type="checkbox"].w-5.h-5 {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+

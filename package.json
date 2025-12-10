@@ -1,0 +1,38 @@
+{
+  "name": "lfd-hub-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "license": "MIT",
+  "scripts": {
+    "generate:erd": "node ./scripts/generate-erd.js",
+    "render:erd": "node ./scripts/render-erd.js",
+    "dev:web": "pnpm --filter @lfd/web dev",
+    "dev:api": "pnpm --filter @lfd/api dev",
+    "dev": "pnpm -w -r -s run dev || true",
+    "build": "pnpm -w -r -s build",
+    "lint": "eslint --ext .ts,.tsx .",
+    "test": "pnpm -w -r -s test",
+    "prepare": ""
+  },
+  "devDependencies": {
+    "@types/jest": "^29.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "autoprefixer": "^10.4.22",
+    "eslint": "^8.0.0",
+    "eslint-config-prettier": "^8.0.0",
+    "eslint-plugin-react": "^7.32.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "jest": "^29.0.0",
+    "postcss": "^8.5.6",
+    "prettier": "^2.0.0",
+    "prisma": "^4.15.0",
+    "tailwindcss": "^3.4.18",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@prisma/client": "4.16.2",
+    "viz.js": "^2.1.2"
+  }
+}
