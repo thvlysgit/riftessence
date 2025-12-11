@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -12,6 +14,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const turnstileRef = useRef<{ getResponse: () => string }>(null);
 
   // Redirect if already logged in
   React.useEffect(() => {
@@ -42,15 +45,47 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    const result = await register(username, email, password);
+    // Get CAPTCHA token if Turnstile is available
+    let turnstileToken = '';
+    if (typeof window !== 'undefined' && (window as any).turnstile) {
+      turnstileToken = (window as any).turnstile.getResponse();
+      if (!turnstileToken) {
+        setError('Please complete the CAPTCHA verification');
+        setLoading(false);
+        return;
+      }
+    }
 
-    if (result.success) {
-      router.push('/feed');
-    } else {
-      setError(result.error || 'Registration failed');
+    try {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password, turnstileToken }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        // Log in automatically after registration
+        const loginResult = await register(username, email, password);
+        if (loginResult.success) {
+          router.push('/feed');
+        } else {
+          setError('Registration successful! Please log in.');
+          router.push('/login');
+        }
+      } else {
+        setError(data.error || data.details?.password || data.details?.email || data.details?.username || 'Registration failed');
+        setLoading(false);
+        // Reset CAPTCHA on error
+        if (typeof window !== 'undefined' && (window as any).turnstile) {
+          (window as any).turnstile.reset();
+        }
+      }
+    } catch (err) {
+      setError('Network error during registration');
       setLoading(false);
     }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
@@ -184,6 +219,16 @@ export default function RegisterPage() {
                 required
                 minLength={6}
               />
+            </div>
+
+            {/* Turnstile CAPTCHA Widget */}
+            <div className="flex justify-center my-4">
+              <div
+                ref={turnstileRef as any}
+                className="cf-turnstile"
+                data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '0x4AAAAAAADnPIDtiyQMFkO7'}
+                data-theme="dark"
+              ></div>
             </div>
 
             <button

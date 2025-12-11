@@ -1,6 +1,7 @@
 import prisma from '../prisma';
 import * as riotClient from '../riotClient';
 import { createHash } from 'crypto';
+import { VerifyRiotSchema, validateRequest } from '../validation';
 
 // Temporary fallback PUUID generator until real Riot PUUID retrieval is implemented.
 // Creates a deterministic hash so the same summonerName+region maps to same pseudo value.
@@ -15,18 +16,15 @@ export default async function userRoutes(fastify: any) {
   // Verify Riot account and create/link user
   fastify.post('/verify-riot', async (request: any, reply: any) => {
     try {
-      const { summonerName, region, verificationIconId, userId } = request.body as {
-        summonerName: string;
-        region: string;
-        verificationIconId: number;
-        userId?: string;
-      };
+      // Validate request body
+      const validation = validateRequest(VerifyRiotSchema, request.body);
+      if (!validation.success) {
+        return reply.status(400).send({ error: 'Invalid input', details: validation.errors });
+      }
+
+      const { summonerName, region, verificationIconId, userId } = validation.data;
 
       fastify.log.info({ summonerName, region, verificationIconId, userId }, 'Verify riot request received');
-
-      if (!summonerName || !region || verificationIconId === undefined) {
-        return reply.status(400).send({ error: 'Missing required fields' });
-      }
 
       // Fetch current icon from Riot API
       let currentIcon: number | null;
@@ -463,28 +461,40 @@ export default async function userRoutes(fastify: any) {
       }
 
       // Check for developer badge to bypass cooldown
-      const isDeveloper = user.badges?.some((badge: any) => badge.key === 'developer');
+      const isDeveloper = user.badges?.some((badge: any) => badge.key?.toLowerCase() === 'developer');
 
-      // Check cooldown (30 days unless developer)
-      let bypassedCooldown = null;
-      if (user.lastUsernameChange) {
-        const daysSinceChange = (Date.now() - new Date(user.lastUsernameChange).getTime()) / (1000 * 60 * 60 * 24);
-        if (daysSinceChange < 30) {
-          const daysRemaining = Math.ceil(30 - daysSinceChange);
-          if (!isDeveloper) {
-            return reply.status(429).send({ error: `Username can only be changed once every 30 days. ${daysRemaining} days remaining.` });
+      // Use transaction to prevent race condition:
+      // 1. Check cooldown atomically
+      // 2. Update username atomically
+      // If another request updates in between, transaction will fail and retry
+      const updated = await prisma.$transaction(async (tx: any) => {
+        const currentUser = await tx.user.findUnique({ where: { id: user.id } });
+        if (!currentUser) throw new Error('User no longer exists');
+
+        // Check cooldown within transaction
+        if (currentUser.lastUsernameChange) {
+          const daysSinceChange = (Date.now() - new Date(currentUser.lastUsernameChange).getTime()) / (1000 * 60 * 60 * 24);
+          if (daysSinceChange < 30 && !isDeveloper) {
+            const daysRemaining = Math.ceil(30 - daysSinceChange);
+            throw new Error(`Username can only be changed once every 30 days. ${daysRemaining} days remaining.`);
           }
-          bypassedCooldown = `Would have waited ${daysRemaining} more days without Developer badge`;
         }
-      }
 
-      const updated = await prisma.user.update({
-        where: { id: user.id },
-        data: { username: username.trim(), lastUsernameChange: new Date() },
+        // Perform update atomically
+        return await tx.user.update({
+          where: { id: user.id },
+          data: { username: username.trim(), lastUsernameChange: new Date() },
+        });
+      }, { 
+        maxWait: 5000, // Wait up to 5 seconds for lock
+        timeout: 10000 // Transaction timeout 10 seconds
       });
 
-      return reply.send({ success: true, username: updated.username, bypassedCooldown });
+      return reply.send({ success: true, username: updated.username });
     } catch (error: any) {
+      if (error.message?.includes('only be changed once every')) {
+        return reply.status(429).send({ error: error.message });
+      }
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to update username' });
     }

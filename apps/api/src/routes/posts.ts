@@ -1,15 +1,5 @@
 import prisma from '../prisma';
-
-type CreatePostBody = {
-  userId: string;
-  postingRiotAccountId: string;
-  region: 'NA'|'EUW'|'EUNE'|'KR'|'JP'|'OCE'|'LAN'|'LAS'|'BR'|'RU';
-  role: 'TOP'|'JUNGLE'|'MID'|'ADC'|'SUPPORT'|'FLEX';
-  message: string;
-  languages: string[];
-  vcPreference: 'ALWAYS'|'SOMETIMES'|'NEVER';
-  duoType: 'SHORT_TERM'|'LONG_TERM'|'BOTH';
-};
+import { CreatePostSchema, validateRequest } from '../validation';
 
 export default async function postsRoutes(fastify: any) {
   // GET /api/posts - Get all posts for feed
@@ -156,16 +146,13 @@ export default async function postsRoutes(fastify: any) {
 
   fastify.post('/posts', async (request: any, reply: any) => {
     try {
-      const body = request.body as Partial<CreatePostBody>;
-      const { userId, postingRiotAccountId, region, role, message, languages, vcPreference, duoType, communityId } = body as any;
+      // Validate request body
+      const validation = validateRequest(CreatePostSchema, request.body);
+      if (!validation.success) {
+        return reply.status(400).send({ error: 'Invalid input', details: validation.errors });
+      }
 
-      // Basic validation
-      if (!userId || !postingRiotAccountId || !region || !role || !vcPreference) {
-        return reply.status(400).send({ error: 'Missing required fields' });
-      }
-      if (!Array.isArray(languages)) {
-        return reply.status(400).send({ error: 'Languages must be an array' });
-      }
+      const { userId, postingRiotAccountId, region, role, message, languages, vcPreference, duoType, communityId } = validation.data;
 
       // Verify user exists
       const user = await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } });

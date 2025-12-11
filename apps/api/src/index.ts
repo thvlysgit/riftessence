@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import prisma from './prisma';
 import * as riotClient from './riotClient';
 import userRoutes from './routes/user';
@@ -11,6 +12,7 @@ import lftRoutes from './routes/lft';
 import communitiesRoutes from './routes/communities';
 import discordFeedRoutes from './routes/discordFeed';
 import bcrypt from 'bcryptjs';
+import { RegisterSchema, LoginSchema, SetPasswordSchema, validateRequest, TurnstileVerifySchema } from './validation';
 
 const server = Fastify({ logger: true });
 
@@ -20,6 +22,18 @@ async function build() {
   await server.register(cors, {
     origin: process.env.ALLOW_ORIGIN || true,
     credentials: true, // Allow cookies to be sent with requests
+  });
+
+  // Register rate limiting: 10 requests per 15 minutes per IP
+  await server.register(rateLimit, {
+    max: 10,
+    timeWindow: '15 minutes',
+    cache: 10000,
+    allowList: ['127.0.0.1'], // Allow localhost for dev
+    skip: (request: any) => {
+      // Skip rate limiting for health check and documentation
+      return request.url === '/health' || request.url.startsWith('/docs');
+    },
   });
 
   await server.register(swagger, {
@@ -38,22 +52,42 @@ async function build() {
   // Implemented inline to avoid missing build artifacts in some environments
   server.post('/api/auth/register', async (request: any, reply: any) => {
     try {
-      const { username, email, password } = (request.body || {}) as {
-        username: string; email: string; password: string;
-      };
-      if (!username || !email || !password) {
-        return reply.code(400).send({ error: 'Username, email, and password are required' });
+      // Validate request body
+      const validation = validateRequest(RegisterSchema, request.body);
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid input', details: validation.errors });
       }
-      if (username.length < 3 || username.length > 20) {
-        return reply.code(400).send({ error: 'Username must be between 3 and 20 characters' });
+
+      const { username, email, password } = validation.data;
+
+      // Verify CAPTCHA token (if provided)
+      const turnstileToken = (request.body as any)?.turnstileToken;
+      if (turnstileToken && process.env.TURNSTILE_SECRET_KEY) {
+        const turnstileValidation = validateRequest(TurnstileVerifySchema, { token: turnstileToken });
+        if (!turnstileValidation.success) {
+          return reply.code(400).send({ error: 'Invalid CAPTCHA token' });
+        }
+
+        try {
+          const verifyResp = await fetch('https://challenges.cloudflare.com/turnstile/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              secret: process.env.TURNSTILE_SECRET_KEY,
+              response: turnstileToken,
+            }),
+          });
+
+          const result = await verifyResp.json();
+          if (!result.success) {
+            return reply.code(400).send({ error: 'CAPTCHA verification failed' });
+          }
+        } catch (err) {
+          request.log?.error('CAPTCHA verification error:', err);
+          return reply.code(500).send({ error: 'CAPTCHA verification failed' });
+        }
       }
-      if (password.length < 6) {
-        return reply.code(400).send({ error: 'Password must be at least 6 characters' });
-      }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return reply.code(400).send({ error: 'Invalid email format' });
-      }
+
       const existingUser = await prisma.user.findFirst({
         where: {
           OR: [
@@ -79,10 +113,13 @@ async function build() {
 
   server.post('/api/auth/login', async (request: any, reply: any) => {
     try {
-      const { usernameOrEmail, password } = (request.body || {}) as { usernameOrEmail: string; password: string };
-      if (!usernameOrEmail || !password) {
-        return reply.code(400).send({ error: 'Username/email and password are required' });
+      // Validate request body
+      const validation = validateRequest(LoginSchema, request.body);
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid input', details: validation.errors });
       }
+
+      const { usernameOrEmail, password } = validation.data;
       const user = await prisma.user.findFirst({
         where: {
           OR: [
@@ -112,13 +149,13 @@ async function build() {
 
   server.post('/api/auth/set-password', async (request: any, reply: any) => {
     try {
-      const { userId, password } = (request.body || {}) as { userId: string; password: string };
-      if (!userId || !password) {
-        return reply.code(400).send({ error: 'User ID and password are required' });
+      // Validate request body
+      const validation = validateRequest(SetPasswordSchema, request.body);
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid input', details: validation.errors });
       }
-      if (password.length < 6) {
-        return reply.code(400).send({ error: 'Password must be at least 6 characters' });
-      }
+
+      const { userId, password } = validation.data;
       const hashedPassword = await bcrypt.hash(password, 10);
       await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword } });
       return reply.send({ message: 'Password set successfully' });
