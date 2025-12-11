@@ -22,6 +22,7 @@ type LftPost = {
   minAvailability?: string; // e.g., "Twice a Week"
   coachingAvailability?: 'Dedicated Coach' | 'Frequent' | 'Occasional' | 'None';
   details?: string;
+  discordUsername?: string;
   
   // PLAYER fields
   username?: string;
@@ -33,6 +34,7 @@ type LftPost = {
   skills?: string[]; // Shotcaller, Weakside, Ocean Champion Pool, Vision, Duels, Consistency
   age?: number;
   availability?: string; // Once a Week, Twice a Week, etc.
+  discordUsername?: string;
 };
 
 export default function LFTPage() {
