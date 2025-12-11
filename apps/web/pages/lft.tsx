@@ -34,7 +34,6 @@ type LftPost = {
   skills?: string[]; // Shotcaller, Weakside, Ocean Champion Pool, Vision, Duels, Consistency
   age?: number;
   availability?: string; // Once a Week, Twice a Week, etc.
-  discordUsername?: string;
 };
 
 export default function LFTPage() {
