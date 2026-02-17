@@ -1,10 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
-import { useLanguage } from '../contexts/LanguageContext';
 
 export default function CookiePolicyPage() {
-  const { t } = useLanguage();
-
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -18,13 +15,13 @@ export default function CookiePolicyPage() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            {t('legal.backToHome')}
+            Back to Home
           </Link>
           <h1 className="text-4xl font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
-            {t('cookies.title')}
+            Cookie Policy
           </h1>
           <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            {t('legal.lastUpdated').replace('{date}', 'January 13, 2026')}
+            Last Updated: January 13, 2026
           </p>
         </div>
 
@@ -35,152 +32,144 @@ export default function CookiePolicyPage() {
         >
           <section className="mb-8">
             <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-              {t('cookies.section1Title')}
+              1. What Are Cookies
             </h2>
             <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('cookies.section1Description')}
+              Cookies are small text files that are stored on your device when you visit our website. They help us provide you with a better experience by remembering your preferences and understanding how you use our platform.
+            </p>
+          </section>
+
+          <section className="mb-8">
+            <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
+              2. How We Use Cookies
+            </h2>
+            <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+              We use cookies for the following purposes:
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
-              <li>{t('cookies.section1Item1')}</li>
-              <li>{t('cookies.section1Item2')}</li>
-              <li>{t('cookies.section1Item3')}</li>
-              <li>{t('cookies.section1Item4')}</li>
+              <li>Essential Cookies: Required for the platform to function properly, including authentication and session management</li>
+              <li>Preference Cookies: Remember your settings and preferences (e.g., theme selection)</li>
+              <li>Analytics Cookies: Help us understand how users interact with our platform (if implemented)</li>
             </ul>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-              {t('cookies.section2Title')}
-            </h2>
-            <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('cookies.section2Description')}
-            </p>
-            <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
-              <li>{t('cookies.section2Item1')}</li>
-              <li>{t('cookies.section2Item2')}</li>
-              <li>{t('cookies.section2Item3')}</li>
-              <li>{t('cookies.section2Item4')}</li>
-              <li>{t('cookies.section2Item5')}</li>
-            </ul>
-          </section>
-
-          <section className="mb-8">
-            <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-              {t('cookies.section3Title')}
+              3. Types of Cookies We Use
             </h2>
             
             <div className="mb-6">
               <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                {t('cookies.section3Subtitle1')}
+                Session Cookies
               </h3>
               <p className="mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('cookies.section3Description1')}
+                These are temporary cookies that expire when you close your browser. We use them to:
               </p>
               <ul className="list-disc pl-6 mb-4 space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-                <li>{t('cookies.section3Item1a')}</li>
-                <li>{t('cookies.section3Item1b')}</li>
+                <li>Maintain your login session</li>
+                <li>Remember your actions during a browsing session</li>
               </ul>
             </div>
 
             <div className="mb-6">
               <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                {t('cookies.section3Subtitle2')}
+                Persistent Cookies
               </h3>
               <p className="mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('cookies.section3Description2')}
+                These cookies remain on your device for a set period. We use them to:
               </p>
               <ul className="list-disc pl-6 mb-4 space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-                <li>{t('cookies.section3Item2a')}</li>
-                <li>{t('cookies.section3Item2b')}</li>
-                <li>{t('cookies.section3Item2c')}</li>
+                <li>Remember your login status</li>
+                <li>Save your theme preferences</li>
+                <li>Improve your experience on future visits</li>
               </ul>
             </div>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-              {t('cookies.section4Title')}
+              4. Local Storage
             </h2>
             <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('cookies.section4Description')}
+              In addition to cookies, we use browser local storage to:
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
-              <li>{t('cookies.section4Item1')}</li>
-              <li>{t('cookies.section4Item2')}</li>
-              <li>{t('cookies.section4Item3')}</li>
-              <li>{t('cookies.section4Item4')}</li>
+              <li>Store your JWT authentication token</li>
+              <li>Cache your user preferences</li>
+              <li>Save your theme selection</li>
+              <li>Maintain application state between sessions</li>
             </ul>
             <p className="text-sm mt-2" style={{ color: 'var(--color-text-muted)' }}>
-              {t('cookies.section4Note')}
+              Local storage data persists until you clear your browser data or log out.
             </p>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-              {t('cookies.section5Title')}
+              5. Third-Party Cookies
             </h2>
             <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('cookies.section5Description')}
+              We use the following third-party services that may set cookies:
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
-              <li>{t('cookies.section5Item1')}</li>
-              <li>{t('cookies.section5Item2')}</li>
+              <li>Cloudflare Turnstile: For bot protection and spam prevention</li>
+              <li>Discord OAuth: When you authenticate using Discord</li>
             </ul>
             <p className="text-sm mt-2" style={{ color: 'var(--color-text-muted)' }}>
-              {t('cookies.section5Note')}
+              These third-party services have their own privacy policies and cookie policies.
             </p>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-              {t('cookies.section6Title')}
+              6. Managing Cookies
             </h2>
             <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('cookies.section6Description')}
+              You can control and manage cookies in several ways:
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
-              <li>{t('cookies.section6Item1')}</li>
-              <li>{t('cookies.section6Item2')}</li>
+              <li>Browser Settings: Most browsers allow you to refuse or delete cookies. Check your browser&apos;s help documentation for instructions.</li>
+              <li>Opt-Out: You can disable non-essential cookies through your browser settings.</li>
             </ul>
             <p className="text-sm mt-2" style={{ color: 'var(--color-text-muted)' }}>
-              {t('cookies.section6Note')}
+              Please note that disabling essential cookies may affect your ability to use certain features of our platform, including logging in and maintaining your session.
             </p>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-              {t('cookies.section7Title')}
+              7. Cookie Retention
             </h2>
             <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('cookies.section7Description')}
+              Different cookies have different retention periods:
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
-              <li>{t('cookies.section7Item1')}</li>
-              <li>{t('cookies.section7Item2')}</li>
-              <li>{t('cookies.section7Item3')}</li>
+              <li>Session cookies: Deleted when you close your browser</li>
+              <li>Authentication tokens: Typically expire after 7 days</li>
+              <li>Preference cookies: Persist until you clear them or change your preferences</li>
             </ul>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-              {t('cookies.section8Title')}
+              8. Updates to This Policy
             </h2>
             <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('cookies.section8Description')}
+              We may update this Cookie Policy from time to time to reflect changes in our practices or for other operational, legal, or regulatory reasons.
             </p>
           </section>
 
           <section>
             <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-              {t('legal.contactUs')}
+              Contact Us
             </h2>
             <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-              {t('cookies.section9Description1')}
+              If you have questions about our use of cookies, please contact us through our support channels.
             </p>
             <p style={{ color: 'var(--color-text-secondary)' }}>
-              {t('cookies.section9Description2')}{' '}
+              For more information about how we handle your personal data, please see our{' '}
               <Link href="/privacy" className="underline" style={{ color: 'var(--color-accent-1)' }}>
-                {t('privacy.title')}
+                Privacy Policy
               </Link>.
             </p>
           </section>
