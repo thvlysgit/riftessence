@@ -9,7 +9,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, loading, refreshUser } = useAuth();
+  const { user, loading } = useAuth();
   const { currentTheme, setTheme, availableThemes } = useTheme();
   const { currentLanguage, setLanguage, availableLanguages, t } = useLanguage();
   const [password, setPassword] = useState('');

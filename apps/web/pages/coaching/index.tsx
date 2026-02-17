@@ -188,7 +188,6 @@ type CoachingPost = {
 };
 
 export default function CoachingPage() {
-  const { user } = useAuth();
   const { t } = useLanguage();
   const { showToast, confirm } = useGlobalUI();
   const { openConversation } = useChat();
@@ -201,7 +200,7 @@ export default function CoachingPage() {
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showNoAccessModal, setShowNoAccessModal] = useState(false);
-  const [noAccessAction, setNoAccessAction] = useState<'offer' | 'request'>('request');
+  const [_noAccessAction, setNoAccessAction] = useState<'offer' | 'request'>('request');
 
   const REGIONS = ['ALL', 'NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'TR'];
 

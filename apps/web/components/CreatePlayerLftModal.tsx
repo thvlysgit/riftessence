@@ -3,13 +3,6 @@ import { useTheme } from '../contexts/ThemeContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
-// Helper to get custom arrow with theme color
-const getCustomArrow = () => {
-  const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--color-accent-1').trim();
-  const colorHex = accentColor.startsWith('#') ? accentColor.slice(1) : 'C8AA6E';
-  return `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23${colorHex}' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`;
-};
-
 const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
 const ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
 const RANKS = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'];

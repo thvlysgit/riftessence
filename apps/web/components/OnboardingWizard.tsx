@@ -31,7 +31,7 @@ const LANGUAGES = [
 export default function OnboardingWizard() {
   const router = useRouter();
   const { user, refreshUser } = useAuth();
-  const { theme, setTheme, availableThemes } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { showToast } = useGlobalUI();
   const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);

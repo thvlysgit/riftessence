@@ -17,10 +17,9 @@ type Community = {
   memberCount: number;
   postCount: number;
   createdAt: string;
-};
+};  
 
 export default function CommunitiesPage() {
-  const router = useRouter();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');

@@ -114,8 +114,6 @@ export const ChampionPool: React.FC<ChampionPoolProps> = ({
               <span className="text-sm opacity-50">No champions</span>
             ) : (
               championTierlist[key].map((champ) => {
-                const iconUrl = getChampionIconUrl(champ);
-                
                 return (
                   <div
                     key={champ}

@@ -13,12 +13,8 @@ import { FeedbackModal } from '../components/FeedbackModal';
 import { ReportModal } from '../components/ReportModal';
 import { useGlobalUI } from '../components/GlobalUI';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
 import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../utils/auth';
-import { RiotAccountCard } from '../components/profile/RiotAccountCard';
-import { ChampionPool } from '../components/profile/ChampionPool';
-import { FeedbackList } from '../components/profile/FeedbackList';
 import NoAccess from '../components/NoAccess';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -371,7 +367,6 @@ type UserProfile = {
 };
 
 const AVAILABLE_PLAYSTYLES = ['Controlled Chaos', 'FUNDAMENTALS', 'CoinFlips', 'Scaling', 'Snowball'];
-const AVAILABLE_SERVERS = ['EUW', 'EUNE', 'NA', 'KR', 'OCE', 'BR', 'LAN', 'LAS', 'RU'];
 const AVAILABLE_LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Polish', 'Russian', 'Turkish', 'Korean', 'Japanese', 'Chinese'];
 
 // Badge configuration with icons and styles
@@ -512,14 +507,12 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [isEditingPlaystyles, setIsEditingPlaystyles] = useState(false);
   const [selectedPlaystyles, setSelectedPlaystyles] = useState<string[]>([]);
   const [anonymousMode, setAnonymousMode] = useState(false);
   const [editedUsername, setEditedUsername] = useState<string>('');
   const [editedLanguages, setEditedLanguages] = useState<string[]>([]);
   const [pendingMainAccountId, setPendingMainAccountId] = useState<string | null>(null);
   const [championPoolMode, setChampionPoolMode] = useState<'TIERLIST'>('TIERLIST');
-  const [championList, setChampionList] = useState<string[]>([]);
   const [championInput, setChampionInput] = useState('');
   const [champions, setChampions] = useState<string[]>([]);
   const [championTierlist, setChampionTierlist] = useState<{ S: string[]; A: string[]; B: string[]; C: string[] }>({ S: [], A: [], B: [], C: [] });
@@ -723,29 +716,6 @@ export default function ProfilePage() {
     fetchChampions();
   }, []);
 
-  // Save playstyles to API
-  const handleSavePlaystyles = async () => {
-    if (selectedPlaystyles.length > 2) {
-      showToast('You can only select up to 2 playstyles', 'error');
-      return;
-    }
-    try {
-      const response = await fetch(`${API_URL}/api/user/playstyles`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({ playstyles: selectedPlaystyles }),
-      });
-      if (!response.ok) throw new Error('Failed to update playstyles');
-      if (user) {
-        setUser({ ...user, playstyles: selectedPlaystyles });
-      }
-      setIsEditingPlaystyles(false);
-    } catch (err) {
-      console.error('Error updating playstyles:', err);
-      showToast('Failed to save playstyles', 'error');
-    }
-  };
-
   // Save all profile changes (playstyles + main account + champion pool)
   const handleSaveAllChanges = async () => {
     if (isSaving) return;
@@ -753,7 +723,7 @@ export default function ProfilePage() {
     
     try {
       const token = getAuthToken();
-      const userId = token ? getUserIdFromToken(token) : null;
+      const _userId = token ? getUserIdFromToken(token) : null;
 
       // Save username if changed (only when viewing own profile)
       try {
@@ -1168,6 +1138,7 @@ export default function ProfilePage() {
   
   return (
     <div className="min-h-screen py-8 px-4" style={{ background: 'var(--color-bg-primary)' }}>
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx global>{`
         @keyframes rainbow {
           0% { background-position: 0% 50%; }

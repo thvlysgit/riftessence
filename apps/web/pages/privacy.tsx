@@ -1,10 +1,8 @@
 import React from 'react';
 import Link from 'next/link';
-import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function PrivacyPolicyPage() {
-  const { currentTheme } = useTheme();
   const { t } = useLanguage();
 
   return (

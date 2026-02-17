@@ -3,8 +3,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import SEOHead from '../components/SEOHead';
 import { useTheme } from '../contexts/ThemeContext';
-import { useAuth } from '../contexts/AuthContext';
-import { useLanguage } from '../contexts/LanguageContext';
 import { useChat } from '../contexts/ChatContext';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { useGlobalUI } from '../components/GlobalUI';
@@ -140,7 +138,7 @@ type Post = {
 
 export default function Feed() {
   const { theme } = useTheme();
-  const { showToast, confirm } = useGlobalUI();
+  const { showToast } = useGlobalUI();
   const { openConversation } = useChat();
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);

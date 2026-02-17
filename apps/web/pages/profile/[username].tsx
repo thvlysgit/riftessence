@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 // This page handles the /profile/[username] route
 // It redirects to /profile?username=[username] which the profile page already supports

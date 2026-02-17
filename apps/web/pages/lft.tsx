@@ -6,8 +6,6 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { CreateTeamLftModal } from '../components/CreateTeamLftModal';
 import { CreatePlayerLftModal } from '../components/CreatePlayerLftModal';
 import { useGlobalUI } from '../components/GlobalUI';
-import { useAuth } from '../contexts/AuthContext';
-import { useLanguage } from '../contexts/LanguageContext';
 import { useChat } from '../contexts/ChatContext';
 import { getAuthHeader, getAuthToken, getUserIdFromToken } from '../utils/auth';
 import NoAccess from '../components/NoAccess';

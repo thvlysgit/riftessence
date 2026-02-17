@@ -20,7 +20,7 @@ export default function NoAccess({
   onClose,
   closeIcon = 'close'
 }: NoAccessProps) {
-  const { currentTheme } = useTheme();
+  const { theme } = useTheme();
   const { t } = useLanguage();
   
   // Get translated title and message based on action type

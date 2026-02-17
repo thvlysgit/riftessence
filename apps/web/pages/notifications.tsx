@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useGlobalUI } from '../components/GlobalUI';
 import Link from 'next/link';
-import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../utils/auth';
+import { getAuthToken, getUserIdFromToken } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 

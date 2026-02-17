@@ -3,12 +3,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import SEOHead from '../components/SEOHead';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function HomePage() {
   const { user, loading } = useAuth();
-  const { currentTheme } = useTheme();
   const { t } = useLanguage();
   const router = useRouter();
 
