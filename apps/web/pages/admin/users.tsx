@@ -51,7 +51,6 @@ export default function AdminUsersPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const pageSize = 20;
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [processingUserId, setProcessingUserId] = useState<string | null>(null);
 
   useEffect(() => {

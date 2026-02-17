@@ -6,7 +6,6 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Head from 'next/head';
 import { useAuth } from '../../contexts/AuthContext';
-import { useGlobalUI } from '../../components/GlobalUI';
 import { getAuthHeader } from '../../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -14,7 +13,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 export default function AdminSettingsPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { showToast } = useGlobalUI();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
 
