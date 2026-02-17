@@ -1,44 +1,5 @@
 import React from 'react';
 
-// Helper to get champion icon URL from Data Dragon
-const getChampionIconUrl = (championName: string): string => {
-  // Normalize champion name for Data Dragon API
-  // Remove spaces, apostrophes, and special characters
-  let normalized = championName.replace(/['\s.&]/g, '');
-  
-  // Special cases for champions with different Data Dragon names
-  const specialCases: Record<string, string> = {
-    'Wukong': 'MonkeyKing',
-    'RenataGlasc': 'Renata',
-    'NunuWillump': 'Nunu',
-    'Nunu&Willump': 'Nunu',
-    'KaiSa': 'Kaisa',
-    'Kai\'Sa': 'Kaisa',
-    'KhaZix': 'Khazix',
-    'Kha\'Zix': 'Khazix',
-    'ChoGath': 'Chogath',
-    'Cho\'Gath': 'Chogath',
-    'KogMaw': 'KogMaw',
-    'Kog\'Maw': 'KogMaw',
-    'RekSai': 'RekSai',
-    'Rek\'Sai': 'RekSai',
-    'VelKoz': 'Velkoz',
-    'Vel\'Koz': 'Velkoz',
-    'LeBlanc': 'Leblanc',
-    'BelVeth': 'Belveth',
-    'Bel\'Veth': 'Belveth',
-  };
-  
-  // Check special cases first (including original name)
-  if (specialCases[championName]) {
-    normalized = specialCases[championName];
-  } else {
-    normalized = specialCases[normalized] || normalized;
-  }
-  
-  return `https://ddragon.leagueoflegends.com/cdn/14.23.1/img/champion/${normalized}.png`;
-};
-
 interface ChampionPoolProps {
   championList: string[];
   championTierlist: { S: string[]; A: string[]; B: string[]; C: string[] };

@@ -6,7 +6,6 @@ import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { CreateCoachingOfferModal } from '../../components/CreateCoachingOfferModal';
 import { CreateCoachingRequestModal } from '../../components/CreateCoachingRequestModal';
 import { useGlobalUI } from '../../components/GlobalUI';
-import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useChat } from '../../contexts/ChatContext';
 import { getAuthHeader, getAuthToken, getUserIdFromToken } from '../../utils/auth';

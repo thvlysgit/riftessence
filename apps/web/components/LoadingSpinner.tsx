@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 
-export const LoadingSpinner: React.FC<{ text?: string; compact?: boolean }> = ({ _text, compact = false }) => {
+export const LoadingSpinner: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
   const { theme } = useTheme();
 
   const renderAnimation = () => {

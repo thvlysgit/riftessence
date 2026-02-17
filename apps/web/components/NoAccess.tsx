@@ -1,6 +1,5 @@
 import React from 'react';
 import Link from 'next/link';
-import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface NoAccessProps {
@@ -20,7 +19,6 @@ export default function NoAccess({
   onClose,
   closeIcon = 'close'
 }: NoAccessProps) {
-  const { theme } = useTheme();
   const { t } = useLanguage();
   
   // Get translated title and message based on action type

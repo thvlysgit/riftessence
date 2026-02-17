@@ -159,37 +159,6 @@ const MatchupDetailPage: React.FC = () => {
     }
   };
   
-  const handleDownload = async () => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-    
-    try {
-      const response = await fetch(`${API_URL}/api/matchups/${id}/download`, {
-        method: 'POST',
-        headers: getAuthHeader() as Record<string, string>,
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to download');
-      }
-      
-      showToast(t('matchups.downloaded'), 'success');
-      
-      if (matchup) {
-        setMatchup({
-          ...matchup,
-          downloadCount: matchup.downloadCount + 1,
-        });
-      }
-    } catch (error: any) {
-      console.error('Error downloading matchup:', error);
-      showToast(error.message || t('common.error'), 'error');
-    }
-  };
-  
   const handleDelete = async () => {
     const confirmed = await confirm({
       title: t('matchups.delete'),
