@@ -144,7 +144,7 @@ export default function AdminReportsPage() {
   }
 
   if (loading) {
-    return <LoadingSpinner text="Loading reports..." />;
+    return <LoadingSpinner />;
   }
 
   if (!userId) {

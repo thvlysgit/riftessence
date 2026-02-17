@@ -450,7 +450,7 @@ export default function LFTPage() {
         </header>
 
         {loading ? (
-          <LoadingSpinner text="Loading LFT feed..." />
+          <LoadingSpinner />
         ) : (
           <section
             className="border p-6"

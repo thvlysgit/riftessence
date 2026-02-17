@@ -214,7 +214,7 @@ export default function CommunitiesPage() {
 
         {/* Communities Grid */}
         {loading ? (
-          <LoadingSpinner text="Loading communities..." />
+          <LoadingSpinner />
         ) : communities.length === 0 ? (
           <div className="text-center py-12" style={{ color: 'var(--color-text-muted)' }}>
             No communities found. Try adjusting your filters or register a new community!

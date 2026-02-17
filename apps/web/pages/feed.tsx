@@ -639,7 +639,7 @@ export default function Feed() {
 
   if (loading) {
     return (
-      <LoadingSpinner text="Loading posts..." />
+      <LoadingSpinner />
     );
   }
 

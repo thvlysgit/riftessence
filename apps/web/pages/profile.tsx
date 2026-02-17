@@ -1102,7 +1102,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <LoadingSpinner text={t('profile.loading')} />
+      <LoadingSpinner />
     );
   }
 

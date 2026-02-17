@@ -477,7 +477,7 @@ export default function CoachingPage() {
         </header>
 
         {loading ? (
-          <LoadingSpinner text="Loading coaching posts..." />
+          <LoadingSpinner />
         ) : (
           <section
             className="border p-6"
