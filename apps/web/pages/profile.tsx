@@ -627,7 +627,7 @@ export default function ProfilePage() {
         setEditedUsername(data.username || '');
         setEditedLanguages(data.languages || []);
         setChampionPoolMode(data.championPoolMode || 'LIST');
-        setChampionList(data.championList || []);
+        setChampions(data.championList || []);
         setChampionTierlist(
           data.championTierlist && typeof data.championTierlist === 'object'
             ? {
@@ -866,7 +866,7 @@ export default function ProfilePage() {
         setEditedUsername(data.username || '');
         setEditedLanguages(data.languages || []);
         setChampionPoolMode(data.championPoolMode || 'LIST');
-        setChampionList(data.championList || []);
+        setChampions(data.championList || []);
         setChampionTierlist(
           data.championTierlist && typeof data.championTierlist === 'object'
             ? {
@@ -1310,7 +1310,7 @@ export default function ProfilePage() {
               {user.badges && user.badges.length > 0 && (
                 <div className="mt-3 flex items-center gap-2 flex-wrap">
                   {user.badges.map((badge) => {
-                    const badgeName = typeof badge === 'string' ? badge : badge.name;
+                    const badgeName = badge;
                     const config = BADGE_CONFIG[badgeName] || {
                       icon: '🏆',
                       bgColor: 'var(--badge-bg)',
@@ -1325,7 +1325,7 @@ export default function ProfilePage() {
 
                     return (
                       <div
-                        key={typeof badge === 'string' ? badge : badge.key}
+                        key={badge}
                         className="group relative inline-flex items-center justify-center w-9 h-9 md:w-10 md:h-10 rounded-xl border-2 cursor-help select-none transform transition-transform duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.05]"
                         style={{
                           background: config.bgColor,
