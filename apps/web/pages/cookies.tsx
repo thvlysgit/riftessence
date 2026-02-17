@@ -33,10 +33,6 @@ export default function CookiePolicyPage() {
           className="prose prose-invert max-w-none rounded-xl p-8"
           style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)' }}
         >
-          <p className="mb-8" style={{ color: 'var(--color-text-secondary)' }}>
-            {t('cookies.intro')}
-          </p>
-
           <section className="mb-8">
             <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
               {t('cookies.section1Title')}
