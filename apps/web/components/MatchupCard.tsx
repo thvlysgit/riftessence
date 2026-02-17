@@ -106,12 +106,6 @@ export const MatchupCard: React.FC<MatchupCardProps> = ({
     }
   };
   
-  const truncateText = (text: string, maxLength: number = 100): string => {
-    if (!text) return '';
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
-  };
-  
   return (
     <div 
       className="rounded-lg p-4 transition-all hover:shadow-lg"

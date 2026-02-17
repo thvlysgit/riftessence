@@ -126,6 +126,7 @@ export const DifficultySlider: React.FC<DifficultySliderProps> = ({
         </div>
       </div>
       
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx>{`
         .difficulty-slider::-webkit-slider-thumb {
           appearance: none;
