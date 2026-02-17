@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
+import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../../utils/auth';
+import { useGlobalUI } from '../../components/GlobalUI';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -8,6 +10,7 @@ const languages = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portugu
 
 export default function RegisterCommunityPage() {
   const router = useRouter();
+  const { showToast } = useGlobalUI();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -23,7 +26,8 @@ export default function RegisterCommunityPage() {
     e.preventDefault();
     setError('');
 
-    const userId = localStorage.getItem('lfd_userId');
+    const token = getAuthToken();
+    const userId = token ? getUserIdFromToken(token) : null;
     if (!userId) {
       setError('You must be logged in to register a community');
       return;
@@ -38,22 +42,25 @@ export default function RegisterCommunityPage() {
       setLoading(true);
       const res = await fetch(`${API_URL}/api/communities`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          userId,
-        }),
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify(formData),
       });
 
       const data = await res.json();
 
       if (res.ok) {
+        showToast('Community created successfully!', 'success');
         router.push(`/communities/${data.community.id}`);
       } else {
         setError(data.error || 'Failed to create community');
+        showToast(data.error || 'Failed to create community', 'error');
       }
     } catch (err) {
       setError('Network error. Please try again.');
+      showToast('Network error. Please try again.', 'error');
     } finally {
       setLoading(false);
     }

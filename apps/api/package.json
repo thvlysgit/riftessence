@@ -10,21 +10,24 @@
     "test": "jest --runInBand --config ../../jest.config.cjs"
   },
   "dependencies": {
-    "fastify": "^4.0.0",
+    "@fastify/cookie": "^9.0.0",
+    "@fastify/cors": "^9.0.0",
+    "@fastify/csrf-protection": "^6.4.1",
+    "@fastify/jwt": "^7.0.0",
+    "@fastify/rate-limit": "^9.0.0",
+    "@fastify/session": "^10.0.0",
     "@fastify/swagger": "^8.0.0",
     "@fastify/swagger-ui": "^4.0.0",
-    "@fastify/cors": "^9.0.0",
-    "@fastify/rate-limit": "^9.0.0",
-    "@fastify/cookie": "^9.0.0",
-    "@fastify/session": "^10.0.0",
-    "dotenv": "^16.0.0",
     "bcryptjs": "^2.4.3",
+    "dotenv": "^16.0.0",
+    "fastify": "^4.0.0",
+    "redis": "^4.7.1",
     "zod": "^3.22.0"
   },
   "devDependencies": {
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.4.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^18.0.0",
-    "@types/bcryptjs": "^2.4.6"
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.0"
   }
 }

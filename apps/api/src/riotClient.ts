@@ -5,6 +5,9 @@ export interface RiotAccountRef {
   region: string;
 }
 
+import { cacheGet, cacheSet } from './utils/cache';
+import { createHash } from 'crypto';
+
 const REGION_TO_PLATFORM: Record<string, string> = {
   NA: 'na1',
   EUW: 'euw1',
@@ -43,38 +46,51 @@ function routingHostForRegion(region: string) {
   return `${r}.api.riotgames.com`;
 }
 
-export async function getProfileIcon(account: RiotAccountRef): Promise<number | null> {
-  // For quick local testing you can set USE_FAKE_RIOT=1 and FAKE_PROFILE_ICON_ID to return
-  // a deterministic profile icon id without calling Riot.
+/**
+ * Fetch PUUID from Riot Account API
+ * @param gameName - Player game name (without tag)
+ * @param tagLine - Player tag line
+ * @param region - Player region
+ * @returns PUUID string or null if not found
+ */
+export async function getPuuid(gameName: string, tagLine: string, region: string): Promise<string | null> {
+  // Check cache first (24 hour TTL - PUUIDs don't change)
+  const cacheKey = `riot:puuid:${gameName.toLowerCase()}:${tagLine.toLowerCase()}:${region}`;
+  const cachedPuuid = await cacheGet<string>(cacheKey);
+  if (cachedPuuid !== null) {
+    return cachedPuuid;
+  }
+
+  // For quick local testing
   if (process.env.USE_FAKE_RIOT === '1') {
-    const v = process.env.FAKE_PROFILE_ICON_ID ? Number(process.env.FAKE_PROFILE_ICON_ID) : 1234;
-    return v;
+    const fakePuuid = createHash('sha256')
+      .update(`${gameName.toLowerCase()}::${tagLine.toLowerCase()}::${region}`)
+      .digest('hex')
+      .slice(0, 32);
+    await cacheSet(cacheKey, fakePuuid, 86400); // Cache for 24 hours
+    return fakePuuid;
   }
 
   const apiKey = process.env.RIOT_API_KEY;
   if (!apiKey) throw new Error('Riot API key (RIOT_API_KEY) not set');
 
-  // Parse summoner name into gameName and tagLine (format: "name#tag")
-  let gameName: string;
-  let tagLine: string;
-  
-  if (account.summonerName.includes('#')) {
-    const parts = account.summonerName.split('#');
-    gameName = parts[0];
-    tagLine = parts[1];
-  } else {
-    // If no tag provided, assume it's just the game name and use a default tag
-    gameName = account.summonerName;
-    tagLine = account.region; // Use region as fallback tag
-  }
-
-  // Step 1: Get PUUID from Riot Account API (new mandatory flow)
-  const routingHost = routingHostForRegion(account.region);
+  const routingHost = routingHostForRegion(region);
   const accountUrl = `https://${routingHost}/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
+  
+  console.log(`[Riot API] Looking up: ${gameName}#${tagLine} on ${region} (${accountUrl})`);
   
   const accountResp = await fetch(accountUrl, { headers: { 'X-Riot-Token': apiKey } });
   if (!accountResp.ok) {
+    console.log(`[Riot API] Response status: ${accountResp.status} ${accountResp.statusText}`);
+    if (accountResp.status === 404) {
+      console.log(`[Riot API] Account not found: ${gameName}#${tagLine}`);
+      return null; // Account not found
+    }
+    if (accountResp.status === 403) {
+      console.error('[Riot API] 403 Forbidden - API key may be expired or invalid');
+    }
     const txt = await accountResp.text().catch(() => '');
+    console.error(`[Riot API] Error response body: ${txt}`);
     const err = new Error(`Riot Account API error: ${accountResp.status} ${accountResp.statusText} ${txt}`);
     (err as any).status = accountResp.status;
     throw err;
@@ -83,9 +99,39 @@ export async function getProfileIcon(account: RiotAccountRef): Promise<number | 
   const accountData = await accountResp.json();
   const puuid = accountData.puuid;
 
-  // Step 2: Get summoner info using PUUID
+  if (puuid) {
+    // Cache for 24 hours - PUUIDs are stable
+    await cacheSet(cacheKey, puuid, 86400);
+    return puuid;
+  }
+
+  return null;
+}
+
+export async function getProfileIcon(account: RiotAccountRef, bypassCache: boolean = false): Promise<number | null> {
+  // Check cache first (1 hour TTL) unless bypassing
+  const cacheKey = `riot:profileIcon:${account.puuid}`;
+  if (!bypassCache) {
+    const cachedIcon = await cacheGet<number>(cacheKey);
+    if (cachedIcon !== null) {
+      return cachedIcon;
+    }
+  }
+
+  // For quick local testing you can set USE_FAKE_RIOT=1 and FAKE_PROFILE_ICON_ID to return
+  // a deterministic profile icon id without calling Riot.
+  if (process.env.USE_FAKE_RIOT === '1') {
+    const v = process.env.FAKE_PROFILE_ICON_ID ? Number(process.env.FAKE_PROFILE_ICON_ID) : 1234;
+    await cacheSet(cacheKey, v, 3600); // Cache for 1 hour
+    return v;
+  }
+
+  const apiKey = process.env.RIOT_API_KEY;
+  if (!apiKey) throw new Error('Riot API key (RIOT_API_KEY) not set');
+
+  // Use PUUID to get summoner info directly
   const platformHost = platformHostForRegion(account.region);
-  const summonerUrl = `https://${platformHost}/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(puuid)}`;
+  const summonerUrl = `https://${platformHost}/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(account.puuid)}`;
 
   const summonerResp = await fetch(summonerUrl, { headers: { 'X-Riot-Token': apiKey } });
   if (!summonerResp.ok) {
@@ -98,7 +144,11 @@ export async function getProfileIcon(account: RiotAccountRef): Promise<number | 
   const summonerData = await summonerResp.json();
   // Riot summoner object contains `profileIconId`.
   const icon = summonerData?.profileIconId;
-  if (typeof icon === 'number') return icon;
+  if (typeof icon === 'number') {
+    // Cache the icon for 1 hour
+    await cacheSet(cacheKey, icon, 3600);
+    return icon;
+  }
   return null;
 }
 
@@ -276,9 +326,9 @@ function mapLaneToRole(lane: string, role: string): string | null {
  * Prioritizes ranked solo/duo, falls back to other modes if no ranked games
  * @param puuid - The player's PUUID
  * @param region - The region
- * @returns The most played role or null
+ * @returns An object with the two most played roles or null
  */
-export async function detectPreferredRole(puuid: string, region: string): Promise<string | null> {
+export async function detectPreferredRole(puuid: string, region: string): Promise<{ primary: string | null; secondary: string | null } | null> {
   try {
     const matchIds = await getRecentMatchIds(puuid, region, 100);
     
@@ -353,30 +403,29 @@ export async function detectPreferredRole(puuid: string, region: string): Promis
       return null;
     }
 
-    // Find the most played role
-    let maxRole: string | null = null;
-    let maxCount = 0;
-    const tiedRoles: string[] = [];
+    // Find the most played role and second most played role
+    const roleEntries = Object.entries(countsToUse)
+      .filter(([_, count]) => count > 0)
+      .sort(([_a, countA], [_b, countB]) => countB - countA);
 
-    for (const [role, count] of Object.entries(countsToUse)) {
-      if (count > maxCount) {
-        maxCount = count;
-        maxRole = role;
-        tiedRoles.length = 0;
-        tiedRoles.push(role);
-      } else if (count === maxCount && count > 0) {
-        tiedRoles.push(role);
-      }
+    if (roleEntries.length === 0) {
+      return null;
     }
 
-    // If tied, pick random from tied roles
-    if (tiedRoles.length > 1) {
-      maxRole = tiedRoles[Math.floor(Math.random() * tiedRoles.length)];
-      console.log(`[RoleDetection] Tie detected between ${tiedRoles.join(', ')}, randomly picked ${maxRole}`);
-    }
+    const primaryRole = roleEntries[0][0];
+    const primaryCount = roleEntries[0][1];
+    const secondaryRole = roleEntries.length > 1 ? roleEntries[1][0] : null;
+    const secondaryCount = roleEntries.length > 1 ? roleEntries[1][1] : 0;
 
-    console.log(`[RoleDetection] Most played role: ${maxRole} (${maxCount} games)`);
-    return maxRole;
+    console.log(`[RoleDetection] Most played role: ${primaryRole} (${primaryCount} games)`);
+    if (secondaryRole) {
+      console.log(`[RoleDetection] Second most played role: ${secondaryRole} (${secondaryCount} games)`);
+    }
+    
+    return {
+      primary: primaryRole,
+      secondary: secondaryRole,
+    };
 
   } catch (err) {
     console.log(`[RoleDetection] Error detecting role:`, err);

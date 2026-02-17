@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -17,13 +18,23 @@ type Badge = {
 type User = {
   id: string;
   username: string;
-  badges: string[];
+  badges: { key: string; name: string }[];
+};
+
+type SearchResult = {
+  id: string;
+  username: string;
+  verified: boolean;
+  badges: { key: string; name: string }[];
+  profileIconId: number | null;
 };
 
 export default function BadgeManagementPage() {
   const router = useRouter();
   const [badges, setBadges] = useState<Badge[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const [selectedBadgeKey, setSelectedBadgeKey] = useState('');
   const [message, setMessage] = useState('');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -31,18 +42,22 @@ export default function BadgeManagementPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [editingBadgeKey, setEditingBadgeKey] = useState<string | null>(null);
   const [editingDescription, setEditingDescription] = useState('');
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
 
   // Check admin status on mount
   useEffect(() => {
-    async function checkAdminStatus() {
+    async function checkAdmin() {
       try {
-        const userId = localStorage.getItem('lfd_userId');
+        const token = getAuthToken();
+        const userId = token ? getUserIdFromToken(token) : null;
         if (!userId) {
           setIsAdmin(false);
           return;
         }
 
-        const res = await fetch(`${API_URL}/api/user/check-admin?userId=${encodeURIComponent(userId)}`);
+        const res = await fetch(`${API_URL}/api/user/check-admin?userId=${encodeURIComponent(userId)}`, {
+          headers: getAuthHeader(),
+        });
         const data = await res.json();
         
         if (!data.isAdmin) {
@@ -58,7 +73,7 @@ export default function BadgeManagementPage() {
         router.push('/404');
       }
     }
-    checkAdminStatus();
+    checkAdmin();
   }, [router]);
 
   // Load available badges
@@ -67,6 +82,31 @@ export default function BadgeManagementPage() {
       loadBadges();
     }
   }, [isAdmin]);
+
+  // Cleanup search timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, [searchTimeout]);
+
+  // Close search results when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      // Check if click is outside the search container
+      if (!target.closest('.search-container')) {
+        setShowSearchResults(false);
+      }
+    };
+    
+    if (showSearchResults) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showSearchResults]);
 
   async function loadBadges() {
     try {
@@ -78,23 +118,58 @@ export default function BadgeManagementPage() {
     }
   }
 
-  // Load user profile by ID or username
-  const loadUser = async () => {
-    if (!searchQuery.trim()) {
-      setMessage('Please enter a user ID or username');
+  // Search users as they type
+  const searchUsers = async (query: string) => {
+    if (!query.trim() || query.trim().length < 2) {
+      setSearchResults([]);
+      setShowSearchResults(false);
       return;
     }
+
+    try {
+      const res = await fetch(`${API_URL}/api/user/search?q=${encodeURIComponent(query)}&limit=10`);
+      if (res.ok) {
+        const data = await res.json();
+        setSearchResults(data.users || []);
+        setShowSearchResults(true);
+      } else {
+        setSearchResults([]);
+        setShowSearchResults(false);
+      }
+    } catch (err) {
+      console.error('Search failed:', err);
+      setSearchResults([]);
+      setShowSearchResults(false);
+    }
+  };
+
+  // Handle search input change with debounce
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    
+    // Clear existing timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    // Set new timeout for search
+    const timeout = setTimeout(() => {
+      searchUsers(value);
+    }, 300);
+    
+    setSearchTimeout(timeout);
+  };
+
+  // Load user from search result
+  const loadUserFromResult = async (userId: string, username: string) => {
     setLoading(true);
     setMessage('');
+    setShowSearchResults(false);
+    setSearchQuery(username);
+    
     try {
-      // Try as username first, then as ID
-      let res = await fetch(`${API_URL}/api/user/profile?username=${encodeURIComponent(searchQuery)}`);
+      const res = await fetch(`${API_URL}/api/user/profile?userId=${encodeURIComponent(userId)}`);
       
-      // If not found by username and looks like an ID, try by ID
-      if (!res.ok && searchQuery.length > 20) {
-        res = await fetch(`${API_URL}/api/user/profile?userId=${encodeURIComponent(searchQuery)}`);
-      }
-
       if (!res.ok) {
         setMessage('❌ User not found');
         setCurrentUser(null);
@@ -105,7 +180,7 @@ export default function BadgeManagementPage() {
       setCurrentUser({
         id: data.id,
         username: data.username,
-        badges: data.badges || [],
+        badges: data.badges ? data.badges.map((b: any) => ({ key: b.key, name: b.name })) : [],
       });
       setMessage('✅ User loaded');
     } catch (err) {
@@ -126,13 +201,13 @@ export default function BadgeManagementPage() {
     try {
       const res = await fetch(`${API_URL}/api/user/assign-badge`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({ userId: currentUser.id, badgeKey: selectedBadgeKey }),
       });
       const data = await res.json();
       if (res.ok) {
         setMessage(`✅ ${data.message}`);
-        await loadUser(); // Reload user to see updated badges
+        await loadUserFromResult(currentUser.id, currentUser.username); // Reload user to see updated badges
       } else {
         setMessage(`❌ ${data.error}`);
       }
@@ -150,13 +225,13 @@ export default function BadgeManagementPage() {
     try {
       const res = await fetch(`${API_URL}/api/user/remove-badge`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({ userId: currentUser.id, badgeKey }),
       });
       const data = await res.json();
       if (res.ok) {
         setMessage(`✅ ${data.message}`);
-        await loadUser();
+        await loadUserFromResult(currentUser.id, currentUser.username);
       } else {
         setMessage(`❌ ${data.error}`);
       }
@@ -171,7 +246,8 @@ export default function BadgeManagementPage() {
   const updateBadgeDescription = async (badgeKey: string, description: string) => {
     setLoading(true);
     try {
-      const userId = localStorage.getItem('lfd_userId');
+      const token = getAuthToken();
+      const userId = token ? getUserIdFromToken(token) : null;
       const res = await fetch(`${API_URL}/api/user/badge/${encodeURIComponent(badgeKey)}?userId=${encodeURIComponent(userId || '')}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -195,8 +271,8 @@ export default function BadgeManagementPage() {
   // Don't render anything while checking admin status
   if (isAdmin === null) {
     return (
-      <div className="min-h-screen bg-[#0B0D12] flex items-center justify-center">
-        <div className="text-[#C8AA6E] text-xl">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+        <div className="text-xl" style={{ color: 'var(--color-accent-1)' }}>Loading...</div>
       </div>
     );
   }
@@ -207,52 +283,85 @@ export default function BadgeManagementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0D12] p-6">
+    <div className="min-h-screen p-6" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-[#C8AA6E] mb-6">Badge Management</h1>
+        <h1 className="text-3xl font-bold mb-6" style={{ color: 'var(--color-accent-1)' }}>Badge Management</h1>
 
         {/* User Search */}
-        <div className="bg-[#1A1A1D] border border-[#2B2B2F] rounded-xl p-6 mb-6">
-          <h2 className="text-xl font-bold text-[#C8AA6E] mb-4">Find User</h2>
-          <div className="flex gap-3">
+        <div className="border rounded-xl p-6 mb-6" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+          <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>Find User</h2>
+          <div className="relative search-container">
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Enter Username or User ID"
-              className="flex-1 px-4 py-2 bg-[#2B2B2F] border border-[#2B2B2F] text-gray-200 rounded-lg focus:border-[#C8AA6E] focus:outline-none"
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onFocus={() => searchQuery.length >= 2 && searchResults.length > 0 && setShowSearchResults(true)}
+              placeholder="Start typing username... (min 2 characters)"
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none"
+              style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
             />
-            <button
-              onClick={loadUser}
-              disabled={loading}
-              className="px-6 py-2 bg-[#C8AA6E] text-[#1A1A1D] rounded-lg font-semibold hover:bg-[#D4B678] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Loading...' : 'Load User'}
-            </button>
+            
+            {/* Search Results Dropdown */}
+            {showSearchResults && searchResults.length > 0 && (
+              <div 
+                className="absolute z-10 w-full mt-1 border rounded-lg shadow-lg max-h-80 overflow-y-auto"
+                style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}
+              >
+                {searchResults.map((result) => (
+                  <button
+                    key={result.id}
+                    onClick={() => loadUserFromResult(result.id, result.username)}
+                    className="w-full px-4 py-3 text-left hover:opacity-80 transition-opacity border-b last:border-b-0"
+                    style={{ borderColor: 'var(--color-border)' }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                          {result.username}
+                          {result.verified && <span className="ml-2 text-xs" style={{ color: 'var(--color-accent-2)' }}>✓ Verified</span>}
+                        </p>
+                        {result.badges.length > 0 && (
+                          <div className="flex gap-1 mt-1 flex-wrap">
+                            {result.badges.map((badge) => (
+                              <span 
+                                key={badge.key}
+                                className="text-xs px-2 py-0.5 rounded"
+                                style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)', opacity: 0.8 }}
+                              >
+                                {badge.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           
           {currentUser && (
-            <div className="mt-4 p-4 bg-[#2B2B2F] rounded-lg">
-              <p className="text-gray-200 font-semibold">Username: {currentUser.username}</p>
-              <p className="text-gray-400 text-sm mt-1">ID: {currentUser.id}</p>
+            <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
+              <p className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>Username: {currentUser.username}</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>ID: {currentUser.id}</p>
               <div className="mt-3">
-                <p className="text-gray-400 text-sm mb-2">Current Badges:</p>
+                <p className="text-sm mb-2" style={{ color: 'var(--color-text-secondary)' }}>Current Badges:</p>
                 <div className="flex flex-wrap gap-2">
                   {currentUser.badges.length === 0 ? (
-                    <span className="text-gray-500 text-sm">No badges</span>
+                    <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>No badges</span>
                   ) : (
-                    currentUser.badges.map((badgeName) => (
+                    currentUser.badges.map((badge) => (
                       <div
-                        key={badgeName}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-[#C8AA6E]/20 border border-[#C8AA6E] rounded-lg"
+                        key={badge.key}
+                        className="flex items-center gap-2 px-3 py-1.5 border rounded-lg"
+                        style={{ backgroundColor: 'rgba(var(--color-accent-1-rgb, 200, 170, 110), 0.2)', borderColor: 'var(--color-accent-1)' }}
                       >
-                        <span className="text-[#C8AA6E] text-sm font-medium">{badgeName}</span>
+                        <span className="text-sm font-medium" style={{ color: 'var(--color-accent-1)' }}>{badge.name}</span>
                         <button
-                          onClick={() => {
-                            const badge = badges.find(b => b.name === badgeName);
-                            if (badge) removeBadge(badge.key);
-                          }}
-                          className="text-red-400 hover:text-red-300 text-xs"
+                          onClick={() => removeBadge(badge.key)}
+                          className="text-xs"
+                          style={{ color: 'var(--color-error)' }}
                         >
                           ✕
                         </button>
@@ -266,13 +375,14 @@ export default function BadgeManagementPage() {
         </div>
 
         {/* Assign Badge */}
-        <div className="bg-[#1A1A1D] border border-[#2B2B2F] rounded-xl p-6 mb-6">
-          <h2 className="text-xl font-bold text-[#C8AA6E] mb-4">Assign Badge</h2>
+        <div className="border rounded-xl p-6 mb-6" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+          <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>Assign Badge</h2>
           <div className="flex gap-3">
             <select
               value={selectedBadgeKey}
               onChange={(e) => setSelectedBadgeKey(e.target.value)}
-              className="flex-1 px-4 py-2 bg-[#2B2B2F] border border-[#2B2B2F] text-gray-200 rounded-lg focus:border-[#C8AA6E] focus:outline-none"
+              className="flex-1 px-4 py-2 border rounded-lg focus:outline-none"
+              style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
             >
               <option value="">Select a badge...</option>
               {badges.map((badge) => (
@@ -284,7 +394,8 @@ export default function BadgeManagementPage() {
             <button
               onClick={assignBadge}
               disabled={loading || !currentUser}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-6 py-2 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              style={{ backgroundColor: 'var(--color-success)', color: 'var(--color-text-primary)' }}
             >
               Assign
             </button>
@@ -292,25 +403,27 @@ export default function BadgeManagementPage() {
         </div>
 
         {/* Available Badges List */}
-        <div className="bg-[#1A1A1D] border border-[#2B2B2F] rounded-xl p-6">
-          <h2 className="text-xl font-bold text-[#C8AA6E] mb-4">Available Badges</h2>
+        <div className="border rounded-xl p-6" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+          <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>Available Badges</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {badges.map((badge) => (
               <div
                 key={badge.key}
-                className="p-4 bg-[#2B2B2F] rounded-lg border border-[#2B2B2F] hover:border-[#C8AA6E]/30 transition-colors"
+                className="p-4 rounded-lg border transition-colors"
+                style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <p className="text-[#C8AA6E] font-semibold">{badge.name}</p>
-                    <p className="text-gray-400 text-sm mt-1">Key: {badge.key}</p>
+                    <p className="font-semibold" style={{ color: 'var(--color-accent-1)' }}>{badge.name}</p>
+                    <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>Key: {badge.key}</p>
                   </div>
                   <button
                     onClick={() => {
                       setEditingBadgeKey(badge.key);
                       setEditingDescription(badge.description || '');
                     }}
-                    className="text-blue-400 hover:text-blue-300 text-sm"
+                    className="text-sm"
+                    style={{ color: 'var(--color-accent-2)' }}
                   >
                     Edit
                   </button>
@@ -322,20 +435,25 @@ export default function BadgeManagementPage() {
                       value={editingDescription}
                       onChange={(e) => setEditingDescription(e.target.value)}
                       placeholder="Badge description..."
-                      className="w-full px-3 py-2 bg-[#1A1A1D] border border-[#C8AA6E] text-gray-200 rounded-lg focus:outline-none text-sm resize-none"
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none text-sm resize-none"
+                      style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-accent-1)', color: 'var(--color-text-primary)' }}
                       rows={2}
                     />
                     <div className="flex gap-2 mt-2">
                       <button
+                        key="save"
                         onClick={() => updateBadgeDescription(badge.key, editingDescription)}
                         disabled={loading}
-                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
+                        className="px-3 py-1 text-sm rounded disabled:opacity-50"
+                        style={{ backgroundColor: 'var(--color-success)', color: 'var(--color-text-primary)' }}
                       >
                         Save
                       </button>
                       <button
+                        key="cancel"
                         onClick={() => setEditingBadgeKey(null)}
-                        className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
+                        className="px-3 py-1 text-sm rounded"
+                        style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)' }}
                       >
                         Cancel
                       </button>
@@ -343,7 +461,7 @@ export default function BadgeManagementPage() {
                   </div>
                 ) : (
                   badge.description && (
-                    <p className="text-gray-500 text-xs mt-1">{badge.description}</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{badge.description}</p>
                   )
                 )}
               </div>
@@ -353,11 +471,11 @@ export default function BadgeManagementPage() {
 
         {/* Message Display */}
         {message && (
-          <div className={`mt-6 p-4 rounded-lg ${
-            message.startsWith('✅') 
-              ? 'bg-green-500/20 border border-green-500 text-green-300'
-              : 'bg-red-500/20 border border-red-500 text-red-300'
-          }`}>
+          <div className={`mt-6 p-4 rounded-lg border`} style={{
+            backgroundColor: message.startsWith('✅') ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+            borderColor: message.startsWith('✅') ? 'var(--color-success)' : 'var(--color-error)',
+            color: message.startsWith('✅') ? 'var(--color-success)' : 'var(--color-error)'
+          }}>
             {message}
           </div>
         )}

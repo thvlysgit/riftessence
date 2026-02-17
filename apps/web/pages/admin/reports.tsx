@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useGlobalUI } from '../../components/GlobalUI';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
+import { getAuthHeader, getAuthToken, getUserIdFromToken } from '../../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -29,10 +30,8 @@ export default function AdminReportsPage() {
   const { showToast, confirm } = useGlobalUI();
 
   useEffect(() => {
-    let uid: string | null = null;
-    try {
-      uid = localStorage.getItem('lfd_userId');
-    } catch {}
+    const token = getAuthToken();
+    const uid = token ? getUserIdFromToken(token) : null;
     setUserId(uid);
 
     if (!uid) {
@@ -123,8 +122,8 @@ export default function AdminReportsPage() {
     try {
       const res = await fetch(`${API_URL}/api/admin/reports/${reportId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, userId }),
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
       });
 
       if (!res.ok) {

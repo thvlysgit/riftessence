@@ -1,12 +1,53 @@
 import prisma from '../prisma';
-import { CreatePostSchema, validateRequest } from '../validation';
+import { CreatePostSchema, validateRequest, PaginationSchema } from '../validation';
 
 export default async function postsRoutes(fastify: any) {
-  // GET /api/posts - Get all posts for feed
+  // Helper to extract userId from Authorization header using JWT
+  const getUserIdFromRequest = async (request: any, reply: any): Promise<string | null> => {
+    const authHeader = request.headers['authorization'];
+    if (!authHeader || typeof authHeader !== 'string') {
+      reply.code(401).send({ error: 'Authorization header missing' });
+      return null;
+    }
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (!token) {
+      reply.code(401).send({ error: 'Invalid Authorization header' });
+      return null;
+    }
+    try {
+      const payload = fastify.jwt.verify(token) as any;
+      if (!payload?.userId) {
+        reply.code(401).send({ error: 'Invalid token payload' });
+        return null;
+      }
+      (request as any).userId = payload.userId;
+      return payload.userId as string;
+    } catch (err) {
+      fastify.log.error('JWT verification failed:', err);
+      reply.code(401).send({ error: 'Invalid or expired token' });
+      return null;
+    }
+  };
+
+  // GET /api/posts - Get all posts for feed with pagination
   fastify.get('/posts', async (request: any, reply: any) => {
     try {
-      const { region, role, vcPreference, duoType, userId } = (request.query || {}) as any;
+      const { region, role, vcPreference, duoType, language, userId, limit = 10, offset = 0 } = (request.query || {}) as any;
       const where: any = {};
+      
+      // Validate pagination params
+      const paginationValidation = validateRequest(PaginationSchema, { 
+        limit: limit ? parseInt(limit) : 10, 
+        offset: offset ? parseInt(offset) : 0 
+      });
+      if (!paginationValidation.success) {
+        return reply.code(400).send({ error: 'Invalid pagination parameters', details: paginationValidation.errors });
+      }
+      
+      const { limit: validLimit, offset: validOffset } = paginationValidation.data;
+      // Type assertions for TypeScript - values are defined after validation
+      const limit_final = validLimit ?? 10;
+      const offset_final = validOffset ?? 0;
       
       // Handle multiple regions
       if (region) {
@@ -24,6 +65,14 @@ export default async function postsRoutes(fastify: any) {
         }
       }
       
+      // Handle multiple languages - filter posts that have at least one matching language
+      if (language) {
+        const languages = Array.isArray(language) ? language : [language];
+        if (languages.length > 0) {
+          where.languages = { hasSome: languages };
+        }
+      }
+      
       if (vcPreference) where.vcPreference = vcPreference;
       if (duoType) where.duoType = duoType;
 
@@ -34,9 +83,30 @@ export default async function postsRoutes(fastify: any) {
         viewerIsAdmin = (viewer?.badges || []).some((b: any) => b.key === 'admin');
       }
 
+      // Filter out blocked users - exclude posts from users the viewer has blocked
+      // and posts from users who have blocked the viewer
+      if (userId) {
+        const blocksResult = await prisma.$queryRaw<Array<{ blockedId: string }>>`
+          SELECT "blockedId" FROM "Block" WHERE "blockerId" = ${userId}
+          UNION
+          SELECT "blockerId" FROM "Block" WHERE "blockedId" = ${userId}
+        `;
+        
+        const blockedUserIds = blocksResult.map((b: any) => b.blockedId);
+        
+        if (blockedUserIds.length > 0) {
+          where.authorId = { notIn: blockedUserIds };
+        }
+      }
+
+      // Get total count for pagination info
+      const totalCount = await prisma.post.count({ where });
+
       const posts = await prisma.post.findMany({
         where,
         orderBy: { createdAt: 'desc' },
+        skip: offset_final,
+        take: limit_final,
         include: {
           author: {
             include: {
@@ -80,6 +150,7 @@ export default async function postsRoutes(fastify: any) {
           createdAt: post.createdAt,
           message: post.message,
           role: post.role,
+          secondRole: post.secondRole,
           region: post.region,
           languages: post.languages,
           vcPreference: post.vcPreference,
@@ -90,6 +161,8 @@ export default async function postsRoutes(fastify: any) {
           isAnonymous: author.anonymous,
           isAdmin: viewerIsAdmin, // Viewer's admin status, not author's
           reportCount: author.reportCount || 0,
+          preferredRole: author.anonymous ? null : author.preferredRole,
+          secondaryRole: author.anonymous ? null : author.secondaryRole,
           
           // Discord (hide if anonymous)
           discordUsername: author.anonymous ? null : author.discordAccount?.username,
@@ -137,7 +210,15 @@ export default async function postsRoutes(fastify: any) {
         };
       });
 
-      return { posts: formattedPosts };
+      return reply.send({ 
+        posts: formattedPosts,
+        pagination: {
+          total: totalCount,
+          limit: limit_final,
+          offset: offset_final,
+          hasMore: offset_final + limit_final < totalCount,
+        }
+      });
     } catch (error) {
       fastify.log.error('Error fetching posts:', error);
       return reply.status(500).send({ error: 'Failed to fetch posts' });
@@ -146,13 +227,16 @@ export default async function postsRoutes(fastify: any) {
 
   fastify.post('/posts', async (request: any, reply: any) => {
     try {
+      const authUserId = await getUserIdFromRequest(request, reply);
+      if (!authUserId) return;
+
       // Validate request body
-      const validation = validateRequest(CreatePostSchema, request.body);
+      const validation = validateRequest(CreatePostSchema, { ...request.body, userId: authUserId });
       if (!validation.success) {
         return reply.status(400).send({ error: 'Invalid input', details: validation.errors });
       }
 
-      const { userId, postingRiotAccountId, region, role, message, languages, vcPreference, duoType, communityId } = validation.data;
+      const { postingRiotAccountId, region, role, secondRole, message, languages, vcPreference, duoType, communityId, userId } = validation.data;
 
       // Verify user exists
       const user = await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } });
@@ -177,6 +261,7 @@ export default async function postsRoutes(fastify: any) {
           postingRiotAccountId,
           region: region as any,
           role: role as any,
+          secondRole: secondRole as any,
           message: message || null,
           languages,
           vcPreference: vcPreference as any,
@@ -314,8 +399,8 @@ export default async function postsRoutes(fastify: any) {
   fastify.delete('/posts/:id', async (request: any, reply: any) => {
     try {
       const { id } = request.params as any;
-      const { userId } = request.query as any;
-      if (!userId) return reply.status(400).send({ error: 'Missing userId' });
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
 
       const user = await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } });
       if (!user) return reply.status(404).send({ error: 'User not found' });

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/router';
+import { getAuthToken, setAuthToken, clearAllAuthState, getAuthHeader, isTokenExpiringSoon, refreshAuthToken } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -10,6 +11,9 @@ interface User {
   bio?: string;
   verified: boolean;
   badges?: Array<{ key: string; name: string }>;
+  riotAccountsCount?: number;
+  onboardingCompleted?: boolean;
+  profileIconId?: number;
 }
 
 interface AuthContextType {
@@ -28,30 +32,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // Load user from localStorage on mount
+  // Load user from token on mount
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const userId = localStorage.getItem('lfd_userId');
-        if (!userId) {
-          setLoading(false);
-          return;
-        }
+        const token = getAuthToken();
+        if (token) {
+          // Check if token needs refresh
+          if (isTokenExpiringSoon(token)) {
+            const newToken = await refreshAuthToken(API_URL);
+            if (!newToken) {
+              // Refresh failed, clear token and redirect to login
+              clearAllAuthState();
+              setUser(null);
+              router.push('/');
+              setLoading(false);
+              return;
+            }
+          }
 
-        const res = await fetch(`${API_URL}/api/user/profile?userId=${encodeURIComponent(userId)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setUser({
-            id: data.id,
-            username: data.username,
-            email: data.email,
-            bio: data.bio,
-            verified: data.verified,
-            badges: data.badges?.map((b: any) => ({ key: b.key, name: b.name })),
+          const res = await fetch(`${API_URL}/api/user/profile`, {
+            headers: getAuthHeader(),
           });
-        } else {
-          // Invalid userId, clear it
-          localStorage.removeItem('lfd_userId');
+          if (res.ok) {
+            const data = await res.json();
+            setUser({
+              id: data.id,
+              username: data.username,
+              email: data.email,
+              bio: data.bio,
+              verified: data.verified,
+              badges: data.badges?.map((b: any) => ({ key: b.key, name: b.name })),
+              riotAccountsCount: data.riotAccounts?.length || 0,
+              onboardingCompleted: data.onboardingCompleted || false,
+              profileIconId: data.profileIconId,
+            });
+          } else {
+            // Invalid token, clear it
+            clearAllAuthState();
+          }
         }
       } catch (err) {
         console.error('Failed to load user:', err);
@@ -61,9 +80,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     loadUser();
-  }, []);
+
+    // Check token expiration every 10 minutes
+    const intervalId = setInterval(async () => {
+      const token = getAuthToken();
+      if (token && isTokenExpiringSoon(token)) {
+        const newToken = await refreshAuthToken(API_URL);
+        if (!newToken) {
+          // Refresh failed, clear token and redirect to login
+          clearAllAuthState();
+          setUser(null);
+          router.push('/');
+        }
+      }
+    }, 10 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [router]);
 
   const login = async (usernameOrEmail: string, password: string) => {
+    // Check if already logged in
+    if (user) {
+      return { success: false, error: 'You are already logged in. Please log out first.' };
+    }
+
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
@@ -74,7 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
 
       if (res.ok) {
-        localStorage.setItem('lfd_userId', data.userId);
+        // Store JWT token
+        if (data.token) {
+          setAuthToken(data.token);
+        }
         setUser({
           id: data.userId,
           username: data.username,
@@ -82,9 +125,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           bio: data.bio,
           verified: data.verified,
           badges: data.badges,
+          riotAccountsCount: data.riotAccountsCount || 0,
+          onboardingCompleted: data.onboardingCompleted || false,
+          profileIconId: data.profileIconId,
         });
         return { success: true };
       } else {
+        // Provide more specific error for rate limiting
+        if (res.status === 429) {
+          return { success: false, error: 'Too many login attempts. Please try again later.' };
+        }
         return { success: false, error: data.error || 'Login failed' };
       }
     } catch (err) {
@@ -103,7 +153,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
 
       if (res.ok) {
-        localStorage.setItem('lfd_userId', data.userId);
+        // Store JWT token
+        if (data.token) {
+          setAuthToken(data.token);
+        }
         setUser({
           id: data.userId,
           username: data.username,
@@ -111,9 +164,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           bio: undefined,
           verified: false,
           badges: [],
+          riotAccountsCount: 0,
+          onboardingCompleted: false,
+          profileIconId: undefined,
         });
         return { success: true };
       } else {
+        // Provide more specific error for rate limiting
+        if (res.status === 429) {
+          return { success: false, error: 'Too many registration attempts. Please try again later.' };
+        }
         return { success: false, error: data.error || 'Registration failed' };
       }
     } catch (err) {
@@ -122,17 +182,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('lfd_userId');
+    clearAllAuthState();
     setUser(null);
     router.push('/');
   };
 
   const refreshUser = async () => {
     try {
-      const userId = localStorage.getItem('lfd_userId');
-      if (!userId) return;
+      const token = getAuthToken();
+      if (!token) return;
 
-      const res = await fetch(`${API_URL}/api/user/profile?userId=${encodeURIComponent(userId)}`);
+      const res = await fetch(`${API_URL}/api/user/profile`, {
+        headers: getAuthHeader(),
+      });
       if (res.ok) {
         const data = await res.json();
         setUser({
@@ -142,6 +204,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           bio: data.bio,
           verified: data.verified,
           badges: data.badges?.map((b: any) => ({ key: b.key, name: b.name })),
+          riotAccountsCount: data.riotAccounts?.length || 0,
+          onboardingCompleted: data.onboardingCompleted || false,
+          profileIconId: data.profileIconId,
         });
       }
     } catch (err) {

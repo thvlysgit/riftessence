@@ -4,6 +4,9 @@
 
 /* CSS Variables for theming - defaults to Classic Dark theme */
 :root {
+  /* Smooth transitions for theme changes */
+  transition: background-color 0.3s ease, color 0.3s ease;
+  
   --color-bg-primary: #0B0D12;
   --color-bg-secondary: #1A1A1D;
   --color-bg-tertiary: #2B2B2F;
@@ -60,6 +63,19 @@ html, body, #__next {
 body {
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Smooth transitions for all themed elements (colors only, not transforms/animations) */
+* {
+  transition-property: background-color, color, border-color, box-shadow, fill, stroke;
+  transition-duration: 0.3s;
+  transition-timing-function: ease;
+}
+
+/* Preserve animation behavior for loading spinners and other animated elements */
+*[class*="animate-"], *[style*="animation"] {
+  transition: none;
 }
 
 /* Custom scrollbar styling - themed */

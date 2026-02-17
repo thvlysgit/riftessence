@@ -1,10 +1,36 @@
 import prisma from '../prisma';
 
 export default async function lftRoutes(fastify: any) {
+  // Helper to extract userId from JWT (duplicated for route isolation)
+  const getUserIdFromRequest = async (request: any, reply: any): Promise<string | null> => {
+    const authHeader = request.headers['authorization'];
+    if (!authHeader || typeof authHeader !== 'string') {
+      reply.code(401).send({ error: 'Authorization header missing' });
+      return null;
+    }
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (!token) {
+      reply.code(401).send({ error: 'Invalid Authorization header' });
+      return null;
+    }
+    try {
+      const payload = fastify.jwt.verify(token) as any;
+      if (!payload?.userId) {
+        reply.code(401).send({ error: 'Invalid token payload' });
+        return null;
+      }
+      (request as any).userId = payload.userId;
+      return payload.userId as string;
+    } catch (err) {
+      fastify.log.error('JWT verification failed:', err);
+      reply.code(401).send({ error: 'Invalid or expired token' });
+      return null;
+    }
+  };
   // GET /api/lft/posts - Get all LFT posts
   fastify.get('/lft/posts', async (request: any, reply: any) => {
     try {
-      const { region, type } = (request.query || {}) as any;
+      const { region, type, userId } = (request.query || {}) as any;
       const where: any = {};
       
       // Filter by region(s)
@@ -20,6 +46,29 @@ export default async function lftRoutes(fastify: any) {
         where.type = type;
       }
 
+      // Viewer admin status (used by frontend to conditionally show admin controls)
+      let viewerIsAdmin = false;
+      if (userId) {
+        const viewer = await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } });
+        viewerIsAdmin = (viewer?.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin');
+      }
+
+      // Filter out blocked users - exclude posts from users the viewer has blocked
+      // and posts from users who have blocked the viewer
+      if (userId) {
+        const blocksResult = await prisma.$queryRaw<Array<{ blockedId: string }>>`
+          SELECT "blockedId" FROM "Block" WHERE "blockerId" = ${userId}
+          UNION
+          SELECT "blockerId" FROM "Block" WHERE "blockedId" = ${userId}
+        `;
+        
+        const blockedUserIds = blocksResult.map((b: any) => b.blockedId);
+        
+        if (blockedUserIds.length > 0) {
+          where.authorId = { notIn: blockedUserIds };
+        }
+      }
+
       const posts = await prisma.lftPost.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -28,6 +77,8 @@ export default async function lftRoutes(fastify: any) {
             select: {
               id: true,
               username: true,
+              preferredRole: true,
+              secondaryRole: true,
               discordAccount: {
                 select: { username: true }
               }
@@ -42,8 +93,12 @@ export default async function lftRoutes(fastify: any) {
         type: post.type,
         createdAt: post.createdAt,
         region: post.region,
+        authorId: post.author.id,
         username: post.author.username,
         discordUsername: post.author?.discordAccount?.username || null,
+        isAdmin: viewerIsAdmin,
+        preferredRole: post.author.preferredRole,
+        secondaryRole: post.author.secondaryRole,
         
         // TEAM fields
         ...(post.type === 'TEAM' && {
@@ -80,12 +135,16 @@ export default async function lftRoutes(fastify: any) {
   // POST /api/lft/posts - Create a new LFT post
   fastify.post('/lft/posts', async (request: any, reply: any) => {
     try {
+      // SECURITY: Extract userId from JWT token, not request body
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
       const body = request.body as any;
-      const { userId, type, region } = body;
+      const { type, region } = body;
 
       // Validation
-      if (!userId || !type || !region) {
-        return reply.status(400).send({ error: 'Missing required fields: userId, type, region' });
+      if (!type || !region) {
+        return reply.status(400).send({ error: 'Missing required fields: type, region' });
       }
 
       if (type !== 'TEAM' && type !== 'PLAYER') {
@@ -176,18 +235,19 @@ export default async function lftRoutes(fastify: any) {
   // DELETE /api/lft/posts/:id - Delete an LFT post
   fastify.delete('/lft/posts/:id', async (request: any, reply: any) => {
     try {
-      const { id } = request.params;
-      const { userId } = request.query;
-
-      if (!userId) {
-        return reply.status(400).send({ error: 'userId is required' });
-      }
+      const { id } = request.params as any;
+      const requesterId = await getUserIdFromRequest(request, reply);
+      if (!requesterId) return;
 
       const post = await prisma.lftPost.findUnique({ where: { id } });
       if (!post) return reply.status(404).send({ error: 'Post not found' });
 
-      // Check ownership
-      if (post.authorId !== userId) {
+      const requester = await prisma.user.findUnique({ where: { id: requesterId }, include: { badges: true } });
+      if (!requester) return reply.status(404).send({ error: 'User not found' });
+      const isAdmin = (requester.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin');
+
+      // Allow owners OR admins
+      if (post.authorId !== requesterId && !isAdmin) {
         return reply.status(403).send({ error: 'You can only delete your own posts' });
       }
 

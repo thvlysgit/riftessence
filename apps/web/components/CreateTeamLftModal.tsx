@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
 
 // Helper to get custom arrow with theme color
 const getCustomArrow = () => {
@@ -16,6 +17,8 @@ const AVAILABILITIES = [
   { value: 'TWICE_A_WEEK', label: 'Twice a Week' },
   { value: 'THRICE_A_WEEK', label: 'Thrice a Week' },
   { value: 'FOUR_TIMES_A_WEEK', label: 'Four times a Week' },
+  { value: 'FIVE_TIMES_A_WEEK', label: 'Five times a Week' },
+  { value: 'SIX_TIMES_A_WEEK', label: 'Six times a Week' },
   { value: 'EVERYDAY', label: 'Everyday' },
 ];
 const COACHING_OPTIONS = [
@@ -32,13 +35,14 @@ export interface CreateTeamLftModalProps {
 }
 
 export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, onClose, onSubmit }) => {
+  const { currentTheme } = useTheme();
   const [teamName, setTeamName] = useState('');
   const [region, setRegion] = useState('EUW');
   const [rolesNeeded, setRolesNeeded] = useState<string[]>([]);
   const [averageRank, setAverageRank] = useState('');
   const [averageDivision, setAverageDivision] = useState('');
   const [scrims, setScrims] = useState(false);
-  const [minAvailability, setMinAvailability] = useState('');
+  const [minAvailability, setMinAvailability] = useState('ONCE_A_WEEK');
   const [coachingAvailability, setCoachingAvailability] = useState('');
   const [details, setDetails] = useState('');
   const [error, setError] = useState('');
@@ -89,27 +93,108 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
 
   const showDivision = averageRank && !['MASTER', 'GRANDMASTER', 'CHALLENGER', 'UNRANKED'].includes(averageRank);
 
+  // Theme-specific emoji for slider thumb
+  const themeEmojis: Record<string, string> = {
+    'classic': '⚔️',
+    'arcane-pastel': '🧁',
+    'nightshade': '🌙',
+    'infernal-ember': '🔥',
+    'radiant-light': '☀️',
+  };
+  const thumbEmoji = themeEmojis[currentTheme] || '⚔️';
+  // Extra fill for moon emoji to cover its curved shape
+  const gradientOffset = currentTheme === 'nightshade' ? 2 : 0;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4 overflow-y-auto">
-      <form 
-        className="rounded-xl p-6 w-full max-w-2xl shadow-lg border-2 my-8" 
-        style={{ 
-          background: 'var(--color-bg-secondary)', 
-          borderColor: 'var(--color-border)' 
-        }}
-        onSubmit={handleSubmit}
-      >
-        <h3 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-          Looking for Players
-        </h3>
+    <>
+      <style>{`
+        input[type="range"] {
+          -webkit-appearance: none;
+          appearance: none;
+          background: transparent;
+          cursor: pointer;
+          position: relative;
+          width: 100%;
+          height: 8px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 1px;
+          height: 1px;
+          opacity: 0;
+          cursor: pointer;
+          visibility: hidden;
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 1px;
+          height: 1px;
+          opacity: 0;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          visibility: hidden;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+          width: 100%;
+          height: 8px;
+          border-radius: 4px;
+          border: 1px solid var(--color-border);
+        }
+        input[type="range"]::-moz-range-track {
+          width: 100%;
+          height: 8px;
+          border-radius: 4px;
+          border: 1px solid var(--color-border);
+        }
+        input[type="range"]:focus {
+          outline: none;
+        }
+        .slider-container {
+          position: relative;
+          padding: 0 14px;
+        }
+        .slider-thumb {
+          position: absolute;
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
+          transition: transform 0.15s ease;
+          font-size: 16px;
+          line-height: 1;
+          top: 50%;
+          transform: translate(-50%, -50%);
+        }
+        input[type="range"]:hover ~ .slider-thumb {
+          transform: translate(-50%, -50%) scale(1.15);
+        }
+        input[type="range"]:active ~ .slider-thumb {
+          transform: translate(-50%, -50%) scale(1.0);
+        }
+      `}</style>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4 overflow-y-auto">
+        <form 
+          className="rounded-xl p-6 w-full max-w-2xl shadow-lg border-2 my-8" 
+          style={{ 
+            background: 'var(--color-bg-secondary)', 
+            borderColor: 'var(--color-border)' 
+          }}
+          onSubmit={handleSubmit}
+        >
+          <h3 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
+            Looking for Players
+          </h3>
 
-        {error && (
-          <div className="mb-4 p-3 rounded" style={{ background: 'var(--accent-danger-bg)', color: 'var(--accent-danger)' }}>
-            {error}
-          </div>
-        )}
+          {error && (
+            <div className="mb-4 p-3 rounded" style={{ background: 'var(--accent-danger-bg)', color: 'var(--accent-danger)' }}>
+              {error}
+            </div>
+          )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Team Name */}
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
@@ -253,26 +338,38 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
               Minimum Availability *
             </label>
-            <select
-              value={minAvailability}
-              onChange={(e) => setMinAvailability(e.target.value)}
-              className="w-full px-3 py-2 rounded border appearance-none cursor-pointer"
-              style={{
-                background: 'var(--color-bg-tertiary)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-primary)',
-                backgroundImage: getCustomArrow(),
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 0.75rem center',
-                paddingRight: '2.5rem'
-              }}
-              required
-            >
-              <option value="">Select availability...</option>
-              {AVAILABILITIES.map(a => (
-                <option key={a.value} value={a.value}>{a.label}</option>
-              ))}
-            </select>
+            <div style={{ height: '28px', display: 'flex', alignItems: 'center' }}>
+              <div className="slider-container" style={{ width: '100%' }}>
+                <input
+                  type="range"
+                  min="0"
+                  max="6"
+                  step="1"
+                  value={AVAILABILITIES.findIndex(a => a.value === minAvailability)}
+                  onChange={(e) => setMinAvailability(AVAILABILITIES[parseInt(e.target.value)].value)}
+                  className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                  style={{
+                    background: 'linear-gradient(to right, var(--color-accent-1) 0%, var(--color-accent-1) ' + (AVAILABILITIES.findIndex(a => a.value === minAvailability) * 16.67 + gradientOffset) + '%, var(--color-bg-tertiary) ' + (AVAILABILITIES.findIndex(a => a.value === minAvailability) * 16.67 + gradientOffset) + '%, var(--color-bg-tertiary) 100%)',
+                  }}
+                  required
+                />
+                <div 
+                  className="slider-thumb" 
+                  style={{ 
+                    left: `calc(14px + (100% - 28px) * ${(AVAILABILITIES.findIndex(a => a.value === minAvailability) * 16.67) / 100})`,
+                  }}
+                >
+                  {thumbEmoji}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-between mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              <span>Once/Week</span>
+              <span className="font-semibold" style={{ color: 'var(--color-accent-1)' }}>
+                {AVAILABILITIES.find(a => a.value === minAvailability)?.label || 'Select...'}
+              </span>
+              <span>Everyday</span>
+            </div>
           </div>
 
           {/* Coaching Availability */}
@@ -346,7 +443,8 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
             Cancel
           </button>
         </div>
-      </form>
-    </div>
+        </form>
+      </div>
+    </>
   );
 };

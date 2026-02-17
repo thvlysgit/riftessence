@@ -1,6 +1,33 @@
 import prisma from '../prisma';
+import { getUserIdFromRequest } from '../middleware/auth';
 
 export default async function communitiesRoutes(fastify: any) {
+  // Helper to extract userId from JWT (duplicated for route isolation)
+  const getUserIdFromRequest = async (request: any, reply: any): Promise<string | null> => {
+    const authHeader = request.headers['authorization'];
+    if (!authHeader || typeof authHeader !== 'string') {
+      reply.code(401).send({ error: 'Authorization header missing' });
+      return null;
+    }
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (!token) {
+      reply.code(401).send({ error: 'Invalid Authorization header' });
+      return null;
+    }
+    try {
+      const payload = fastify.jwt.verify(token) as any;
+      if (!payload?.userId) {
+        reply.code(401).send({ error: 'Invalid token payload' });
+        return null;
+      }
+      (request as any).userId = payload.userId;
+      return payload.userId as string;
+    } catch (err) {
+      fastify.log.error('JWT verification failed:', err);
+      reply.code(401).send({ error: 'Invalid or expired token' });
+      return null;
+    }
+  };
   // GET /api/communities - List all communities with optional filters
   fastify.get('/communities', async (request: any, reply: any) => {
     try {
@@ -125,14 +152,14 @@ export default async function communitiesRoutes(fastify: any) {
   // POST /api/communities - Register a new community
   fastify.post('/communities', async (request: any, reply: any) => {
     try {
-      const { name, description, language, regions, inviteLink, discordServerId, userId } = request.body as any;
+      // SECURITY: Extract userId from JWT token, not request body
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { name, description, language, regions, inviteLink, discordServerId } = request.body as any;
 
       if (!name || !language || !regions || !Array.isArray(regions)) {
         return reply.status(400).send({ error: 'Missing required fields: name, language, regions' });
-      }
-
-      if (!userId) {
-        return reply.status(400).send({ error: 'userId is required' });
       }
 
       // Check if user exists
@@ -192,12 +219,12 @@ export default async function communitiesRoutes(fastify: any) {
   // PATCH /api/communities/:id - Update community (admin/owner only)
   fastify.patch('/communities/:id', async (request: any, reply: any) => {
     try {
-      const { id } = request.params as { id: string };
-      const { userId, name, description, language, regions, inviteLink, isPartner } = request.body as any;
+      // SECURITY: Extract userId from JWT token, not request body
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
 
-      if (!userId) {
-        return reply.status(400).send({ error: 'userId is required' });
-      }
+      const { id } = request.params as { id: string };
+      const { name, description, language, regions, inviteLink, isPartner } = request.body as any;
 
       // Check if user is admin/moderator of community
       const membership = await prisma.communityMembership.findUnique({
@@ -249,12 +276,11 @@ export default async function communitiesRoutes(fastify: any) {
   // POST /api/communities/:id/join - Join a community
   fastify.post('/communities/:id/join', async (request: any, reply: any) => {
     try {
-      const { id } = request.params as { id: string };
-      const { userId } = request.body as { userId: string };
+      // SECURITY: Extract userId from JWT token, not request body
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
 
-      if (!userId) {
-        return reply.status(400).send({ error: 'userId is required' });
-      }
+      const { id } = request.params as { id: string };
 
       // Check if community exists
       const community = await prisma.community.findUnique({ where: { id } });
@@ -290,12 +316,11 @@ export default async function communitiesRoutes(fastify: any) {
   // DELETE /api/communities/:id/leave - Leave a community
   fastify.delete('/communities/:id/leave', async (request: any, reply: any) => {
     try {
-      const { id } = request.params as { id: string };
-      const { userId } = request.query as { userId: string };
+      // SECURITY: Extract userId from JWT token, not query params
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
 
-      if (!userId) {
-        return reply.status(400).send({ error: 'userId is required' });
-      }
+      const { id } = request.params as { id: string };
 
       const membership = await prisma.communityMembership.findUnique({
         where: { userId_communityId: { userId, communityId: id } },

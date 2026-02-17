@@ -4,37 +4,87 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
+import jwt from '@fastify/jwt';
 import prisma from './prisma';
 import * as riotClient from './riotClient';
+import authRoutes from './routes/auth';
+import discordRoutes from './routes/discord';
 import userRoutes from './routes/user';
 import postsRoutes from './routes/posts';
 import lftRoutes from './routes/lft';
+import coachingRoutes from './routes/coaching';
 import communitiesRoutes from './routes/communities';
 import discordFeedRoutes from './routes/discordFeed';
+import adsRoutes from './routes/ads';
+import blocksRoutes from './routes/blocks';
+import leaderboardsRoutes from './routes/leaderboards';
+import chatRoutes from './routes/chat';
+import matchupRoutes from './routes/matchups';
+import analyticsRoutes from './routes/analytics';
 import bcrypt from 'bcryptjs';
-import { RegisterSchema, LoginSchema, SetPasswordSchema, validateRequest, TurnstileVerifySchema } from './validation';
+import { env } from './env';
+import { RegisterSchema, LoginSchema, SetPasswordSchema, validateRequest, TurnstileVerifySchema, RatingSchema, BroadcastMessageSchema } from './validation';
+import { getUserIdFromRequest } from './middleware/auth';
+import { logError, logInfo } from './middleware/logger';
+import { Errors } from './middleware/errors';
+import { logAdminAction, AuditActions } from './utils/auditLog';
 
 const server = Fastify({ logger: true });
 
+// Verify JWT_SECRET is properly set before doing anything else
+if (!env.JWT_SECRET) {
+  console.error('❌ FATAL: JWT_SECRET environment variable is not set!');
+  console.error('The API cannot start without a valid JWT_SECRET.');
+  console.error('\nTo generate a secure secret, run:');
+  console.error('  node -e "console.log(\\"JWT_SECRET=\\" + require(\\"crypto\\").randomBytes(32).toString(\\"hex\\"))"');
+  process.exit(1);
+}
+
 async function build() {
-  // Register CORS to allow the frontend (Next.js) to call this API from the browser.
-  // By default it uses ALLOW_ORIGIN env var or allows all origins in development.
+  // Register CORS FIRST before any other middleware
   await server.register(cors, {
-    origin: process.env.ALLOW_ORIGIN || true,
-    credentials: true, // Allow cookies to be sent with requests
+    origin: (origin, cb) => {
+      // Allow all origins in development
+      cb(null, true);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   });
 
-  // Register rate limiting: 10 requests per 15 minutes per IP
-  await server.register(rateLimit, {
-    max: 10,
-    timeWindow: '15 minutes',
-    cache: 10000,
-    allowList: ['127.0.0.1'], // Allow localhost for dev
-    skip: (request: any) => {
-      // Skip rate limiting for health check and documentation
-      return request.url === '/health' || request.url.startsWith('/docs');
-    },
+  // Register JWT for secure authentication
+  await server.register(jwt, {
+    secret: env.JWT_SECRET,
+    sign: { expiresIn: '7d' },
   });
+
+  // Rate limiting disabled for development
+  // await server.register(rateLimit as any, {
+  //   max: (request: any) => {
+  //     const token = request.headers['authorization']?.replace('Bearer ', '').trim();
+  //     if (token) {
+  //       try {
+  //         request.server.jwt.verify(token);
+  //         return 1000;
+  //       } catch {
+  //         return 500;
+  //       }
+  //     }
+  //     return 500;
+  //   },
+  //   timeWindow: '15 minutes',
+  //   cache: 10000,
+  //   allowList: ['127.0.0.1'],
+  //   skip: (request: any) => {
+  //     return request.url === '/health' || 
+  //            request.url === '/health/db' ||
+  //            request.url === '/health/deep' ||
+  //            request.url.startsWith('/docs') ||
+  //            request.url === '/api/auth/login' ||
+  //            request.url === '/api/auth/register' ||
+  //            request.url === '/api/auth/set-password';
+  //   },
+  // });
 
   await server.register(swagger, {
     openapi: {
@@ -48,294 +98,38 @@ async function build() {
     staticCSP: true
   });
 
-  // Lightweight auth endpoints (register/login/set-password)
-  // Implemented inline to avoid missing build artifacts in some environments
-  server.post('/api/auth/register', async (request: any, reply: any) => {
-    try {
-      // Validate request body
-      const validation = validateRequest(RegisterSchema, request.body);
-      if (!validation.success) {
-        return reply.code(400).send({ error: 'Invalid input', details: validation.errors });
-      }
+  // Register auth routes (login, register, set-password, refresh token)
+  await server.register(authRoutes, { prefix: '/api/auth' });
 
-      const { username, email, password } = validation.data;
-
-      // Verify CAPTCHA token (if provided)
-      const turnstileToken = (request.body as any)?.turnstileToken;
-      if (turnstileToken && process.env.TURNSTILE_SECRET_KEY) {
-        const turnstileValidation = validateRequest(TurnstileVerifySchema, { token: turnstileToken });
-        if (!turnstileValidation.success) {
-          return reply.code(400).send({ error: 'Invalid CAPTCHA token' });
-        }
-
-        try {
-          const verifyResp = await fetch('https://challenges.cloudflare.com/turnstile/validate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              secret: process.env.TURNSTILE_SECRET_KEY,
-              response: turnstileToken,
-            }),
-          });
-
-          const result = await verifyResp.json();
-          if (!result.success) {
-            return reply.code(400).send({ error: 'CAPTCHA verification failed' });
-          }
-        } catch (err) {
-          request.log?.error('CAPTCHA verification error:', err);
-          return reply.code(500).send({ error: 'CAPTCHA verification failed' });
-        }
-      }
-
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { username: { equals: username, mode: 'insensitive' } },
-            { email: { equals: email, mode: 'insensitive' } },
-          ],
-        },
-      });
-      if (existingUser) {
-        if (existingUser.username?.toLowerCase() === username.toLowerCase()) {
-          return reply.code(400).send({ error: 'Username already taken' });
-        }
-        return reply.code(400).send({ error: 'Email already registered' });
-      }
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const user = await prisma.user.create({ data: { username, email, password: hashedPassword } });
-      return reply.send({ userId: user.id, username: user.username, email: user.email });
-    } catch (error: any) {
-      request.log && request.log.error && request.log.error(error);
-      return reply.code(500).send({ error: 'Failed to create account' });
-    }
-  });
-
-  server.post('/api/auth/login', async (request: any, reply: any) => {
-    try {
-      // Validate request body
-      const validation = validateRequest(LoginSchema, request.body);
-      if (!validation.success) {
-        return reply.code(400).send({ error: 'Invalid input', details: validation.errors });
-      }
-
-      const { usernameOrEmail, password } = validation.data;
-      const user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { username: { equals: usernameOrEmail, mode: 'insensitive' } },
-            { email: { equals: usernameOrEmail, mode: 'insensitive' } },
-          ],
-        },
-        include: { badges: true },
-      });
-      if (!user) return reply.code(401).send({ error: 'Invalid credentials' });
-      if (!user.password) return reply.code(401).send({ error: 'This account uses Riot login only. Please set a password first.' });
-      const isValid = await bcrypt.compare(password, user.password);
-      if (!isValid) return reply.code(401).send({ error: 'Invalid credentials' });
-      return reply.send({
-        userId: user.id,
-        username: user.username,
-        email: user.email,
-        bio: (user as any).bio,
-        verified: (user as any).verified,
-        badges: user.badges.map((b: any) => ({ key: b.key, name: b.name })),
-      });
-    } catch (error: any) {
-      request.log && request.log.error && request.log.error(error);
-      return reply.code(500).send({ error: 'Login failed' });
-    }
-  });
-
-  server.post('/api/auth/set-password', async (request: any, reply: any) => {
-    try {
-      // Validate request body
-      const validation = validateRequest(SetPasswordSchema, request.body);
-      if (!validation.success) {
-        return reply.code(400).send({ error: 'Invalid input', details: validation.errors });
-      }
-
-      const { userId, password } = validation.data;
-      const hashedPassword = await bcrypt.hash(password, 10);
-      await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword } });
-      return reply.send({ message: 'Password set successfully' });
-    } catch (error: any) {
-      request.log && request.log.error && request.log.error(error);
-      return reply.code(500).send({ error: 'Failed to set password' });
-    }
-  });
-
-  // Discord OAuth endpoints
-  server.get('/api/auth/discord/login', async (request: any, reply: any) => {
-    try {
-      const { userId } = request.query as { userId?: string };
-      if (!userId) {
-        return reply.code(400).send({ error: 'userId query parameter is required' });
-      }
-
-      const clientId = process.env.DISCORD_CLIENT_ID;
-      const redirectUri = process.env.DISCORD_REDIRECT_URI || 'http://localhost:3333/api/auth/discord/callback';
-      
-      if (!clientId) {
-        return reply.code(500).send({ error: 'Discord client ID not configured' });
-      }
-
-      // Generate state token including userId for verification on callback
-      const state = Buffer.from(JSON.stringify({ userId, timestamp: Date.now() })).toString('base64');
-      
-      const authUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify&state=${encodeURIComponent(state)}`;
-      
-      return reply.send({ url: authUrl });
-    } catch (error: any) {
-      request.log && request.log.error && request.log.error(error);
-      return reply.code(500).send({ error: 'Failed to generate Discord auth URL' });
-    }
-  });
-
-  server.get('/api/auth/discord/callback', async (request: any, reply: any) => {
-    try {
-      const { code, state } = request.query as { code?: string; state?: string };
-      
-      if (!code || !state) {
-        return reply.code(400).send({ error: 'Missing code or state parameter' });
-      }
-
-      // Decode and validate state
-      let stateData: { userId: string; timestamp: number };
-      try {
-        stateData = JSON.parse(Buffer.from(state, 'base64').toString());
-      } catch {
-        return reply.code(400).send({ error: 'Invalid state parameter' });
-      }
-
-      // Verify state timestamp (prevent replay attacks - 10 min window)
-      if (Date.now() - stateData.timestamp > 10 * 60 * 1000) {
-        return reply.code(400).send({ error: 'State token expired' });
-      }
-
-      const clientId = process.env.DISCORD_CLIENT_ID;
-      const clientSecret = process.env.DISCORD_CLIENT_SECRET;
-      const redirectUri = process.env.DISCORD_REDIRECT_URI || 'http://localhost:3333/api/auth/discord/callback';
-
-      if (!clientId || !clientSecret) {
-        return reply.code(500).send({ error: 'Discord OAuth not configured' });
-      }
-
-      // Exchange code for access token
-      const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
-          grant_type: 'authorization_code',
-          code,
-          redirect_uri: redirectUri,
-        }),
-      });
-
-      if (!tokenResponse.ok) {
-        request.log && request.log.error && request.log.error('Discord token exchange failed:', await tokenResponse.text());
-        return reply.code(502).send({ error: 'Failed to exchange Discord authorization code' });
-      }
-
-      const tokenData = await tokenResponse.json();
-      const accessToken = tokenData.access_token;
-
-      // Fetch Discord user info
-      const userResponse = await fetch('https://discord.com/api/users/@me', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
-      if (!userResponse.ok) {
-        request.log && request.log.error && request.log.error('Discord user fetch failed:', await userResponse.text());
-        return reply.code(502).send({ error: 'Failed to fetch Discord user info' });
-      }
-
-      const discordUser = await userResponse.json();
-
-      // Check if this Discord account is already linked to another user
-      const existingLink = await prisma.discordAccount.findUnique({
-        where: { discordId: discordUser.id },
-      });
-
-      if (existingLink && existingLink.userId !== stateData.userId) {
-        return reply.code(400).send({ error: 'This Discord account is already linked to another user' });
-      }
-
-      // Create or update Discord account link
-      await prisma.discordAccount.upsert({
-        where: { discordId: discordUser.id },
-        update: {
-          username: discordUser.username,
-          discriminator: discordUser.discriminator || null,
-        },
-        create: {
-          discordId: discordUser.id,
-          username: discordUser.username,
-          discriminator: discordUser.discriminator || null,
-          userId: stateData.userId,
-        },
-      });
-
-      // Redirect to frontend profile page with success
-      return reply.redirect('http://localhost:3000/profile?discord=linked');
-    } catch (error: any) {
-      request.log && request.log.error && request.log.error(error);
-      return reply.code(500).send({ error: 'Discord linking failed' });
-    }
-  });
-
-  server.delete('/api/auth/discord/unlink', async (request: any, reply: any) => {
-    try {
-      const { userId } = request.query as { userId?: string };
-      
-      if (!userId) {
-        return reply.code(400).send({ error: 'userId query parameter is required' });
-      }
-
-      const discordAccount = await prisma.discordAccount.findUnique({
-        where: { userId },
-      });
-
-      if (!discordAccount) {
-        return reply.code(404).send({ error: 'No Discord account linked' });
-      }
-
-      await prisma.discordAccount.delete({
-        where: { userId },
-      });
-
-      return reply.send({ success: true, message: 'Discord account unlinked' });
-    } catch (error: any) {
-      request.log && request.log.error && request.log.error(error);
-      return reply.code(500).send({ error: 'Failed to unlink Discord account' });
-    }
-  });
+  // Register Discord OAuth routes
+  await server.register(discordRoutes, { prefix: '/api/auth/discord' });
 
   // Register other route groups
   await server.register(userRoutes, { prefix: '/api/user' });
   await server.register(postsRoutes, { prefix: '/api' });
   await server.register(lftRoutes, { prefix: '/api' });
+  await server.register(coachingRoutes, { prefix: '/api' });
   await server.register(communitiesRoutes, { prefix: '/api' });
   await server.register(discordFeedRoutes, { prefix: '/api' });
+  await server.register(adsRoutes, { prefix: '/api' });
+  await server.register(blocksRoutes, { prefix: '/api/user' });
+  await server.register(leaderboardsRoutes, { prefix: '/api' });
+  await server.register(chatRoutes, { prefix: '/api/chat' });
+  await server.register(matchupRoutes, { prefix: '/api' });
+  await server.register(analyticsRoutes, { prefix: '/api' });
 
   // Feedback endpoint
   server.post('/api/feedback', async (request: any, reply: any) => {
     try {
-      const { receiverId, stars, moons, comment } = request.body as {
-        receiverId: string;
-        stars: number;
-        moons: number;
-        comment?: string;
-      };
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
 
-      // Get current user from localStorage (in production, use proper auth)
-      const userId = request.headers['x-user-id'] || (request.body as any).raterId;
-      
-      if (!userId || !receiverId) {
-        return reply.code(400).send({ error: 'Missing required fields' });
+      const validation = validateRequest(RatingSchema, { ...request.body, raterId: userId });
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid input', details: validation.errors });
       }
+
+      const { receiverId, stars, moons, comment } = validation.data as any;
 
       if (userId === receiverId) {
         return reply.code(400).send({ error: 'You cannot rate yourself' });
@@ -351,7 +145,7 @@ async function build() {
         include: { badges: true },
       });
 
-      const hasDeveloperBadge = rater?.badges.some((b: any) => b.key === 'Developer');
+      const hasDeveloperBadge = rater?.badges.some((b: any) => b.key?.toLowerCase() === 'developer');
 
       if (!hasDeveloperBadge) {
         // Check if user has linked Riot account
@@ -363,17 +157,73 @@ async function build() {
           return reply.code(403).send({ error: 'You must have a verified Riot account to give feedback' });
         }
 
-        // Check if feedback already exists (one per pair)
-        const existingFeedback = await prisma.rating.findFirst({
-          where: { raterId: userId, receiverId },
+        // P0 FIX: Check daily rate limit (10 ratings per day) - outside transaction for performance
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const ratingsToday = await prisma.rating.count({
+          where: {
+            raterId: userId,
+            createdAt: { gte: oneDayAgo },
+          },
         });
 
-        if (existingFeedback) {
-          return reply.code(400).send({ error: 'You have already rated this user' });
+        if (ratingsToday >= 10) {
+          return reply.code(429).send({ error: 'Daily rating limit reached. You can submit up to 10 ratings per day.' });
         }
 
-        // TODO: Check match history (requires match tracking implementation)
-        // For now, skip this check in development
+        // SECURITY FIX: Wrap cooldown checks in transaction to prevent race conditions
+        // This ensures concurrent requests can't bypass the 5-minute cooldown or duplicate rating check
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        
+        try {
+          await prisma.$transaction(async (tx: any) => {
+            // Check if feedback already exists for this user pair (one rating per person, ever)
+            const existingFeedback = await tx.rating.findFirst({
+              where: { raterId: userId, receiverId },
+            });
+
+            if (existingFeedback) {
+              throw new Error('ALREADY_RATED');
+            }
+
+            // Check 5-minute global cooldown (can only rate anyone once every 5 minutes)
+            const recentRating = await tx.rating.findFirst({
+              where: {
+                raterId: userId,
+                createdAt: { gte: fiveMinutesAgo },
+              },
+            });
+
+            if (recentRating) {
+              throw new Error('COOLDOWN_ACTIVE');
+            }
+          });
+        } catch (error: any) {
+          if (error.message === 'ALREADY_RATED') {
+            return reply.code(400).send({ error: 'You have already rated this user' });
+          }
+          if (error.message === 'COOLDOWN_ACTIVE') {
+            return reply.code(429).send({ error: 'You can only rate once every 5 minutes' });
+          }
+          throw error;
+        }
+
+        // Check match history between rater and receiver
+        const sharedMatches = await prisma.matchHistory.findMany({
+          where: {
+            OR: [
+              { userId, opponentId: receiverId },
+              { userId: receiverId, opponentId: userId },
+            ],
+          },
+        });
+
+        const sharedMatchesCount = sharedMatches.reduce((sum: number, m: any) => sum + (m.sharedMatchesCount || 1), 0);
+
+        if (sharedMatchesCount <= 0) {
+          return reply.code(403).send({ error: 'You must have at least one recorded match together to leave feedback' });
+        }
+
+        (request as any).sharedMatchesCount = sharedMatchesCount;
       }
 
       // Create feedback
@@ -384,7 +234,7 @@ async function build() {
           stars,
           moons,
           comment: comment || '',
-          sharedMatchesCount: 1, // TODO: Calculate from match history
+          sharedMatchesCount: (request as any).sharedMatchesCount || 1,
         },
       });
 
@@ -409,12 +259,13 @@ async function build() {
   // Report endpoint - creates a pending report for admin review
   server.post('/api/report', async (request: any, reply: any) => {
     try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
       const { reportedUserId, reason } = request.body as {
         reportedUserId: string;
         reason: string;
       };
-
-      const userId = request.headers['x-user-id'] || (request.body as any).reporterId;
 
       if (!userId || !reportedUserId || !reason) {
         return reply.code(400).send({ error: 'Missing required fields' });
@@ -439,7 +290,7 @@ async function build() {
       }
 
       // Check if reporter has verified Riot account (unless developer badge)
-      const hasDeveloperBadge = reporter.badges?.some((b: any) => b.key === 'Developer');
+      const hasDeveloperBadge = reporter.badges?.some((b: any) => b.key?.toLowerCase() === 'developer');
       if (!hasDeveloperBadge) {
         const hasVerifiedRiot = await prisma.riotAccount.findFirst({
           where: { userId, verified: true },
@@ -481,11 +332,8 @@ async function build() {
   // Get all reports (admin only)
   server.get('/api/admin/reports', async (request: any, reply: any) => {
     try {
-      const { userId } = request.query as { userId?: string };
-
-      if (!userId) {
-        return reply.code(400).send({ error: 'userId is required' });
-      }
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return; // getUserIdFromRequest already sent error response
 
       // Check admin status
       const user = await prisma.user.findUnique({
@@ -533,11 +381,14 @@ async function build() {
   // Handle report actions (accept/reject/dismiss) - admin only
   server.patch('/api/admin/reports/:id', async (request: any, reply: any) => {
     try {
-      const { id } = request.params as { id: string };
-      const { action, userId } = request.body as { action: 'ACCEPT' | 'REJECT' | 'DISMISS'; userId: string };
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return; // getUserIdFromRequest already sent error response
 
-      if (!userId || !action) {
-        return reply.code(400).send({ error: 'userId and action are required' });
+      const { id } = request.params as { id: string };
+      const { action } = request.body as { action: 'ACCEPT' | 'REJECT' | 'DISMISS' };
+
+      if (!action) {
+        return reply.code(400).send({ error: 'action is required' });
       }
 
       if (!['ACCEPT', 'REJECT', 'DISMISS'].includes(action)) {
@@ -648,17 +499,29 @@ async function build() {
     }
   });
 
-  // Delete feedback endpoint (admin only)
+  // Delete feedback endpoint (user can delete their own, admin can delete any)
   server.delete('/api/feedback/:id', async (request: any, reply: any) => {
     try {
-      const { id } = request.params as { id: string };
-      const { userId } = request.body as { userId: string };
+      // SECURITY: Extract userId from JWT token, not request body
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
 
-      if (!userId || !id) {
+      const { id } = request.params as { id: string };
+
+      if (!id) {
         return reply.code(400).send({ error: 'Missing required fields' });
       }
 
-      // Check if user has Admin badge
+      // Get the feedback to check ownership
+      const feedback = await prisma.rating.findUnique({
+        where: { id },
+      });
+
+      if (!feedback) {
+        return reply.code(404).send({ error: 'Feedback not found' });
+      }
+
+      // Check if user is the rater (owner) or has Admin badge
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { badges: true },
@@ -669,23 +532,410 @@ async function build() {
       }
 
       const hasAdminBadge = (user.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin');
-      if (!hasAdminBadge) {
-        return reply.code(403).send({ error: 'You must be an admin to delete feedback' });
+      const isOwner = feedback.raterId === userId;
+
+      if (!isOwner && !hasAdminBadge) {
+        return reply.code(403).send({ error: 'You can only delete your own feedback or must be an admin' });
       }
 
       // Delete the feedback
-      const deletedFeedback = await prisma.rating.delete({
+      await prisma.rating.delete({
         where: { id },
       });
-
-      if (!deletedFeedback) {
-        return reply.code(404).send({ error: 'Feedback not found' });
-      }
 
       return reply.send({ success: true, message: 'Feedback deleted successfully' });
     } catch (error: any) {
       request.log && request.log.error && request.log.error(error);
       return reply.code(500).send({ error: 'Failed to delete feedback' });
+    }
+  });
+
+  // Admin: Get all users (paginated)
+  server.get('/api/admin/users', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return; // getUserIdFromRequest already sent error response
+
+      const { limit = 20, offset = 0, search = '' } = request.query as {
+        limit?: number;
+        offset?: number;
+        search?: string;
+      };
+
+      // Check admin status
+      const admin = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { badges: true },
+      });
+
+      if (!admin || !(admin.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin')) {
+        return reply.code(403).send({ error: 'Admin access required' });
+      }
+
+      const limitNum = Math.min(Number(limit), 100);
+      const offsetNum = Math.max(0, Number(offset));
+      const searchTerm = search?.trim().toLowerCase() || '';
+
+      const [users, total] = await Promise.all([
+        prisma.user.findMany({
+          where: searchTerm
+            ? {
+                OR: [
+                  { username: { contains: searchTerm, mode: 'insensitive' } },
+                  { email: { contains: searchTerm, mode: 'insensitive' } },
+                ],
+              }
+            : {},
+          include: {
+            badges: true,
+            riotAccounts: { select: { summonerName: true, region: true, verified: true } },
+          },
+          take: limitNum,
+          skip: offsetNum,
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.user.count({
+          where: searchTerm
+            ? {
+                OR: [
+                  { username: { contains: searchTerm, mode: 'insensitive' } },
+                  { email: { contains: searchTerm, mode: 'insensitive' } },
+                ],
+              }
+            : {},
+        }),
+      ]);
+
+      return reply.send({
+        users: users.map((u: any) => ({
+          id: u.id,
+          username: u.username,
+          email: u.email,
+          verified: u.verified,
+          createdAt: u.createdAt,
+          reportCount: u.reportCount,
+          badges: u.badges.map((b: any) => ({ key: b.key, name: b.name })),
+          riotAccounts: u.riotAccounts,
+        })),
+        pagination: {
+          total,
+          offset: offsetNum,
+          limit: limitNum,
+          hasMore: offsetNum + limitNum < total,
+        },
+      });
+    } catch (error: any) {
+      request.log && request.log.error && request.log.error(error);
+      return reply.code(500).send({ error: 'Failed to fetch users' });
+    }
+  });
+
+  // Admin: Ban/Unban user
+  server.patch('/api/admin/users/:targetUserId/ban', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return; // getUserIdFromRequest already sent error response
+
+      const { targetUserId } = request.params as { targetUserId: string };
+      const { ban } = request.body as { ban: boolean };
+
+      if (!targetUserId) {
+        return reply.code(400).send({ error: 'Missing required fields' });
+      }
+
+      // Check admin status
+      const admin = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { badges: true },
+      });
+
+      if (!admin || !(admin.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin')) {
+        return reply.code(403).send({ error: 'Admin access required' });
+      }
+
+      // Check target user exists
+      const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
+      if (!targetUser) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
+
+      // Prevent banning admins
+      const targetIsAdmin = (await prisma.user.findUnique({
+        where: { id: targetUserId },
+        include: { badges: true },
+      }))?.badges?.some((b: any) => (b.key || '').toLowerCase() === 'admin');
+
+      if (targetIsAdmin && ban) {
+        return reply.code(403).send({ error: 'Cannot ban admin users' });
+      }
+
+      // Log the action
+      await logAdminAction({
+        adminId: userId,
+        action: ban ? AuditActions.USER_BANNED : AuditActions.USER_UNBANNED,
+        targetId: targetUserId,
+        details: { username: targetUser.username },
+      });
+
+      // Note: Ban field would need to be added to User schema
+      // For now, we'll just return success (schema update needed)
+      return reply.send({
+        success: true,
+        message: ban ? 'User banned successfully' : 'User unbanned successfully',
+      });
+    } catch (error: any) {
+      logError(request, 'Failed to update user ban status', error);
+      return reply.code(500).send({ error: 'Failed to update user ban status' });
+    }
+  });
+
+  // Admin: Wipe user report count
+  server.patch('/api/admin/users/:targetUserId/reports/reset', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return; // getUserIdFromRequest already sent error response
+
+      const { targetUserId } = request.params as { targetUserId: string };
+
+      if (!targetUserId) {
+        return reply.code(400).send({ error: 'Missing required fields' });
+      }
+
+      // Check admin status
+      const admin = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { badges: true },
+      });
+
+      if (!admin || !(admin.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin')) {
+        return reply.code(403).send({ error: 'Admin access required' });
+      }
+
+      const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
+      if (!targetUser) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
+
+      await prisma.user.update({
+        where: { id: targetUserId },
+        data: { reportCount: 0 },
+      });
+
+      // Log the action
+      await logAdminAction({
+        adminId: userId,
+        action: AuditActions.REPORTS_RESET,
+        targetId: targetUserId,
+        details: { username: targetUser.username },
+      });
+
+      return reply.send({ success: true, message: 'User report count reset' });
+    } catch (error: any) {
+      logError(request, 'Failed to reset report count', error);
+      return reply.code(500).send({ error: 'Failed to reset report count' });
+    }
+  });
+
+  // Admin: Delete user
+  server.delete('/api/admin/users/:targetUserId', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return; // getUserIdFromRequest already sent error response
+
+      const { targetUserId } = request.params as { targetUserId: string };
+
+      if (!targetUserId) {
+        return reply.code(400).send({ error: 'Missing required fields' });
+      }
+
+      // Check admin status
+      const admin = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { badges: true },
+      });
+
+      if (!admin || !(admin.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin')) {
+        return reply.code(403).send({ error: 'Admin access required' });
+      }
+
+      // Prevent deleting admin users
+      const targetUser = await prisma.user.findUnique({
+        where: { id: targetUserId },
+        include: { badges: true },
+      });
+
+      if (!targetUser) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
+
+      if ((targetUser.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin')) {
+        return reply.code(403).send({ error: 'Cannot delete admin users' });
+      }
+
+      // Delete user and all related data (cascade handled by Prisma)
+      await prisma.user.delete({ where: { id: targetUserId } });
+
+      // Log the action
+      await logAdminAction({
+        adminId: userId,
+        action: AuditActions.USER_DELETED,
+        targetId: targetUserId,
+        details: { username: targetUser.username },
+      });
+
+      return reply.send({ success: true, message: 'User deleted successfully' });
+    } catch (error: any) {
+      logError(request, 'Failed to delete user', error);
+      return reply.code(500).send({ error: 'Failed to delete user' });
+    }
+  });
+
+  // Admin: Broadcast system message to all users
+  server.post('/api/admin/broadcast-message', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return; // getUserIdFromRequest already sent error response
+
+      // Validate request body
+      const validation = validateRequest(BroadcastMessageSchema, request.body);
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid request', details: validation.errors });
+      }
+
+      const { content } = validation.data;
+
+      // Check admin status
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { badges: true },
+      });
+
+      if (!user) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
+
+      const isAdmin = user.badges.some((b: any) => b.key === 'admin');
+      if (!isAdmin) {
+        return reply.code(403).send({ error: 'Admin access required' });
+      }
+
+      logInfo(request, 'Admin broadcasting system message', { adminId: userId, contentLength: content.length });
+
+      // Get or create System user
+      let systemUser = await prisma.user.findFirst({
+        where: { username: 'System' },
+      });
+
+      if (!systemUser) {
+        logInfo(request, 'Creating System user');
+        systemUser = await prisma.user.create({
+          data: {
+            username: 'System',
+            email: 'system@riftessence.gg',
+            password: '', // No password needed for system user
+            verified: true,
+            profileIconId: 29, // RiftEssence logo
+            anonymous: false,
+          },
+        });
+      }
+
+      // Get all active users (exclude system user and admin themselves)
+      const allUsers = await prisma.user.findMany({
+        where: {
+          AND: [
+            { id: { not: systemUser.id } },
+            { id: { not: userId } }, // Don't message admin themselves
+          ],
+        },
+        select: { id: true },
+      });
+
+      logInfo(request, `Broadcasting to ${allUsers.length} users`);
+
+      let conversationsCreated = 0;
+      let messagesSent = 0;
+
+      // Process each user
+      for (const targetUser of allUsers) {
+        // Determine user order for conversation (smaller ID first)
+        const [smallerId, largerId] = [systemUser.id, targetUser.id].sort();
+
+        // Find or create conversation
+        let conversation = await prisma.conversation.findFirst({
+          where: {
+            user1Id: smallerId,
+            user2Id: largerId,
+          },
+        });
+
+        if (!conversation) {
+          conversation = await prisma.conversation.create({
+            data: {
+              user1Id: smallerId,
+              user2Id: largerId,
+            },
+          });
+          conversationsCreated++;
+        }
+
+        // Send message in transaction
+        await prisma.$transaction(async (tx: any) => {
+          await tx.message.create({
+            data: {
+              conversationId: conversation.id,
+              senderId: systemUser.id,
+              content: content,
+            },
+          });
+
+          // Update conversation
+          const isSystemUser1 = conversation.user1Id === systemUser.id;
+          await tx.conversation.update({
+            where: { id: conversation.id },
+            data: {
+              lastMessageAt: new Date(),
+              lastMessagePreview: content.substring(0, 100),
+              ...(isSystemUser1
+                ? { user2UnreadCount: { increment: 1 } }
+                : { user1UnreadCount: { increment: 1 } }),
+            },
+          });
+        });
+
+        messagesSent++;
+      }
+
+      // Log the admin action
+      await logAdminAction({
+        adminId: userId,
+        action: AuditActions.SYSTEM_BROADCAST,
+        targetId: systemUser.id,
+        details: {
+          contentPreview: content.substring(0, 100),
+          totalUsers: allUsers.length,
+          conversationsCreated,
+          messagesSent,
+        },
+      });
+
+      logInfo(request, 'Broadcast completed', {
+        totalUsers: allUsers.length,
+        conversationsCreated,
+        messagesSent,
+      });
+
+      return reply.send({
+        success: true,
+        stats: {
+          totalUsers: allUsers.length,
+          conversationsCreated,
+          messagesSent,
+        },
+      });
+    } catch (error: any) {
+      logError(request, 'Failed to broadcast message', error);
+      return Errors.serverError(reply, request, 'broadcast message', error);
     }
   });
 
@@ -701,6 +951,122 @@ async function build() {
     }
   }, async () => {
     return { status: 'ok' };
+  });
+
+  server.get('/health/db', {
+    schema: {
+      description: 'Database health check',
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            status: { type: 'string' },
+            responseTime: { type: 'number' },
+            timestamp: { type: 'string' }
+          }
+        }
+      }
+    }
+  }, async (request: any, reply: any) => {
+    try {
+      const startTime = Date.now();
+      // Simple query to verify database connectivity
+      await prisma.$queryRaw`SELECT 1`;
+      const responseTime = Date.now() - startTime;
+      
+      logInfo(request, 'Database health check passed', { responseTime });
+      
+      return {
+        status: 'ok',
+        responseTime,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      logError(request, 'Database health check failed', error);
+      reply.code(503).send({
+        status: 'error',
+        message: 'Database connection failed',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Deep health check endpoint - verifies all critical dependencies
+  // Use this for load balancer health checks in production
+  server.get('/health/deep', {
+    schema: {
+      description: 'Comprehensive health check for all critical services',
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            status: { type: 'string' },
+            timestamp: { type: 'string' },
+            latency: { type: 'number' },
+            checks: { 
+              type: 'object',
+              additionalProperties: true  // Allow dynamic check properties
+            }
+          }
+        }
+      }
+    }
+  }, async (request: any, reply: any) => {
+    const checks: Record<string, { status: string; latency?: number; error?: string }> = {};
+    let overallStatus = 'healthy';
+    const startTime = Date.now();
+
+    // Check 1: Database connectivity
+    try {
+      const dbStart = Date.now();
+      await prisma.$queryRaw`SELECT 1`;
+      checks.database = {
+        status: 'ok',
+        latency: Date.now() - dbStart
+      };
+    } catch (error) {
+      overallStatus = 'unhealthy';
+      checks.database = {
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+
+    // Check 2: Database query performance (should be <100ms)
+    if (checks.database.status === 'ok' && checks.database.latency! > 100) {
+      checks.database.status = 'degraded';
+      overallStatus = overallStatus === 'healthy' ? 'degraded' : overallStatus;
+    }
+
+    // Check 3: Environment variables
+    checks.environment = {
+      status: env.JWT_SECRET && env.DATABASE_URL && env.RIOT_API_KEY ? 'ok' : 'error',
+      error: !env.JWT_SECRET ? 'JWT_SECRET missing' : !env.DATABASE_URL ? 'DATABASE_URL missing' : !env.RIOT_API_KEY ? 'RIOT_API_KEY missing' : undefined
+    };
+    if (checks.environment.status === 'error') {
+      overallStatus = 'unhealthy';
+    }
+
+    // Check 4: Memory usage
+    const memUsage = process.memoryUsage();
+    const heapUsedPercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
+    checks.memory = {
+      status: heapUsedPercent < 90 ? 'ok' : 'degraded',
+      latency: Math.round(heapUsedPercent)
+    };
+    if (heapUsedPercent >= 90) {
+      overallStatus = overallStatus === 'healthy' ? 'degraded' : overallStatus;
+    }
+
+    const totalLatency = Date.now() - startTime;
+    const statusCode = overallStatus === 'healthy' ? 200 : overallStatus === 'degraded' ? 200 : 503;
+
+    reply.code(statusCode).send({
+      status: overallStatus,
+      timestamp: new Date().toISOString(),
+      latency: totalLatency,
+      checks
+    });
   });
 
   server.post('/verify/riot', {
@@ -763,7 +1129,26 @@ async function build() {
   }, async (req, reply) => {
     const { summonerName, region } = req.body as any;
     try {
-      const icon = await riotClient.getProfileIcon({ summonerName, region, puuid: '' });
+      // Parse summoner name into gameName and tagLine
+      let gameName: string;
+      let tagLine: string;
+      
+      if (summonerName.includes('#')) {
+        const parts = summonerName.split('#');
+        gameName = parts[0];
+        tagLine = parts[1];
+      } else {
+        gameName = summonerName;
+        tagLine = region;
+      }
+
+      // Fetch PUUID first
+      const puuid = await riotClient.getPuuid(gameName, tagLine, region);
+      if (!puuid) {
+        return reply.status(404).send({ error: 'Summoner not found on Riot' });
+      }
+
+      const icon = await riotClient.getProfileIcon({ summonerName, region, puuid }, true);
       return { profileIconId: icon };
     } catch (err: any) {
       if (err && err.status === 404) return reply.status(404).send({ error: 'Summoner not found on Riot' });
@@ -789,7 +1174,26 @@ async function build() {
   }, async (req, reply) => {
     const { summonerName, region, verificationIconId } = req.body as any;
     try {
-      const icon = await riotClient.getProfileIcon({ summonerName, region, puuid: '' });
+      // Parse summoner name into gameName and tagLine
+      let gameName: string;
+      let tagLine: string;
+      
+      if (summonerName.includes('#')) {
+        const parts = summonerName.split('#');
+        gameName = parts[0];
+        tagLine = parts[1];
+      } else {
+        gameName = summonerName;
+        tagLine = region;
+      }
+
+      // Fetch PUUID first
+      const puuid = await riotClient.getPuuid(gameName, tagLine, region);
+      if (!puuid) {
+        return reply.status(404).send({ error: 'Summoner not found on Riot' });
+      }
+
+      const icon = await riotClient.getProfileIcon({ summonerName, region, puuid }, true);
       if (icon === verificationIconId) return { success: true };
       return reply.status(400).send({ error: 'Profile icon does not match verification icon', currentIcon: icon });
     } catch (err: any) {

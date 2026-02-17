@@ -2,6 +2,8 @@ import prisma from '../prisma';
 import * as riotClient from '../riotClient';
 import { createHash } from 'crypto';
 import { VerifyRiotSchema, validateRequest } from '../validation';
+import { cacheGet, cacheSet } from '../utils/cache';
+import { getUserIdFromRequest } from '../middleware/auth';
 
 // Temporary fallback PUUID generator until real Riot PUUID retrieval is implemented.
 // Creates a deterministic hash so the same summonerName+region maps to same pseudo value.
@@ -16,20 +18,63 @@ export default async function userRoutes(fastify: any) {
   // Verify Riot account and create/link user
   fastify.post('/verify-riot', async (request: any, reply: any) => {
     try {
+      // Log raw request body for debugging
+      fastify.log.info({ body: request.body }, 'Verify riot request received (raw body)');
+      
       // Validate request body
       const validation = validateRequest(VerifyRiotSchema, request.body);
       if (!validation.success) {
+        fastify.log.error({ errors: validation.errors, body: request.body }, 'Verification validation failed');
         return reply.status(400).send({ error: 'Invalid input', details: validation.errors });
       }
 
       const { summonerName, region, verificationIconId, userId } = validation.data;
 
-      fastify.log.info({ summonerName, region, verificationIconId, userId }, 'Verify riot request received');
+      fastify.log.info({ summonerName, region, verificationIconId, userId }, 'Verify riot request validated');
 
-      // Fetch current icon from Riot API
+      // Parse summoner name into gameName and tagLine first
+      let gameName: string;
+      let tagLine: string;
+      
+      if (summonerName.includes('#')) {
+        const parts = summonerName.split('#');
+        gameName = parts[0];
+        tagLine = parts[1];
+      } else {
+        // Fallback if no tag provided
+        gameName = summonerName;
+        tagLine = region;
+      }
+
+      // Fetch PUUID first (required for profile icon lookup)
+      let puuidValue: string;
+      try {
+        const realPuuid = await riotClient.getPuuid(gameName, tagLine, region);
+        if (!realPuuid) {
+          return reply.status(404).send({ error: 'Summoner not found on Riot' });
+        }
+        puuidValue = realPuuid;
+      } catch (err: any) {
+        fastify.log.error(err);
+        return reply.status(502).send({ error: 'Error fetching data from Riot API' });
+      }
+
+      // Rate limiting: prevent brute force icon guessing
+      // Allow max 3 verification attempts per summoner+region per hour
+      const rateLimitKey = `riot:verify:attempts:${summonerName.toLowerCase()}:${region}`;
+      const attempts = await cacheGet<number>(rateLimitKey) || 0;
+      
+      if (attempts >= 3) {
+        return reply.status(429).send({ 
+          error: 'Too many verification attempts. Please try again in 1 hour.',
+          retryAfter: 3600 
+        });
+      }
+
+      // Fetch current icon from Riot API (bypass cache for verification)
       let currentIcon: number | null;
       try {
-        currentIcon = await riotClient.getProfileIcon({ summonerName, region, puuid: '' });
+        currentIcon = await riotClient.getProfileIcon({ summonerName, region, puuid: puuidValue }, true);
       } catch (err: any) {
         if (err && err.status === 404) {
           return reply.status(404).send({ error: 'Summoner not found on Riot' });
@@ -40,12 +85,19 @@ export default async function userRoutes(fastify: any) {
 
       // Check if current icon matches verification icon
       if (currentIcon !== verificationIconId) {
+        // Increment failed attempt counter
+        await cacheSet(rateLimitKey, attempts + 1, 3600); // 1 hour TTL
+        
         return reply.status(400).send({ 
           error: 'Profile icon does not match verification icon',
           currentIcon,
-          expectedIcon: verificationIconId
+          expectedIcon: verificationIconId,
+          attemptsRemaining: 2 - attempts
         });
       }
+
+      // Success! Clear rate limit counter
+      await cacheSet(rateLimitKey, 0, 1);
 
       // Find Riot account by summonerName + region (might be unlinked)
       let riotAccount = await prisma.riotAccount.findFirst({
@@ -56,11 +108,8 @@ export default async function userRoutes(fastify: any) {
       let user;
       if (riotAccount && riotAccount.user && !userId) {
         // Existing account already linked to a user (and no userId override supplied)
-        // Just update verification and normalize blank puuid
+        // Just update verification and use fetched PUUID
         user = riotAccount.user;
-        const puuidValue = riotAccount.puuid && riotAccount.puuid.trim() !== ''
-          ? riotAccount.puuid
-          : generatePseudoPuuid(summonerName, region);
         await prisma.riotAccount.update({
           where: { id: riotAccount.id },
           data: { verified: true, verificationIconId, puuid: puuidValue },
@@ -88,19 +137,15 @@ export default async function userRoutes(fastify: any) {
           }
           
           // Account exists and either unlinked or already linked to this user - update it
-          const puuidValue = riotAccount.puuid && riotAccount.puuid.trim() !== ''
-            ? riotAccount.puuid
-            : generatePseudoPuuid(summonerName, region);
           await prisma.riotAccount.update({
             where: { id: riotAccount.id },
             data: { userId, verified: true, verificationIconId, puuid: puuidValue, isMain: shouldBeMain },
           });
         } else {
           // Create new riot account linked to user
-          const puuidValue = generatePseudoPuuid(summonerName, region);
           await prisma.riotAccount.create({
             data: {
-              puuid: puuidValue, // TODO: Replace with real Riot PUUID
+              puuid: puuidValue,
               summonerName,
               region: region as any,
               verified: true,
@@ -114,7 +159,6 @@ export default async function userRoutes(fastify: any) {
       } else {
         // New user - create account
         const username = `${summonerName.replace(/[^a-zA-Z0-9]/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
-        const puuidValue = generatePseudoPuuid(summonerName, region);
         
         user = await prisma.user.create({
           data: {
@@ -122,7 +166,7 @@ export default async function userRoutes(fastify: any) {
             region: region as any,
             riotAccounts: {
               create: {
-                puuid: puuidValue, // TODO: Replace with real Riot PUUID
+                puuid: puuidValue,
                 summonerName,
                 region: region as any,
                 verified: true,
@@ -137,11 +181,14 @@ export default async function userRoutes(fastify: any) {
         });
       }
 
-      // TODO: Create session/JWT token here
+      // Generate JWT token for the user
+      const token = fastify.jwt.sign({ userId: user.id });
+
       return reply.send({
         success: true,
         userId: user.id,
         username: user.username,
+        token,
         message: 'Verification successful! You can now access your profile.',
       });
     } catch (error: any) {
@@ -158,10 +205,25 @@ export default async function userRoutes(fastify: any) {
       const shouldIncludeHidden = includeHidden === 'true';
 
       let user;
+      let targetUserId = userId;
       
-      if (userId) {
+      // If no userId or username provided, try to get from JWT token
+      if (!userId && !username) {
+        const authHeader = request.headers['authorization'];
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          const token = authHeader.substring(7);
+          try {
+            const decoded = request.server.jwt.verify(token) as { userId: string };
+            targetUserId = decoded.userId;
+          } catch (err) {
+            // Invalid token, will fall through to default behavior
+          }
+        }
+      }
+      
+      if (targetUserId) {
         user = await prisma.user.findUnique({
-          where: { id: userId },
+          where: { id: targetUserId },
           include: {
             riotAccounts: true,
             discordAccount: true,
@@ -312,12 +374,13 @@ export default async function userRoutes(fastify: any) {
               totalGamesPerWeek += activity.gamesPerWeek;
               
               // Detect preferred role from match history (only for main account or first account)
-              let detectedRole = null;
-              if ((acc.isMain || acc.id === mainAccount?.id) && !user.preferredRole) {
+              // Always detect if user is missing preferredRole OR secondaryRole
+              let detectedRoles = null;
+              if ((acc.isMain || acc.id === mainAccount?.id) && (!user.preferredRole || !user.secondaryRole)) {
                 try {
-                  detectedRole = await riotClient.detectPreferredRole(realPuuid, acc.region);
-                  if (detectedRole) {
-                    fastify.log.info({ detectedRole, userId: user.id }, 'Detected preferred role from match history');
+                  detectedRoles = await riotClient.detectPreferredRole(realPuuid, acc.region);
+                  if (detectedRoles) {
+                    fastify.log.info({ detectedRoles, userId: user.id }, 'Detected preferred roles from match history');
                   }
                 } catch (err) {
                   fastify.log.warn({ err }, 'Failed to detect preferred role');
@@ -336,13 +399,18 @@ export default async function userRoutes(fastify: any) {
                 },
               });
               
-              // Update user's preferred role if detected
-              if (detectedRole && !user.preferredRole) {
+              // Update user's preferred role and secondary role if detected
+              // Update if either role is missing
+              if (detectedRoles && (!user.preferredRole || !user.secondaryRole)) {
                 await prisma.user.update({
                   where: { id: user.id },
-                  data: { preferredRole: detectedRole as any },
+                  data: { 
+                    preferredRole: detectedRoles.primary as any,
+                    secondaryRole: detectedRoles.secondary as any,
+                  },
                 });
-                user.preferredRole = detectedRole as any;
+                user.preferredRole = detectedRoles.primary as any;
+                user.secondaryRole = detectedRoles.secondary as any;
               }
               
               fastify.log.info({ activity, accountId: acc.id }, 'Cached fresh game activity');
@@ -365,17 +433,19 @@ export default async function userRoutes(fastify: any) {
         anonymous: user.anonymous,
         playstyles: user.playstyles,
         primaryRole: user.primaryRole,
-        preferredRole: user.preferredRole, // Auto-detected from match history
+        preferredRole: user.preferredRole, // Auto-detected from match history (most played)
+        secondaryRole: user.secondaryRole, // Auto-detected second most played role
         region: user.region,
         vcPreference: user.vcPreference,
         languages: user.languages,
         skillStars: Math.round(avgStars),
         personalityMoons: Math.round(avgMoons),
         reportCount: user.reportCount || 0,
-        badges: user.badges.map((b: any) => b.name),
+        badges: user.badges.map((b: any) => ({ key: b.key, name: b.name })),
         championPoolMode: user.championPoolMode,
         championList: user.championList || [],
         championTierlist: user.championTierlist || null,
+        onboardingCompleted: user.onboardingCompleted || false,
         gamesPerDay: totalGamesPerDay,
         gamesPerWeek: totalGamesPerWeek,
         profileIconId,
@@ -419,14 +489,16 @@ export default async function userRoutes(fastify: any) {
   // Update user playstyles
   fastify.patch('/playstyles', async (request: any, reply: any) => {
     try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return; // getUserIdFromRequest already sent error response
+
       const { playstyles } = request.body as { playstyles: string[] };
 
       if (!Array.isArray(playstyles) || playstyles.length > 2) {
         return reply.status(400).send({ error: 'Invalid playstyles. Maximum 2 allowed.' });
       }
 
-      // TODO: Get userId from authenticated session
-      const user = await prisma.user.findFirst();
+      const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
         return reply.status(404).send({ error: 'User not found' });
       }
@@ -443,19 +515,36 @@ export default async function userRoutes(fastify: any) {
     }
   });
 
+  // Mark onboarding as completed
+  fastify.post('/onboarding-complete', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: { onboardingCompleted: true },
+      });
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to mark onboarding complete' });
+    }
+  });
+
   // Update username
   fastify.patch('/username', async (request: any, reply: any) => {
     try {
       const { username } = request.body as { username: string };
-      const userId = request.query?.userId;
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return; // getUserIdFromRequest already sent error response
 
       if (!username || typeof username !== 'string' || username.trim().length === 0) {
         return reply.status(400).send({ error: 'Invalid username' });
       }
 
-      const user = userId 
-        ? await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } })
-        : await prisma.user.findFirst({ include: { badges: true } });
+      const user = await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } });
       if (!user) {
         return reply.status(404).send({ error: 'User not found' });
       }
@@ -503,16 +592,16 @@ export default async function userRoutes(fastify: any) {
   // Update languages
   fastify.patch('/languages', async (request: any, reply: any) => {
     try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return; // getUserIdFromRequest already sent error response
+
       const { languages } = request.body as { languages: string[] };
-      const userId = request.query?.userId;
 
       if (!Array.isArray(languages)) {
         return reply.status(400).send({ error: 'Invalid languages format' });
       }
 
-      const user = userId 
-        ? await prisma.user.findUnique({ where: { id: userId } })
-        : await prisma.user.findFirst();
+      const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
         return reply.status(404).send({ error: 'User not found' });
       }
@@ -532,10 +621,12 @@ export default async function userRoutes(fastify: any) {
   // Toggle anonymous mode
   fastify.patch('/anonymous', async (request: any, reply: any) => {
     try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return; // getUserIdFromRequest already sent error response
+
       const { anonymous } = request.body as { anonymous: boolean };
 
-      // TODO: Get userId from authenticated session
-      const user = await prisma.user.findFirst();
+      const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
         return reply.status(404).send({ error: 'User not found' });
       }
@@ -555,17 +646,16 @@ export default async function userRoutes(fastify: any) {
   // Update champion pool
   fastify.patch('/champion-pool', async (request: any, reply: any) => {
     try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return; // getUserIdFromRequest already sent error response
+
       const { mode, championList, championTierlist } = request.body as {
         mode: 'LIST' | 'TIERLIST';
         championList?: string[];
         championTierlist?: any;
       };
-      const { userId } = (request.query as { userId?: string }) || {};
 
-      // TODO: Get userId from authenticated session
-      const user = userId
-        ? await prisma.user.findUnique({ where: { id: userId } })
-        : await prisma.user.findFirst();
+      const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
         return reply.status(404).send({ error: 'User not found' });
       }
@@ -599,10 +689,10 @@ export default async function userRoutes(fastify: any) {
   // Refresh Riot stats (rank + winrate) for a user's linked accounts
   fastify.post('/refresh-riot-stats', async (request: any, reply: any) => {
     try {
-      const { userId } = (request.query as { userId?: string }) || {};
-      const user = userId
-        ? await prisma.user.findUnique({ where: { id: userId }, include: { riotAccounts: true } })
-        : await prisma.user.findFirst({ include: { riotAccounts: true } });
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return; // getUserIdFromRequest already sent error response
+
+      const user = await prisma.user.findUnique({ where: { id: userId }, include: { riotAccounts: true } });
       if (!user) return reply.status(404).send({ error: 'User not found' });
 
       const apiKey = process.env.RIOT_API_KEY;
@@ -832,9 +922,22 @@ export default async function userRoutes(fastify: any) {
     }
   });
 
-  // Assign badge to user
+  // Assign badge to user (admin only)
   fastify.post('/assign-badge', async (request: any, reply: any) => {
     try {
+      // SECURITY: Verify admin making the request
+      const adminId = await getUserIdFromRequest(request, reply);
+      if (!adminId) return;
+
+      // Check if requester is admin
+      const admin = await prisma.user.findUnique({
+        where: { id: adminId },
+        include: { badges: true },
+      });
+      if (!admin || !admin.badges.some((b: any) => b.key === 'admin')) {
+        return reply.status(403).send({ error: 'Admin access required' });
+      }
+
       const { userId, badgeKey } = request.body as { userId: string; badgeKey: string };
 
       if (!userId || !badgeKey) {
@@ -879,9 +982,22 @@ export default async function userRoutes(fastify: any) {
     }
   });
 
-  // Remove badge from user
+  // Remove badge from user (admin only)
   fastify.post('/remove-badge', async (request: any, reply: any) => {
     try {
+      // SECURITY: Verify admin making the request
+      const adminId = await getUserIdFromRequest(request, reply);
+      if (!adminId) return;
+
+      // Check if requester is admin
+      const admin = await prisma.user.findUnique({
+        where: { id: adminId },
+        include: { badges: true },
+      });
+      if (!admin || !admin.badges.some((b: any) => b.key === 'admin')) {
+        return reply.status(403).send({ error: 'Admin access required' });
+      }
+
       const { userId, badgeKey } = request.body as { userId: string; badgeKey: string };
 
       if (!userId || !badgeKey) {
@@ -964,11 +1080,8 @@ export default async function userRoutes(fastify: any) {
   // Check if user has admin badge (used for frontend auth checks)
   fastify.get('/check-admin', async (request: any, reply: any) => {
     try {
-      const { userId } = request.query as { userId?: string };
-
-      if (!userId) {
-        return reply.send({ isAdmin: false });
-      }
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return; // getUserIdFromRequest already sent error response
 
       const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -990,34 +1103,94 @@ export default async function userRoutes(fastify: any) {
   // Search users by username (for user discovery)
   fastify.get('/search', async (request: any, reply: any) => {
     try {
-      const { q, limit = 10 } = request.query as { q?: string; limit?: number };
+      const { q, limit = 10, offset = 0 } = request.query as { q?: string; limit?: number; offset?: number };
 
       if (!q || q.trim().length < 2) {
-        return reply.send({ users: [] });
+        return reply.send({ users: [], pagination: { total: 0, offset: 0, limit: Math.min(Number(limit), 20), hasMore: false } });
       }
 
-      const users = await prisma.user.findMany({
-        where: {
-          username: {
-            contains: q,
-            mode: 'insensitive',
-          },
-        },
-        select: {
-          id: true,
-          username: true,
-          verified: true,
-          badges: {
-            select: {
-              key: true,
-              name: true,
+      const limitNum = Math.min(Number(limit), 20);
+      const offsetNum = Math.max(0, Number(offset));
+
+      const [users, total] = await Promise.all([
+        prisma.user.findMany({
+          where: {
+            username: {
+              contains: q,
+              mode: 'insensitive',
             },
           },
-        },
-        take: Math.min(Number(limit), 20),
-      });
+          select: {
+            id: true,
+            username: true,
+            verified: true,
+            badges: {
+              select: {
+                key: true,
+                name: true,
+              },
+            },
+            riotAccounts: {
+              where: { isMain: true },
+              select: {
+                id: true,
+              },
+              take: 1,
+            },
+          },
+          take: limitNum,
+          skip: offsetNum,
+        }),
+        prisma.user.count({
+          where: {
+            username: {
+              contains: q,
+              mode: 'insensitive',
+            },
+          },
+        }),
+      ]);
 
-      return reply.send({ users });
+      // Fetch profile icons for users with Riot accounts
+      const usersWithIcons = await Promise.all(
+        users.map(async (user: any) => {
+          let profileIconId = null;
+          if (user.riotAccounts && user.riotAccounts.length > 0) {
+            const mainAccountId = user.riotAccounts[0].id;
+            const account = await prisma.riotAccount.findUnique({
+              where: { id: mainAccountId },
+            });
+            if (account && account.puuid) {
+              try {
+                const iconData = await riotClient.getProfileIcon(
+                  { summonerName: account.summonerName, region: account.region, puuid: account.puuid },
+                  false
+                );
+                profileIconId = iconData;
+              } catch (err) {
+                fastify.log.error('Failed to fetch profile icon:', err);
+              }
+            }
+          }
+          return {
+            id: user.id,
+            username: user.username,
+            verified: user.verified,
+            badges: user.badges,
+            profileIconId,
+          };
+        })
+      );
+
+      return reply.send({
+        users: usersWithIcons,
+        pagination: {
+          total,
+          offset: offsetNum,
+          limit: limitNum,
+          hasMore: offsetNum + limitNum < total,
+        },
+      });
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Search failed' });

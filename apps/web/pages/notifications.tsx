@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useGlobalUI } from '../components/GlobalUI';
 import Link from 'next/link';
+import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -34,14 +35,17 @@ export default function NotificationsPage() {
   const { showToast } = useGlobalUI();
 
   useEffect(() => {
-    let uid: string | null = null;
-    try { uid = localStorage.getItem('lfd_userId'); } catch {}
-    setUserId(uid);
-    if (!uid) { setLoading(false); return; }
-
-    async function load() {
+    const loadNotifications = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/notifications?userId=${encodeURIComponent(uid!)}`);
+        const token = getAuthToken();
+        const uid = token ? getUserIdFromToken(token) : null;
+        setUserId(uid);
+        if (!uid) { 
+          setLoading(false); 
+          return; 
+        }
+
+        const res = await fetch(`${API_URL}/api/notifications?userId=${encodeURIComponent(uid)}`);
         if (!res.ok) throw new Error('Failed to fetch notifications');
         const data = await res.json();
         setNotifications(data.notifications || []);
@@ -52,10 +56,10 @@ export default function NotificationsPage() {
         setLoading(false);
       }
     }
-    load();
+    loadNotifications();
 
     // Poll for new notifications every 30 seconds
-    const interval = setInterval(load, 30000);
+    const interval = setInterval(loadNotifications, 30000);
     return () => clearInterval(interval);
   }, [showToast]);
 

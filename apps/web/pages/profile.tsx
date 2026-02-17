@@ -4,6 +4,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
 import { useRouter } from 'next/router';
@@ -11,8 +12,305 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { FeedbackModal } from '../components/FeedbackModal';
 import { ReportModal } from '../components/ReportModal';
 import { useGlobalUI } from '../components/GlobalUI';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useChat } from '../contexts/ChatContext';
+import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../utils/auth';
+import { RiotAccountCard } from '../components/profile/RiotAccountCard';
+import { ChampionPool } from '../components/profile/ChampionPool';
+import { FeedbackList } from '../components/profile/FeedbackList';
+import NoAccess from '../components/NoAccess';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+
+// Role icon helper (League of Legends client style)
+const getRoleIcon = (role: string) => {
+  const r = role.toUpperCase();
+  switch(r) {
+    case 'TOP':
+      return <svg className="w-3.5 h-3.5" viewBox="0 0 136 136" fill="currentColor"><path d="M16 16c32.06 0 64.12-.01 96.18.01-6.72 6.67-13.45 13.33-20.19 19.99H36v56c-6.66 6.73-13.33 13.46-19.99 20.18-.02-32.06 0-64.12-.01-96.18Z"/><path d="M104 44.02c5.32-5.33 10.65-10.64 15.99-15.94.02 30.64.01 61.28.01 91.92-30.64 0-61.28.01-91.93-.01 5.33-5.34 10.66-10.66 16-15.99 19.97-.01 39.95.01 59.93 0V44.02Z" opacity="0.75"/><path d="M56 56h28v28H56V56Z" opacity="0.75"/></svg>;
+    case 'JUNGLE':
+      return <svg className="w-3.5 h-3.5" viewBox="0 0 136 136" fill="currentColor"><path d="M72.13 57.86C78.7 41.1 90.04 26.94 99.94 12.1 93 29.47 84.31 46.87 84.04 65.97c-.73 4.81-2.83 9.31-4 14.03-2.08-7.57-4.91-14.9-7.91-22.14ZM36.21 12.35c13.06 20.19 26.67 40.61 33.61 63.87 4.77 15.49 5.42 32.94-1.8 47.8-5.58-6.1-11.08-12.29-16.71-18.34-4.97-4.72-10.26-9.1-15.32-13.71-1.55-11.73-2.97-23.87-8.72-34.42-2.75-5.24-6.71-9.72-11.19-13.55 9.67 4.75 19.18 10.41 26.23 18.72 4.37 4.98 7.46 10.94 9.69 17.15 1.15-10.29.58-20.79-2.05-30.81-3.31-12.68-8.99-24.55-13.74-36.71ZM105.84 53.83c4.13-4 8.96-7.19 14.04-9.84-4.4 3.88-8.4 8.32-11.14 13.55-5.75 10.56-7.18 22.71-8.74 34.45-5.32 5.35-10.68 10.65-15.98 16.01.15-4.37-.25-8.84 1.02-13.1 3.39-15.08 9.48-30.18 20.8-41.07Z"/></svg>;
+    case 'MID':
+    case 'MIDDLE':
+      return <svg className="w-3.5 h-3.5" viewBox="0 0 136 136" fill="currentColor"><path d="M16 16c22.67 0 45.33 0 67.99.01C78.62 21.34 73.28 26.69 67.88 32c-11.96 0-23.92-.01-35.88 0-.01 12 .01 24-.01 36-5.32 5.3-10.64 10.6-15.98 15.89C15.99 61.26 16 38.63 16 16zm87.95 51.9c5.32-5.37 10.69-10.68 16.04-16.02.02 22.71.01 45.41 0 68.12-22.65 0-45.31.01-67.97-.01 5.33-5.33 10.65-10.67 15.99-15.99 12-.01 23.99.01 35.99 0 .04-12.04-.05-24.07-.05-36.1z" opacity="0.75"/><path d="M100.02 16H120v19.99C92 64 64 92 35.99 120H16v-19.99C44 72 72 43.99 100.02 16z"/></svg>;
+    case 'ADC':
+    case 'BOT':
+    case 'BOTTOM':
+      return <Image src="/assets/BotLane.png" alt="Bot" width={14} height={14} className="w-3.5 h-3.5" style={{ filter: 'brightness(0) saturate(100%) invert(73%) sepia(16%) saturate(1018%) hue-rotate(8deg) brightness(91%) contrast(85%)' }} />;
+    case 'SUPPORT':
+    case 'SUP':
+      return <svg className="w-3.5 h-3.5" viewBox="0 0 136 136" fill="currentColor"><path d="M52.21 12.03c10.33-.1 20.66.06 30.99-.08 1.71 2.62 3.2 5.37 4.79 8.07C81.32 28 74.68 36.01 68 43.98 61.32 36 54.66 28 48.01 19.99c1.4-2.65 2.82-5.29 4.2-7.96ZM0 36.3c14.64-.68 29.33-.11 43.99-.3C48 40 52 44 56 48.01c-2.67 9.32-5.32 18.66-8.01 27.98-6.66-2.65-13.32-5.32-19.98-7.99 3.97-5.35 8.02-10.63 11.96-15.99-5.01-.08-10.15.4-15-1.14C15.58 48.12 7.75 42.05 0 36.34v-.04ZM92.02 36c14.66.05 29.32-.09 43.98.07v.03c-7.3 5.9-15.1 11.53-24.1 14.5-5.11 1.85-10.59 1.34-15.91 1.41 4.01 5.32 8 10.65 11.99 15.98-6.64 2.7-13.31 5.34-19.97 8-2.69-9.32-5.34-18.65-8.01-27.98C84.01 44 88 39.99 92.02 36ZM64.01 52.11c1.36 1.26 2.7 2.55 3.99 3.89 1.32-1.33 2.65-2.65 3.99-3.97 4.04 19.97 7.97 39.96 12.02 59.92-5.31 4.05-10.66 8.07-16.04 12.03-5.32-4.01-10.67-7.97-15.98-12.01 4.04-19.94 7.96-39.92 12.02-59.86Z"/></svg>;
+    default:
+      return null;
+  }
+};
+
+// Helper to get champion icon from Data Dragon CDN
+const getChampionIconUrl = (championName: string): string => {
+  const version = '14.23.1';
+  // Special cases for Data Dragon champion names
+  const specialCases: { [key: string]: string } = {
+    'Wukong': 'MonkeyKing',
+    "Kai'Sa": 'Kaisa',
+    'Kha\'Zix': 'Khazix',
+    'Cho\'Gath': 'Chogath',
+    'Vel\'Koz': 'Velkoz',
+    'LeBlanc': 'Leblanc',
+    'Rek\'Sai': 'RekSai',
+    'Bel\'Veth': 'Belveth',
+    'K\'Sante': 'KSante',
+    'Renata Glasc': 'Renata',
+    'Nunu & Willump': 'Nunu',
+  };
+  const normalizedName = specialCases[championName] || championName;
+  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${normalizedName}.png`;
+};
+
+const getRankIcon = (rank: string) => {
+  const rankLower = rank.toLowerCase();
+  const iconUrl = `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-shared-components/global/default/${rankLower}.png`;
+  return <img src={iconUrl} alt={rank} className="inline-block w-4 h-4" />;
+};
+
+const getRankBadge = (rank: string, division?: string, lp?: number, rankColor?: (r: string) => string, t: (key: any) => string = (k) => k) => {
+  const getColor = rankColor || ((r: string) => {
+    // ... code omitted for brevity but logic should remain same ...
+    const colors: Record<string,string> = {
+      IRON: '#4A4A4A',
+      BRONZE: '#CD7F32',
+      SILVER: '#C0C0C0',
+      GOLD: '#FFD700',
+      PLATINUM: '#00CED1',
+      EMERALD: '#50C878',
+      DIAMOND: '#B9F2FF',
+      MASTER: '#9933FF',
+      GRANDMASTER: '#FF0000',
+      CHALLENGER: '#F4C430',
+      UNRANKED: '#6B7280',
+    };
+    return colors[r] || colors.UNRANKED;
+  });
+  // Clean rank just in case it contains division logic (it shouldn't if data is clean, but let's be safe)
+  const cleanRank = rank.split(' ')[0]; 
+  const color = getColor(cleanRank);
+  const translatedRank = t(`common.rank.${cleanRank}`) || cleanRank;
+  const displayText = division ? `${translatedRank} ${division}${lp !== undefined && lp > 0 ? ` ${lp}LP` : ''}` : translatedRank;
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold border" style={{ background: `${color}15`, color: color, borderColor: color }}>
+      {getRankIcon(cleanRank)}
+      {displayText}
+    </span>
+  );
+};
+
+const getWinrateColor = (winrate: number) => {
+  if (winrate <= 40) return '#ef4444';
+  if (winrate <= 45) return '#fb923c';
+  if (winrate <= 50) return '#9ca3af';
+  if (winrate <= 55) return '#3b82f6';
+  if (winrate <= 65) return '#22c55e';
+  if (winrate <= 80) return '#D4AF37';
+  return '#a855f7';
+};
+
+const getWinrateBadge = (winrate: number, t: (key: any) => string = (k) => k) => {
+  const color = getWinrateColor(winrate);
+  const suffix = t('profile.winrateSuffix');
+  // Helper to append suffix
+  const text = (val: number) => {
+      // Check if translation exists and isn't just the key
+      const safeSuffix = suffix === 'profile.winrateSuffix' ? '% WR' : suffix;
+      return `${val.toFixed(1)}${safeSuffix}`;
+  };
+  
+  if (winrate <= 40) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold border-2" 
+        style={{ 
+          background: `linear-gradient(135deg, ${color}30, ${color}20)`, 
+          color: color, 
+          borderColor: color,
+          boxShadow: `0 0 10px ${color}35, inset 0 1px 0 ${color}15`,
+          animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+        }}>
+        ◆ {text(winrate)}
+      </span>
+    );
+  } else if (winrate <= 45) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold border-2" 
+        style={{ 
+          background: `linear-gradient(135deg, ${color}30, ${color}20)`, 
+          color: color, 
+          borderColor: color,
+          boxShadow: `0 0 8px ${color}30, inset 0 1px 0 ${color}15`
+        }}>
+        ◆ {text(winrate)}
+      </span>
+    );
+  } else if (winrate <= 50) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold border-2" 
+        style={{ 
+          background: `linear-gradient(135deg, ${color}25, ${color}15)`, 
+          color: color, 
+          borderColor: color,
+          boxShadow: `0 0 6px ${color}20`
+        }}>
+        ◆ {text(winrate)}
+      </span>
+    );
+  } else if (winrate <= 55) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold border-2" 
+        style={{ 
+          background: `linear-gradient(135deg, ${color}25, ${color}15)`, 
+          color: color, 
+          borderColor: color,
+          boxShadow: `0 0 6px ${color}20`
+        }}>
+        ◆ {text(winrate)}
+      </span>
+    );
+  } else if (winrate <= 65) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold border-2" 
+        style={{ 
+          background: `linear-gradient(135deg, ${color}35, ${color}25)`, 
+          color: color, 
+          borderColor: color,
+          boxShadow: `0 2px 8px ${color}35, inset 0 1px 0 ${color}20`
+        }}>
+        ◇ {text(winrate)}
+      </span>
+    );
+  } else if (winrate <= 80) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold border-2" 
+        style={{ 
+          background: `linear-gradient(135deg, ${color}40, ${color}25, ${color}30)`, 
+          color: color, 
+          borderColor: color,
+          boxShadow: `0 3px 12px ${color}45, inset 0 1px 0 ${color}35`,
+          animation: 'glow 2s ease-in-out infinite'
+        }}>
+        ◇ {text(winrate)}
+      </span>
+    );
+  } else {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold border-2" 
+        style={{ 
+          background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(236, 72, 153, 0.3), rgba(245, 158, 11, 0.3), rgba(16, 185, 129, 0.3), rgba(59, 130, 246, 0.3))', 
+          backgroundSize: '400% 400%',
+          color: '#a855f7', 
+          borderColor: '#a855f7',
+          borderWidth: '2px',
+          boxShadow: '0 4px 15px rgba(168, 85, 247, 0.4), inset 0 1px 0 rgba(168, 85, 247, 0.2), 0 0 20px rgba(168, 85, 247, 0.25)',
+          animation: 'rainbow 4s ease infinite, glow 2s ease-in-out infinite'
+        }}>
+        ◈ {text(winrate)}
+      </span>
+    );
+  }
+};
+
+const getLanguageBadge = (language: string, t: (key: any) => string = (k) => k) => {
+  const langStyles: Record<string, { background: string; color: string; border: string; textShadow?: string }> = {
+    'English': { 
+      background: 'linear-gradient(135deg, #012169 0%, #012169 45%, #C8102E 45%, #C8102E 55%, #012169 55%, #012169 100%)', 
+      color: '#FFFFFF', 
+      border: '#C8102E',
+      textShadow: '0 1px 2px rgba(0,0,0,0.7), 0 0 4px rgba(200,16,46,0.5)'
+    },
+    'Spanish': { 
+      background: 'linear-gradient(to bottom, #C8102E 0%, #C8102E 33%, #FFC400 33%, #FFC400 66%, #C8102E 66%, #C8102E 100%)', 
+      color: '#000000', 
+      border: '#C8102E',
+      textShadow: '0 0 3px #FFFFFF, 0 0 3px #FFFFFF'
+    },
+    'French': { 
+      background: 'linear-gradient(to right, #002395 0%, #002395 33%, #FFFFFF 33%, #FFFFFF 66%, #ED2939 66%, #ED2939 100%)', 
+      color: '#000000', 
+      border: '#002395',
+      textShadow: '0 0 3px #FFFFFF, 0 0 3px #FFFFFF, 0 1px 2px rgba(0,0,0,0.3)'
+    },
+    'German': { 
+      background: 'linear-gradient(to bottom, #000000 0%, #000000 33%, #DD0000 33%, #DD0000 66%, #FFCE00 66%, #FFCE00 100%)', 
+      color: '#FFFFFF', 
+      border: '#000000',
+      textShadow: '0 0 3px #000000, 0 1px 2px rgba(0,0,0,0.5)'
+    },
+    'Italian': { 
+      background: 'linear-gradient(to right, #009246 0%, #009246 33%, #FFFFFF 33%, #FFFFFF 66%, #CE2B37 66%, #CE2B37 100%)', 
+      color: '#000000', 
+      border: '#009246',
+      textShadow: '0 0 3px #FFFFFF, 0 0 3px #FFFFFF, 0 1px 2px rgba(0,0,0,0.3)'
+    },
+    'Portuguese': { 
+      background: 'linear-gradient(to right, #006600 0%, #006600 40%, #FF0000 40%, #FF0000 100%)', 
+      color: '#FFFFFF', 
+      border: '#006600',
+      textShadow: '0 1px 3px rgba(0,0,0,0.6)'
+    },
+    'Polish': { 
+      background: 'linear-gradient(to bottom, #FFFFFF 0%, #FFFFFF 50%, #DC143C 50%, #DC143C 100%)', 
+      color: '#000000', 
+      border: '#DC143C',
+      textShadow: '0 0 3px #FFFFFF, 0 1px 2px rgba(220,20,60,0.5)'
+    },
+    'Russian': { 
+      background: 'linear-gradient(to bottom, #FFFFFF 0%, #FFFFFF 33%, #0039A6 33%, #0039A6 66%, #D52B1E 66%, #D52B1E 100%)', 
+      color: '#000000', 
+      border: '#0039A6',
+      textShadow: '0 0 3px #FFFFFF, 0 0 3px #FFFFFF, 0 1px 2px rgba(0,0,0,0.3)'
+    },
+    'Turkish': { 
+      background: '#E30A17', 
+      color: '#FFFFFF', 
+      border: '#E30A17',
+      textShadow: '0 1px 2px rgba(0,0,0,0.5)'
+    },
+    'Korean': { 
+      background: '#FFFFFF', 
+      color: '#003478', 
+      border: '#CD121A',
+      textShadow: '0 1px 1px rgba(0,0,0,0.1)'
+    },
+    'Japanese': { 
+      background: '#FFFFFF', 
+      color: '#BC002D', 
+      border: '#BC002D',
+      textShadow: '0 1px 1px rgba(0,0,0,0.1)'
+    },
+    'Chinese': { 
+      background: '#DE2910', 
+      color: '#FFDE00', 
+      border: '#DE2910',
+      textShadow: '0 1px 2px rgba(0,0,0,0.5)'
+    },
+  };
+
+  const style = langStyles[language] || { background: '#3b82f6', color: '#FFFFFF', border: '#3b82f6', textShadow: '0 1px 2px rgba(0,0,0,0.3)' };
+  
+  const transKey = `common.language.${language.toLowerCase()}` as any;
+  const translated = t(transKey);
+  // Fallback to original language if translation is just the key
+  const displayText = translated === transKey ? language : translated;
+
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold border" 
+      style={{ 
+        background: style.background, 
+        color: style.color, 
+        borderColor: style.border,
+        textShadow: style.textShadow
+      }}>
+      {displayText}
+    </span>
+  );
+};
 
 type RiotAccount = {
   id: string;
@@ -51,6 +349,7 @@ type UserProfile = {
   playstyles: string[];
   primaryRole: string | null;
   preferredRole: string | null; // Auto-detected from match history
+  secondaryRole: string | null; // Second most played role
   region: string | null;
   vcPreference: string | null;
   languages: string[];
@@ -206,6 +505,8 @@ export default function ProfilePage() {
   const routeUsername = typeof router.query?.username === 'string' ? router.query.username : null;
   const isViewingOther = !!routeUsername;
   const rankColor = useRankColor();
+  const { t } = useLanguage();
+  const { openConversation } = useChat();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -225,28 +526,39 @@ export default function ProfilePage() {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [currentUserBadges, setCurrentUserBadges] = useState<string[]>([]);
+  const [currentUserBadges, setCurrentUserBadges] = useState<{ key: string; name: string }[]>([]);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [isCheckingBlock, setIsCheckingBlock] = useState(false);
   const [toast, setToast] = useState<{ open: boolean; message: string; type?: 'success'|'error'|'info' }>({ open: false, message: '', type: 'info' });
   const [confirmState, setConfirmState] = useState<{ open: boolean; feedbackId: string | null }>({ open: false, feedbackId: null });
   const { showToast, confirm } = useGlobalUI();
-  const isAdmin = useMemo(() => currentUserBadges.some(b => b.toLowerCase() === 'admin'), [currentUserBadges]);
+  const isAdmin = useMemo(() => currentUserBadges.some(b => b.key === 'admin'), [currentUserBadges]);
 
-  // Load current user ID and badges from localStorage/API
+  // Load current user ID and badges from auth context
   useEffect(() => {
-    const userId = localStorage.getItem('lfd_userId');
-    setCurrentUserId(userId);
-    
-    // Fetch current user's badges to check admin status
-    if (userId) {
-      fetch(`${API_URL}/api/user/profile?userId=${encodeURIComponent(userId)}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.badges) {
-            setCurrentUserBadges(data.badges);
+    const loadCurrentUser = async () => {
+      try {
+        const token = getAuthToken();
+        const uid = token ? getUserIdFromToken(token) : null;
+        setCurrentUserId(uid);
+        
+        // Fetch current user's badges to check admin status
+        if (uid) {
+          const res = await fetch(`${API_URL}/api/user/profile`, {
+            headers: getAuthHeader()
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.badges) {
+              setCurrentUserBadges(data.badges);
+            }
           }
-        })
-        .catch(() => {});
-    }
+        }
+      } catch (err) {
+        console.error('Failed to load current user:', err);
+      }
+    };
+    loadCurrentUser();
   }, []);
 
   const normalize = (s: string) => s.trim().toLowerCase();
@@ -286,35 +598,36 @@ export default function ProfilePage() {
     async function fetchProfile() {
       try {
         setLoading(true);
-        let userId: string | null = null;
-        try { userId = localStorage.getItem('lfd_userId'); } catch {}
         
         // Step 1: Fetch initial profile to get userId
         let profileUrl: string;
+        const fetchOptions: RequestInit = {};
+        
         if (isViewingOther && routeUsername) {
           // When viewing others, don't include hidden accounts
           profileUrl = `${API_URL}/api/user/profile?username=${encodeURIComponent(routeUsername)}`;
         } else {
-          // When viewing own profile, include hidden accounts
-          profileUrl = userId 
-            ? `${API_URL}/api/user/profile?userId=${encodeURIComponent(userId)}&includeHidden=true` 
-            : `${API_URL}/api/user/profile?includeHidden=true`;
+          // When viewing own profile, require auth token
+          const token = getAuthToken();
+          if (!token) {
+            throw new Error('AUTH_ERROR');
+          }
+          // When viewing own profile, include hidden accounts - use auth header
+          profileUrl = `${API_URL}/api/user/profile?includeHidden=true`;
+          fetchOptions.headers = getAuthHeader();
         }
         
-        const initialResponse = await fetch(profileUrl);
-        if (!initialResponse.ok) throw new Error('Failed to fetch profile');
-        const initialData = await initialResponse.json();
-        
-        // Step 2: Refresh Riot stats using the fetched userId
-        if (initialData.id) {
-          await fetch(`${API_URL}/api/user/refresh-riot-stats?userId=${encodeURIComponent(initialData.id)}`, { method: 'POST' }).catch(() => {});
+        const initialResponse = await fetch(profileUrl, fetchOptions);
+        if (!initialResponse.ok) {
+          // Check for auth errors
+          if (initialResponse.status === 401 || initialResponse.status === 403) {
+            throw new Error('AUTH_ERROR');
+          }
+          throw new Error('Failed to fetch profile');
         }
+        const data = await initialResponse.json();
         
-        // Step 3: Fetch profile again to get updated stats
-        const finalResponse = await fetch(profileUrl);
-        if (!finalResponse.ok) throw new Error('Failed to fetch profile');
-        const data = await finalResponse.json();
-        
+        // PERFORMANCE FIX: Render UI immediately with cached data
         setUser(data);
         setSelectedPlaystyles(data.playstyles || []);
         setAnonymousMode(data.anonymous || false);
@@ -332,11 +645,26 @@ export default function ProfilePage() {
               }
             : { S: [], A: [], B: [], C: [] }
         );
-        const mainAccount = data.riotAccounts.find((acc: RiotAccount) => acc.isMain);
-        setPendingMainAccountId(mainAccount?.id || data.riotAccounts[0]?.id || null);
+        const initialMainAccount = data.riotAccounts.find((acc: RiotAccount) => acc.isMain);
+        setPendingMainAccountId(initialMainAccount?.id || data.riotAccounts[0]?.id || null);
+        setLoading(false);
+        
+        // Step 2: Refresh Riot stats in background (non-blocking)
+        if (data.id && !isViewingOther) {
+          fetch(`${API_URL}/api/user/refresh-riot-stats`, { method: 'POST', headers: getAuthHeader() })
+            .then(() => fetch(profileUrl, fetchOptions))
+            .then(res => res.ok ? res.json() : null)
+            .then(refreshedData => {
+              if (refreshedData) {
+                setUser(refreshedData);
+                const updatedMainAccount = refreshedData.riotAccounts.find((acc: RiotAccount) => acc.isMain);
+                setPendingMainAccountId(updatedMainAccount?.id || refreshedData.riotAccounts[0]?.id || null);
+              }
+            })
+            .catch(() => {}); // Silently fail background refresh
+        }
       } catch (err: any) {
         setError(err.message || 'Failed to load profile');
-      } finally {
         setLoading(false);
       }
     }
@@ -354,6 +682,29 @@ export default function ProfilePage() {
       window.location.reload();
     }
   }, []);
+
+  // Check if viewing user is blocked
+  useEffect(() => {
+    const checkBlockStatus = async () => {
+      if (!isViewingOther || !currentUserId || !user) return;
+      
+      setIsCheckingBlock(true);
+      try {
+        const res = await fetch(`${API_URL}/api/user/block/status/${user.id}`, {
+          headers: getAuthHeader(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setIsBlocked(data.isBlocked);
+        }
+      } catch (err) {
+        console.error('Failed to check block status:', err);
+      } finally {
+        setIsCheckingBlock(false);
+      }
+    };
+    checkBlockStatus();
+  }, [isViewingOther, currentUserId, user]);
 
   // Fetch full champions list from Data Dragon
   useEffect(() => {
@@ -381,7 +732,7 @@ export default function ProfilePage() {
     try {
       const response = await fetch(`${API_URL}/api/user/playstyles`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({ playstyles: selectedPlaystyles }),
       });
       if (!response.ok) throw new Error('Failed to update playstyles');
@@ -401,15 +752,18 @@ export default function ProfilePage() {
     setIsSaving(true);
     
     try {
-      let userId: string | null = null;
-      try { userId = localStorage.getItem('lfd_userId'); } catch {}
+      const token = getAuthToken();
+      const userId = token ? getUserIdFromToken(token) : null;
 
       // Save username if changed (only when viewing own profile)
       try {
         if (!isViewingOther && editedUsername && editedUsername !== user?.username) {
-          const usernameRes = await fetch(`${API_URL}/api/user/username${userId ? `?userId=${encodeURIComponent(userId)}` : ''}`, {
+          const usernameRes = await fetch(`${API_URL}/api/user/username`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              ...getAuthHeader(),
+            },
             body: JSON.stringify({ username: editedUsername }),
           });
           if (!usernameRes.ok) {
@@ -418,12 +772,12 @@ export default function ProfilePage() {
           }
           const data = await usernameRes.json();
           if (data.bypassedCooldown) {
-            showToast(`Username updated! ✨ ${data.bypassedCooldown}`, 'success');
+            showToast(`${t('profile.save.usernameSuccess')} ${data.bypassedCooldown}`, 'success');
           }
         }
       } catch (err: any) {
         console.error('Username save error:', err);
-        showToast(`Failed to save username: ${err.message}`, 'error');
+        showToast(t('profile.save.usernameError').replace('{error}', err.message), 'error');
         setIsSaving(false);
         return;
       }
@@ -433,9 +787,9 @@ export default function ProfilePage() {
         const sortedEditedLangs = [...editedLanguages].sort();
         const sortedUserLangs = [...(user?.languages || [])].sort();
         if (!isViewingOther && JSON.stringify(sortedEditedLangs) !== JSON.stringify(sortedUserLangs)) {
-          const langRes = await fetch(`${API_URL}/api/user/languages${userId ? `?userId=${encodeURIComponent(userId)}` : ''}`, {
+          const langRes = await fetch(`${API_URL}/api/user/languages`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
             body: JSON.stringify({ languages: editedLanguages }),
           });
           if (!langRes.ok) {
@@ -445,7 +799,7 @@ export default function ProfilePage() {
         }
       } catch (err: any) {
         console.error('Languages save error:', err);
-        showToast(`Failed to save languages: ${err.message}`, 'error');
+        showToast(t('profile.save.languagesError').replace('{error}', err.message), 'error');
         setIsSaving(false);
         return;
       }
@@ -453,20 +807,20 @@ export default function ProfilePage() {
       // Save playstyles (only when viewing own profile)
       try {
         if (selectedPlaystyles.length > 2) {
-          showToast('You can only select up to 2 playstyles', 'error');
+          showToast(t('profile.save.maxPlaystyles'), 'error');
           setIsSaving(false);
           return;
         }
         if (!isViewingOther) {
           await fetch(`${API_URL}/api/user/playstyles`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
             body: JSON.stringify({ playstyles: selectedPlaystyles }),
           });
         }
       } catch (err: any) {
         console.error('Playstyles save error:', err);
-        showToast(`Failed to save playstyles: ${err.message}`,'error');
+        showToast(t('profile.save.playstylesError').replace('{error}', err.message),'error');
         setIsSaving(false);
         return;
       }
@@ -475,7 +829,7 @@ export default function ProfilePage() {
       const allTierChamps = [...championTierlist.S, ...championTierlist.A, ...championTierlist.B, ...championTierlist.C];
       const invalid = allTierChamps.filter((c) => !isValidChampion(c));
       if (invalid.length) {
-        showToast(`Invalid champion(s): ${invalid.join(', ')}`, 'error');
+        showToast(t('profile.champion.invalid').replace('{champs}', invalid.join(', ')), 'error');
         return;
       }
       // Ensure uniqueness across tiers by deduping when saving (UI enforces, but double-check)
@@ -491,12 +845,10 @@ export default function ProfilePage() {
       });
       setChampionTierlist(uniqueTierlist);
 
-      // Pass userId in query to ensure correct user is updated
-      let uid: string | null = null;
-      try { uid = localStorage.getItem('lfd_userId'); } catch {}
-      const cpRes = !isViewingOther ? await fetch(`${API_URL}/api/user/champion-pool${uid ? `?userId=${encodeURIComponent(uid)}` : ''}`, {
+      // Update champion pool using auth headers
+      const cpRes = !isViewingOther ? await fetch(`${API_URL}/api/user/champion-pool`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({
           mode: championPoolMode,
           championList: [],
@@ -524,14 +876,19 @@ export default function ProfilePage() {
       }
 
       // Refresh Riot stats, then profile data
-      // Attempt to refresh Riot stats if we have a userId
-      if (!isViewingOther && userId) {
-        await fetch(`${API_URL}/api/user/refresh-riot-stats?userId=${encodeURIComponent(userId)}`, { method: 'POST' }).catch(() => {});
+      // Attempt to refresh Riot stats if we have auth
+      if (!isViewingOther) {
+        await fetch(`${API_URL}/api/user/refresh-riot-stats`, { 
+          method: 'POST',
+          headers: getAuthHeader() 
+        }).catch(err => console.error('Failed to refresh stats:', err));
       }
       const url = isViewingOther
         ? `${API_URL}/api/user/profile?username=${encodeURIComponent(routeUsername as string)}`
-        : (userId ? `${API_URL}/api/user/profile?userId=${encodeURIComponent(userId)}` : `${API_URL}/api/user/profile`);
-      const profileResponse = await fetch(url);
+        : `${API_URL}/api/user/profile?includeHidden=true`;
+      const profileResponse = await fetch(url, {
+        headers: isViewingOther ? {} : getAuthHeader()
+      });
       if (profileResponse.ok) {
         const data = await profileResponse.json();
         setUser(data);
@@ -569,7 +926,7 @@ export default function ProfilePage() {
     try {
       const response = await fetch(`${API_URL}/api/user/anonymous`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({ anonymous: newMode }),
       });
       if (!response.ok) throw new Error('Failed to update anonymous mode');
@@ -628,10 +985,10 @@ export default function ProfilePage() {
       }
       
       // Refresh profile after deletion
-      let userId: string | null = null;
-      try { userId = localStorage.getItem('lfd_userId'); } catch {}
-      const url = userId ? `${API_URL}/api/user/profile?userId=${encodeURIComponent(userId)}` : `${API_URL}/api/user/profile`;
-      const profileResponse = await fetch(url);
+      const url = `${API_URL}/api/user/profile?includeHidden=true`;
+      const profileResponse = await fetch(url, {
+        headers: getAuthHeader()
+      });
       if (profileResponse.ok) {
         const data = await profileResponse.json();
         setUser(data);
@@ -646,14 +1003,16 @@ export default function ProfilePage() {
 
   // Feedback submission handler
   const handleSubmitFeedback = async (data: { stars: number; moons: number; comment: string }) => {
-    if (!user || !currentUserId) return;
+    if (!user) return;
     
     try {
       const res = await fetch(`${API_URL}/api/feedback`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
         body: JSON.stringify({
-          raterId: currentUserId,
           receiverId: user.id,
           stars: data.stars,
           moons: data.moons,
@@ -676,14 +1035,16 @@ export default function ProfilePage() {
   };
 
   const handleSubmitReport = async (reason: string) => {
-    if (!user || !currentUserId) return;
+    if (!user) return;
     
     try {
       const res = await fetch(`${API_URL}/api/report`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
         body: JSON.stringify({
-          reporterId: currentUserId,
           reportedUserId: user.id,
           reason,
         }),
@@ -701,15 +1062,56 @@ export default function ProfilePage() {
     }
   };
 
-  const handleDeleteFeedback = async (feedbackId: string) => {
+  const handleToggleBlock = async () => {
     if (!user || !currentUserId) return;
+    
+    const action = isBlocked ? 'unblock' : 'block';
+    const confirmMessage = isBlocked 
+      ? `Are you sure you want to unblock ${user.username}? You will be able to see their posts again.`
+      : `Are you sure you want to block ${user.username}? You will no longer see their posts and they won't see yours.`;
+    
+    const confirmed = await confirm({
+      title: isBlocked ? 'Unblock User' : 'Block User',
+      message: confirmMessage,
+      confirmText: isBlocked ? 'Unblock' : 'Block',
+    });
+    
+    if (!confirmed) return;
+    
+    try {
+      const method = isBlocked ? 'DELETE' : 'POST';
+      const res = await fetch(`${API_URL}/api/user/block`, {
+        method,
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({ targetUserId: user.id }),
+      });
+      
+      if (res.ok) {
+        setIsBlocked(!isBlocked);
+        showToast(
+          isBlocked ? `${user.username} has been unblocked` : `${user.username} has been blocked`,
+          'success'
+        );
+      } else {
+        const errorData = await res.json();
+        showToast(`Error: ${errorData.error || `Failed to ${action} user`}`, 'error');
+      }
+    } catch (err) {
+      showToast('Network error. Please try again.', 'error');
+    }
+  };
+
+  const handleDeleteFeedback = async (feedbackId: string) => {
+    if (!user) return;
     
     
     try {
       const res = await fetch(`${API_URL}/api/feedback/${feedbackId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUserId })
+        headers: getAuthHeader(),
       });
       
       if (res.ok) {
@@ -730,13 +1132,30 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <LoadingSpinner text="Loading profile..." />
+      <LoadingSpinner text={t('profile.loading')} />
     );
   }
 
   if (error || !user) {
+    // Check if error is auth-related
+    const isAuthError = error === 'AUTH_ERROR' || error?.includes('401') || error?.includes('403');
+    
+    if (isAuthError || (!user && !loading && !error)) {
+      return (
+        <div className="min-h-screen" style={{ background: 'var(--color-bg-primary)' }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
+            <NoAccess 
+              action="view"
+              onClose={() => router.push('/')}
+              closeIcon="home"
+            />
+          </div>
+        </div>
+      );
+    }
+    
     return (
-      <div className="min-h-screen" style={{ background: 'var(--bg-main)' }}>
+      <div className="min-h-screen" style={{ background: 'var(--color-bg-primary)' }}>
         <div className="flex items-center justify-center h-full">
           <div style={{ color: 'var(--text-error)', fontSize: '1.25rem' }}>{error || 'Failed to load profile'}</div>
         </div>
@@ -746,12 +1165,66 @@ export default function ProfilePage() {
 
   // Get main Riot account for display
   const mainAccount = user.riotAccounts.find(acc => acc.isMain) || user.riotAccounts[0];
+  
   return (
-    <div className="min-h-screen py-8 px-4" style={{ background: 'var(--bg-main)' }}>
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen py-8 px-4" style={{ background: 'var(--color-bg-primary)' }}>
+      <style jsx global>{`
+        @keyframes rainbow {
+          0% { background-position: 0% 50%; }
+          25% { background-position: 50% 50%; }
+          50% { background-position: 100% 50%; }
+          75% { background-position: 50% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes glow {
+          0%, 100% { 
+            box-shadow: 0 3px 10px currentColor, inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 15px currentColor;
+          }
+          50% { 
+            box-shadow: 0 3px 15px currentColor, inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 30px currentColor;
+          }
+        }
+      `}</style>
+        <div className="max-w-5xl mx-auto space-y-6">
         
-        {/* Edit Mode Toggle */}
+        {/* Edit Mode Toggle + Refresh Stats */}
         <div className="flex justify-end gap-3">
+          {!isViewingOther && (
+            <button
+              onClick={async () => {
+                try {
+                  await fetch(`${API_URL}/api/user/refresh-riot-stats`, {
+                    method: 'POST',
+                    headers: getAuthHeader()
+                  });
+                  showToast('League statistics refreshed!', 'success');
+                  // Reload profile data
+                  window.location.reload();
+                } catch (error) {
+                  console.error('Failed to refresh stats:', error);
+                  showToast('Failed to refresh stats', 'error');
+                }
+              }}
+              style={{
+                padding: '0.5rem 1.5rem',
+                borderRadius: '0.5rem',
+                fontWeight: 600,
+                background: 'var(--btn-gradient)',
+                color: 'var(--btn-gradient-text)',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+              }}
+              title="Refresh your League of Legends ranked statistics from Riot API"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {t('profile.refreshStats')}
+            </button>
+          )}
           {!isViewingOther && isEditMode && (
             <button
               onClick={handleSaveAllChanges}
@@ -766,7 +1239,7 @@ export default function ProfilePage() {
                 transition: 'all 0.2s',
               }}
             >
-              {isSaving ? '⏳ Saving...' : '💾 Save Changes'}
+              {isSaving ? t('profile.saving') : t('profile.saveChanges')}
             </button>
           )}
           {!isViewingOther && (
@@ -790,7 +1263,7 @@ export default function ProfilePage() {
               transition: 'all 0.2s',
             }}
           >
-            {isEditMode ? '✕ Cancel' : '✏️ Edit Profile'}
+            {isEditMode ? `✕ ${t('common.cancel')}` : `✏️ ${t('profile.editProfile')}`}
           </button>
           )}
         </div>
@@ -832,7 +1305,7 @@ export default function ProfilePage() {
                       background: 'var(--bg-input)',
                       borderColor: 'var(--accent-primary)',
                     }}
-                    placeholder="Username"
+                    placeholder={t('profile.usernamePlaceholder')}
                   />
                 ) : (
                   <h1 className="text-3xl font-bold" style={{ color: 'var(--accent-primary)' }}>{user.username}</h1>
@@ -849,57 +1322,11 @@ export default function ProfilePage() {
                   const best = getBestAccount(user.riotAccounts);
                   if (!best) return null;
                   const rankKey = best.rank || 'UNRANKED';
-                  const displayRank = best.division ? `${rankKey} ${best.division}` : rankKey;
-                  const color = rankColor(rankKey);
                   return (
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Best Rank:</span>
-                      <span
-                        className="text-xs px-2 py-1 rounded font-bold"
-                        style={{
-                          backgroundColor: `${color}20`,
-                          color,
-                          border: `1px solid ${color}`,
-                        }}
-                      >
-                        {displayRank}
-                      </span>
-                      {best.winrate !== null && best.winrate !== undefined ? (
-                        <span
-                          className="text-xs px-2 py-1 rounded font-bold"
-                          style={{
-                            backgroundColor: `${
-                              best.winrate <= 40 ? '#ef4444' :
-                              best.winrate < 45 ? '#f97316' :
-                              best.winrate < 50 ? '#eab308' :
-                              best.winrate < 55 ? '#3b82f6' :
-                              best.winrate < 65 ? '#22c55e' :
-                              best.winrate < 80 ? '#C8AA6E' :
-                              '#a855f7'
-                            }20`,
-                            color: best.winrate <= 40 ? '#ef4444' :
-                              best.winrate < 45 ? '#f97316' :
-                              best.winrate < 50 ? '#eab308' :
-                              best.winrate < 55 ? '#3b82f6' :
-                              best.winrate < 65 ? '#22c55e' :
-                              best.winrate < 80 ? '#C8AA6E' :
-                              '#a855f7',
-                            border: `1px solid ${
-                              best.winrate <= 40 ? '#ef4444' :
-                              best.winrate < 45 ? '#f97316' :
-                              best.winrate < 50 ? '#eab308' :
-                              best.winrate < 55 ? '#3b82f6' :
-                              best.winrate < 65 ? '#22c55e' :
-                              best.winrate < 80 ? '#C8AA6E' :
-                              '#a855f7'
-                            }`
-                          }}
-                        >
-                          {best.winrate.toFixed(1)}% WR
-                        </span>
-                      ) : (
-                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>N/A WR</span>
-                      )}
+                      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('profile.bestRank')}</span>
+                      {getRankBadge(rankKey, best.division || undefined, undefined, rankColor, t)}
+                      {best.winrate !== null && best.winrate !== undefined && getWinrateBadge(best.winrate, t)}
                     </div>
                   );
                 })()
@@ -911,7 +1338,8 @@ export default function ProfilePage() {
               {/* Badges - refined hover visuals with animated tooltip */}
               {user.badges && user.badges.length > 0 && (
                 <div className="mt-3 flex items-center gap-2 flex-wrap">
-                  {user.badges.map((badgeName) => {
+                  {user.badges.map((badge) => {
+                    const badgeName = typeof badge === 'string' ? badge : badge.name;
                     const config = BADGE_CONFIG[badgeName] || {
                       icon: '🏆',
                       bgColor: 'var(--badge-bg)',
@@ -919,9 +1347,14 @@ export default function ProfilePage() {
                       textColor: 'var(--badge-text)',
                       hoverBg: 'var(--badge-hover-bg)',
                     };
+                    const badgeKey = badgeName.toLowerCase().replace(/\s+/g, '');
+                    const tKey = `profile.badge.${badgeKey}.desc` as any;
+                    const translatedDesc = t(tKey);
+                    const description = translatedDesc === tKey ? (config.description || badgeName) : translatedDesc;
+
                     return (
                       <div
-                        key={badgeName}
+                        key={typeof badge === 'string' ? badge : badge.key}
                         className="group relative inline-flex items-center justify-center w-9 h-9 md:w-10 md:h-10 rounded-xl border-2 cursor-help select-none transform transition-transform duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.05]"
                         style={{
                           background: config.bgColor,
@@ -950,8 +1383,8 @@ export default function ProfilePage() {
                             <span className="text-sm" style={{ color: config.textColor }}>{config.icon}</span>
                             <p className="text-xs font-semibold" style={{ color: config.textColor }}>{badgeName}</p>
                           </div>
-                          {config.description && (
-                            <p className="text-[10px] mt-1 leading-snug" style={{ color: 'var(--text-secondary)' }}>{config.description}</p>
+                          {description && (
+                            <p className="text-[10px] mt-1 leading-snug" style={{ color: 'var(--text-secondary)' }}>{description}</p>
                           )}
                           {/* Tooltip arrow */}
                           <div
@@ -972,39 +1405,54 @@ export default function ProfilePage() {
                     <svg className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                     </svg>
-                    <span className="text-xs font-semibold" style={{ color: 'var(--accent-primary)' }}>Recent Activity</span>
+                    <span className="text-xs font-semibold" style={{ color: 'var(--accent-primary)' }}>{t('profile.activity.title')}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-lg p-2.5 border" style={{ background: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
-                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-secondary)' }}>Last 24 Hours</p>
+                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.24h')}</p>
                       <div className="flex items-baseline gap-1">
                         <span className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{user.gamesPerDay || 0}</span>
-                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>games</span>
+                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.games')}</span>
                       </div>
                     </div>
                     <div className="rounded-lg p-2.5 border" style={{ background: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
-                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-secondary)' }}>Last 7 Days</p>
+                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.7d')}</p>
                       <div className="flex items-baseline gap-1">
                         <span className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{user.gamesPerWeek || 0}</span>
-                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>games</span>
+                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.games')}</span>
                       </div>
                     </div>
                   </div>
                   {user.preferredRole && (
                     <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
-                      <div className="flex items-center justify-center gap-2">
-                        <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Most Played Role:</span>
-                        <span className="text-sm font-bold px-2 py-1 rounded" style={{ 
-                          background: 'var(--accent-primary-bg)', 
-                          color: 'var(--accent-primary)',
-                          border: '1px solid var(--accent-primary)'
-                        }}>
-                          {user.preferredRole}
+                      <div className="flex items-center justify-center gap-2 flex-wrap">
+                        <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+                          {user.secondaryRole ? t('profile.mostPlayedRoles') : t('profile.mostPlayedRole')}
                         </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-semibold px-2 py-1 rounded border inline-flex items-center gap-1" style={{ 
+                            background: 'rgba(200, 170, 109, 0.15)', 
+                            color: '#C8AA6D',
+                            borderColor: '#C8AA6D'
+                          }}>
+                            {getRoleIcon(user.preferredRole)}
+                            {user.preferredRole}
+                          </span>
+                          {user.secondaryRole && (
+                            <span className="text-xs font-semibold px-2 py-1 rounded border inline-flex items-center gap-1" style={{ 
+                              background: 'rgba(200, 170, 109, 0.12)', 
+                              color: '#C8AA6D',
+                              borderColor: '#C8AA6D'
+                            }}>
+                              {getRoleIcon(user.secondaryRole)}
+                              {user.secondaryRole}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
-                  <p className="text-[10px] mt-2 text-center" style={{ color: 'var(--text-secondary)' }}>Across all linked accounts</p>
+                  <p className="text-[10px] mt-2 text-center" style={{ color: 'var(--text-secondary)' }}>{t('profile.acrossAccounts')}</p>
                 </div>
               )}
 
@@ -1052,10 +1500,16 @@ export default function ProfilePage() {
                 </div>
                 {user.reportCount > 0 && (
                   <div>
-                    <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Reports</p>
+                    <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Status</p>
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl">💀</span>
-                      <span className="text-sm font-semibold" style={{ color: 'var(--accent-danger)' }}>{user.reportCount}</span>
+                      {user.reportCount > 3 ? (
+                        <span className="text-sm font-medium px-2 py-1 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}>⚠️ Flagged</span>
+                      ) : (
+                        <>
+                          <span className="text-2xl">💀</span>
+                          <span className="text-sm font-semibold" style={{ color: 'var(--accent-danger)' }}>{user.reportCount} report{user.reportCount !== 1 ? 's' : ''}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1070,12 +1524,12 @@ export default function ProfilePage() {
             <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            Playstyles
+            {t('profile.playstyles')}
           </h2>
 
           {isEditMode ? (
             <div>
-              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>Select up to 2 playstyles:</p>
+              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>{t('profile.selectUpTo2Playstyles')}</p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {AVAILABLE_PLAYSTYLES.map((style) => {
                   const isSelected = selectedPlaystyles.includes(style);
@@ -1115,7 +1569,7 @@ export default function ProfilePage() {
                   </span>
                 ))
               ) : (
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No playstyles selected</p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{t('profile.noPlaystyles')}</p>
               )}
             </div>
           )}
@@ -1127,12 +1581,12 @@ export default function ProfilePage() {
             <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
             </svg>
-            Languages
+            {t('profile.languages')}
           </h2>
 
           {isEditMode ? (
             <div>
-              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>Select languages you speak:</p>
+              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>{t('profile.selectLanguages')}</p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {AVAILABLE_LANGUAGES.map((lang) => {
                   const isSelected = editedLanguages.includes(lang);
@@ -1164,20 +1618,10 @@ export default function ProfilePage() {
             <div className="flex flex-wrap gap-2">
               {user.languages && user.languages.length > 0 ? (
                 user.languages.map((lang) => (
-                  <span
-                    key={lang}
-                    className="px-4 py-2 rounded-lg font-medium text-sm"
-                    style={{
-                      background: 'var(--accent-primary-bg)',
-                      border: '1px solid var(--accent-primary)',
-                      color: 'var(--accent-primary)',
-                    }}
-                  >
-                    {lang}
-                  </span>
+                  <span key={lang}>{getLanguageBadge(lang)}</span>
                 ))
               ) : (
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No languages selected</p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{t('profile.noLanguages')}</p>
               )}
             </div>
           )}
@@ -1189,7 +1633,7 @@ export default function ProfilePage() {
             <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
             </svg>
-            Champion Pool
+            {t('profile.championPool')}
           </h2>
           
           {isEditMode ? (
@@ -1249,6 +1693,14 @@ export default function ProfilePage() {
                           <div className="flex flex-wrap gap-2">
                             {championTierlist[tier].map((c) => (
                               <div key={c} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: `${colors.bg}20`, borderWidth: '1px', borderStyle: 'solid', borderColor: colors.border, color: colors.text }}>
+                                <img 
+                                  src={getChampionIconUrl(c)} 
+                                  alt={c}
+                                  className="w-8 h-8"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
                                 <span className="font-medium">{c}</span>
                                 <button onClick={() => removeFromTier(tier, c)} style={{ color: 'var(--accent-danger)' }}>✕</button>
                               </div>
@@ -1283,7 +1735,16 @@ export default function ProfilePage() {
                         <div className="flex flex-wrap gap-2">
                           {user.championTierlist && Array.isArray(user.championTierlist[tier]) && user.championTierlist[tier].length > 0 ? (
                             user.championTierlist[tier].map((c: string, i: number) => (
-                              <div key={`${tier}-${i}`} className="px-3 py-2 rounded-lg font-medium" style={{ backgroundColor: `${colors.bg}20`, borderWidth: '1px', borderStyle: 'solid', borderColor: colors.border, color: colors.text }}>
+                              <div key={`${tier}-${i}`} className="px-3 py-2 rounded-lg font-medium flex items-center gap-2" style={{ backgroundColor: `${colors.bg}20`, borderWidth: '1px', borderStyle: 'solid', borderColor: colors.border, color: colors.text }}>
+                                <img 
+                                  src={getChampionIconUrl(c)} 
+                                  alt={c}
+                                  className="w-8 h-8"
+                                  onError={(e) => {
+                                    // Hide icon on error
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
                                 {c}
                               </div>
                             ))
@@ -1305,151 +1766,130 @@ export default function ProfilePage() {
             <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
-            Linked Riot Accounts
+            {t('profile.linkedRiotAccounts')}
           </h2>
-          <div className="space-y-3 mb-4">
-            {user.riotAccounts.map((account) => (
-              <div
-                key={account.id}
-                className="p-4 rounded-lg border-2 flex items-center justify-between"
-                style={{
-                  background: (isEditMode ? pendingMainAccountId === account.id : account.isMain) ? 'var(--accent-primary-bg)' : 'var(--bg-input)',
-                  borderColor: (isEditMode ? pendingMainAccountId === account.id : account.isMain) ? 'var(--accent-primary)' : 'var(--border-card)'
-                }}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 rounded-full" style={{ background: account.verified ? 'var(--accent-success)' : 'var(--text-muted)' }}></div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {/* Show username only if not hidden or if viewing own profile */}
-                      {(!account.hidden || !isViewingOther) ? (
-                        <p className="font-semibold" style={{ color: 'var(--text-main)' }}>
-                          {account.gameName}#{account.tagLine}
-                          {(isEditMode ? pendingMainAccountId === account.id : account.isMain) && (
-                            <span className="ml-2 text-xs px-2 py-1 rounded-full font-bold" style={{ background: 'var(--accent-primary)', color: 'var(--btn-gradient-text)' }}>
-                              MAIN
-                            </span>
+          {user.riotAccounts.length > 0 ? (
+            <>
+              <div className="space-y-3 mb-4">
+                {user.riotAccounts.map((account) => (
+                  <div
+                    key={account.id}
+                    className="p-4 rounded-lg border-2 flex items-center justify-between"
+                    style={{
+                      background: (isEditMode ? pendingMainAccountId === account.id : account.isMain) ? 'var(--accent-primary-bg)' : 'var(--bg-input)',
+                      borderColor: (isEditMode ? pendingMainAccountId === account.id : account.isMain) ? 'var(--accent-primary)' : 'var(--border-card)'
+                    }}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-3 h-3 rounded-full" style={{ background: account.verified ? 'var(--accent-success)' : 'var(--text-muted)' }}></div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Show username only if not hidden or if viewing own profile */}
+                          {(!account.hidden || !isViewingOther) ? (
+                            <p className="font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-main)' }}>
+                              <img width="16" height="16" src="https://img.icons8.com/color/48/riot-games.png" alt="riot-games" />
+                              {account.gameName}#{account.tagLine}
+                              {(isEditMode ? pendingMainAccountId === account.id : account.isMain) && (
+                                <span className="ml-2 text-xs px-2 py-1 rounded-full font-bold" style={{ background: 'var(--accent-primary)', color: 'var(--btn-gradient-text)' }}>
+                                  MAIN
+                                </span>
+                              )}
+                              {account.hidden && !isViewingOther && (
+                                <span className="ml-2 text-xs px-2 py-1 rounded-full font-medium" style={{ background: 'var(--accent-info-bg)', color: 'var(--accent-info)', border: '1px solid var(--accent-info-border)' }}>
+                                  🔒 Hidden
+                                </span>
+                              )}
+                            </p>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold italic" style={{ color: 'var(--text-muted)' }}>
+                                Hidden Account
+                              </p>
+                              {account.isMain && (
+                                <span className="text-xs px-2 py-1 rounded-full font-bold" style={{ background: 'var(--accent-primary)', color: 'var(--btn-gradient-text)' }}>
+                                  MAIN
+                                </span>
+                              )}
+                            </div>
                           )}
-                          {account.hidden && !isViewingOther && (
-                            <span className="ml-2 text-xs px-2 py-1 rounded-full font-medium" style={{ background: 'var(--accent-info-bg)', color: 'var(--accent-info)', border: '1px solid var(--accent-info-border)' }}>
-                              🔒 Hidden
-                            </span>
-                          )}
-                        </p>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold italic" style={{ color: 'var(--text-muted)' }}>
-                            Hidden Account
-                          </p>
-                          {account.isMain && (
-                            <span className="text-xs px-2 py-1 rounded-full font-bold" style={{ background: 'var(--accent-primary)', color: 'var(--btn-gradient-text)' }}>
-                              MAIN
-                            </span>
+                          {(() => {
+                            const rankKey = account.rank || 'UNRANKED';
+                            return getRankBadge(rankKey, account.division || undefined, undefined, rankColor, t);
+                          })()}
+                          {account.winrate !== null && account.winrate !== undefined ? getWinrateBadge(account.winrate, t) : (
+                            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>N/A WR</span>
                           )}
                         </div>
-                      )}
-                      {(() => {
-                        const color = rankColor(account.rank || 'UNRANKED');
-                        return (
-                          <span 
-                            className="text-xs px-2 py-1 rounded font-bold"
-                            style={{ 
-                              backgroundColor: `${color}20`,
-                              color,
-                              border: `1px solid ${color}`
-                            }}
-                          >
-                            {account.division ? `${account.rank || 'UNRANKED'} ${account.division}` : (account.rank || 'UNRANKED')}
-                          </span>
-                        );
-                      })()}
-                      {account.winrate !== null && account.winrate !== undefined ? (
-                        <span 
-                          className="text-xs px-2 py-1 rounded font-bold"
-                          style={{
-                            backgroundColor: `${
-                              account.winrate <= 40 ? '#ef4444' :
-                              account.winrate < 45 ? '#f97316' :
-                              account.winrate < 50 ? '#eab308' :
-                              account.winrate < 55 ? '#3b82f6' :
-                              account.winrate < 65 ? '#22c55e' :
-                              account.winrate < 80 ? '#C8AA6E' :
-                              '#a855f7'
-                            }20`,
-                            color: account.winrate <= 40 ? '#ef4444' :
-                              account.winrate < 45 ? '#f97316' :
-                              account.winrate < 50 ? '#eab308' :
-                              account.winrate < 55 ? '#3b82f6' :
-                              account.winrate < 65 ? '#22c55e' :
-                              account.winrate < 80 ? '#C8AA6E' :
-                              '#a855f7',
-                            border: `1px solid ${
-                              account.winrate <= 40 ? '#ef4444' :
-                              account.winrate < 45 ? '#f97316' :
-                              account.winrate < 50 ? '#eab308' :
-                              account.winrate < 55 ? '#3b82f6' :
-                              account.winrate < 65 ? '#22c55e' :
-                              account.winrate < 80 ? '#C8AA6E' :
-                              '#a855f7'
-                            }`
-                          }}
-                        >
-                          {account.winrate.toFixed(1)}% WR
-                        </span>
-                      ) : (
-                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>N/A WR</span>
-                      )}
+                        {(!account.hidden || !isViewingOther) && (
+                          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{account.region}</p>
+                        )}
+                      </div>
                     </div>
-                    {(!account.hidden || !isViewingOther) && (
-                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{account.region}</p>
+                    {isEditMode && (
+                      <div className="flex items-center space-x-2">
+                        {pendingMainAccountId !== account.id && (
+                          <>
+                            <button
+                              onClick={() => handleToggleHidden(account.id, account.hidden)}
+                              className="px-3 py-1 rounded text-xs font-medium transition-colors"
+                              style={{
+                                background: account.hidden ? 'var(--accent-info-bg)' : 'var(--btn-disabled-bg)',
+                                color: account.hidden ? 'var(--accent-info)' : 'var(--text-secondary)'
+                              }}
+                            >
+                              {account.hidden ? t('profile.show') : t('profile.hide')}
+                            </button>
+                            <button
+                              onClick={() => handleSwitchMain(account.id)}
+                              className="px-3 py-1 rounded text-xs font-medium transition-colors"
+                              style={{ background: 'var(--accent-primary-bg)', color: 'var(--accent-primary)' }}
+                            >
+                              {t('profile.setAsMain')}
+                            </button>
+                            <button
+                              onClick={() => handleRemoveAccount(account.id)}
+                              className="px-3 py-1 rounded text-xs font-medium transition-colors"
+                              style={{ background: 'var(--accent-danger-bg)', color: 'var(--accent-danger)' }}
+                            >
+                              {t('common.remove')}
+                            </button>
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
-                </div>
-                {isEditMode && (
-                  <div className="flex items-center space-x-2">
-                    {pendingMainAccountId !== account.id && (
-                      <>
-                        <button
-                          onClick={() => handleToggleHidden(account.id, account.hidden)}
-                          className="px-3 py-1 rounded text-xs font-medium transition-colors"
-                          style={{
-                            background: account.hidden ? 'var(--accent-info-bg)' : 'var(--btn-disabled-bg)',
-                            color: account.hidden ? 'var(--accent-info)' : 'var(--text-secondary)'
-                          }}
-                        >
-                          {account.hidden ? 'Show' : 'Hide'}
-                        </button>
-                        <button
-                          onClick={() => handleSwitchMain(account.id)}
-                          className="px-3 py-1 rounded text-xs font-medium transition-colors"
-                          style={{ background: 'var(--accent-primary-bg)', color: 'var(--accent-primary)' }}
-                        >
-                          Set as Main
-                        </button>
-                        <button
-                          onClick={() => handleRemoveAccount(account.id)}
-                          className="px-3 py-1 rounded text-xs font-medium transition-colors"
-                          style={{ background: 'var(--accent-danger-bg)', color: 'var(--accent-danger)' }}
-                        >
-                          Remove
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
+                ))}
               </div>
-            ))}
-          </div>
-          <Link
-            href="/verify-test"
-            className="inline-flex items-center px-4 py-2 font-bold rounded-lg transition-all text-sm"
-            style={{ background: 'var(--btn-gradient)', color: 'var(--btn-gradient-text)' }}
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Riot Account
-          </Link>
+              {!isViewingOther && (
+                <Link
+                  href="/authenticate"
+                  className="inline-flex items-center px-4 py-2 font-bold rounded-lg transition-all text-sm"
+                  style={{ background: 'var(--btn-gradient)', color: 'var(--btn-gradient-text)' }}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Riot Account
+                </Link>
+              )}
+            </>
+          ) : (
+            <div className="p-4 rounded-lg text-center" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)' }}>
+              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>{t('profile.noRiotAccounts')}</p>
+              {!isViewingOther && (
+                <Link
+                  href="/authenticate"
+                  className="inline-flex items-center px-4 py-2 font-semibold rounded-lg text-sm transition-colors"
+                  style={{ background: 'var(--btn-gradient)', color: 'var(--btn-gradient-text)' }}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  {t('profile.addRiotAccount')}
+                </Link>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Discord Account */}
@@ -1458,7 +1898,7 @@ export default function ProfilePage() {
             <svg className="w-6 h-6 mr-2" style={{ color: 'var(--accent-discord)' }} fill="currentColor" viewBox="0 0 24 24">
               <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
             </svg>
-            Discord Account
+            {t('profile.discordAccount')}
           </h2>
           {user.discordLinked ? (
             <div className="p-4 rounded-lg flex items-center justify-between" style={{ background: 'var(--accent-discord-bg)', border: '1px solid var(--accent-discord-border)' }}>
@@ -1469,22 +1909,19 @@ export default function ProfilePage() {
                     const unlinkOk = await confirm({ title: 'Unlink Discord', message: 'Are you sure you want to unlink your Discord account?', confirmText: 'Unlink' });
                     if (!unlinkOk) return;
                     try {
-                      let userId: string | null = null;
-                      try { userId = localStorage.getItem('lfd_userId'); } catch {}
-                      if (!userId) {
-                        showToast('User ID not found. Please log in again.', 'error');
-                        return;
-                      }
-                      const response = await fetch(`${API_URL}/api/auth/discord/unlink?userId=${encodeURIComponent(userId)}`, {
+                      const response = await fetch(`${API_URL}/api/auth/discord/unlink`, {
                         method: 'DELETE',
+                        headers: getAuthHeader(),
                       });
                       if (!response.ok) {
                         const data = await response.json().catch(() => ({}));
                         throw new Error(data.error || 'Failed to unlink Discord');
                       }
                       // Refresh profile
-                      const profileUrl = userId ? `${API_URL}/api/user/profile?userId=${encodeURIComponent(userId)}&includeHidden=true` : `${API_URL}/api/user/profile?includeHidden=true`;
-                      const profileResponse = await fetch(profileUrl);
+                      const profileUrl = `${API_URL}/api/user/profile?includeHidden=true`;
+                      const profileResponse = await fetch(profileUrl, {
+                        headers: getAuthHeader(),
+                      });
                       if (profileResponse.ok) {
                         const data = await profileResponse.json();
                         setUser(data);
@@ -1497,24 +1934,20 @@ export default function ProfilePage() {
                   className="px-3 py-1 rounded text-xs font-medium transition-colors"
                   style={{ background: 'var(--accent-danger-bg)', color: 'var(--accent-danger)' }}
                 >
-                  Unlink
+                  {t('profile.unlink')}
                 </button>
               )}
             </div>
           ) : (
             <div className="p-4 rounded-lg text-center" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)' }}>
-              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>No Discord account linked</p>
+              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>{t('profile.noDiscordAccount')}</p>
               {!isViewingOther && (
                 <button
                   onClick={async () => {
                     try {
-                      let userId: string | null = null;
-                      try { userId = localStorage.getItem('lfd_userId'); } catch {}
-                      if (!userId) {
-                        showToast('User ID not found. Please log in again.', 'error');
-                        return;
-                      }
-                      const response = await fetch(`${API_URL}/api/auth/discord/login?userId=${encodeURIComponent(userId)}`);
+                      const response = await fetch(`${API_URL}/api/auth/discord/login`, {
+                        headers: getAuthHeader(),
+                      });
                       if (!response.ok) {
                         const data = await response.json().catch(() => ({}));
                         throw new Error(data.error || 'Failed to get Discord auth URL');
@@ -1591,7 +2024,7 @@ export default function ProfilePage() {
             <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
-            Communities
+            {t('profile.communities')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {user.communities.map((community) => (
@@ -1630,7 +2063,7 @@ export default function ProfilePage() {
                     </span>
                   </div>
                   <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                    Click to view community page
+                    {t('profile.clickToViewCommunity')}
                   </p>
                 </div>
                 <span className="text-sm" style={{ color: 'var(--text-muted)' }}>→</span>
@@ -1646,13 +2079,40 @@ export default function ProfilePage() {
               className="px-4 py-2 rounded bg-[var(--accent-primary)] text-[var(--btn-gradient-text)] font-bold shadow"
               onClick={() => setShowFeedbackModal(true)}
             >
-              Give Feedback
+              {t('profile.giveFeedback')}
+            </button>
+            <button
+              className="px-4 py-2 rounded font-bold shadow transition-colors flex items-center gap-2"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                borderColor: 'var(--border-card)',
+                color: 'var(--text-primary)',
+                border: '2px solid',
+              }}
+              onClick={() => openConversation(user.id)}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              Message
             </button>
             <button
               className="px-4 py-2 rounded bg-[var(--accent-danger)] text-[var(--btn-gradient-text)] font-bold shadow"
               onClick={() => setShowReportModal(true)}
             >
-              Report
+              {t('profile.report')}
+            </button>
+            <button
+              className="px-4 py-2 rounded font-bold shadow transition-opacity disabled:opacity-50"
+              style={{
+                background: isBlocked ? 'var(--color-bg-tertiary)' : '#6B7280',
+                color: '#fff',
+                border: isBlocked ? '1px solid var(--color-border)' : 'none',
+              }}
+              onClick={handleToggleBlock}
+              disabled={isCheckingBlock}
+            >
+              {isCheckingBlock ? t('common.loading') : isBlocked ? t('profile.unblock') : t('profile.block')}
             </button>
           </div>
         )}

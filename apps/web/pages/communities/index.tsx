@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import { LoadingSpinner } from '../../components/LoadingSpinner';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -215,9 +216,7 @@ export default function CommunitiesPage() {
 
         {/* Communities Grid */}
         {loading ? (
-          <div className="text-center py-12" style={{ color: 'var(--color-text-muted)' }}>
-            Loading communities...
-          </div>
+          <LoadingSpinner text="Loading communities..." />
         ) : communities.length === 0 ? (
           <div className="text-center py-12" style={{ color: 'var(--color-text-muted)' }}>
             No communities found. Try adjusting your filters or register a new community!

@@ -1,0 +1,46 @@
+{
+  "name": "riftessence-api",
+  "description": "RiftEssence Fastify API",
+  "repository": "https://github.com/yourusername/riftessence",
+  "keywords": ["nodejs", "fastify", "api", "lol"],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql:mini"
+    }
+  ],
+  "env": {
+    "NODE_ENV": {
+      "value": "production"
+    },
+    "RIOT_API_KEY": {
+      "description": "Riot Games API key",
+      "required": true
+    },
+    "JWT_SECRET": {
+      "description": "JWT secret for authentication",
+      "generator": "secret"
+    },
+    "DISCORD_BOT_API_KEY": {
+      "description": "Discord bot API key",
+      "required": false
+    },
+    "REDIS_URL": {
+      "description": "Redis connection URL (use Upstash free tier)",
+      "required": true
+    },
+    "ALLOW_ORIGIN": {
+      "value": "true"
+    }
+  }
+}

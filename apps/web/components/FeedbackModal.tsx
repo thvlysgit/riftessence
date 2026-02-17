@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export interface FeedbackModalProps {
   username: string;
@@ -8,6 +9,7 @@ export interface FeedbackModalProps {
 }
 
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({ username, open, onClose, onSubmit }) => {
+  const { t } = useLanguage();
   const [stars, setStars] = useState(0);
   const [moons, setMoons] = useState(0);
   const [comment, setComment] = useState('');
@@ -16,7 +18,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ username, open, on
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (stars < 1 || moons < 1) {
-      setError('Please rate both skill and personality (at least 1 star and 1 moon).');
+      setError(t('feedback.errorMinRating'));
       return;
     }
     setError('');
@@ -28,9 +30,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ username, open, on
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
       <form className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md shadow-lg border-2 border-[var(--border-card)]" onSubmit={handleSubmit}>
-        <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--accent-primary)' }}>Give Feedback for {username}</h3>
+        <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--accent-primary)' }}>{t('feedback.giveFeedbackFor').replace('{username}', username)}</h3>
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Skill (Stars)</label>
+          <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('feedback.skill')}</label>
           <div className="flex gap-2">
             {[1,2,3,4,5].map((i) => (
               <button type="button" key={i} onClick={() => setStars(i)}>
@@ -42,7 +44,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ username, open, on
           </div>
         </div>
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Personality (Moons)</label>
+          <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('feedback.personality')}</label>
           <div className="flex gap-2">
             {[1,2,3,4,5].map((i) => (
               <button type="button" key={i} onClick={() => setMoons(i)}>
@@ -54,13 +56,13 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ username, open, on
           </div>
         </div>
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Commentary (Optional)</label>
-          <textarea className="w-full rounded p-2 bg-[var(--bg-input)] border border-[var(--border-card)] text-[var(--text-main)]" rows={3} value={comment} onChange={e => setComment(e.target.value)} placeholder="Share your experience..." />
+          <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('feedback.commentary')}</label>
+          <textarea className="w-full rounded p-2 bg-[var(--bg-input)] border border-[var(--border-card)] text-[var(--text-main)]" rows={3} value={comment} onChange={e => setComment(e.target.value)} placeholder={t('feedback.shareExperience')} />
         </div>
         {error && <p className="text-sm text-red-500 mb-2">{error}</p>}
         <div className="flex justify-end gap-2 mt-4">
-          <button type="button" className="px-4 py-2 rounded bg-[var(--bg-input)] text-[var(--text-secondary)]" onClick={onClose}>Cancel</button>
-          <button type="submit" className="px-4 py-2 rounded bg-[var(--accent-primary)] text-[var(--btn-gradient-text)] font-bold">Submit</button>
+          <button type="button" className="px-4 py-2 rounded bg-[var(--bg-input)] text-[var(--text-secondary)]" onClick={onClose}>{t('common.cancel')}</button>
+          <button type="submit" className="px-4 py-2 rounded bg-[var(--accent-primary)] text-[var(--btn-gradient-text)] font-bold">{t('feedback.submit')}</button>
         </div>
       </form>
     </div>

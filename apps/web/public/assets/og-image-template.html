@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RiftEssence OG Image Template</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #0B0D12;
+            padding: 20px;
+        }
+        
+        .og-card {
+            width: 1200px;
+            height: 630px;
+            max-width: 1200px;
+            max-height: 630px;
+            background: linear-gradient(135deg, #0B0D12 0%, #1A1A1D 50%, #2B2B2F 100%);
+            border: 3px solid #C8AA6E;
+            border-radius: 24px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        
+        .og-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(200, 170, 110, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        
+        .og-card::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(200, 170, 110, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        
+        .content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            padding: 60px;
+        }
+        
+        .logo {
+            font-size: 120px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #C8AA6E 0%, #D4B678 50%, #9A8352 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 30px;
+            letter-spacing: -2px;
+            text-shadow: 0 4px 20px rgba(200, 170, 110, 0.3);
+        }
+        
+        .tagline {
+            font-size: 42px;
+            color: #FFFFFF;
+            margin-bottom: 20px;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+        
+        .description {
+            font-size: 28px;
+            color: #9CA3AF;
+            max-width: 900px;
+            margin: 0 auto 40px;
+            line-height: 1.4;
+        }
+        
+        .features {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        
+        .feature-badge {
+            background: rgba(200, 170, 110, 0.15);
+            border: 2px solid #C8AA6E;
+            border-radius: 50px;
+            padding: 12px 28px;
+            font-size: 22px;
+            color: #C8AA6E;
+            font-weight: 600;
+        }
+        
+        .beta-badge {
+            position: absolute;
+            top: 40px;
+            right: 40px;
+            background: linear-gradient(135deg, #C8AA6E 0%, #9A8352 100%);
+            color: #0B0D12;
+            padding: 15px 35px;
+            border-radius: 50px;
+            font-size: 28px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 10px 30px rgba(200, 170, 110, 0.4);
+        }
+        
+        .instructions {
+            margin-top: 40px;
+            padding: 20px;
+            background: #1A1A1D;
+            border: 2px solid #C8AA6E;
+            border-radius: 12px;
+            max-width: 1200px;
+        }
+        
+        .instructions h2 {
+            color: #C8AA6E;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+        
+        .instructions ol {
+            color: #E5E5E5;
+            line-height: 1.8;
+            font-size: 16px;
+            margin-left: 25px;
+        }
+        
+        .instructions code {
+            background: #2B2B2F;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: #C8AA6E;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <div class="og-card">
+            <div class="beta-badge">BÊTA</div>
+            <div class="content">
+                <div class="logo">RiftEssence</div>
+                <div class="tagline">Plateforme Communautaire League of Legends</div>
+                <div class="description">
+                    Trouvez votre duo, rejoignez une équipe, obtenez du coaching gratuit
+                </div>
+                <div class="features">
+                    <div class="feature-badge">🤝 LFD</div>
+                    <div class="feature-badge">👥 LFT</div>
+                    <div class="feature-badge">🎓 Coaching</div>
+                    <div class="feature-badge">📊 Matchups</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h2>📸 Instructions pour créer l'image OG</h2>
+            <ol>
+                <li>Ouvrez ce fichier dans votre navigateur</li>
+                <li>Appuyez sur <code>F11</code> pour passer en plein écran</li>
+                <li>Zoomez pour que la carte fasse exactement 1200x630 pixels</li>
+                <li>Prenez une capture d'écran de la carte uniquement (pas les instructions)</li>
+                <li>Sauvegardez l'image comme <code>og-image.png</code> dans le dossier <code>/public/assets/</code></li>
+                <li>Alternative: Utilisez un outil comme <a href="https://www.screely.com/" style="color: #C8AA6E;">Screely</a> ou les outils de développement du navigateur pour capturer exactement 1200x630px</li>
+            </ol>
+            <p style="margin-top: 20px; color: #9CA3AF; font-size: 14px;">
+                💡 Astuce: Utilisez l'outil de capture dans les DevTools de Chrome (F12 → Cmd/Ctrl+Shift+P → "Capture screenshot" → spécifiez la taille 1200x630)
+            </p>
+        </div>
+    </div>
+</body>
+</html>

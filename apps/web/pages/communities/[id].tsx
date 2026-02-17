@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import { getUserIdFromToken, getAuthHeader } from '../../utils/auth';
+import { useGlobalUI } from '../../components/GlobalUI';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -30,6 +32,7 @@ type Community = {
 export default function CommunityDetailPage() {
   const router = useRouter();
   const { id } = router.query;
+  const { showToast, confirm } = useGlobalUI();
   const [community, setCommunity] = useState<Community | null>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
@@ -37,7 +40,8 @@ export default function CommunityDetailPage() {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    const uid = localStorage.getItem('lfd_userId');
+    const token = localStorage.getItem('lfd_token');
+    const uid = token ? getUserIdFromToken(token) : null;
     setUserId(uid);
   }, []);
 
@@ -72,7 +76,7 @@ export default function CommunityDetailPage() {
 
   const handleJoin = async () => {
     if (!userId) {
-      alert('Please log in to join this community');
+      showToast('Please log in to join this community', 'error');
       return;
     }
 
@@ -80,18 +84,19 @@ export default function CommunityDetailPage() {
       setJoining(true);
       const res = await fetch(`${API_URL}/api/communities/${id}/join`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
+        headers: getAuthHeader(),
       });
 
       if (res.ok) {
         await fetchCommunity();
+        showToast('Successfully joined community!', 'success');
       } else {
         const data = await res.json();
-        alert(data.error || 'Failed to join community');
+        console.error('Join failed:', { status: res.status, data });
+        showToast(data.error || 'Failed to join community', 'error');
       }
     } catch (error) {
-      alert('Network error. Please try again.');
+      showToast('Network error. Please try again.', 'error');
     } finally {
       setJoining(false);
     }
@@ -100,23 +105,30 @@ export default function CommunityDetailPage() {
   const handleLeave = async () => {
     if (!userId) return;
 
-    if (!confirm('Are you sure you want to leave this community?')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Leave Community',
+      message: 'Are you sure you want to leave this community?',
+      confirmText: 'Leave',
+      cancelText: 'Cancel'
+    });
+
+    if (!confirmed) return;
 
     try {
-      const res = await fetch(`${API_URL}/api/communities/${id}/leave?userId=${userId}`, {
+      const res = await fetch(`${API_URL}/api/communities/${id}/leave`, {
         method: 'DELETE',
+        headers: getAuthHeader(),
       });
 
       if (res.ok) {
         await fetchCommunity();
+        showToast('Successfully left community', 'success');
       } else {
         const data = await res.json();
-        alert(data.error || 'Failed to leave community');
+        showToast(data.error || 'Failed to leave community', 'error');
       }
     } catch (error) {
-      alert('Network error. Please try again.');
+      showToast('Network error. Please try again.', 'error');
     }
   };
 
@@ -252,7 +264,7 @@ export default function CommunityDetailPage() {
 
           {/* Discord Link */}
           {community.inviteLink && (
-            <div className="mt-4">
+            <div className="mt-4 flex gap-3">
               <a
                 href={community.inviteLink}
                 target="_blank"
@@ -269,6 +281,26 @@ export default function CommunityDetailPage() {
                 </svg>
                 Join Discord Server
               </a>
+              <button
+                onClick={() => {
+                  if (community.inviteLink) {
+                    navigator.clipboard.writeText(community.inviteLink);
+                    alert('Invite link copied to clipboard!');
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 font-semibold transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-accent-1)',
+                  color: 'var(--color-bg-primary)',
+                  borderRadius: 'var(--border-radius)',
+                }}
+                title="Copy invite link"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Copy Link
+              </button>
             </div>
           )}
         </div>

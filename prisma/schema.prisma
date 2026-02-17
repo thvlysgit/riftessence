@@ -70,6 +70,16 @@ enum ChampionPoolDisplayMode {
   TIERLIST
 }
 
+enum MatchupDifficulty {
+  FREE_WIN
+  VERY_FAVORABLE
+  FAVORABLE
+  SKILL_MATCHUP
+  HARD
+  VERY_HARD
+  FREE_LOSE
+}
+
 enum Rank {
   IRON
   BRONZE
@@ -98,11 +108,14 @@ model User {
   languages      String[]  @default([])
   playstyles     String[]  @default([])
   primaryRole    Role?     
-  preferredRole  Role?     // Auto-detected from match history
+  preferredRole  Role?     // Auto-detected from match history (most played)
+  secondaryRole  Role?     // Auto-detected from match history (second most played)
   region         Region?   
   verified       Boolean   @default(false)
-  lastUsernameChange DateTime? @default(now())
+  lastUsernameChange DateTime?
   lastPostCreated DateTime?
+  onboardingCompleted Boolean @default(false) // Track if user completed onboarding
+
   reportCount    Int       @default(0) // Number of accepted reports against this user
   
   // Champion pool settings
@@ -126,6 +139,18 @@ model User {
   reportsMade    Report[]  @relation("Reporter")
   reportsReceived Report[] @relation("Reported")
   lftPosts       LftPost[]
+  coachingPosts  CoachingPost[]
+  
+  // Chat relations
+  conversationsInitiated Conversation[] @relation("ConversationUser1")
+  conversationsReceived  Conversation[] @relation("ConversationUser2")
+  messagesSent           Message[]      @relation("MessageSender")
+  
+  // Matchup relations
+  matchups       Matchup[]
+  matchupLikes   MatchupLike[]
+  matchupDownloads MatchupDownload[]
+  savedMatchups  SavedMatchup[]    @relation("SavedMatchups")
 
   @@index([region, primaryRole, createdAt])
 }
@@ -183,6 +208,7 @@ model Community {
   memberships     CommunityMembership[]
   posts           Post[]
   lftPosts        LftPost[]
+  coachingPosts   CoachingPost[]
   feedChannels    DiscordFeedChannel[]
 
   @@index([isPartner, createdAt])
@@ -214,6 +240,7 @@ model Post {
   postingRiotAccountId String
   region             Region
   role               Role
+  secondRole         Role?
   message            String?
   languages          String[] @default([])
   vcPreference       VCPreference
@@ -229,6 +256,7 @@ model Post {
   @@index([createdAt])
   @@index([authorId])
   @@index([region, role, createdAt])
+  @@index([region, role, vcPreference, createdAt]) // Optimized for feed filters
   @@index([communityId, createdAt])
   @@index([source, discordMirrored])
 }
@@ -275,6 +303,8 @@ model Rating {
 
   ratingAppeals RatingAppeal[]
 
+  @@unique([raterId, receiverId])
+  @@index([raterId, createdAt])
   @@index([receiverId, createdAt])
 }
 
@@ -366,8 +396,10 @@ enum LftPostType {
 
 enum TeamExperience {
   FIRST_TEAM
-  A_LITTLE_EXPERIENCE
-  EXPERIMENTED
+  SOME_EXPERIENCE
+  MODERATE
+  EXPERIENCED
+  VERY_EXPERIENCED
 }
 
 enum CoachingAvailability {
@@ -427,6 +459,46 @@ model LftPost {
   @@index([communityId, createdAt])
 }
 
+// Coaching system
+enum CoachingPostType {
+  OFFERING  // Coach offering services (requires Emerald+)
+  SEEKING   // User seeking coaching (any rank)
+}
+
+model CoachingPost {
+  id         String           @id @default(cuid())
+  type       CoachingPostType
+  createdAt  DateTime         @default(now())
+  
+  // Author (user who created the post)
+  author     User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId   String
+  
+  // Common fields
+  region     Region
+  roles      Role[]           @default([])  // Roles being coached/seeking coaching for
+  languages  String[]         @default([])  // Languages supported
+  
+  // Community integration
+  community   Community?      @relation(fields: [communityId], references: [id])
+  communityId String?
+  
+  // Offering-specific fields (when type = OFFERING)
+  coachRank          Rank?           // Coach's rank (must be Emerald+)
+  coachDivision      String?         // I, II, III, IV (null for Master+)
+  specializations    String[]        @default([])  // e.g., "Wave Management", "Vision Control", "Macro", "Teamfighting"
+  
+  // Common fields for both types
+  availability       TeamAvailability?  // How often they're available
+  details            String?            // Description/additional info
+  discordTag         String?            // Optional Discord contact
+  
+  @@index([type, createdAt])
+  @@index([authorId])
+  @@index([region, type, createdAt])
+  @@index([communityId, createdAt])
+}
+
 // Discord integration models
 model DiscordFeedChannel {
   id          String    @id @default(cuid())
@@ -439,4 +511,206 @@ model DiscordFeedChannel {
   @@unique([communityId, channelId])
   @@index([guildId])
   @@index([communityId])
+}
+
+// Admin audit log for tracking admin actions
+model AuditLog {
+  id        String   @id @default(cuid())
+  adminId   String   // User who performed the action
+  action    String   // e.g., "USER_BANNED", "USER_UNBANNED", "REPORT_ACCEPTED", "REPORT_REJECTED"
+  targetId  String?  // User or report ID being acted upon
+  details   String?  // JSON string with additional context
+  createdAt DateTime @default(now())
+  
+  @@index([adminId, createdAt])
+  @@index([action, createdAt])
+  @@index([targetId, createdAt])
+}
+
+// Ad system for monetization
+model Ad {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  imageUrl    String
+  targetUrl   String
+  
+  // Targeting options
+  targetRegions Region[] @default([])   // Empty = all regions
+  targetMinRank Rank?                   // Minimum rank to show ad to
+  targetMaxRank Rank?                   // Maximum rank to show ad to
+  targetFeeds   String[] @default([])   // "duo", "lft" - empty = all feeds
+  
+  // Time constraints
+  startDate   DateTime
+  endDate     DateTime
+  
+  // Display settings
+  priority    Int       @default(0)     // Higher = shown first when multiple ads match
+  isActive    Boolean   @default(true)
+  
+  // Admin tracking
+  createdBy   String                    // Admin userId who created the ad
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Analytics
+  impressions AdImpression[]
+  clicks      AdClick[]
+  
+  @@index([isActive, startDate, endDate])
+  @@index([createdBy])
+}
+
+model AdImpression {
+  id        String   @id @default(cuid())
+  ad        Ad       @relation(fields: [adId], references: [id], onDelete: Cascade)
+  adId      String
+  userId    String?  // Nullable for anonymous users
+  ipHash    String?  // Hashed IP for deduplication
+  feed      String   // "duo" or "lft"
+  createdAt DateTime @default(now())
+  
+  @@index([adId, createdAt])
+  @@index([userId, adId, createdAt])
+}
+
+model AdClick {
+  id        String   @id @default(cuid())
+  ad        Ad       @relation(fields: [adId], references: [id], onDelete: Cascade)
+  adId      String
+  userId    String?  // Nullable for anonymous users
+  ipHash    String?  // Hashed IP for deduplication
+  feed      String   // "duo" or "lft"
+  createdAt DateTime @default(now())
+  
+  @@index([adId, createdAt])
+  @@index([userId, adId, createdAt])
+}
+
+// Ad display settings (singleton config)
+model AdSettings {
+  id                    String @id @default("default")
+  duoFeedAdFrequency    Int    @default(5)  // Show ad every N posts in duo feed
+  lftFeedAdFrequency    Int    @default(5)  // Show ad every N posts in LFT feed
+  updatedAt             DateTime @updatedAt
+  updatedBy             String?             // Admin who last updated
+}
+
+// Chat system models
+model Conversation {
+  id                 String    @id @default(cuid())
+  user1              User      @relation("ConversationUser1", fields: [user1Id], references: [id], onDelete: Cascade)
+  user1Id            String
+  user2              User      @relation("ConversationUser2", fields: [user2Id], references: [id], onDelete: Cascade)
+  user2Id            String
+  
+  // Last message info for sorting/preview
+  lastMessageAt      DateTime  @default(now())
+  lastMessagePreview String?   
+  
+  // Unread counts for each user
+  user1UnreadCount   Int       @default(0)
+  user2UnreadCount   Int       @default(0)
+  
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  
+  messages           Message[]
+  
+  @@unique([user1Id, user2Id])
+  @@index([user1Id, lastMessageAt])
+  @@index([user2Id, lastMessageAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId       String
+  content        String       // Message text content
+  read           Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  
+  @@index([conversationId, createdAt])
+  @@index([senderId, createdAt])
+}
+
+model Matchup {
+  id               String            @id @default(cuid())
+  
+  // Owner
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String
+  
+  // Matchup details
+  role             Role              // Which role this matchup is for (TOP, JUNGLE, MID, ADC, SUPPORT)
+  myChampion       String            // Champion name (e.g., "Darius")
+  enemyChampion    String            // Enemy champion name (e.g., "Teemo")
+  difficulty       MatchupDifficulty @default(SKILL_MATCHUP)
+  
+  // Detailed notes (all optional)
+  laningNotes      String?
+  teamfightNotes   String?
+  itemNotes        String?
+  spikeNotes       String?
+  
+  // Public sharing
+  isPublic         Boolean           @default(false)
+  title            String?           // Title when shared publicly (e.g., "Darius vs Teemo - Detailed Guide")
+  description      String?           // Description for public listing
+  
+  // Analytics
+  downloadCount    Int               @default(0)
+  
+  // Relations
+  likes            MatchupLike[]
+  downloads        MatchupDownload[]
+  savedBy          SavedMatchup[]    @relation("SavedMatchups")
+  
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  
+  @@index([userId, myChampion])
+  @@index([isPublic, createdAt])
+  @@index([role, myChampion])
+}
+
+model MatchupLike {
+  id         String   @id @default(cuid())
+  matchup    Matchup  @relation(fields: [matchupId], references: [id], onDelete: Cascade)
+  matchupId  String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  isLike     Boolean  // true = like, false = dislike
+  createdAt  DateTime @default(now())
+  
+  @@unique([userId, matchupId])
+  @@index([matchupId, isLike])
+}
+
+model MatchupDownload {
+  id         String   @id @default(cuid())
+  matchup    Matchup  @relation(fields: [matchupId], references: [id], onDelete: Cascade)
+  matchupId  String   // The original public matchup that was downloaded
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String   // The user who downloaded it (permanent tracking for analytics)
+  createdAt  DateTime @default(now())
+  
+  @@unique([userId, matchupId])
+  @@index([matchupId])
+}
+
+model SavedMatchup {
+  id         String   @id @default(cuid())
+  matchup    Matchup  @relation("SavedMatchups", fields: [matchupId], references: [id], onDelete: Cascade)
+  matchupId  String   // The public matchup saved to library
+  user       User     @relation("SavedMatchups", fields: [userId], references: [id], onDelete: Cascade)
+  userId     String   // The user who saved it to their library
+  createdAt  DateTime @default(now())
+  
+  @@unique([userId, matchupId])
+  @@index([userId])
+  @@index([matchupId])
 }

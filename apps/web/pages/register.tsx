@@ -2,12 +2,15 @@ import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { setAuthToken } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register, user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const { t } = useLanguage();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,8 +36,14 @@ export default function RegisterPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters with uppercase, lowercase, and number');
+      return;
+    }
+
+    // Validate password complexity
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+      setError('Password must contain at least one uppercase letter, one lowercase letter, and one number');
       return;
     }
 
@@ -45,14 +54,13 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    // Get CAPTCHA token if Turnstile is available
+    // Get CAPTCHA token if Turnstile is available (optional)
     let turnstileToken = '';
     if (typeof window !== 'undefined' && (window as any).turnstile) {
-      turnstileToken = (window as any).turnstile.getResponse();
-      if (!turnstileToken) {
-        setError('Please complete the CAPTCHA verification');
-        setLoading(false);
-        return;
+      try {
+        turnstileToken = (window as any).turnstile.getResponse() || '';
+      } catch (err) {
+        console.warn('Turnstile not initialized, proceeding without CAPTCHA');
       }
     }
 
@@ -66,14 +74,14 @@ export default function RegisterPage() {
       const data = await res.json();
 
       if (res.ok) {
-        // Log in automatically after registration
-        const loginResult = await register(username, email, password);
-        if (loginResult.success) {
-          router.push('/feed');
-        } else {
-          setError('Registration successful! Please log in.');
-          router.push('/login');
+        // Store JWT token and refresh user state
+        if (data.token) {
+          setAuthToken(data.token);
         }
+        // Refresh user from AuthContext to trigger onboarding wizard
+        await refreshUser();
+        // Navigate to feed
+        router.push('/feed');
       } else {
         setError(data.error || data.details?.password || data.details?.email || data.details?.username || 'Registration failed');
         setLoading(false);
@@ -86,6 +94,8 @@ export default function RegisterPage() {
       setError('Network error during registration');
       setLoading(false);
     }
+
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
@@ -102,8 +112,8 @@ export default function RegisterPage() {
           >
             <span className="font-bold text-2xl">LFD</span>
           </div>
-          <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--color-accent-1)' }}>Create Account</h1>
-          <p style={{ color: 'var(--color-text-muted)' }}>Join the RiftEssence community</p>
+          <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--color-accent-1)' }}>{t('auth.createAccount')}</h1>
+          <p style={{ color: 'var(--color-text-muted)' }}>{t('auth.joinCommunity')}</p>
         </div>
 
         {/* Register Form */}
@@ -125,7 +135,7 @@ export default function RegisterPage() {
 
             <div>
               <label htmlFor="username" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                Username
+                {t('common.username')}
               </label>
               <input
                 id="username"
@@ -141,7 +151,7 @@ export default function RegisterPage() {
                 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                placeholder="Choose a username"
+                placeholder={t('auth.chooseUsername')}
                 required
                 minLength={3}
                 maxLength={20}
@@ -151,7 +161,7 @@ export default function RegisterPage() {
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                Email
+                {t('common.email')}
               </label>
               <input
                 id="email"
@@ -167,14 +177,14 @@ export default function RegisterPage() {
                 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                placeholder="your@email.com"
+                placeholder={t('auth.enterEmail')}
                 required
               />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                Password
+                {t('common.password')}
               </label>
               <input
                 id="password"
@@ -190,7 +200,7 @@ export default function RegisterPage() {
                 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                placeholder="Create a password"
+                placeholder={t('auth.enterPassword')}
                 required
                 minLength={6}
               />
@@ -199,7 +209,7 @@ export default function RegisterPage() {
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                Confirm Password
+                {t('auth.confirmPassword')}
               </label>
               <input
                 id="confirmPassword"
@@ -215,7 +225,7 @@ export default function RegisterPage() {
                 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                placeholder="Confirm your password"
+                placeholder={t('auth.enterConfirmPassword')}
                 required
                 minLength={6}
               />
@@ -243,7 +253,7 @@ export default function RegisterPage() {
               onMouseEnter={(e) => !loading && (e.currentTarget.style.opacity = '0.9')}
               onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
             >
-              {loading ? 'Creating Account...' : 'Create Account'}
+              {loading ? t('auth.creating') : t('auth.register')}
             </button>
           </form>
 
@@ -253,13 +263,13 @@ export default function RegisterPage() {
               <div className="w-full border-t" style={{ borderColor: 'var(--color-border)' }}></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-muted)' }}>Or</span>
+              <span className="px-4" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-muted)' }}>{t('common.or')}</span>
             </div>
           </div>
 
           {/* Riot Login Option */}
           <Link
-            href="/verify-test"
+            href="/authenticate"
             className="w-full flex items-center justify-center gap-2 px-4 py-3 border font-semibold transition-colors"
             style={{
               backgroundColor: 'var(--color-bg-tertiary)',
@@ -273,14 +283,14 @@ export default function RegisterPage() {
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
             </svg>
-            Sign up with Riot Account
+            {t('auth.registerWithRiot')}
           </Link>
 
           {/* Sign In Link */}
           <p className="mt-6 text-center text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            Already have an account?{' '}
+            {t('auth.haveAccount')}{' '}
             <Link href="/login" className="font-semibold" style={{ color: 'var(--color-accent-1)' }}>
-              Sign in
+              {t('auth.signInInstead')}
             </Link>
           </p>
         </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -15,14 +16,18 @@ const RANKS = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMO
 const DIVISIONS = ['IV', 'III', 'II', 'I'];
 const EXPERIENCES = [
   { value: 'FIRST_TEAM', label: 'First Team' },
-  { value: 'A_LITTLE_EXPERIENCE', label: 'A Little Experience' },
-  { value: 'EXPERIMENTED', label: 'Experimented' },
+  { value: 'SOME_EXPERIENCE', label: 'Some Experience' },
+  { value: 'MODERATE', label: 'Moderate' },
+  { value: 'EXPERIENCED', label: 'Experienced' },
+  { value: 'VERY_EXPERIENCED', label: 'Very Experienced' },
 ];
 const AVAILABILITIES = [
   { value: 'ONCE_A_WEEK', label: 'Once a Week' },
   { value: 'TWICE_A_WEEK', label: 'Twice a Week' },
   { value: 'THRICE_A_WEEK', label: 'Thrice a Week' },
   { value: 'FOUR_TIMES_A_WEEK', label: 'Four times a Week' },
+  { value: 'FIVE_TIMES_A_WEEK', label: 'Five times a Week' },
+  { value: 'SIX_TIMES_A_WEEK', label: 'Six times a Week' },
   { value: 'EVERYDAY', label: 'Everyday' },
 ];
 const COMMON_LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Portuguese', 'Korean', 'Japanese', 'Chinese'];
@@ -35,15 +40,16 @@ export interface CreatePlayerLftModalProps {
 }
 
 export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open, onClose, onSubmit }) => {
+  const { currentTheme } = useTheme();
   const [region, setRegion] = useState('');
   const [mainRole, setMainRole] = useState('');
   const [rank, setRank] = useState('');
   const [division, setDivision] = useState('');
-  const [experience, setExperience] = useState('');
+  const [experience, setExperience] = useState('FIRST_TEAM');
   const [languages, setLanguages] = useState<string[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
   const [age, setAge] = useState('');
-  const [availability, setAvailability] = useState('');
+  const [availability, setAvailability] = useState('ONCE_A_WEEK');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -52,8 +58,17 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
       const fetchUserData = async () => {
         try {
           setLoading(true);
+          const token = localStorage.getItem('lfd_token');
+          if (!token) return;
+          
           let userId: string | null = null;
-          try { userId = localStorage.getItem('lfd_userId'); } catch {}
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            userId = payload.userId;
+          } catch {
+            console.error('Failed to decode token');
+            return;
+          }
           if (!userId) return;
 
           const res = await fetch(`${API_URL}/api/user/profile?userId=${userId}`);
@@ -70,13 +85,11 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
               setRegion('EUW');
             }
 
-            // Set role from preferred or primary role
+            // Set role from preferredRole (auto-detected most played)
             if (data.preferredRole) {
               setMainRole(data.preferredRole);
-            } else if (data.primaryRole) {
-              setMainRole(data.primaryRole);
             } else {
-              // Default to TOP if no role found
+              // Default to TOP if no role detected yet
               setMainRole('TOP');
             }
 
@@ -170,27 +183,108 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
 
   const showDivision = rank && !['MASTER', 'GRANDMASTER', 'CHALLENGER', 'UNRANKED'].includes(rank);
 
+  // Theme-specific emoji for slider thumb
+  const themeEmojis: Record<string, string> = {
+    'classic': '⚔️',
+    'arcane-pastel': '🧁',
+    'nightshade': '🌙',
+    'infernal-ember': '🔥',
+    'radiant-light': '☀️',
+  };
+  const thumbEmoji = themeEmojis[currentTheme] || '⚔️';
+  // Extra fill for moon emoji to cover its curved shape
+  const gradientOffset = currentTheme === 'nightshade' ? 2 : 0;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4 overflow-y-auto">
-      <form 
-        className="rounded-xl p-6 w-full max-w-2xl shadow-lg border-2 my-8" 
-        style={{ 
-          background: 'var(--color-bg-secondary)', 
-          borderColor: 'var(--color-border)' 
-        }}
-        onSubmit={handleSubmit}
-      >
-        <h3 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-          Looking for a Team
-        </h3>
+    <>
+      <style>{`
+        input[type="range"] {
+          -webkit-appearance: none;
+          appearance: none;
+          background: transparent;
+          cursor: pointer;
+          position: relative;
+          width: 100%;
+          height: 8px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 1px;
+          height: 1px;
+          opacity: 0;
+          cursor: pointer;
+          visibility: hidden;
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 1px;
+          height: 1px;
+          opacity: 0;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          visibility: hidden;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+          width: 100%;
+          height: 8px;
+          border-radius: 4px;
+          border: 1px solid var(--color-border);
+        }
+        input[type="range"]::-moz-range-track {
+          width: 100%;
+          height: 8px;
+          border-radius: 4px;
+          border: 1px solid var(--color-border);
+        }
+        input[type="range"]:focus {
+          outline: none;
+        }
+        .slider-container {
+          position: relative;
+          padding: 0 14px;
+        }
+        .slider-thumb {
+          position: absolute;
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
+          transition: transform 0.15s ease;
+          font-size: 16px;
+          line-height: 1;
+          top: 50%;
+          transform: translate(-50%, -50%);
+        }
+        input[type="range"]:hover ~ .slider-thumb {
+          transform: translate(-50%, -50%) scale(1.15);
+        }
+        input[type="range"]:active ~ .slider-thumb {
+          transform: translate(-50%, -50%) scale(1.0);
+        }
+      `}</style>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4 overflow-y-auto">
+        <form 
+          className="rounded-xl p-6 w-full max-w-2xl shadow-lg border-2 my-8" 
+          style={{ 
+            background: 'var(--color-bg-secondary)', 
+            borderColor: 'var(--color-border)' 
+          }}
+          onSubmit={handleSubmit}
+        >
+          <h3 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
+            Looking for a Team
+          </h3>
 
-        {error && (
-          <div className="mb-4 p-3 rounded" style={{ background: 'var(--accent-danger-bg)', color: 'var(--accent-danger)' }}>
-            {error}
-          </div>
-        )}
+          {error && (
+            <div className="mb-4 p-3 rounded" style={{ background: 'var(--accent-danger-bg)', color: 'var(--accent-danger)' }}>
+              {error}
+            </div>
+          )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Region */}
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
@@ -310,26 +404,38 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
               Team Experience *
             </label>
-            <select
-              value={experience}
-              onChange={(e) => setExperience(e.target.value)}
-              className="w-full px-3 py-2 rounded border appearance-none cursor-pointer"
-              style={{
-                background: 'var(--color-bg-tertiary)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-primary)',
-                backgroundImage: getCustomArrow(),
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 0.75rem center',
-                paddingRight: '2.5rem'
-              }}
-              required
-            >
-              <option value="">Select experience...</option>
-              {EXPERIENCES.map(exp => (
-                <option key={exp.value} value={exp.value}>{exp.label}</option>
-              ))}
-            </select>
+            <div style={{ height: '28px', display: 'flex', alignItems: 'center' }}>
+              <div className="slider-container" style={{ width: '100%' }}>
+                <input
+                  type="range"
+                  min="0"
+                  max="4"
+                  step="1"
+                  value={EXPERIENCES.findIndex(exp => exp.value === experience)}
+                  onChange={(e) => setExperience(EXPERIENCES[parseInt(e.target.value)].value)}
+                  className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                  style={{
+                    background: 'linear-gradient(to right, var(--color-accent-1) 0%, var(--color-accent-1) ' + (EXPERIENCES.findIndex(exp => exp.value === experience) * 25 + gradientOffset) + '%, var(--color-bg-tertiary) ' + (EXPERIENCES.findIndex(exp => exp.value === experience) * 25 + gradientOffset) + '%, var(--color-bg-tertiary) 100%)',
+                  }}
+                  required
+                />
+                <div 
+                  className="slider-thumb" 
+                  style={{ 
+                    left: `calc(14px + (100% - 28px) * ${(EXPERIENCES.findIndex(exp => exp.value === experience) * 25) / 100})`,
+                  }}
+                >
+                  {thumbEmoji}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-between mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              <span>First Team</span>
+              <span className="font-semibold" style={{ color: 'var(--color-accent-1)' }}>
+                {EXPERIENCES.find(exp => exp.value === experience)?.label || 'Select...'}
+              </span>
+              <span>Very Experienced</span>
+            </div>
           </div>
 
           {/* Age */}
@@ -359,26 +465,38 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
               Availability *
             </label>
-            <select
-              value={availability}
-              onChange={(e) => setAvailability(e.target.value)}
-              className="w-full px-3 py-2 rounded border appearance-none cursor-pointer"
-              style={{
-                background: 'var(--color-bg-tertiary)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-primary)',
-                backgroundImage: getCustomArrow(),
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 0.75rem center',
-                paddingRight: '2.5rem'
-              }}
-              required
-            >
-              <option value="">Select availability...</option>
-              {AVAILABILITIES.map(a => (
-                <option key={a.value} value={a.value}>{a.label}</option>
-              ))}
-            </select>
+            <div style={{ height: '28px', display: 'flex', alignItems: 'center' }}>
+              <div className="slider-container" style={{ width: '100%' }}>
+                <input
+                  type="range"
+                  min="0"
+                  max="6"
+                  step="1"
+                  value={AVAILABILITIES.findIndex(a => a.value === availability)}
+                  onChange={(e) => setAvailability(AVAILABILITIES[parseInt(e.target.value)].value)}
+                  className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                  style={{
+                    background: 'linear-gradient(to right, var(--color-accent-1) 0%, var(--color-accent-1) ' + (AVAILABILITIES.findIndex(a => a.value === availability) * 16.67 + gradientOffset) + '%, var(--color-bg-tertiary) ' + (AVAILABILITIES.findIndex(a => a.value === availability) * 16.67 + gradientOffset) + '%, var(--color-bg-tertiary) 100%)',
+                  }}
+                  required
+                />
+                <div 
+                  className="slider-thumb" 
+                  style={{ 
+                    left: `calc(14px + (100% - 28px) * ${(AVAILABILITIES.findIndex(a => a.value === availability) * 16.67) / 100})`,
+                  }}
+                >
+                  {thumbEmoji}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-between mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              <span>Once/Week</span>
+              <span className="font-semibold" style={{ color: 'var(--color-accent-1)' }}>
+                {AVAILABILITIES.find(a => a.value === availability)?.label || 'Select...'}
+              </span>
+              <span>Everyday</span>
+            </div>
           </div>
 
           {/* Languages */}
@@ -454,7 +572,8 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
             Cancel
           </button>
         </div>
-      </form>
-    </div>
+        </form>
+      </div>
+    </>
   );
 };

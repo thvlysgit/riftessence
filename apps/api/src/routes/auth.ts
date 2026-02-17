@@ -1,34 +1,49 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../prisma';
 import bcrypt from 'bcryptjs';
+import { RegisterSchema, LoginSchema, SetPasswordSchema, validateRequest, TurnstileVerifySchema } from '../validation';
+import { logError } from '../middleware/logger';
+import { Errors } from '../middleware/errors';
+import { sendDiscordWebhook, createNewUserEmbed } from '../utils/discord-webhook';
 
 export default async function authRoutes(fastify: FastifyInstance) {
   // Register new user with username/email/password
   fastify.post('/register', async (request: any, reply: any) => {
     try {
-      const { username, email, password } = request.body as {
-        username: string;
-        email: string;
-        password: string;
-      };
-
-      // Validation
-      if (!username || !email || !password) {
-        return reply.code(400).send({ error: 'Username, email, and password are required' });
+      // Validate request body
+      const validation = validateRequest(RegisterSchema, request.body);
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid input', details: validation.errors });
       }
 
-      if (username.length < 3 || username.length > 20) {
-        return reply.code(400).send({ error: 'Username must be between 3 and 20 characters' });
-      }
+      const { username, email, password } = validation.data;
 
-      if (password.length < 6) {
-        return reply.code(400).send({ error: 'Password must be at least 6 characters' });
-      }
+      // Verify CAPTCHA token (if provided)
+      const turnstileToken = (request.body as any)?.turnstileToken;
+      if (turnstileToken && process.env.TURNSTILE_SECRET_KEY) {
+        const turnstileValidation = validateRequest(TurnstileVerifySchema, { token: turnstileToken });
+        if (!turnstileValidation.success) {
+          return reply.code(400).send({ error: 'Invalid CAPTCHA token' });
+        }
 
-      // Email validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return reply.code(400).send({ error: 'Invalid email format' });
+        try {
+          const verifyResp = await fetch('https://challenges.cloudflare.com/turnstile/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              secret: process.env.TURNSTILE_SECRET_KEY,
+              response: turnstileToken,
+            }),
+          });
+
+          const result = await verifyResp.json();
+          if (!result.success) {
+            return reply.code(400).send({ error: 'CAPTCHA verification failed' });
+          }
+        } catch (err) {
+          logError(request, 'CAPTCHA verification error', err);
+          return reply.code(500).send({ error: 'CAPTCHA verification failed' });
+        }
       }
 
       // Check if username or email already exists
@@ -42,7 +57,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       });
 
       if (existingUser) {
-        if (existingUser.username.toLowerCase() === username.toLowerCase()) {
+        if (existingUser.username?.toLowerCase() === username.toLowerCase()) {
           return reply.code(400).send({ error: 'Username already taken' });
         }
         return reply.code(400).send({ error: 'Email already registered' });
@@ -60,10 +75,24 @@ export default async function authRoutes(fastify: FastifyInstance) {
         },
       });
 
+      // Send Discord notification (async, don't wait)
+      sendDiscordWebhook(
+        '🎉 New user registered!',
+        [createNewUserEmbed({
+          username: user.username,
+          region: user.region || undefined,
+          timestamp: new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }),
+        })]
+      ).catch(err => console.error('[Discord] Failed to send registration webhook:', err));
+
+      // Generate JWT token
+      const token = fastify.jwt.sign({ userId: user.id });
+
       return reply.send({
         userId: user.id,
         username: user.username,
         email: user.email,
+        token,
       });
     } catch (error: any) {
       fastify.log.error(error);
@@ -74,14 +103,13 @@ export default async function authRoutes(fastify: FastifyInstance) {
   // Login with username/email and password
   fastify.post('/login', async (request: any, reply: any) => {
     try {
-      const { usernameOrEmail, password } = request.body as {
-        usernameOrEmail: string;
-        password: string;
-      };
-
-      if (!usernameOrEmail || !password) {
-        return reply.code(400).send({ error: 'Username/email and password are required' });
+      // Validate request body
+      const validation = validateRequest(LoginSchema, request.body);
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid input', details: validation.errors });
       }
+
+      const { usernameOrEmail, password } = validation.data;
 
       // Find user by username or email
       const user = await prisma.user.findFirst({
@@ -93,23 +121,20 @@ export default async function authRoutes(fastify: FastifyInstance) {
         },
         include: {
           badges: true,
+          riotAccounts: true,
         },
       });
 
-      if (!user) {
-        return reply.code(401).send({ error: 'Invalid credentials' });
-      }
-
-      // Check if user has a password set
-      if (!user.password) {
-        return reply.code(401).send({ error: 'This account uses Riot login only. Please link a Riot account or contact support.' });
-      }
+      if (!user) return Errors.invalidCredentials(reply, request);
+      // SECURITY FIX: Use generic error to prevent user enumeration
+      if (!user.password) return Errors.invalidCredentials(reply, request);
 
       // Verify password
       const isValid = await bcrypt.compare(password, user.password);
-      if (!isValid) {
-        return reply.code(401).send({ error: 'Invalid credentials' });
-      }
+      if (!isValid) return Errors.invalidCredentials(reply, request);
+
+      // Generate JWT token
+      const token = fastify.jwt.sign({ userId: user.id });
 
       return reply.send({
         userId: user.id,
@@ -118,29 +143,26 @@ export default async function authRoutes(fastify: FastifyInstance) {
         bio: user.bio,
         verified: user.verified,
         badges: user.badges.map((b: any) => ({ key: b.key, name: b.name })),
+        riotAccountsCount: user.riotAccounts.length,
+        onboardingCompleted: user.onboardingCompleted || false,
+        token,
       });
     } catch (error: any) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: 'Login failed' });
+      Errors.serverError(reply, request, 'login', error);
     }
   });
 
   // Set password for existing user (e.g., if they only had Riot login before)
   fastify.post('/set-password', async (request: any, reply: any) => {
     try {
-      const { userId, password } = request.body as {
-        userId: string;
-        password: string;
-      };
-
-      if (!userId || !password) {
-        return reply.code(400).send({ error: 'User ID and password are required' });
+      // Validate request body
+      const validation = validateRequest(SetPasswordSchema, request.body);
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid input', details: validation.errors });
       }
 
-      if (password.length < 6) {
-        return reply.code(400).send({ error: 'Password must be at least 6 characters' });
-      }
-
+      const { userId, password } = validation.data;
+      
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -154,6 +176,41 @@ export default async function authRoutes(fastify: FastifyInstance) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to set password' });
+    }
+  });
+
+  // Token refresh endpoint
+  fastify.post('/refresh', async (request: any, reply: any) => {
+    try {
+      // Extract token from Authorization header
+      const authHeader = request.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return reply.code(401).send({ error: 'No token provided' });
+      }
+
+      const token = authHeader.substring(7);
+      
+      // Verify and decode the token
+      let decoded: any;
+      try {
+        decoded = request.server.jwt.verify(token);
+      } catch (err) {
+        return reply.code(401).send({ error: 'Invalid or expired token' });
+      }
+
+      // Check if user still exists
+      const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+      if (!user) {
+        return reply.code(401).send({ error: 'User not found' });
+      }
+
+      // Generate new token
+      const newToken = fastify.jwt.sign({ userId: user.id });
+      
+      return reply.send({ token: newToken });
+    } catch (error: any) {
+      request.log && request.log.error && request.log.error(error);
+      return reply.code(500).send({ error: 'Failed to refresh token' });
     }
   });
 }

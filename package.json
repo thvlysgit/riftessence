@@ -9,7 +9,8 @@
     "dev:web": "pnpm --filter @lfd/web dev",
     "dev:api": "pnpm --filter @lfd/api dev",
     "dev": "pnpm -w -r -s run dev || true",
-    "build": "pnpm -w -r -s build",
+    "build": "pnpm install && pnpm --filter @lfd/types build && pnpm --filter @lfd/api build && prisma generate",
+    "heroku-postbuild": "pnpm build",
     "lint": "eslint --ext .ts,.tsx .",
     "test": "pnpm -w -r -s test",
     "prepare": ""

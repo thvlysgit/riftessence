@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getAuthHeader } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -15,18 +17,21 @@ type SearchResult = {
   username: string;
   verified: boolean;
   badges: Array<{ key: string; name: string }>;
+  profileIconId?: number;
 };
 
 export default function Navbar() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const { currentTheme } = useTheme();
+  const { t, currentLanguage } = useLanguage();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
   
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -130,10 +135,9 @@ export default function Navbar() {
 
     const fetchUnreadCount = async () => {
       try {
-        const userId = localStorage.getItem('lfd_userId');
-        if (!userId) return;
+        if (!user.id) return;
 
-        const res = await fetch(`${API_URL}/api/notifications?userId=${encodeURIComponent(userId)}`);
+        const res = await fetch(`${API_URL}/api/notifications?userId=${encodeURIComponent(user.id)}`);
         if (res.ok) {
           const data = await res.json();
           const unread = data.notifications?.filter((n: any) => !n.read).length || 0;
@@ -148,6 +152,38 @@ export default function Navbar() {
     // Poll every 30 seconds to keep count updated
     const interval = setInterval(fetchUnreadCount, 30000);
     return () => clearInterval(interval);
+  }, [user]);
+
+  // Check if user is admin
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+
+    const checkAdminStatus = async () => {
+      try {
+        if (!user.id) {
+          setIsAdmin(false);
+          return;
+        }
+
+        const res = await fetch(`${API_URL}/api/user/check-admin?userId=${encodeURIComponent(user.id)}`, {
+          headers: getAuthHeader(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setIsAdmin(data.isAdmin || false);
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (err) {
+        console.error('Failed to check admin status:', err);
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdminStatus();
   }, [user]);
 
   // Search users with debouncing
@@ -217,7 +253,8 @@ export default function Navbar() {
             <div className="hidden md:flex items-center space-x-1">
               <NavLink href="/feed">LFD</NavLink>
               <NavLink href="/lft">LFT</NavLink>
-              <NavLink href="/communities">Communities</NavLink>
+              <NavLink href="/matchups">Matchups</NavLink>
+              <NavLink href="/coaching">Coaching</NavLink>
               <NavLink href="/profile">Profile</NavLink>
             </div>
           </div>
@@ -227,7 +264,7 @@ export default function Navbar() {
             <div className="relative w-full">
               <input
                 type="text"
-                placeholder="Search summoners..."
+                placeholder={t('navbar.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={(e) => {
@@ -273,15 +310,24 @@ export default function Navbar() {
                         e.currentTarget.style.backgroundColor = 'transparent';
                       }}
                     >
-                      <div 
-                        className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
-                        style={{
-                          background: 'linear-gradient(to bottom right, var(--color-accent-1), var(--color-accent-2))',
-                          color: 'var(--color-bg-primary)',
-                        }}
-                      >
-                        {result.username[0].toUpperCase()}
-                      </div>
+                      {result.profileIconId ? (
+                        <img
+                          src={`https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/${result.profileIconId}.png`}
+                          alt={result.username}
+                          className="w-8 h-8 rounded-full"
+                          style={{ objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div 
+                          className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
+                          style={{
+                            background: 'linear-gradient(to bottom right, var(--color-accent-1), var(--color-accent-2))',
+                            color: 'var(--color-bg-primary)',
+                          }}
+                        >
+                          {result.username[0].toUpperCase()}
+                        </div>
+                      )}
                       <div className="flex-1">
                         <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{result.username}</p>
                         {result.verified && (
@@ -311,6 +357,18 @@ export default function Navbar() {
 
           {/* Right: Notifications, User Menu */}
           <div className="flex items-center space-x-3">
+
+            {/* Language Beta Badge */}
+            {currentLanguage === 'fr' && (
+              <div className="hidden md:flex items-center gap-2 px-2 py-1 rounded text-xs font-semibold" style={{
+                backgroundColor: 'rgba(251, 146, 60, 0.15)',
+                color: '#fb923c',
+                border: '1px solid rgba(251, 146, 60, 0.3)'
+              }}>
+                <span>🇫🇷</span>
+                <span>BETA</span>
+              </div>
+            )}
 
             {/* Notifications Bell */}
             {user && (
@@ -348,7 +406,10 @@ export default function Navbar() {
             )}
 
             {/* User Menu or Login Button */}
-            {user ? (
+            {loading ? (
+              // Avoid flashing login button while auth state loads
+              <div className="w-20 h-8" />
+            ) : user ? (
               <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -361,15 +422,24 @@ export default function Navbar() {
                   }}
                 >
                   {/* User Avatar */}
-                  <div 
-                    className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
-                    style={{
-                      background: 'linear-gradient(to bottom right, var(--color-accent-1), var(--color-accent-2))',
-                      color: 'var(--color-bg-primary)',
-                    }}
-                  >
-                    {user.username[0].toUpperCase()}
-                  </div>
+                  {user.profileIconId ? (
+                    <img
+                      src={`https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/${user.profileIconId}.png`}
+                      alt={user.username}
+                      className="w-8 h-8 rounded-full"
+                      style={{ objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <div 
+                      className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
+                      style={{
+                        background: 'linear-gradient(to bottom right, var(--color-accent-1), var(--color-accent-2))',
+                        color: 'var(--color-bg-primary)',
+                      }}
+                    >
+                      {user.username[0].toUpperCase()}
+                    </div>
+                  )}
                   {/* Username (hidden on mobile) */}
                   <span className="hidden md:block text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>{user.username}</span>
                   {/* Dropdown icon */}
@@ -412,6 +482,9 @@ export default function Navbar() {
                       </div>
                     </DropdownLink>
                     <DropdownLink href="/settings">Settings</DropdownLink>
+                    <DropdownLink href="/communities">Communities</DropdownLink>
+                    <DropdownLink href="/leaderboards">Leaderboards</DropdownLink>
+                    {isAdmin && <DropdownLink href="/admin">🛡️ Admin Dashboard</DropdownLink>}
                     <hr className="my-1" style={{ borderColor: 'var(--color-border)' }} />
                     <button
                       onClick={handleLogout}
@@ -495,7 +568,7 @@ export default function Navbar() {
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search summoners..."
+                  placeholder={t('navbar.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={(e) => {
@@ -582,8 +655,11 @@ export default function Navbar() {
             {/* Mobile Navigation Links */}
             <MobileNavLink href="/feed">LFD</MobileNavLink>
             <MobileNavLink href="/lft">LFT</MobileNavLink>
-            <MobileNavLink href="/communities">Communities</MobileNavLink>
+            <MobileNavLink href="/matchups">Matchups</MobileNavLink>
+            <MobileNavLink href="/coaching">Coaching</MobileNavLink>
             <MobileNavLink href="/profile">Profile</MobileNavLink>
+            <MobileNavLink href="/communities">Communities</MobileNavLink>
+            <MobileNavLink href="/leaderboards">Leaderboards</MobileNavLink>
             {user && (
               <MobileNavLink href="/notifications">
                 <div className="flex items-center justify-between">

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-export type ThemeName = 'classic' | 'arcane-pastel' | 'nightshade' | 'infernal-ember' | 'radiant-light';
+export type ThemeName = 'classic' | 'arcane-pastel' | 'nightshade' | 'infernal-ember' | 'radiant-light' | 'ocean-depths' | 'forest-mystic' | 'sunset-blaze' | 'shadow-assassin';
 
 interface Theme {
   name: ThemeName;
@@ -158,6 +158,106 @@ const themes: Record<ThemeName, Theme> = {
       borderWidth: '1px',
     },
   },
+  'ocean-depths': {
+    name: 'ocean-depths',
+    displayName: 'Ocean Depths',
+    colors: {
+      bgPrimary: '#0A1828',
+      bgSecondary: '#1C2A3A',
+      bgTertiary: '#2B3E50',
+      textPrimary: '#FFFFFF',
+      textSecondary: '#E0F7FF',
+      textMuted: '#8AB4C5',
+      accent1: '#00D9FF',
+      accent2: '#00B8D4',
+      accent3: '#4DD0E1',
+      border: '#1E4E5F',
+      borderHover: '#00D9FF',
+      success: '#00E5CC',
+      error: '#FF6B9D',
+      warning: '#FFD93D',
+    },
+    style: {
+      borderRadius: '0.75rem',
+      shadow: '0 8px 20px rgb(0 217 255 / 0.15), 0 3px 8px rgb(0 184 212 / 0.12)',
+      borderWidth: '1px',
+    },
+  },
+  'forest-mystic': {
+    name: 'forest-mystic',
+    displayName: 'Forest Mystic',
+    colors: {
+      bgPrimary: '#0D1F0D',
+      bgSecondary: '#1A2E1A',
+      bgTertiary: '#2B4A2B',
+      textPrimary: '#F0FFF0',
+      textSecondary: '#D4F1D4',
+      textMuted: '#A5D6A7',
+      accent1: '#76FF03',
+      accent2: '#00E676',
+      accent3: '#69F0AE',
+      border: '#2E5C2E',
+      borderHover: '#76FF03',
+      success: '#00E676',
+      error: '#FF5252',
+      warning: '#FFEB3B',
+    },
+    style: {
+      borderRadius: '0.75rem',
+      shadow: '0 8px 20px rgb(118 255 3 / 0.15), 0 3px 8px rgb(0 230 118 / 0.12)',
+      borderWidth: '1px',
+    },
+  },
+  'sunset-blaze': {
+    name: 'sunset-blaze',
+    displayName: 'Sunset Blaze',
+    colors: {
+      bgPrimary: '#1F0F0A',
+      bgSecondary: '#2E1810',
+      bgTertiary: '#4A2618',
+      textPrimary: '#FFF8DC',
+      textSecondary: '#FFE4B5',
+      textMuted: '#FFD7A3',
+      accent1: '#FF9500',
+      accent2: '#FFD60A',
+      accent3: '#FFAB00',
+      border: '#5C3A2E',
+      borderHover: '#FF9500',
+      success: '#FFD60A',
+      error: '#FF3B30',
+      warning: '#FF9500',
+    },
+    style: {
+      borderRadius: '0.75rem',
+      shadow: '0 8px 20px rgb(255 149 0 / 0.18), 0 3px 8px rgb(255 214 10 / 0.14)',
+      borderWidth: '1px',
+    },
+  },
+  'shadow-assassin': {
+    name: 'shadow-assassin',
+    displayName: 'Shadow Assassin',
+    colors: {
+      bgPrimary: '#050508',
+      bgSecondary: '#0D0D14',
+      bgTertiary: '#15151F',
+      textPrimary: '#F5F3FF',
+      textSecondary: '#D8D5E8',
+      textMuted: '#9C99B0',
+      accent1: '#8B5CF6',
+      accent2: '#6D28D9',
+      accent3: '#A78BFA',
+      border: '#2D1B4E',
+      borderHover: '#8B5CF6',
+      success: '#A78BFA',
+      error: '#F472B6',
+      warning: '#FCA5A5',
+    },
+    style: {
+      borderRadius: '0.6rem',
+      shadow: '0 10px 28px rgb(139 92 246 / 0.2), 0 4px 10px rgb(109 40 217 / 0.15)',
+      borderWidth: '1px',
+    },
+  },
 };
 
 interface ThemeContextType {
@@ -167,27 +267,33 @@ interface ThemeContextType {
   availableThemes: Theme[];
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
+// Initialize theme from localStorage before React renders (SSR-safe)
+const getInitialTheme = (): ThemeName => {
+  if (typeof window === 'undefined') return 'classic';
+  try {
+    const savedTheme = localStorage.getItem('lfd_theme') as ThemeName;
+    if (savedTheme && themes[savedTheme]) {
+      return savedTheme;
+    }
+  } catch (error) {
+    console.error('[Theme] Failed to load theme from localStorage:', error);
+  }
+  return 'classic';
+};
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [currentTheme, setCurrentTheme] = useState<ThemeName>('classic');
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load theme from localStorage on mount
+  // Load theme from localStorage on mount (before first paint)
   useEffect(() => {
-    try {
-      const savedTheme = localStorage.getItem('lfd_theme') as ThemeName;
-      if (savedTheme && themes[savedTheme]) {
-        setCurrentTheme(savedTheme);
-        console.log('[Theme] Loaded saved theme:', savedTheme);
-      } else {
-        console.log('[Theme] No saved theme, using classic');
-      }
-    } catch (error) {
-      console.error('[Theme] Failed to load theme from localStorage:', error);
-    } finally {
-      setIsInitialized(true);
+    const savedTheme = getInitialTheme();
+    if (savedTheme !== 'classic') {
+      setCurrentTheme(savedTheme);
     }
+    setIsInitialized(true);
   }, []);
 
   // Apply CSS variables when theme changes

@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, user } = useAuth();
+  const { t } = useLanguage();
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -48,8 +50,8 @@ export default function LoginPage() {
           >
             <span className="font-bold text-2xl">LFD</span>
           </div>
-          <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--color-accent-1)' }}>Welcome Back</h1>
-          <p style={{ color: 'var(--color-text-muted)' }}>Sign in to your RiftEssence account</p>
+          <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--color-accent-1)' }}>{t('auth.welcomeBack')}</h1>
+          <p style={{ color: 'var(--color-text-muted)' }}>{t('auth.signInTo')}</p>
         </div>
 
         {/* Login Form */}
@@ -71,7 +73,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="usernameOrEmail" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                Username or Email
+                {t('auth.usernameOrEmail')}
               </label>
               <input
                 id="usernameOrEmail"
@@ -87,14 +89,14 @@ export default function LoginPage() {
                 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                placeholder="Enter your username or email"
+                placeholder={t('auth.enterUsernameOrEmail')}
                 required
               />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                Password
+                {t('common.password')}
               </label>
               <input
                 id="password"
@@ -110,7 +112,7 @@ export default function LoginPage() {
                 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                placeholder="Enter your password"
+                placeholder={t('auth.enterPassword')}
                 required
               />
             </div>
@@ -127,7 +129,7 @@ export default function LoginPage() {
               onMouseEnter={(e) => !loading && (e.currentTarget.style.opacity = '0.9')}
               onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? t('auth.signingIn') : t('auth.signIn')}
             </button>
           </form>
 
@@ -137,13 +139,13 @@ export default function LoginPage() {
               <div className="w-full border-t" style={{ borderColor: 'var(--color-border)' }}></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-muted)' }}>Or</span>
+              <span className="px-4" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-muted)' }}>{t('common.or')}</span>
             </div>
           </div>
 
           {/* Riot Login Option */}
           <Link
-            href="/verify-test"
+            href="/authenticate"
             className="w-full flex items-center justify-center gap-2 px-4 py-3 border font-semibold transition-colors"
             style={{
               backgroundColor: 'var(--color-bg-tertiary)',
@@ -157,14 +159,14 @@ export default function LoginPage() {
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
             </svg>
-            Sign in with Riot Account
+            {t('auth.signInWithRiot')}
           </Link>
 
           {/* Sign Up Link */}
           <p className="mt-6 text-center text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            Don't have an account?{' '}
+            {t('auth.noAccount')}{' '}
             <Link href="/register" className="font-semibold" style={{ color: 'var(--color-accent-1)' }}>
-              Sign up
+              {t('auth.createOne')}
             </Link>
           </p>
         </div>

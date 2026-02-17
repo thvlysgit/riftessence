@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { getAuthHeader, getAuthToken, getUserIdFromToken } from '../utils/auth';
+import NoAccess from '../components/NoAccess';
+import { useRouter } from 'next/router';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -11,15 +14,20 @@ type RiotAccount = {
 };
 
 export default function CreatePostPage() {
+  const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [username, setUsername] = useState<string>('');
   const [riotAccounts, setRiotAccounts] = useState<RiotAccount[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
   const [preferredRole, setPreferredRole] = useState<string | null>(null);
+  const [secondaryRole, setSecondaryRole] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [form, setForm] = useState({
     postingRiotAccountId: '',
     region: 'EUW',
     role: 'TOP',
+    secondRole: '',
     message: '',
     vcPreference: 'SOMETIMES',
     duoType: 'BOTH',
@@ -28,28 +36,43 @@ export default function CreatePostPage() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        let uid: string | null = null;
-        try { uid = localStorage.getItem('lfd_userId'); } catch {}
-        if (!uid) return;
-        const url = `${API_URL}/api/user/profile?userId=${encodeURIComponent(uid)}`;
-        const res = await fetch(url);
-        if (!res.ok) return;
+        const token = getAuthToken();
+        const uid = token ? getUserIdFromToken(token) : null;
+        if (!uid) {
+          setIsAuthenticated(false);
+          setLoading(false);
+          return;
+        }
+        setIsAuthenticated(true);
+        const url = `${API_URL}/api/user/profile`;
+        const res = await fetch(url, {
+          headers: getAuthHeader()
+        });
+        if (!res.ok) {
+          setLoading(false);
+          return;
+        }
         const data = await res.json();
         setUserId(data.id);
         setUsername(data.username);
         setRiotAccounts(data.riotAccounts || []);
         setLanguages(data.languages || []);
         setPreferredRole(data.preferredRole);
+        setSecondaryRole(data.secondaryRole);
         if (data.riotAccounts && data.riotAccounts.length > 0) {
           const mainAcc = data.riotAccounts.find((acc: any) => acc.isMain) || data.riotAccounts[0];
           setForm(prev => ({ 
             ...prev, 
             postingRiotAccountId: mainAcc.id, 
             region: mainAcc.region,
-            role: data.preferredRole || 'TOP' // Pre-select preferred role
+            role: data.preferredRole || 'TOP', // Pre-select preferred role
+            secondRole: data.secondaryRole || '' // Pre-select secondary role
           }));
         }
-      } catch {}
+        setLoading(false);
+      } catch {
+        setLoading(false);
+      }
     }
     loadProfile();
   }, []);
@@ -62,7 +85,10 @@ export default function CreatePostPage() {
       const payload: any = { userId, ...form, languages: finalLanguages };
       const res = await fetch(`${API_URL}/api/posts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
@@ -72,6 +98,27 @@ export default function CreatePostPage() {
   });
 
   const update = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }));
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+        <div style={{ color: 'var(--color-text-primary)' }}>Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4">
+          <NoAccess 
+            action="create-post" 
+            onClose={() => router.push('/feed')}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen py-8 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
@@ -99,7 +146,10 @@ export default function CreatePostPage() {
         </div>
 
           <div>
-            <label className="block text-sm mb-1" style={{ color: 'var(--color-text-muted)' }}>Riot Account *</label>
+            <label className="block text-sm mb-1 flex items-center gap-1.5" style={{ color: 'var(--color-text-muted)' }}>
+              <img width="14" height="14" src="https://img.icons8.com/color/48/riot-games.png" alt="riot-games" />
+              Riot Account *
+            </label>
             {riotAccounts.length === 0 ? (
               <p className="text-sm text-red-400">No linked Riot accounts. Please link an account to post.</p>
             ) : (
@@ -151,6 +201,38 @@ export default function CreatePostPage() {
               {['TOP','JUNGLE','MID','ADC','SUPPORT'].map(r => (
                 <option key={r} value={r}>
                   {r}{r === preferredRole ? ' ⭐' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm mb-1" style={{ color: 'var(--color-text-muted)' }}>
+              Secondary Role (Optional)
+              {secondaryRole && form.secondRole === secondaryRole && (
+                <span className="ml-2 text-xs px-2 py-0.5 rounded font-semibold" style={{ 
+                  background: 'var(--color-accent-2)', 
+                  color: 'var(--color-bg-primary)' 
+                }}>
+                  ⭐ Your 2nd most played
+                </span>
+              )}
+            </label>
+            <select 
+              className="w-full p-2"
+              style={{
+                backgroundColor: 'var(--color-bg-tertiary)',
+                color: 'var(--color-text-primary)',
+                borderRadius: 'var(--border-radius)',
+                border: secondaryRole && form.secondRole === secondaryRole ? '2px solid var(--color-accent-2)' : 'none',
+              }}
+              value={form.secondRole} 
+              onChange={e => update('secondRole', e.target.value)}
+            >
+              <option value="">None</option>
+              {['TOP','JUNGLE','MID','ADC','SUPPORT'].map(r => (
+                <option key={r} value={r}>
+                  {r}{r === secondaryRole ? ' ⭐' : ''}
                 </option>
               ))}
             </select>

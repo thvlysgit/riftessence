@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Prevent committing .env files
+if git diff --cached --name-only | grep -qE '\.env$|\.env\..*$'; then
+  echo "❌ Error: Attempting to commit .env file(s)"
+  echo "   These files may contain secrets and should never be committed."
+  echo ""
+  echo "   Files detected:"
+  git diff --cached --name-only | grep -E '\.env$|\.env\..*$' | sed 's/^/   - /'
+  echo ""
+  echo "   To fix: git reset HEAD <file>"
+  exit 1
+fi
+
+echo "✅ Pre-commit checks passed"
