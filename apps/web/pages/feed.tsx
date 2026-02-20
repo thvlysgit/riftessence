@@ -432,7 +432,12 @@ export default function Feed() {
 
   const getRankBadge = (rank: string, division?: string, lp?: number) => {
     const color = getRankColor(rank);
-    const displayText = division ? `${rank} ${division}${lp !== undefined && lp > 0 ? ` ${lp}LP` : ''}` : rank;
+    const isMasterPlus = ['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(rank.split(' ')[0]);
+    const displayText = division
+      ? `${rank} ${division}${lp !== undefined && lp > 0 ? ` ${lp}LP` : ''}`
+      : isMasterPlus && lp !== undefined
+        ? `${rank} ${lp}LP`
+        : rank;
     return (
       <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold border" style={{ background: `${color}15`, color: color, borderColor: color }}>
         {getRankIcon(rank)}
@@ -1308,7 +1313,7 @@ export default function Feed() {
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         {['MASTER','GRANDMASTER','CHALLENGER'].includes(post.postingRiotAccount.rank.split(' ')[0]) && post.postingRiotAccount.lp !== undefined && post.postingRiotAccount.lp !== null
-                          ? (() => { const lp = post.postingRiotAccount.lp!; const buckets = [0,200,400,600,800,1000,1200]; const bucket = buckets.filter(b => lp >= b).pop(); return getRankBadge(post.postingRiotAccount.rank, undefined, bucket); })()
+                          ? getRankBadge(post.postingRiotAccount.rank, undefined, post.postingRiotAccount.lp)
                           : getRankBadge(post.postingRiotAccount.rank, post.postingRiotAccount.division || undefined, undefined)}
                         {post.postingRiotAccount.winrate !== null && getWinrateBadge(post.postingRiotAccount.winrate)}
                       </div>
@@ -1325,7 +1330,7 @@ export default function Feed() {
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         {['MASTER','GRANDMASTER','CHALLENGER'].includes(post.bestRank.rank.split(' ')[0]) && post.bestRank.lp !== undefined && post.bestRank.lp !== null
-                          ? (() => { const lp = post.bestRank.lp!; const buckets = [0,200,400,600,800,1000,1200]; const bucket = buckets.filter(b => lp >= b).pop(); return getRankBadge(post.bestRank.rank, undefined, bucket); })()
+                          ? getRankBadge(post.bestRank.rank, undefined, post.bestRank.lp)
                           : getRankBadge(post.bestRank.rank, post.bestRank.division || undefined, undefined)}
                         {post.bestRank.winrate !== null && getWinrateBadge(post.bestRank.winrate)}
                       </div>

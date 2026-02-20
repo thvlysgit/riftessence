@@ -728,11 +728,14 @@ export default function ProfilePage() {
     checkBlockStatus();
   }, [isViewingOther, currentUserId, user]);
 
-  // Fetch full champions list from Data Dragon
+  // Fetch full champions list from Data Dragon (using latest version)
   useEffect(() => {
     async function fetchChampions() {
       try {
-        const res = await fetch('https://ddragon.leagueoflegends.com/cdn/14.23.1/data/en_US/champion.json');
+        const versionsRes = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+        const versions = await versionsRes.json();
+        const latestVersion = versions[0];
+        const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`);
         if (!res.ok) throw new Error('failed');
         const json = await res.json();
         const names = Object.values<any>(json.data || {}).map((c: any) => c.name as string).sort();
@@ -1339,19 +1342,20 @@ export default function ProfilePage() {
               {user.badges && user.badges.length > 0 && (
                 <div className="mt-3 flex items-center gap-2 flex-wrap">
                   {user.badges.map((badge) => {
-                    const badgeName = typeof badge === 'string' ? badge : (badge.key || badge.name);
+                    const badgeLookupKey = typeof badge === 'string' ? badge : (badge.key || badge.name);
+                    const badgeDisplayName = typeof badge === 'string' ? badge : (badge.name || badge.key);
                     // Try API configs first, then fallback to hardcoded BADGE_CONFIG
-                    const config = badgeConfigs[badgeName] || BADGE_CONFIG[badgeName] || {
+                    const config = badgeConfigs[badgeLookupKey] || BADGE_CONFIG[badgeLookupKey] || {
                       icon: '🏆',
                       bgColor: 'var(--badge-bg)',
                       borderColor: 'var(--badge-border)',
                       textColor: 'var(--badge-text)',
                       hoverBg: 'var(--badge-hover-bg)',
                     };
-                    const badgeKey = badgeName.toLowerCase().replace(/\s+/g, '');
-                    const tKey = `profile.badge.${badgeKey}.desc` as any;
+                    const badgeKeyNorm = badgeLookupKey.toLowerCase().replace(/\s+/g, '');
+                    const tKey = `profile.badge.${badgeKeyNorm}.desc` as any;
                     const translatedDesc = t(tKey);
-                    const description = translatedDesc === tKey ? (config.description || badgeName) : translatedDesc;
+                    const description = translatedDesc === tKey ? (config.description || badgeDisplayName) : translatedDesc;
 
                     return (
                       <div
@@ -1362,7 +1366,7 @@ export default function ProfilePage() {
                           borderColor: config.borderColor,
                           boxShadow: `0 2px 10px 0 ${config.borderColor}33`
                         }}
-                        title={badgeName}
+                        title={badgeDisplayName}
                       >
                         {/* Hover overlay to deepen color */}
                         <div
@@ -1382,7 +1386,7 @@ export default function ProfilePage() {
                         >
                           <div className="flex items-center gap-2">
                             <span className="text-sm" style={{ color: config.textColor }}>{config.icon}</span>
-                            <p className="text-xs font-semibold" style={{ color: config.textColor }}>{badgeName}</p>
+                            <p className="text-xs font-semibold" style={{ color: config.textColor }}>{badgeDisplayName}</p>
                           </div>
                           {description && (
                             <p className="text-[10px] mt-1 leading-snug" style={{ color: 'var(--text-secondary)' }}>{description}</p>
