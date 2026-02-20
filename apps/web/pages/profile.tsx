@@ -352,7 +352,7 @@ type UserProfile = {
   skillStars: number;
   personalityMoons: number;
   reportCount: number;
-  badges: string[];
+  badges: Array<string | { id: string; key: string; name: string; description?: string }>;
   championPoolMode: 'TIERLIST';
   championList: string[];
   championTierlist: any;
