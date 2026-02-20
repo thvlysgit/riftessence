@@ -38,7 +38,8 @@ type SearchResult = {
 
 const COMMON_EMOJIS = ['🏆', '🛡️', '⚡', '👑', '🌟', '💎', '🔥', '⭐', '✨', '🎯', '🎖️', '🥇', '🥈', '🥉', '🏅', '💪', '🚀', '💫'];
 
-export default function BadgeManagementPage() {1  const router = useRouter();
+export default function BadgeManagementPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'badges' | 'users'>('badges');
   const [badges, setBadges] = useState<Badge[]>([]);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
