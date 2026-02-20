@@ -98,7 +98,10 @@ export async function checkBadge(
     }
 
     const hasBadge = user.badges.some(
-      (b: any) => b.toLowerCase() === badge.toLowerCase()
+      (b: any) => {
+        const badgeKey = typeof b === 'string' ? b : (b.key || b.name);
+        return badgeKey.toLowerCase() === badge.toLowerCase();
+      }
     );
 
     if (!hasBadge) {
