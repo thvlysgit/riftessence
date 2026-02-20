@@ -7,8 +7,8 @@ import { getAuthHeader } from '../utils/auth';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
 // TODO: TEMPORARY COMPONENT - Remove after bug reporting period ends
-// Discord webhook for bug reports
-const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1276583446801547335/sEbCXWvNVtNq56f1x8SwozWimPdnbn2hwSiwGvFrcvsfj9bJXK0YJ45eHcJFwyO8YQTG';
+// Discord webhook for bug reports - now uses environment variable for security
+const DISCORD_WEBHOOK_URL = process.env.NEXT_PUBLIC_DISCORD_BUG_WEBHOOK || '';
 
 export default function BugReportButton() {
   const [isOpen, setIsOpen] = useState(false);

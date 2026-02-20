@@ -135,7 +135,7 @@ export default function BadgeManagementPage() {
         const res = await fetch(`${API_URL}/api/user/search?q=${encodeURIComponent(query)}&limit=10`);
         if (res.ok) {
           const data = await res.json();
-          setSearchResults(data ||[]);
+          setSearchResults(data.users || []);
           setShowSearchResults(true);
         }
       } catch (err) {
