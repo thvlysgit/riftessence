@@ -337,6 +337,11 @@ model Badge {
   key         String  @unique
   name        String
   description String?
+  icon        String  @default("🏆")
+  bgColor     String  @default("rgba(96, 165, 250, 0.20)")
+  borderColor String  @default("#60A5FA")
+  textColor   String  @default("#93C5FD")
+  hoverBg     String  @default("rgba(96, 165, 250, 0.30)")
   users       User[]
 }
 

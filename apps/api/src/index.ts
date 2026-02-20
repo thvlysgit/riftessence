@@ -21,6 +21,7 @@ import leaderboardsRoutes from './routes/leaderboards';
 import chatRoutes from './routes/chat';
 import matchupRoutes from './routes/matchups';
 import analyticsRoutes from './routes/analytics';
+import badgeRoutes from './routes/badges';
 import bcrypt from 'bcryptjs';
 import { env } from './env';
 import { RegisterSchema, LoginSchema, SetPasswordSchema, validateRequest, TurnstileVerifySchema, RatingSchema, BroadcastMessageSchema } from './validation';
@@ -117,6 +118,7 @@ async function build() {
   await server.register(chatRoutes, { prefix: '/api/chat' });
   await server.register(matchupRoutes, { prefix: '/api' });
   await server.register(analyticsRoutes, { prefix: '/api' });
+  await server.register(badgeRoutes, { prefix: '/api/badges' });
 
   // Feedback endpoint
   server.post('/api/feedback', async (request: any, reply: any) => {

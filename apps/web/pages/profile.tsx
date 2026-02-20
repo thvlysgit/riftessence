@@ -524,6 +524,7 @@ export default function ProfilePage() {
   const [isCheckingBlock, setIsCheckingBlock] = useState(false);
   const [toast, setToast] = useState<{ open: boolean; message: string; type?: 'success'|'error'|'info' }>({ open: false, message: '', type: 'info' });
   const [confirmState, setConfirmState] = useState<{ open: boolean; feedbackId: string | null }>({ open: false, feedbackId: null });
+  const [badgeConfigs, setBadgeConfigs] = useState<Record<string, BadgeConfig>>({});
   const { showToast, confirm } = useGlobalUI();
   const isAdmin = useMemo(() => currentUserBadges.some(b => b.key === 'admin'), [currentUserBadges]);
 
@@ -552,6 +553,34 @@ export default function ProfilePage() {
       }
     };
     loadCurrentUser();
+  }, []);
+
+  // Load badge configurations from API
+  useEffect(() => {
+    const loadBadgeConfigs = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/badges`);
+        if (res.ok) {
+          const data = await res.json();
+          const configs: Record<string, BadgeConfig> = {};
+          (data.badges || []).forEach((badge: any) => {
+            configs[badge.key] = {
+              icon: badge.icon,
+              description: badge.description || '',
+              bgColor: badge.bgColor,
+              borderColor: badge.borderColor,
+              textColor: badge.textColor,
+              hoverBg: badge.hoverBg,
+            };
+          });
+          setBadgeConfigs(configs);
+        }
+      } catch (err) {
+        console.error('Failed to load badge configurations:', err);
+        // Fallback to hardcoded configs if API fails
+      }
+    };
+    loadBadgeConfigs();
   }, []);
 
   const normalize = (s: string) => s.trim().toLowerCase();
@@ -1311,7 +1340,8 @@ export default function ProfilePage() {
                 <div className="mt-3 flex items-center gap-2 flex-wrap">
                   {user.badges.map((badge) => {
                     const badgeName = typeof badge === 'string' ? badge : (badge.key || badge.name);
-                    const config = BADGE_CONFIG[badgeName] || {
+                    // Try API configs first, then fallback to hardcoded BADGE_CONFIG
+                    const config = badgeConfigs[badgeName] || BADGE_CONFIG[badgeName] || {
                       icon: '🏆',
                       bgColor: 'var(--badge-bg)',
                       borderColor: 'var(--badge-border)',
