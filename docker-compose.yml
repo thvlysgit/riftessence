@@ -25,12 +25,6 @@ services:
       context: .
       dockerfile: ./apps/api/Dockerfile
     working_dir: /app/apps/api
-    volumes:
-      # Use a named Docker volume for node_modules so the image-provided
-      # node_modules (and Prisma runtime) are copied into the volume at
-      # creation. This preserves generated files while still letting us
-      # run the compiled app from the image.
-      - api_node_modules:/app/apps/api/node_modules
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/riftessence
       RIOT_API_KEY: ${RIOT_API_KEY}
@@ -53,6 +47,5 @@ services:
     # Run the image's default CMD (compiled JS). Removing the dev command
     # avoids ts-node-dev restarts and lets the image-run compiled app start.
 
-volumes:
-  api_node_modules: {}
+volumes: {}
 
