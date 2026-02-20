@@ -656,7 +656,6 @@ export default function ProfilePage() {
         setEditedUsername(data.username || '');
         setEditedLanguages(data.languages || []);
         setChampionPoolMode(data.championPoolMode || 'LIST');
-        setChampions(data.championList || []);
         setChampionTierlist(
           data.championTierlist && typeof data.championTierlist === 'object'
             ? {
@@ -858,6 +857,7 @@ export default function ProfilePage() {
       const invalid = allTierChamps.filter((c) => !isValidChampion(c));
       if (invalid.length) {
         showToast(t('profile.champion.invalid').replace('{champs}', invalid.join(', ')), 'error');
+        setIsSaving(false);
         return;
       }
       // Ensure uniqueness across tiers by deduping when saving (UI enforces, but double-check)
@@ -880,7 +880,7 @@ export default function ProfilePage() {
         body: JSON.stringify({
           mode: championPoolMode,
           championList: [],
-          championTierlist: championTierlist,
+          championTierlist: uniqueTierlist,
         }),
       }) : null;
       if (cpRes && cpRes.ok) {
@@ -924,7 +924,6 @@ export default function ProfilePage() {
         setEditedUsername(data.username || '');
         setEditedLanguages(data.languages || []);
         setChampionPoolMode(data.championPoolMode || 'LIST');
-        setChampions(data.championList || []);
         setChampionTierlist(
           data.championTierlist && typeof data.championTierlist === 'object'
             ? {
