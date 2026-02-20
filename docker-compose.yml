@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:15
+    platform: linux/arm64
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -13,11 +14,13 @@ services:
 
   redis:
     image: redis:7
+    platform: linux/arm64
     restart: unless-stopped
     ports:
       - "6379:6379"
 
   api:
+    platform: linux/arm64
     build:
       context: .
       dockerfile: ./apps/api/Dockerfile
