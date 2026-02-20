@@ -207,6 +207,11 @@ export default async function postsRoutes(fastify: any) {
           
           // Flag if posting with main account
           isMainAccount: isSameAccount,
+
+          // Champion pool (for S/A tier display in feed)
+          championPoolMode: author.anonymous ? null : (author.championPoolMode || null),
+          championList: author.anonymous ? [] : (author.championList || []),
+          championTierlist: author.anonymous ? null : (author.championTierlist || null),
         };
       });
 

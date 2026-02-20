@@ -7,6 +7,7 @@ import { useChat } from '../contexts/ChatContext';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { useGlobalUI } from '../components/GlobalUI';
 import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../utils/auth';
+import { getChampionIconUrl } from '../utils/championData';
 import { sanitizeText } from '../utils/sanitize';
 import { getFriendlyErrorMessage, extractErrorMessage } from '../utils/errorMessages';
 import { AdSpot, useAds, getAdForPosition } from '../components/AdSpot';
@@ -134,6 +135,9 @@ type Post = {
     inviteLink: string | null;
   } | null;
   source?: string;
+  championPoolMode?: string | null;
+  championList?: string[];
+  championTierlist?: { S?: string[]; A?: string[]; B?: string[]; C?: string[] } | null;
 };
 
 export default function Feed() {
@@ -1363,6 +1367,30 @@ export default function Feed() {
                     <span key={lang}>{getLanguageBadge(lang)}</span>
                   ))}
                 </div>
+                {/* S/A tier champion pool icons */}
+                {(() => {
+                  const tierlist = post.championTierlist as { S?: string[]; A?: string[] } | null;
+                  const sChamps = tierlist?.S || [];
+                  const aChamps = tierlist?.A || [];
+                  const display = [...sChamps.slice(0, 4), ...aChamps.slice(0, 3)];
+                  if (display.length === 0) return null;
+                  return (
+                    <div className="flex items-center gap-1 flex-wrap mt-1">
+                      <span className="text-xs mr-1" style={{ color: 'var(--color-text-muted)' }}>Pool:</span>
+                      {display.map((champ) => (
+                        <img
+                          key={champ}
+                          src={getChampionIconUrl(champ)}
+                          alt={champ}
+                          title={champ}
+                          className="w-6 h-6 rounded-full border object-cover"
+                          style={{ borderColor: 'var(--color-border)' }}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 {/* Ratings - Always visible */}
                 <div className="rounded-lg p-4 mb-4" style={{ background: 'var(--color-bg-tertiary)' }}>

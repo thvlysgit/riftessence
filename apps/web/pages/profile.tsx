@@ -728,20 +728,46 @@ export default function ProfilePage() {
     checkBlockStatus();
   }, [isViewingOther, currentUserId, user]);
 
-  // Fetch full champions list from Data Dragon (using latest version)
+  // Fetch full champions list from Data Dragon
   useEffect(() => {
     async function fetchChampions() {
+      // Start with a known-good recent version; try to refresh from versions.json in background
+      const FALLBACK_VERSION = '15.13.1';
+      let version = FALLBACK_VERSION;
+
       try {
         const versionsRes = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
-        const versions = await versionsRes.json();
-        const latestVersion = versions[0];
-        const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`);
+        if (versionsRes.ok) {
+          const versions = await versionsRes.json();
+          if (Array.isArray(versions) && versions[0]) version = versions[0];
+        }
+      } catch {
+        // Ignore — use fallback version
+      }
+
+      try {
+        const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/champion.json`);
         if (!res.ok) throw new Error('failed');
         const json = await res.json();
         const names = Object.values<any>(json.data || {}).map((c: any) => c.name as string).sort();
-        setChampions(names);
+        if (names.length > 0) {
+          setChampions(names);
+          return;
+        }
+        throw new Error('empty');
       } catch {
-        // Fallback to popular list if network fails
+        // Try the fallback version explicitly if the detected version failed
+        if (version !== FALLBACK_VERSION) {
+          try {
+            const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${FALLBACK_VERSION}/data/en_US/champion.json`);
+            if (res.ok) {
+              const json = await res.json();
+              const names = Object.values<any>(json.data || {}).map((c: any) => c.name as string).sort();
+              if (names.length > 0) { setChampions(names); return; }
+            }
+          } catch { /* ignore */ }
+        }
+        // Final fallback to popular list
         setChampions(POPULAR_CHAMPIONS);
       }
     }
@@ -1653,6 +1679,7 @@ export default function ProfilePage() {
                     className="w-full px-4 py-2 rounded-lg border-2 transition-colors"
                     style={{ background: 'var(--bg-input)', borderColor: 'var(--border-card)', color: 'var(--text-main)' }}
                   />
+                    {championInput.trim().length > 0 && (
                     <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-2 max-h-44 overflow-auto pr-1">
                       {champions
                         .filter((c) => normalize(c).includes(normalize(championInput)))
@@ -1668,6 +1695,7 @@ export default function ProfilePage() {
                           </button>
                         ))}
                     </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
