@@ -669,8 +669,8 @@ export default async function userRoutes(fastify: any) {
         where: { id: user.id },
         data: {
           championPoolMode: mode,
-          championList: mode === 'LIST' ? championList || [] : [],
-          championTierlist: mode === 'TIERLIST' ? championTierlist : null,
+          championList: mode === 'LIST' ? championList || [] : undefined,
+          championTierlist: mode === 'TIERLIST' ? championTierlist : undefined,
         },
       });
 
