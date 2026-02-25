@@ -25,6 +25,12 @@ export default function BugReportButton() {
       return;
     }
 
+    if (!DISCORD_WEBHOOK_URL) {
+      showToast('Bug reporting is not configured. Please contact support.', 'error');
+      console.error('NEXT_PUBLIC_DISCORD_BUG_WEBHOOK environment variable is not set');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const timestamp = new Date().toISOString();

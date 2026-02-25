@@ -1,6 +1,6 @@
 # API Contracts
 
-> Last updated: 2026-02-16  
+> Last updated: 2026-02-24  
 > Base URL: `NEXT_PUBLIC_API_URL` (default: `http://localhost:3333`)
 
 ## Route Modules
@@ -375,6 +375,205 @@ Send a system message to all users (except admin and system user).
 - `403` — "Admin access required" (user not admin)
 - `404` — "User not found" (admin user not found)
 - `401` — Not authenticated
+- `500` — Server error
+
+---
+
+## Posts Endpoints (`/api/posts`)
+
+### GET `/api/posts`
+Fetch all duo posts with pagination and filters.
+
+**Auth**: Optional (required for blocked users filter)  
+**Query Parameters**:
+- `region`: string | string[] (optional) — Filter by region(s)
+- `role`: string | string[] (optional) — Filter by role(s)
+- `language`: string | string[] (optional) — Filter by language(s)
+- `vcPreference`: 'ALWAYS' | 'SOMETIMES' | 'NEVER' (optional)
+- `duoType`: string (optional) — Filter by duo type
+- `userId`: string (optional) — Used to filter blocked users and check admin status
+- `limit`: number (default: 10, max validated) — Number of posts per page
+- `offset`: number (default: 0) — Pagination offset
+
+**Response**:
+```json
+{
+  "posts": [
+    {
+      "id": "cuid",
+      "createdAt": "2026-02-24T10:30:00.000Z",
+      "message": "Looking for chill duo partner!",
+      "role": "ADC",
+      "secondRole": "SUPPORT",
+      "region": "EUW",
+      "languages": ["en", "de"],
+      "vcPreference": "SOMETIMES",
+      "duoType": "RANKED",
+      "authorId": "cuid",
+      "username": "SummonerName",
+      "isAnonymous": false,
+      "isAdmin": false,
+      "reportCount": 0,
+      "preferredRole": "ADC",
+      "secondaryRole": "SUPPORT",
+      "discordUsername": "discord#1234",
+      "postingRiotAccount": {
+        "gameName": "RiftMaster",
+        "tagLine": "EUW1",
+        "region": "EUW",
+        "rank": "PLATINUM",
+        "division": "II",
+        "lp": 45,
+        "winrate": 54.2
+      },
+      "bestRank": {
+        "gameName": "RiftMaster",
+        "tagLine": "NA1",
+        "rank": "DIAMOND",
+        "division": "IV",
+        "lp": 12,
+        "winrate": 51.8
+      },
+      "ratings": {
+        "skill": 4.2,
+        "personality": 4.8,
+        "skillCount": 15,
+        "personalityCount": 15
+      },
+      "isMainAccount": false,
+      "community": {
+        "id": "cuid",
+        "name": "EUW Chill Squad",
+        "isPartner": true,
+        "inviteLink": "https://discord.gg/example"
+      }
+    }
+  ],
+  "pagination": {
+    "hasMore": true,
+    "total": 150
+  }
+}
+```
+
+**Features**:
+- Server-side pagination with limit/offset
+- Multi-filter support (regions, roles, languages)
+- Bidirectional blocking filter
+- Admin status detection
+- Ordered by `createdAt DESC`
+
+### GET `/api/posts/:id`
+Fetch a single duo post by ID.
+
+**Auth**: Not required (public endpoint for sharing)  
+**Response**:
+```json
+{
+  "post": {
+    "id": "cuid",
+    "createdAt": "2026-02-24T10:30:00.000Z",
+    "message": "Looking for chill duo partner!",
+    "role": "ADC",
+    "secondRole": "SUPPORT",
+    "region": "EUW",
+    "languages": ["en", "de"],
+    "vcPreference": "SOMETIMES",
+    "duoType": "RANKED",
+    "authorId": "cuid",
+    "username": "SummonerName",
+    "isAnonymous": false,
+    "isAdmin": false,
+    "reportCount": 0,
+    "preferredRole": "ADC",
+    "secondaryRole": "SUPPORT",
+    "discordUsername": "discord#1234",
+    "postingRiotAccount": {
+      "gameName": "RiftMaster",
+      "tagLine": "EUW1",
+      "region": "EUW",
+      "rank": "PLATINUM",
+      "division": "II",
+      "lp": 45,
+      "winrate": 54.2
+    },
+    "bestRank": {
+      "gameName": "RiftMaster",
+      "tagLine": "NA1",
+      "rank": "DIAMOND",
+      "division": "IV",
+      "lp": 12,
+      "winrate": 51.8
+    },
+    "ratings": {
+      "skill": 4.2,
+      "personality": 4.8,
+      "skillCount": 15,
+      "personalityCount": 15
+    },
+    "isMainAccount": false,
+    "community": {
+      "id": "cuid",
+      "name": "EUW Chill Squad",
+      "isPartner": true,
+      "inviteLink": "https://discord.gg/example"
+    },
+    "championPoolMode": "TIERLIST",
+    "championList": [],
+    "championTierlist": {
+      "S": ["Jinx", "Kai'Sa"],
+      "A": ["Ashe", "Caitlyn"]
+    }
+  }
+}
+```
+
+**Features**:
+- Public access (no authentication required)
+- Same format as list endpoint
+- Used for share pages and OpenGraph embeds
+- Respects anonymous mode (hides usernames/accounts)
+
+**Error Responses**:
+- `404` — "Post not found"
+- `500` — Server error
+
+### POST `/api/posts`
+Create a new duo post.
+
+**Auth**: Required  
+**Request Body**: Validated via `CreatePostSchema`
+
+**Success Response** (201):
+```json
+{
+  "success": true,
+  "postId": "cuid"
+}
+```
+
+**Error Responses**:
+- `400` — Validation errors, missing Riot account
+- `401` — Invalid/missing authentication
+- `500` — Server error
+
+### DELETE `/api/posts/:id`
+Delete a duo post.
+
+**Auth**: Required  
+**Authorization**: Owner of the post OR admin
+
+**Success Response** (200):
+```json
+{
+  "success": true
+}
+```
+
+**Error Responses**:
+- `401` — Invalid/missing authentication
+- `403` — Not authorized (not owner or admin)
+- `404` — Post not found
 - `500` — Server error
 
 ---

@@ -1,6 +1,6 @@
 # Frontend Pages
 
-> Last updated: 2026-02-16  
+> Last updated: 2026-02-24  
 > All pages in `apps/web/pages/`
 
 ## Page Inventory
@@ -39,6 +39,8 @@
 | `admin/badges.tsx` | `/admin/badges` | Badge management |
 | `admin/ads.tsx` | `/admin/ads` | Ad management |
 | `admin/settings.tsx` | `/admin/settings` | Admin settings |
+| `share/post/[id].tsx` | `/share/post/:id` | Shareable duo post page with OpenGraph metadata |
+| `api/og/post/[id].tsx` | `/api/og/post/:id` | Dynamic OG image generation for duo posts (Edge API) |
 
 ---
 
@@ -57,6 +59,7 @@
 - **Blocking**: Automatically filters out posts from blocked users (bidirectional)
 - **Ad Integration**: Shows ads at regular intervals between posts (dismissible)
 - **Real-time Updates**: Refreshing indicator when filters change
+- **Share Button**: "Share Post" button visible only to post authors, copies shareable link to clipboard (links to `/share/post/:id`)
 
 **Filter Options**:
 - **Regions**: NA, EUW, EUNE, KR, JP, OCE, LAN, LAS, BR, RU (multi-select checkboxes)
@@ -68,12 +71,18 @@
 - **Winrate Range**: Min/Max percentage sliders (0-100%)
 - **Smurf Filter**: Only Smurfs, No Smurfs, All (single-select)
 
+**Post Card Actions**:
+- **Non-authors**: "View Profile" and "Message" buttons
+- **Authors**: "View Profile", "Message" (for viewing own post), and **"Share Post"** button
+- **Share Post**: Generates shareable URL, copies to clipboard, shows success toast with hint to paste in Discord
+
 **User Flow**:
 1. User logs in → Feed loads with user's region and languages pre-selected
 2. Posts are fetched and displayed with pagination
 3. User can modify filters → Feed automatically refreshes
 4. User can contact post authors (sends notification) or start direct chat
-5. Admins can delete posts inline
+5. **Post authors can share their posts via "Share Post" button → Link copied → Paste in Discord for rich embed**
+6. Admins can delete posts inline
 
 **State Management**:
 - Uses React hooks for local state (filters, posts, pagination)
@@ -460,5 +469,90 @@ The matchups system allows users to create, manage, and share detailed champion-
 - 24-hour localStorage cache
 - Name normalization for special cases (Wukong→MonkeyKing, Kai'Sa→Kaisa, etc.)
 - Helper functions: `fetchChampions()`, `getCachedChampions()`, `normalizeChampionName()`, `getChampionIconUrl()`
+
+---
+
+### Share Post Page (`/share/post/:id`)
+
+**Purpose**: Shareable duo post page with rich OpenGraph metadata for Discord/social media embeds.
+
+**Key Features**:
+- **Server-Side Rendering**: Uses `getServerSideProps` to fetch post data from API
+- **Public Access**: No authentication required (shareable links)
+- **Rich OpenGraph Tags**: Custom meta tags for Discord/Twitter/Facebook:
+  - Dynamic title: "{username} - Looking For Duo on {region}"
+  - Description with account info and rank
+  - Custom OG image via `/api/og/post/{id}`
+  - Proper dimensions (1200x630)
+  - Discord theme color (#C8AA6D)
+- **Visual Post Display**:
+  - Username, region, timestamp
+  - Role badges with icons (primary + secondary)
+  - Riot account cards:
+    - Posting account (with smurf label if applicable)
+    - Main account (if different from posting account)
+  - Rank badges with tier-based color coding
+  - Winrate badges (green ≥50%, red <50%)
+  - Message content
+  - VC preference and languages
+- **Clear CTAs**:
+  - "Browse More Duo Posts" → `/feed`
+  - "Create Your Own Post" → `/register`
+- **Error Handling**: User-friendly 404 page if post not found
+
+**API Calls**:
+- Fetch: `GET /api/posts/:id` (server-side)
+
+**User Flow**:
+1. User clicks "Share Post" button on their duo post in `/feed`
+2. Link copied to clipboard: `{origin}/share/post/{postId}`
+3. User pastes link in Discord → Rich embed appears with custom image
+4. Others click link → Redirected to share page with full post details
+5. CTAs encourage browsing feed or creating account
+
+**State Management**: Server-side data fetching only (no client state)
+
+---
+
+### OG Image API (`/api/og/post/:id`)
+
+**Purpose**: Dynamic OpenGraph image generation for duo post sharing.
+
+**Key Features**:
+- **Edge Runtime**: Uses Next.js `ImageResponse` API for fast image generation
+- **Dynamic Content**: Fetches post data from backend and renders custom image
+- **Image Dimensions**: 1200x630 pixels (OpenGraph standard)
+- **Branded Design**:
+  - RiftEssence gradient background
+  - Logo and "Looking For Duo" header
+  - Username and region display
+  - Role badges (primary + secondary)
+  - Riot account cards with rank/winrate
+  - Smurf detection (labels posting account as "Posting With (Smurf)")
+  - Main account display (if different)
+  - Post message (truncated to 120 chars)
+  - VC preference with icon
+  - RiftEssence branding footer
+- **Color Coding**:
+  - Rank badges: Tier-specific colors (Iron→Challenger)
+  - Winrate: Green (≥50%) / Red (<50%)
+  - Accent: RiftEssence gold (#C8AA6D)
+
+**Rank Colors**:
+- Iron: #4A4A4A, Bronze: #CD7F32, Silver: #C0C0C0, Gold: #FFD700
+- Platinum: #00CED1, Emerald: #50C878, Diamond: #B9F2FF
+- Master: #9D4EDD, Grandmaster: #FF6B6B, Challenger: #F4D03F
+
+**API Calls**:
+- Fetch: `GET /api/posts/:id` (internal API call)
+
+**Error Handling**:
+- 400: Missing post ID
+- 404: Post not found
+- 500: Image generation failed
+
+**Usage**: Automatically invoked by OpenGraph crawlers when share links are posted in Discord/social media
+
+**Performance**: Edge runtime ensures fast generation, images can be cached/CDN'd in production
 
 ---

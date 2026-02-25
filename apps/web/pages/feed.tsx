@@ -1281,7 +1281,7 @@ export default function Feed() {
                     </div>
                   </div>
                   {!post.isAnonymous ? (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Link href={`/profile?username=${encodeURIComponent(post.username)}`} className="px-3 py-1 rounded text-sm font-medium transition-colors border" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}>
                         View Profile
                       </Link>
@@ -1295,6 +1295,25 @@ export default function Feed() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                           </svg>
                           Message
+                        </button>
+                      )}
+                      {post.authorId === currentUserId && (
+                        <button
+                          onClick={() => {
+                            const shareUrl = `${window.location.origin}/share/post/${post.id}`;
+                            navigator.clipboard.writeText(shareUrl).then(() => {
+                              showToast('Share link copied to clipboard! Paste it in Discord to share your duo post.', 'success');
+                            }).catch(() => {
+                              showToast('Failed to copy link', 'error');
+                            });
+                          }}
+                          className="px-3 py-1 rounded text-sm font-medium transition-colors border flex items-center gap-1"
+                          style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                          </svg>
+                          Share Post
                         </button>
                       )}
                     </div>

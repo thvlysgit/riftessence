@@ -1,8 +1,113 @@
 # Changelog
 
-> Last updated: 2026-02-16
+> Last updated: 2026-02-24
 
 Chronological log of significant changes. Maintained by @DocumentationManager.
+
+---
+
+## 2026-02-24 — Duo Post Sharing with Discord Embeds
+
+### New Feature: Shareable Duo Posts with Rich Discord Previews
+
+**Overview**: Users can now share their duo posts with beautiful Discord embeds that display all key information visually. When sharing a link in Discord, a custom-generated image appears showing the post details.
+
+**Backend Changes**:
+
+**1. New API Endpoint** ([apps/api/src/routes/posts.ts](apps/api/src/routes/posts.ts)):
+- `GET /api/posts/:id` — Fetch a single duo post by ID
+- **Authentication**: Not required (public endpoint for sharing)
+- **Response Format**: Same as list endpoint, returns single post with:
+  - Post details (role, region, message, VC preference, languages)
+  - Author info (username, Discord, preferred roles)
+  - Posting Riot account (gameName, tagLine, rank, division, LP, winrate)
+  - Main account info (if posting with smurf)
+  - Ratings (skill/personality averages)
+  - Community info (if applicable)
+- **Error Handling**: Returns 404 if post not found
+- **Code Quality**: Extracted `formatPost()` helper function to avoid duplication between list and single endpoints
+
+**Frontend Changes**:
+
+**1. Share Button** ([apps/web/pages/feed.tsx](apps/web/pages/feed.tsx)):
+- Added "Share Post" button visible only to post authors (`currentUserId === authorId`)
+- Generates shareable URL: `{origin}/share/post/{postId}`
+- Copy-to-clipboard functionality with user feedback toast
+- Icon: Share/network SVG icon matching existing design
+- Tooltip: "Share link copied to clipboard! Paste it in Discord to share your duo post."
+
+**2. Share Page** ([apps/web/pages/share/post/[id].tsx](apps/web/pages/share/post/[id].tsx)):
+- **Server-Side Rendering**: Uses `getServerSideProps` to fetch post data
+- **OpenGraph Metadata**: Complete meta tags for Discord/Twitter/Facebook:
+  - `og:title`: "{username} - Looking For Duo on {region}"
+  - `og:description`: Dynamic description with account info and rank
+  - `og:image`: Links to dynamic OG image API (`/api/og/post/{id}`)
+  - `og:image:width` / `og:image:height`: 1200x630 (standard)
+  - `twitter:card`: summary_large_image
+  - `theme-color`: #C8AA6D (RiftEssence brand color)
+- **Visual Display**: Shows full post details with same styling as feed:
+  - Username, region, timestamp
+  - Role badges with icons
+  - Riot accounts (posting account + main account if smurf)
+  - Rank badges with color-coding
+  - Winrate badges (green ≥50%, red <50%)
+  - Message content
+  - VC preference and languages
+- **Clear CTAs**:
+  - "Browse More Duo Posts" → /feed
+  - "Create Your Own Post" → /register
+- **Error Handling**: User-friendly 404 page if post not found
+
+**3. OG Image API** ([apps/web/pages/api/og/post/[id].tsx](apps/web/pages/api/og/post/[id].tsx)):
+- **Edge Runtime**: Uses Next.js `ImageResponse` API for dynamic image generation
+- **Image Dimensions**: 1200x630 pixels (OpenGraph standard)
+- **Design Features**:
+  - RiftEssence branded gradient background
+  - Header with logo and "Looking For Duo" label
+  - Username and region display
+  - Role badges (primary + secondary)
+  - Riot account cards:
+    - Posting account (labeled as "Posting With (Smurf)" if applicable)
+    - Main account (if different from posting account)
+  - Rank badges with color-coding per tier:
+    - Iron: #4A4A4A, Bronze: #CD7F32, Silver: #C0C0C0, Gold: #FFD700
+    - Platinum: #00CED1, Emerald: #50C878, Diamond: #B9F2FF
+    - Master: #9D4EDD, Grandmaster: #FF6B6B, Challenger: #F4D03F
+  - Winrate display (green ≥50%, red <50%)
+  - Post message (truncated to 120 chars)
+  - VC preference with icon
+  - RiftEssence branding footer
+- **Error Handling**: 400 for missing ID, 404 for missing post, 500 for generation errors
+
+**User Flow**:
+1. User creates duo post on /feed or /create
+2. "Share Post" button appears on their own posts
+3. Click button → Link copied to clipboard
+4. Paste link in Discord → Rich embed appears with custom image
+5. Others click link → Redirected to share page with full post details
+6. CTAs encourage browsing more posts or creating an account
+
+**Technical Details**:
+- **No Authentication Required**: Share links are publicly accessible
+- **Privacy Preserved**: Respects anonymous mode (hides usernames/accounts)
+- **SEO Optimized**: Proper meta tags for all social platforms
+- **Performance**: Edge runtime for fast image generation
+- **Scalability**: API endpoint can be cached/CDN'd for production
+
+**Files Created**:
+- [apps/web/pages/share/post/[id].tsx](apps/web/pages/share/post/[id].tsx) — Share page component
+- [apps/web/pages/api/og/post/[id].tsx](apps/web/pages/api/og/post/[id].tsx) — OG image API route
+
+**Files Modified**:
+- [apps/api/src/routes/posts.ts](apps/api/src/routes/posts.ts) — Added GET /:id endpoint
+- [apps/web/pages/feed.tsx](apps/web/pages/feed.tsx) — Added share button
+
+**Impact**:
+- ✅ Users can promote their duo posts organically via Discord/social media
+- ✅ RiftEssence gains free marketing through beautiful share cards
+- ✅ Increased visibility and user acquisition
+- ✅ Professional appearance in Discord communities
+- ✅ Easy one-click sharing with visual appeal
 
 ---
 
