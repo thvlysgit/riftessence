@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   // Transpile local workspace packages that ship TS/TSX so Next can process them
-  transpilePackages: ['@lfd/ui', '@lfd/types'],
+  transpilePackages: ['@lfd/ui', '@lfd/types', '@tanstack/react-query', '@tanstack/query-core'],
   images: {
     remotePatterns: [
       {
