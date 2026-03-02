@@ -5,7 +5,6 @@ import { GetServerSideProps } from 'next';
 import Image from 'next/image';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://qpnpc65t-3000.uks1.devtunnels.ms';
 
 interface Post {
   id: string;
@@ -45,6 +44,7 @@ interface Post {
 interface SharePostPageProps {
   post: Post | null;
   error?: string;
+  baseUrl: string;
 }
 
 // Helper to format VC preference
@@ -134,7 +134,7 @@ const getRoleIcon = (role: string) => {
   }
 };
 
-export default function SharePostPage({ post, error }: SharePostPageProps) {
+export default function SharePostPage({ post, error, baseUrl }: SharePostPageProps) {
   if (error || !post) {
     return (
       <>
@@ -159,8 +159,8 @@ export default function SharePostPage({ post, error }: SharePostPageProps) {
     );
   }
 
-  const ogImageUrl = `${BASE_URL}/api/og/post/${post.id}?id=${post.id}`;
-  const shareUrl = `${BASE_URL}/share/post/${post.id}`;
+  const ogImageUrl = `${baseUrl}/api/og/post/${post.id}?id=${post.id}`;
+  const shareUrl = `${baseUrl}/share/post/${post.id}`;
   const postingAccount = post.postingRiotAccount;
   const mainAccount = post.bestRank;
   const hasMainAccount = mainAccount && !post.isMainAccount;
@@ -367,6 +367,10 @@ export default function SharePostPage({ post, error }: SharePostPageProps) {
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { id } = context.params as { id: string };
+  const { req } = context;
+  const protocol = req.headers['x-forwarded-proto'] || 'https';
+  const host = req.headers['x-forwarded-host'] || req.headers.host || 'riftessence.app';
+  const baseUrl = `${protocol}://${host}`;
 
   try {
     const res = await fetch(`${API_URL}/api/posts/${id}`);
@@ -376,6 +380,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         props: {
           post: null,
           error: 'Post not found',
+          baseUrl,
         },
       };
     }
@@ -385,6 +390,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return {
       props: {
         post: data.post,
+        baseUrl,
       },
     };
   } catch (error) {
@@ -393,6 +399,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       props: {
         post: null,
         error: 'Failed to load post',
+        baseUrl,
       },
     };
   }
