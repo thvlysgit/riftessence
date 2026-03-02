@@ -64,7 +64,7 @@ export default async function handler(req: NextRequest) {
     const rankColor = postingAccount ? getRankColor(postingAccount.rank) : '#C8AA6D';
     const vcText = formatVCPreference(post.vcPreference);
     const message = post.message || '';
-    const truncatedMessage = message.length > 110 ? message.substring(0, 107) + '...' : message;
+    const truncatedMessage = message.length > 200 ? message.substring(0, 197) + '...' : message;
     const rankLabel = postingAccount
       ? `${postingAccount.rank}${postingAccount.division ? ' ' + postingAccount.division : ''}${postingAccount.lp ? ' ' + postingAccount.lp + 'LP' : ''}`
       : '';
@@ -143,12 +143,14 @@ export default async function handler(req: NextRequest) {
               </div>
             </div>
 
-            {/* Message — flex: 1 on container, width: 100% on text to force wrapping */}
+            {/* Message — flexDirection:'column' on wrapper is required for Satori text wrapping */}
             {truncatedMessage ? (
-              <div style={{ display: 'flex', flex: 1, alignItems: 'flex-start', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', width: '4px', minHeight: '100%', backgroundColor: rankColor, borderRadius: '2px', marginRight: '20px', opacity: 0.6 }} />
-                <div style={{ display: 'flex', width: '1040px', fontSize: '20px', color: '#6B7280', lineHeight: 1.55, fontStyle: 'italic', flexWrap: 'wrap' }}>
-                  {truncatedMessage}
+              <div style={{ display: 'flex', flex: 1, alignItems: 'flex-start', paddingTop: '4px' }}>
+                <div style={{ display: 'flex', width: '4px', alignSelf: 'stretch', backgroundColor: rankColor, borderRadius: '2px', marginRight: '24px', opacity: 0.5 }} />
+                <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  <div style={{ fontSize: '24px', color: '#8B9CB5', lineHeight: 1.55, fontStyle: 'italic' }}>
+                    {truncatedMessage}
+                  </div>
                 </div>
               </div>
             ) : (
