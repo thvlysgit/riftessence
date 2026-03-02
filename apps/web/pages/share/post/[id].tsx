@@ -159,7 +159,7 @@ export default function SharePostPage({ post, error, baseUrl }: SharePostPagePro
     );
   }
 
-  const ogImageUrl = `${baseUrl}/api/og/post/${post.id}?id=${post.id}`;
+  const ogImageUrl = `${baseUrl}/api/og/post/${post.id}`;
   const shareUrl = `${baseUrl}/share/post/${post.id}`;
   const postingAccount = post.postingRiotAccount;
   const mainAccount = post.bestRank;

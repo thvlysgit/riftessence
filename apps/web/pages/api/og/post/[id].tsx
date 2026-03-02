@@ -1,5 +1,9 @@
 import { ImageResponse } from 'next/og';
-import { NextApiRequest, NextApiResponse } from 'next';
+import { NextRequest } from 'next/server';
+
+export const config = {
+  runtime: 'edge',
+};
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -24,30 +28,29 @@ function getRankColor(rank: string): string {
 // Helper to format VC preference
 function formatVCPreference(vc: string): string {
   const map: Record<string, string> = {
-    ALWAYS: '🎤 VC Required',
-    SOMETIMES: '🎤 VC Optional',
-    NEVER: '🔇 No VC',
+    ALWAYS: 'VC Required',
+    SOMETIMES: 'VC Optional',
+    NEVER: 'No VC',
   };
   return map[vc] || vc;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextRequest) {
   try {
-    const id = req.query.id as string;
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id') || req.url.split('/api/og/post/')[1]?.split('?')[0];
 
     if (!id) {
-      res.status(400).send('Post ID required');
-      return;
+      return new Response('Post ID required', { status: 400 });
     }
 
     // Fetch post data from backend
     const postRes = await fetch(`${API_URL}/api/posts/${id}`, {
       signal: AbortSignal.timeout(8000),
     });
-    
+
     if (!postRes.ok) {
-      res.status(404).send('Post not found');
-      return;
+      return new Response('Post not found', { status: 404 });
     }
 
     const { post } = await postRes.json();
@@ -61,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const message = post.message || 'Looking for duo partner!';
     const truncatedMessage = message.length > 120 ? message.substring(0, 117) + '...' : message;
 
-    const imageResponse = new ImageResponse(
+    return new ImageResponse(
       (
         <div
           style={{
@@ -353,13 +356,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         height: 630,
       }
     );
-
-    const buffer = Buffer.from(await imageResponse.arrayBuffer());
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.status(200).send(buffer);
   } catch (error) {
     console.error('Error generating OG image:', error);
-    res.status(500).send('Failed to generate image');
+    return new Response('Failed to generate image', { status: 500 });
   }
 }
