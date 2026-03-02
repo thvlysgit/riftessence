@@ -44,6 +44,8 @@ interface Post {
 interface SharePostPageProps {
   id: string;
   baseUrl: string;
+  ssrTitle: string | null;
+  ssrDescription: string | null;
 }
 
 // Helper to format VC preference
@@ -133,7 +135,7 @@ const getRoleIcon = (role: string) => {
   }
 };
 
-export default function SharePostPage({ id, baseUrl }: SharePostPageProps) {
+export default function SharePostPage({ id, baseUrl, ssrTitle, ssrDescription }: SharePostPageProps) {
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -154,10 +156,15 @@ export default function SharePostPage({ id, baseUrl }: SharePostPageProps) {
 
   const ogImageUrl = `${baseUrl}/api/og/post/${id}`;
   const shareUrl = `${baseUrl}/share/post/${id}`;
-  const pageTitle = post ? `${post.username}'s Duo Post | RiftEssence` : 'Looking For Duo | RiftEssence';
-  const pageDescription = post
-    ? `${post.username} is looking for a duo partner on ${post.region}! Role: ${post.role}${post.secondRole ? ` / ${post.secondRole}` : ''}`
-    : 'Check out this duo post on RiftEssence — the League of Legends LFD platform.';
+
+  const clientTitle = post ? `${post.username} is looking for a duo!` : 'Looking For Duo | RiftEssence';
+  const clientDescription = post
+    ? (post.postingRiotAccount ? `${post.postingRiotAccount.gameName}#${post.postingRiotAccount.tagLine}` : post.username)
+    : 'RiftEssence — League of Legends LFD platform.';
+
+  // SSR values (set by getServerSideProps for Discord/bots); client values used after hydration
+  const pageTitle = ssrTitle || clientTitle;
+  const pageDescription = ssrDescription || clientDescription;
 
   return (
     <>
@@ -314,7 +321,31 @@ export default function SharePostPage({ id, baseUrl }: SharePostPageProps) {
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { id } = context.params as { id: string };
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.riftessence.app';
+
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+    const res = await fetch(`${apiUrl}/api/posts/${id}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      const { post } = await res.json();
+      const riotId = post?.postingRiotAccount
+        ? `${post.postingRiotAccount.gameName}#${post.postingRiotAccount.tagLine}`
+        : post?.username || null;
+      return {
+        props: {
+          id,
+          baseUrl,
+          ssrTitle: post ? `${post.username} is looking for a duo!` : null,
+          ssrDescription: riotId,
+        },
+      };
+    }
+  } catch (_) {
+    // Fall through — generic metadata served, client-side fetch will still work
+  }
+
   return {
-    props: { id, baseUrl },
+    props: { id, baseUrl, ssrTitle: null, ssrDescription: null },
   };
 };
