@@ -10,18 +10,26 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 function getRankColor(rank: string): string {
   const base = rank.split(' ')[0].toUpperCase();
   const colors: Record<string, string> = {
-    IRON: '#4A4A4A',
+    IRON: '#6B7280',
     BRONZE: '#CD7F32',
     SILVER: '#C0C0C0',
     GOLD: '#FFD700',
     PLATINUM: '#00CED1',
     EMERALD: '#50C878',
-    DIAMOND: '#B9F2FF',
-    MASTER: '#9D4EDD',
+    DIAMOND: '#8BE3F9',
+    MASTER: '#C084FC',
     GRANDMASTER: '#FF6B6B',
     CHALLENGER: '#F4D03F',
   };
   return colors[base] || '#C8AA6D';
+}
+
+function getWRStyle(wr: number): { color: string; bg: string; label: string } {
+  if (wr >= 60) return { color: '#F97316', bg: '#2A1500', label: `${wr.toFixed(1)}%  HOT` };
+  if (wr >= 55) return { color: '#10B981', bg: '#052015', label: `${wr.toFixed(1)}%` };
+  if (wr >= 50) return { color: '#84CC16', bg: '#0E1F02', label: `${wr.toFixed(1)}%` };
+  if (wr >= 45) return { color: '#F59E0B', bg: '#1F1200', label: `${wr.toFixed(1)}%` };
+  return { color: '#EF4444', bg: '#1F0505', label: `${wr.toFixed(1)}%` };
 }
 
 function formatVCPreference(vc: string): string {
@@ -56,107 +64,114 @@ export default async function handler(req: NextRequest) {
     const rankColor = postingAccount ? getRankColor(postingAccount.rank) : '#C8AA6D';
     const vcText = formatVCPreference(post.vcPreference);
     const message = post.message || '';
-    const truncatedMessage = message.length > 100 ? message.substring(0, 97) + '...' : message;
+    const truncatedMessage = message.length > 110 ? message.substring(0, 107) + '...' : message;
     const rankLabel = postingAccount
       ? `${postingAccount.rank}${postingAccount.division ? ' ' + postingAccount.division : ''}${postingAccount.lp ? ' ' + postingAccount.lp + 'LP' : ''}`
       : '';
+    const wrStyle = postingAccount && postingAccount.winrate !== null
+      ? getWRStyle(postingAccount.winrate)
+      : null;
 
     return new ImageResponse(
       (
-        <div
-          style={{
-            width: '1200px',
-            height: '630px',
-            display: 'flex',
-            backgroundColor: '#080E1A',
-          }}
-        >
-          {/* Left accent bar in rank color */}
-          <div style={{ display: 'flex', width: '8px', backgroundColor: rankColor }} />
+        <div style={{ width: '1200px', height: '630px', display: 'flex', backgroundColor: '#06101F' }}>
 
-          {/* Main content */}
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '52px 56px' }}>
+          {/* Left accent bar */}
+          <div style={{ display: 'flex', width: '10px', backgroundColor: rankColor }} />
 
-            {/* Top row: "Looking for Duo" label + region */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
-              <div style={{ display: 'flex', fontSize: '18px', color: rankColor, fontWeight: 'bold', letterSpacing: '2px' }}>
-                LOOKING FOR DUO
+          {/* Content */}
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '48px 60px 40px 52px' }}>
+
+            {/* Top row */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
+              {/* "LOOKING FOR DUO" stylized pill */}
+              <div style={{ display: 'flex', alignItems: 'center', backgroundColor: rankColor, padding: '10px 28px', borderRadius: '40px' }}>
+                <div style={{ display: 'flex', fontSize: '22px', fontWeight: 'bold', color: '#06101F', letterSpacing: '3px' }}>
+                  LOOKING FOR DUO
+                </div>
               </div>
-              <div style={{ display: 'flex', fontSize: '18px', color: '#9CA3AF', backgroundColor: '#131D2E', padding: '8px 18px', borderRadius: '6px' }}>
-                {post.region}
+              {/* Region + username cluster */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', fontSize: '17px', color: '#4B5563' }}>
+                  {post.username}
+                </div>
+                <div style={{ display: 'flex', fontSize: '17px', color: rankColor, backgroundColor: '#0D1B2E', padding: '8px 18px', borderRadius: '6px', border: `1px solid ${rankColor}` }}>
+                  {post.region}
+                </div>
               </div>
             </div>
 
-            {/* Username — hero element */}
-            <div style={{ display: 'flex', fontSize: '72px', fontWeight: 'bold', color: '#F0E6D2', marginBottom: '8px', lineHeight: 1 }}>
-              {post.username}
+            {/* Riot account name — HERO */}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', fontSize: '70px', fontWeight: 'bold', color: rankColor, lineHeight: 1 }}>
+                {postingAccount ? postingAccount.gameName : post.username}
+              </div>
+              {postingAccount ? (
+                <div style={{ display: 'flex', fontSize: '36px', fontWeight: 'bold', color: '#374151', lineHeight: 1, marginLeft: '4px' }}>
+                  #{postingAccount.tagLine}
+                </div>
+              ) : null}
             </div>
 
-            {/* Riot account name below username */}
-            {postingAccount ? (
-              <div style={{ display: 'flex', fontSize: '22px', color: '#6B7280', marginBottom: '28px' }}>
-                {postingAccount.gameName}#{postingAccount.tagLine}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', marginBottom: '28px' }} />
-            )}
+            {/* Divider line in rank color */}
+            <div style={{ display: 'flex', width: '80px', height: '3px', backgroundColor: rankColor, marginBottom: '24px' }} />
 
-            {/* Roles + Rank + WR row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px' }}>
-              {/* Main role */}
-              <div style={{ display: 'flex', fontSize: '18px', fontWeight: 'bold', color: '#080E1A', backgroundColor: rankColor, padding: '8px 20px', borderRadius: '6px' }}>
+            {/* Badges row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px', flexWrap: 'nowrap' }}>
+              {/* Main role — filled */}
+              <div style={{ display: 'flex', fontSize: '17px', fontWeight: 'bold', color: '#06101F', backgroundColor: rankColor, padding: '8px 18px', borderRadius: '6px' }}>
                 {post.role}
               </div>
               {/* Second role */}
               {post.secondRole ? (
-                <div style={{ display: 'flex', fontSize: '18px', fontWeight: 'bold', color: rankColor, backgroundColor: '#131D2E', padding: '8px 20px', borderRadius: '6px' }}>
+                <div style={{ display: 'flex', fontSize: '17px', fontWeight: 'bold', color: rankColor, backgroundColor: '#0D1B2E', padding: '8px 18px', borderRadius: '6px', border: `1px solid ${rankColor}` }}>
                   {post.secondRole}
                 </div>
               ) : null}
-              {/* Divider */}
+              {/* Separator */}
+              <div style={{ display: 'flex', width: '1px', height: '28px', backgroundColor: '#1E2D42' }} />
+              {/* Rank */}
               {postingAccount ? (
-                <div style={{ display: 'flex', width: '1px', height: '32px', backgroundColor: '#1E2D42', marginLeft: '4px', marginRight: '4px' }} />
-              ) : null}
-              {/* Rank badge */}
-              {postingAccount ? (
-                <div style={{ display: 'flex', fontSize: '18px', fontWeight: 'bold', color: rankColor, backgroundColor: '#131D2E', padding: '8px 20px', borderRadius: '6px' }}>
+                <div style={{ display: 'flex', fontSize: '17px', fontWeight: 'bold', color: rankColor, backgroundColor: '#0D1B2E', padding: '8px 18px', borderRadius: '6px' }}>
                   {rankLabel}
                 </div>
               ) : null}
-              {/* WR badge */}
-              {postingAccount && postingAccount.winrate !== null ? (
-                <div style={{ display: 'flex', fontSize: '18px', fontWeight: 'bold', color: postingAccount.winrate >= 50 ? '#10B981' : '#EF4444', backgroundColor: '#131D2E', padding: '8px 20px', borderRadius: '6px' }}>
-                  {postingAccount.winrate.toFixed(1)}% WR
+              {/* WR with flare */}
+              {wrStyle ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '17px', fontWeight: 'bold', color: wrStyle.color, backgroundColor: wrStyle.bg, padding: '8px 18px', borderRadius: '6px', border: `1px solid ${wrStyle.color}` }}>
+                  <div style={{ display: 'flex' }}>WR</div>
+                  <div style={{ display: 'flex', fontSize: '20px', fontWeight: 'bold' }}>{wrStyle.label}</div>
                 </div>
               ) : null}
-              {/* VC badge */}
-              <div style={{ display: 'flex', fontSize: '16px', color: '#6B7280', backgroundColor: '#131D2E', padding: '8px 16px', borderRadius: '6px' }}>
+              {/* VC */}
+              <div style={{ display: 'flex', fontSize: '15px', color: '#4B5563', backgroundColor: '#0D1B2E', padding: '8px 14px', borderRadius: '6px' }}>
                 {vcText}
               </div>
             </div>
 
             {/* Message */}
             {truncatedMessage ? (
-              <div style={{ display: 'flex', flex: 1, fontSize: '20px', color: '#9CA3AF', lineHeight: 1.6, borderLeft: `3px solid ${rankColor}`, paddingLeft: '20px' }}>
-                {truncatedMessage}
+              <div style={{ display: 'flex', flex: 1, alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', width: '3px', backgroundColor: rankColor, borderRadius: '2px', marginRight: '18px', alignSelf: 'stretch' }} />
+                <div style={{ display: 'flex', fontSize: '19px', color: '#6B7280', lineHeight: 1.6, fontStyle: 'italic' }}>
+                  {truncatedMessage}
+                </div>
               </div>
             ) : (
               <div style={{ display: 'flex', flex: 1 }} />
             )}
 
-            {/* Bottom: watermark only */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px' }}>
-              <div style={{ display: 'flex', fontSize: '14px', color: '#2D3A4A' }}>
+            {/* Bottom watermark */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <div style={{ display: 'flex', fontSize: '13px', color: '#1E2D42' }}>
                 riftessence.app
               </div>
             </div>
+
           </div>
         </div>
       ),
-      {
-        width: 1200,
-        height: 630,
-      }
+      { width: 1200, height: 630 }
     );
   } catch (error) {
     console.error('Error generating OG image:', error);
