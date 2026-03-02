@@ -74,9 +74,8 @@ export default async function handler(req: NextRequest) {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'linear-gradient(135deg, #0A1428 0%, #162642 100%)',
+            backgroundImage: 'linear-gradient(135deg, #0A1428 0%, #162642 100%)',
             padding: '60px',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
           }}
         >
           {/* Main Card */}
@@ -84,7 +83,7 @@ export default async function handler(req: NextRequest) {
             style={{
               display: 'flex',
               flexDirection: 'column',
-              background: 'linear-gradient(135deg, #1C2841 0%, #253550 100%)',
+              backgroundImage: 'linear-gradient(135deg, #1C2841 0%, #253550 100%)',
               borderRadius: '24px',
               padding: '48px',
               width: '1080px',
