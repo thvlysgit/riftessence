@@ -1,9 +1,5 @@
 import { ImageResponse } from 'next/og';
-import { NextRequest } from 'next/server';
-
-export const config = {
-  runtime: 'edge',
-};
+import { NextApiRequest, NextApiResponse } from 'next';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -35,20 +31,21 @@ function formatVCPreference(vc: string): string {
   return map[vc] || vc;
 }
 
-export default async function handler(req: NextRequest) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
+    const id = req.query.id as string;
 
     if (!id) {
-      return new Response('Post ID required', { status: 400 });
+      res.status(400).send('Post ID required');
+      return;
     }
 
     // Fetch post data from backend
     const postRes = await fetch(`${API_URL}/api/posts/${id}`);
     
     if (!postRes.ok) {
-      return new Response('Post not found', { status: 404 });
+      res.status(404).send('Post not found');
+      return;
     }
 
     const { post } = await postRes.json();
@@ -62,7 +59,7 @@ export default async function handler(req: NextRequest) {
     const message = post.message || 'Looking for duo partner!';
     const truncatedMessage = message.length > 120 ? message.substring(0, 117) + '...' : message;
 
-    return new ImageResponse(
+    const imageResponse = new ImageResponse(
       (
         <div
           style={{
@@ -354,8 +351,13 @@ export default async function handler(req: NextRequest) {
         height: 630,
       }
     );
+
+    const buffer = Buffer.from(await imageResponse.arrayBuffer());
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.status(200).send(buffer);
   } catch (error) {
     console.error('Error generating OG image:', error);
-    return new Response('Failed to generate image', { status: 500 });
+    res.status(500).send('Failed to generate image');
   }
 }

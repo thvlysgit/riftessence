@@ -3,6 +3,5 @@
   "framework": "nextjs",
   "installCommand": "pnpm install --no-frozen-lockfile",
   "buildCommand": "pnpm --filter @lfd/web build",
-  "outputDirectory": ".next",
-  "regions": ["iad1"]
+  "outputDirectory": ".next"
 }
