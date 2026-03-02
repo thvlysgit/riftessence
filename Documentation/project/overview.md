@@ -1,6 +1,6 @@
 # Project Overview
 
-> Last updated: 2026-02-11
+> Last updated: 2026-03-02
 
 ## What is RiftEssence?
 
@@ -19,6 +19,7 @@ RiftEssence is a League of Legends LFD (Looking For Duo) platform with social ra
 | UI Library | React | 18.2.0 |
 | Styling | Tailwind CSS + CSS Variables | ^3.4.18 |
 | Data Fetching | TanStack React Query | ^5.90.11 |
+| Analytics | Vercel Analytics | ^1.4.1 |
 | Backend | Fastify | ^4.0.0 |
 | ORM | Prisma Client | 4.16.2 |
 | Database | PostgreSQL | 15 |

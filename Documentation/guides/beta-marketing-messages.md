@@ -230,26 +230,17 @@ Que vous soyez Iron ou Diamond, il y a toujours quelque chose à apprendre. Prof
 ```
 👥 **TEAMS - RECRUTEZ VOS FUTURS COÉQUIPIERS !** 👥
 
-Besoin d'un top lane fiable ? D'un jungler qui track l'ennemi ? D'un support qui ward ?
-
 **RiftEssence** simplifie le recrutement de joueurs pour votre équipe compétitive :
 
 ⚔️ **Fonctionnalités LFT (Looking for Team) :**
-• Publiez vos annonces de recrutement avec critères précis
+• Publiez vos annonces de recrutement et trouvez des agents libres avec critères précis
 • Filtres : rôle, rank minimum, région, langues, disponibilités
 • Système de rating et d'évaluation des joueurs
-• Communautés privées pour gérer votre roster
 • Interface claire pour voir qui est actif
-
-🎯 **Pourquoi RiftEssence ?**
-• Base de joueurs motivés et sérieux
-• Pas de spam, profils vérifiés via Riot API
-• Recherche avancée pour trouver LE joueur parfait
-• Gratuit et sans pub
 
 Que vous montiez une team Clash, une équipe ranked flex, ou un roster compétitif, trouvez les bons joueurs rapidement !
 
-🔗 **Postez votre annonce** : https://qpnpc65t-3333.uks1.devtunnels.ms
+🔗 **Postez votre annonce** : https://www.riftessence.app/
 
 *Section LFT (Looking for Team) > Parcourir les joueurs*
 ```
@@ -272,19 +263,15 @@ Marre de jouer en solo avec des randoms ? Envie de rejoindre une vraie équipe s
 🏆 **Avec RiftEssence LFT :**
 • Créez votre profil joueur avec vos stats Riot vérifiées
 • Indiquez votre rôle principal, rank, disponibilités
-• Parcourez les annonces d'équipes qui recrutent
-• Filtres : niveau requis, région, ambitions (fun/compétitif)
+• Parcourez les annonces d'équipes qui recrutent et échangez directement via discord
+• Filtres avancés pour vous aider !
 • Système de rating pour prouver votre sérieux
 
-💪 **Avantages :**
-• Équipes actives qui cherchent vraiment des joueurs
-• Communication directe via Discord
-• Historique de ratings et recommandations
-• Rejoignez des communautés établies
+> Retrouvez également des outils pour : Trouver un Duo, Réussir vos Matchups, du Coaching Gratuit...
 
 Que vous visiez le haut niveau ou juste cherchiez des gens cool pour jouer régulièrement, il y a une team pour vous !
 
-🔗 **Créez votre profil** : https://qpnpc65t-3333.uks1.devtunnels.ms
+🔗 **Créez votre profil** : https://www.riftessence.app/
 
 *Section LFT > Créer mon profil joueur*
 ```
@@ -313,9 +300,6 @@ Vous en avez assez des plateformes LFD où :
 ✅ **Profils vérifiés Riot API** - Rank et stats réels
 ✅ **Système de rating communautaire** - Voyez qui est fiable
 ✅ **Filtres avancés** - Rôle principal, rôle secondaire, rank min/max, région, langues, disponibilités
-✅ **5 thèmes sympas** - Parce qu'une interface agréable, ça compte
-✅ **Communautés intégrées** - Créez votre groupe de duo réguliers
-✅ **Interface FR/EN** - Enfin une plateforme pensée pour les francophones !
 
 🎯 **Parfait pour :**
 • Trouver un duo ranked stable

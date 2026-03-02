@@ -15,6 +15,7 @@ import { useGlobalUI } from '../components/GlobalUI';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useChat } from '../contexts/ChatContext';
 import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../utils/auth';
+import { getChampionIconUrl } from '../utils/championData';
 import NoAccess from '../components/NoAccess';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -40,27 +41,6 @@ const getRoleIcon = (role: string) => {
     default:
       return null;
   }
-};
-
-// Helper to get champion icon from Data Dragon CDN
-const getChampionIconUrl = (championName: string): string => {
-  const version = '14.23.1';
-  // Special cases for Data Dragon champion names
-  const specialCases: { [key: string]: string } = {
-    'Wukong': 'MonkeyKing',
-    "Kai'Sa": 'Kaisa',
-    'Kha\'Zix': 'Khazix',
-    'Cho\'Gath': 'Chogath',
-    'Vel\'Koz': 'Velkoz',
-    'LeBlanc': 'Leblanc',
-    'Rek\'Sai': 'RekSai',
-    'Bel\'Veth': 'Belveth',
-    'K\'Sante': 'KSante',
-    'Renata Glasc': 'Renata',
-    'Nunu & Willump': 'Nunu',
-  };
-  const normalizedName = specialCases[championName] || championName;
-  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${normalizedName}.png`;
 };
 
 const getRankIcon = (rank: string) => {
@@ -353,7 +333,7 @@ type UserProfile = {
   personalityMoons: number;
   reportCount: number;
   badges: Array<string | { id: string; key: string; name: string; description?: string }>;
-  championPoolMode: 'TIERLIST';
+  championPoolMode: 'LIST' | 'TIERLIST';
   championList: string[];
   championTierlist: any;
   gamesPerDay: number;
@@ -512,7 +492,7 @@ export default function ProfilePage() {
   const [editedUsername, setEditedUsername] = useState<string>('');
   const [editedLanguages, setEditedLanguages] = useState<string[]>([]);
   const [pendingMainAccountId, setPendingMainAccountId] = useState<string | null>(null);
-  const [championPoolMode, setChampionPoolMode] = useState<'TIERLIST'>('TIERLIST');
+  const [championPoolMode, setChampionPoolMode] = useState<'LIST' | 'TIERLIST'>('TIERLIST');
   const [championInput, setChampionInput] = useState('');
   const [champions, setChampions] = useState<string[]>([]);
   const [championTierlist, setChampionTierlist] = useState<{ S: string[]; A: string[]; B: string[]; C: string[] }>({ S: [], A: [], B: [], C: [] });
@@ -855,7 +835,7 @@ export default function ProfilePage() {
       // Validate and save champion pool
       const allTierChamps = [...championTierlist.S, ...championTierlist.A, ...championTierlist.B, ...championTierlist.C];
       const invalid = allTierChamps.filter((c) => !isValidChampion(c));
-      if (invalid.length) {
+      if (champions.length > 0 && invalid.length > 0) {
         showToast(t('profile.champion.invalid').replace('{champs}', invalid.join(', ')), 'error');
         setIsSaving(false);
         return;
@@ -1664,20 +1644,6 @@ export default function ProfilePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
             </svg>
             {t('profile.championPool')}
-            <span 
-              title="Champion Pool feature is currently under development and not yet functional. We're working on a fix!"
-              style={{ display: 'inline-flex', cursor: 'help' }}
-            >
-              <svg 
-                className="w-5 h-5" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-                style={{ color: 'var(--text-muted)' }}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </span>
           </h2>
           
           {isEditMode ? (

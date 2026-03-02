@@ -1,8 +1,106 @@
 # Changelog
 
-> Last updated: 2026-02-24
+> Last updated: 2026-03-02
 
 Chronological log of significant changes. Maintained by @DocumentationManager.
+
+---
+
+## 2026-03-02 — Champion Name Consistency Fix
+
+### Bug Fix: Champion Names Now Display Correctly Across the Entire App
+
+**Overview**: Champion names were inconsistent across the app. The `ChampionAutocomplete` dropdown (used in matchups creation) was showing DDragon internal IDs like `MonkeyKing`, `Kaisa`, `KogMaw` instead of proper display names like `Wukong`, `Kai'Sa`, `Kog'Maw`. This also caused champion validation in the profile tierlist to sometimes fail.
+
+**Root Cause**: `utils/championData.ts` `fetchChampions()` was using `Object.keys(data.data)` which returns DDragon internal IDs, while `profile.tsx` was fetching inline using `c.name` which returns display names. These two sources were completely inconsistent.
+
+**Changes** ([apps/web/utils/championData.ts](apps/web/utils/championData.ts)):
+- `fetchChampions()` now uses `Object.values<any>(data.data).map((c) => c.name as string)` — returns proper display names everywhere
+- Added missing entries to `championNameMap`: `Kog'Maw → KogMaw`, `Bel'Veth → Belveth`, `K'Sante → KSante`
+- `normalizeChampionName()` fallback now strips non-alpha chars (`name.replace(/[^a-zA-Z]/g, '')`) — automatically handles champions with spaces (Miss Fortune, Dr. Mundo, Lee Sin) and other special chars
+- Cache key bumped to `lfd_champions_cache_v2` to invalidate all stale cached DDragon ID data
+
+**Changes** ([apps/web/pages/profile.tsx](apps/web/pages/profile.tsx)):
+- Removed duplicate local `getChampionIconUrl` function with its own separate `specialCases` map
+- Added `import { getChampionIconUrl } from '../utils/championData'` — single source of truth
+
+**Changes** ([apps/web/components/profile/ChampionPool.tsx](apps/web/components/profile/ChampionPool.tsx)):
+- Added `import { getChampionIconUrl } from '../../utils/championData'`
+- Replaced hardcoded inline URL with regex (`15.1.1/.../${champ.replace(...)}`) with `getChampionIconUrl(champ)` — now version-consistent and normalization-aware
+
+**Files Modified**:
+- [apps/web/utils/championData.ts](apps/web/utils/championData.ts)
+- [apps/web/pages/profile.tsx](apps/web/pages/profile.tsx)
+- [apps/web/components/profile/ChampionPool.tsx](apps/web/components/profile/ChampionPool.tsx)
+
+---
+
+## 2026-03-02 — Champion Pool Fix
+
+### Bug Fix: Champion Pool Saving Now Works Consistently
+
+**Overview**: The champion pool tierlist (S/A/B/C tiers) was silently failing to save in multiple scenarios. Three root-cause bugs were identified and fixed.
+
+**Bug 1 — Primary: DDragon validation blocked valid saves** ([apps/web/pages/profile.tsx](apps/web/pages/profile.tsx)):
+- `handleSaveAllChanges()` validated all tier champions via `isValidChampion()` before saving
+- `isValidChampion()` requires the `champions` state (fetched async from DDragon API) to be populated
+- If DDragon hadn't loaded yet (slow network, CDN issues), `champions` was empty → all champions failed validation → save aborted with "Invalid champion(s)" error even for valid names
+- **Fix**: Changed condition from `if (invalid.length)` to `if (champions.length > 0 && invalid.length > 0)` — skips validation when champion list hasn't loaded, since the input autocomplete already prevents invalid entries
+
+**Bug 2 — Type mismatch: `championPoolMode` typed as literal `'TIERLIST'`** ([apps/web/pages/profile.tsx](apps/web/pages/profile.tsx)):
+- `UserProfile` interface had `championPoolMode: 'TIERLIST'` (literal type)
+- `useState` was `useState<'TIERLIST'>('TIERLIST')`
+- Multiple `setChampionPoolMode(data.championPoolMode || 'LIST')` calls were type-unsafe
+- **Fix**: Updated both to `'LIST' | 'TIERLIST'`
+
+**Bug 3 — "Under development" tooltip removed** ([apps/web/pages/profile.tsx](apps/web/pages/profile.tsx)):
+- Champions section heading had an info icon with tooltip: "Champion Pool feature is currently under development and not yet functional"
+- **Fix**: Removed the entire `<span>` element with the misleading tooltip
+
+**Bug 4 — Debug artifacts in ChampionPool component** ([apps/web/components/profile/ChampionPool.tsx](apps/web/components/profile/ChampionPool.tsx)):
+- Component had leftover diagnostic green/red box (`backgroundColor: '#00ff00', border: '3px solid #ff0000'`) in champion rendering
+- **Fix**: Replaced with proper DDragon `<img>` icon matching the inline profile UI pattern
+
+**Files Modified**:
+- [apps/web/pages/profile.tsx](apps/web/pages/profile.tsx) — Bugs 1, 2, 3
+- [apps/web/components/profile/ChampionPool.tsx](apps/web/components/profile/ChampionPool.tsx) — Bug 4
+
+**Note**: Backend endpoint `PATCH /api/user/champion-pool` was already correctly implemented and did not require changes.
+
+---
+
+## 2026-03-02 — Vercel Analytics Integration
+
+### Analytics Implementation
+
+**Overview**: Integrated Vercel Analytics to track user behavior, page views, and site performance metrics.
+
+**Frontend Changes**:
+
+**1. Package Addition** ([apps/web/package.json](apps/web/package.json)):
+- Added `@vercel/analytics` (^1.4.1) to dependencies
+
+**2. Analytics Integration** ([apps/web/pages/_app.tsx](apps/web/pages/_app.tsx)):
+- Imported `Analytics` component from `@vercel/analytics/react`
+- Added `<Analytics />` component at the end of the app tree (after Footer)
+- Automatically tracks page views and Web Vitals
+
+**Benefits**:
+- Real-time analytics dashboard on Vercel
+- Page view tracking across all routes
+- Web Vitals monitoring (FCP, LCP, FID, CLS, TTFB)
+- Zero configuration required
+- Automatic integration with Vercel deployments
+
+**Technical Details**:
+- **Client-side only**: Analytics runs only in production browser environments
+- **Privacy-friendly**: No cookies, GDPR-compliant
+- **Performance**: Minimal bundle size impact (~1KB gzipped)
+- **Zero Config**: Works automatically when deployed to Vercel
+
+**Files Modified**:
+- [apps/web/package.json](apps/web/package.json) — Added @vercel/analytics dependency
+- [apps/web/pages/_app.tsx](apps/web/pages/_app.tsx) — Integrated Analytics component
 
 ---
 

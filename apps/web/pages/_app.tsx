@@ -15,6 +15,7 @@ import { ThemeProvider } from '../contexts/ThemeContext';
 import { LanguageProvider } from '../contexts/LanguageContext';
 import { ChatProvider } from '../contexts/ChatContext';
 import { trackNewVisitor } from '../utils/analytics';
+import { Analytics } from '@vercel/analytics/react';
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ export default function App({ Component, pageProps }: AppProps) {
                   <ChatWidget />
                   <Component {...pageProps} />
                   <Footer />
+                  <Analytics />
                 </GlobalUIProvider>
               </ChatProvider>
             </AuthProvider>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { getChampionIconUrl } from '../../utils/championData';
 
 interface ChampionPoolProps {
   championList: string[];
@@ -85,23 +86,12 @@ export const ChampionPool: React.FC<ChampionPoolProps> = ({
                       border: '1px solid var(--color-border)',
                     }}
                   >
-                    {/* Diagnostic test with visible content */}
-                    <div
-                      style={{
-                        width: '40px',
-                        height: '40px',
-                        backgroundColor: '#00ff00',
-                        border: '3px solid #ff0000',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                        fontSize: '20px',
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      ?
-                    </div>
+                    <img
+                      src={getChampionIconUrl(champ)}
+                      alt={champ}
+                      className="w-8 h-8 rounded"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
                     <span className="font-medium">{champ}</span>
                     {isEditMode && (
                       <button

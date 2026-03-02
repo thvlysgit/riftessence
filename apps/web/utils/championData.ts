@@ -5,7 +5,7 @@
 
 const DDRAGON_VERSION = '14.23.1';
 const DDRAGON_BASE_URL = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}`;
-const CACHE_KEY = 'lfd_champions_cache';
+const CACHE_KEY = 'lfd_champions_cache_v2';
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 interface ChampionCache {
@@ -23,9 +23,12 @@ const championNameMap: Record<string, string> = {
   'Nunu & Willump': 'Nunu',
   "Kai'Sa": 'Kaisa',
   "Kha'Zix": 'Khazix',
+  "Kog'Maw": 'KogMaw',
   "Vel'Koz": 'Velkoz',
   "Cho'Gath": 'Chogath',
   "Rek'Sai": 'RekSai',
+  "Bel'Veth": 'Belveth',
+  "K'Sante": 'KSante',
   'LeBlanc': 'Leblanc',
 };
 
@@ -35,7 +38,7 @@ const championNameMap: Record<string, string> = {
  * @returns Normalized name for API/asset requests
  */
 export const normalizeChampionName = (name: string): string => {
-  return championNameMap[name] || name;
+  return championNameMap[name] || name.replace(/[^a-zA-Z]/g, '');
 };
 
 /**
@@ -113,7 +116,7 @@ export async function fetchChampions(): Promise<string[]> {
     }
     
     const data = await response.json();
-    const champions = Object.keys(data.data).sort();
+    const champions = Object.values<any>(data.data).map((c) => c.name as string).sort();
     
     // Cache the result
     setCachedChampions(champions);
