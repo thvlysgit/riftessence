@@ -143,9 +143,9 @@ export default async function handler(req: NextRequest) {
               </div>
             </div>
 
-            {/* Message — flexDirection:'column' on wrapper is required for Satori text wrapping */}
+            {/* Message — container is content-sized so bar only spans text height */}
             {truncatedMessage ? (
-              <div style={{ display: 'flex', flex: 1, alignItems: 'flex-start', paddingTop: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', width: '4px', alignSelf: 'stretch', backgroundColor: rankColor, borderRadius: '2px', marginRight: '24px', opacity: 0.5 }} />
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                   <div style={{ fontSize: '24px', color: '#8B9CB5', lineHeight: 1.55, fontStyle: 'italic' }}>
@@ -153,9 +153,10 @@ export default async function handler(req: NextRequest) {
                   </div>
                 </div>
               </div>
-            ) : (
-              <div style={{ display: 'flex', flex: 1 }} />
-            )}
+            ) : null}
+
+            {/* Spacer — pushes watermark to bottom whether or not there is a message */}
+            <div style={{ display: 'flex', flex: 1 }} />
 
             {/* Watermark */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
