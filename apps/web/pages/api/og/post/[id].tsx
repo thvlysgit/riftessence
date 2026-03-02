@@ -68,86 +68,85 @@ export default async function handler(req: NextRequest) {
             width: '1200px',
             height: '630px',
             display: 'flex',
-            flexDirection: 'column',
-            backgroundColor: '#0A1428',
-            padding: '60px',
+            backgroundColor: '#080E1A',
           }}
         >
-          {/* Top bar */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{ display: 'flex', fontSize: '36px', fontWeight: 'bold', color: '#C8AA6D' }}>
-                RiftEssence
-              </div>
-              <div style={{ display: 'flex', fontSize: '24px', color: '#6B7280', marginLeft: '16px' }}>
-                Looking For Duo
-              </div>
-            </div>
-            <div style={{ display: 'flex', fontSize: '22px', color: '#C8AA6D', backgroundColor: '#1C2841', padding: '10px 20px', borderRadius: '8px' }}>
-              {post.region}
-            </div>
-          </div>
+          {/* Left accent bar in rank color */}
+          <div style={{ display: 'flex', width: '8px', backgroundColor: rankColor }} />
 
           {/* Main content */}
-          <div style={{ display: 'flex', flex: 1, gap: '40px' }}>
-            {/* Left column */}
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-              {/* Username */}
-              <div style={{ display: 'flex', fontSize: '48px', fontWeight: 'bold', color: '#F0E6D2', marginBottom: '16px' }}>
-                {post.username}
-              </div>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '52px 56px' }}>
 
-              {/* Roles */}
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
-                <div style={{ display: 'flex', fontSize: '20px', fontWeight: 'bold', color: '#C8AA6D', backgroundColor: '#1C2841', padding: '8px 20px', borderRadius: '8px' }}>
-                  {post.role}
-                </div>
-                {post.secondRole ? (
-                  <div style={{ display: 'flex', fontSize: '20px', fontWeight: 'bold', color: '#C8AA6D', backgroundColor: '#1C2841', padding: '8px 20px', borderRadius: '8px', opacity: 0.7 }}>
-                    {post.secondRole}
-                  </div>
-                ) : null}
+            {/* Top row: "Looking for Duo" label + region */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
+              <div style={{ display: 'flex', fontSize: '18px', color: rankColor, fontWeight: 'bold', letterSpacing: '2px' }}>
+                LOOKING FOR DUO
               </div>
-
-              {/* Message */}
-              {truncatedMessage ? (
-                <div style={{ display: 'flex', fontSize: '20px', color: '#9CA3AF', lineHeight: 1.5, backgroundColor: '#1C2841', padding: '20px', borderRadius: '8px' }}>
-                  "{truncatedMessage}"
-                </div>
-              ) : null}
+              <div style={{ display: 'flex', fontSize: '18px', color: '#9CA3AF', backgroundColor: '#131D2E', padding: '8px 18px', borderRadius: '6px' }}>
+                {post.region}
+              </div>
             </div>
 
-            {/* Right column */}
-            <div style={{ display: 'flex', flexDirection: 'column', width: '340px', gap: '16px' }}>
-              {/* Riot account */}
-              {postingAccount ? (
-                <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#1C2841', padding: '24px', borderRadius: '12px' }}>
-                  <div style={{ display: 'flex', fontSize: '14px', color: '#6B7280', marginBottom: '8px' }}>
-                    Posting With
-                  </div>
-                  <div style={{ display: 'flex', fontSize: '22px', fontWeight: 'bold', color: '#F0E6D2', marginBottom: '12px' }}>
-                    {postingAccount.gameName}#{postingAccount.tagLine}
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', fontSize: '16px', fontWeight: 'bold', color: rankColor, backgroundColor: '#0A1428', padding: '6px 14px', borderRadius: '6px' }}>
-                      {rankLabel}
-                    </div>
-                    {postingAccount.winrate !== null ? (
-                      <div style={{ display: 'flex', fontSize: '16px', fontWeight: 'bold', color: postingAccount.winrate >= 50 ? '#10B981' : '#EF4444', backgroundColor: '#0A1428', padding: '6px 14px', borderRadius: '6px' }}>
-                        {postingAccount.winrate.toFixed(1)}% WR
-                      </div>
-                    ) : null}
-                  </div>
+            {/* Username — hero element */}
+            <div style={{ display: 'flex', fontSize: '72px', fontWeight: 'bold', color: '#F0E6D2', marginBottom: '8px', lineHeight: 1 }}>
+              {post.username}
+            </div>
+
+            {/* Riot account name below username */}
+            {postingAccount ? (
+              <div style={{ display: 'flex', fontSize: '22px', color: '#6B7280', marginBottom: '28px' }}>
+                {postingAccount.gameName}#{postingAccount.tagLine}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', marginBottom: '28px' }} />
+            )}
+
+            {/* Roles + Rank + WR row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px' }}>
+              {/* Main role */}
+              <div style={{ display: 'flex', fontSize: '18px', fontWeight: 'bold', color: '#080E1A', backgroundColor: rankColor, padding: '8px 20px', borderRadius: '6px' }}>
+                {post.role}
+              </div>
+              {/* Second role */}
+              {post.secondRole ? (
+                <div style={{ display: 'flex', fontSize: '18px', fontWeight: 'bold', color: rankColor, backgroundColor: '#131D2E', padding: '8px 20px', borderRadius: '6px' }}>
+                  {post.secondRole}
                 </div>
               ) : null}
-
-              {/* VC */}
-              <div style={{ display: 'flex', fontSize: '18px', color: '#F0E6D2', backgroundColor: '#1C2841', padding: '16px 24px', borderRadius: '8px' }}>
+              {/* Divider */}
+              {postingAccount ? (
+                <div style={{ display: 'flex', width: '1px', height: '32px', backgroundColor: '#1E2D42', marginLeft: '4px', marginRight: '4px' }} />
+              ) : null}
+              {/* Rank badge */}
+              {postingAccount ? (
+                <div style={{ display: 'flex', fontSize: '18px', fontWeight: 'bold', color: rankColor, backgroundColor: '#131D2E', padding: '8px 20px', borderRadius: '6px' }}>
+                  {rankLabel}
+                </div>
+              ) : null}
+              {/* WR badge */}
+              {postingAccount && postingAccount.winrate !== null ? (
+                <div style={{ display: 'flex', fontSize: '18px', fontWeight: 'bold', color: postingAccount.winrate >= 50 ? '#10B981' : '#EF4444', backgroundColor: '#131D2E', padding: '8px 20px', borderRadius: '6px' }}>
+                  {postingAccount.winrate.toFixed(1)}% WR
+                </div>
+              ) : null}
+              {/* VC badge */}
+              <div style={{ display: 'flex', fontSize: '16px', color: '#6B7280', backgroundColor: '#131D2E', padding: '8px 16px', borderRadius: '6px' }}>
                 {vcText}
               </div>
+            </div>
 
-              {/* Domain */}
-              <div style={{ display: 'flex', fontSize: '16px', color: '#4B5563', marginTop: 'auto' }}>
+            {/* Message */}
+            {truncatedMessage ? (
+              <div style={{ display: 'flex', flex: 1, fontSize: '20px', color: '#9CA3AF', lineHeight: 1.6, borderLeft: `3px solid ${rankColor}`, paddingLeft: '20px' }}>
+                {truncatedMessage}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flex: 1 }} />
+            )}
+
+            {/* Bottom: watermark only */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <div style={{ display: 'flex', fontSize: '14px', color: '#2D3A4A' }}>
                 riftessence.app
               </div>
             </div>
