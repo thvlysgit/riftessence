@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { GetServerSideProps } from 'next';
@@ -42,8 +42,7 @@ interface Post {
 }
 
 interface SharePostPageProps {
-  post: Post | null;
-  error?: string;
+  id: string;
   baseUrl: string;
 }
 
@@ -134,231 +133,177 @@ const getRoleIcon = (role: string) => {
   }
 };
 
-export default function SharePostPage({ post, error, baseUrl }: SharePostPageProps) {
-  if (error || !post) {
-    return (
-      <>
-        <Head>
-          <title>Post Not Found | RiftEssence</title>
-          <meta name="robots" content="noindex" />
-        </Head>
-        <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
-          <div className="text-center">
-            <h1 className="text-4xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-              Post Not Found
-            </h1>
-            <p className="mb-6" style={{ color: 'var(--color-text-secondary)' }}>
-              {error || 'This duo post could not be found.'}
-            </p>
-            <Link href="/feed" className="px-6 py-3 rounded font-semibold" style={{ background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))', color: 'var(--color-bg-primary)' }}>
-              Go to Feed
-            </Link>
-          </div>
-        </div>
-      </>
-    );
-  }
+export default function SharePostPage({ id, baseUrl }: SharePostPageProps) {
+  const [post, setPost] = useState<Post | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const ogImageUrl = `${baseUrl}/api/og/post/${post.id}`;
-  const shareUrl = `${baseUrl}/share/post/${post.id}`;
-  const postingAccount = post.postingRiotAccount;
-  const mainAccount = post.bestRank;
-  const hasMainAccount = mainAccount && !post.isMainAccount;
+  useEffect(() => {
+    fetch(`${API_URL}/api/posts/${id}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Post not found');
+        return res.json();
+      })
+      .then((data) => {
+        setPost(data.post || null);
+        if (!data.post) setFetchError('Post not found');
+      })
+      .catch((err) => setFetchError(err.message || 'Failed to load post'))
+      .finally(() => setLoading(false));
+  }, [id]);
 
-  // Build description for OG tags
-  const accountText = postingAccount
-    ? `${postingAccount.gameName}#${postingAccount.tagLine} (${postingAccount.rank}${postingAccount.division ? ` ${postingAccount.division}` : ''})`
-    : post.username;
-  const description = `${post.username} is looking for a duo partner on ${post.region}! Role: ${post.role}${post.secondRole ? ` / ${post.secondRole}` : ''} • ${accountText}`;
+  const ogImageUrl = `${baseUrl}/api/og/post/${id}`;
+  const shareUrl = `${baseUrl}/share/post/${id}`;
+  const pageTitle = post ? `${post.username}'s Duo Post | RiftEssence` : 'Looking For Duo | RiftEssence';
+  const pageDescription = post
+    ? `${post.username} is looking for a duo partner on ${post.region}! Role: ${post.role}${post.secondRole ? ` / ${post.secondRole}` : ''}`
+    : 'Check out this duo post on RiftEssence — the League of Legends LFD platform.';
 
   return (
     <>
       <Head>
-        {/* Primary Meta Tags */}
-        <title>{`${post.username}'s Duo Post | RiftEssence`}</title>
-        <meta name="title" content={`${post.username} - Looking For Duo on ${post.region}`} />
-        <meta name="description" content={description} />
-
-        {/* Open Graph / Facebook */}
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDescription} />
         <meta property="og:type" content="website" />
         <meta property="og:url" content={shareUrl} />
-        <meta property="og:title" content={`${post.username} - Looking For Duo on ${post.region}`} />
-        <meta property="og:description" content={description} />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDescription} />
         <meta property="og:image" content={ogImageUrl} />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
+        <meta property="og:image:type" content="image/png" />
         <meta property="og:site_name" content="RiftEssence" />
-
-        {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:url" content={shareUrl} />
-        <meta name="twitter:title" content={`${post.username} - Looking For Duo on ${post.region}`} />
-        <meta name="twitter:description" content={description} />
+        <meta name="twitter:title" content={pageTitle} />
+        <meta name="twitter:description" content={pageDescription} />
         <meta name="twitter:image" content={ogImageUrl} />
-
-        {/* Discord-specific */}
         <meta name="theme-color" content="#C8AA6D" />
       </Head>
 
       <div className="min-h-screen py-10 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
         <div className="max-w-3xl mx-auto">
-          {/* Header */}
           <div className="mb-8 text-center">
             <h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--color-accent-1)' }}>
               Looking For Duo
             </h1>
-            <p style={{ color: 'var(--color-text-muted)' }}>
-              Shared from RiftEssence
-            </p>
+            <p style={{ color: 'var(--color-text-muted)' }}>Shared from RiftEssence</p>
           </div>
 
-          {/* Post Card */}
-          <div
-            className="border rounded-xl p-8 mb-6"
-            style={{
-              backgroundColor: 'var(--color-bg-secondary)',
-              borderColor: 'var(--color-border)',
-              borderRadius: 'var(--border-radius)',
-              boxShadow: 'var(--shadow)',
-            }}
-          >
-            {/* Username & Region */}
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                  {post.username}
-                </h2>
-                <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                  {new Date(post.createdAt).toLocaleDateString()} at {new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </div>
+          {loading && (
+            <div className="text-center py-20">
               <div
-                className="px-4 py-2 rounded font-semibold"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  color: 'var(--color-accent-1)',
-                  border: '1px solid var(--color-border)',
-                }}
-              >
-                {post.region}
-              </div>
+                className="inline-block w-8 h-8 border-4 rounded-full animate-spin"
+                style={{ borderColor: 'var(--color-accent-1)', borderTopColor: 'transparent' }}
+              />
+              <p className="mt-4" style={{ color: 'var(--color-text-muted)' }}>Loading post...</p>
             </div>
+          )}
 
-            {/* Roles */}
-            <div className="flex gap-2 mb-6">
-              <span className="px-3 py-1 rounded font-semibold text-sm border inline-flex items-center gap-1" style={{ background: 'rgba(200, 170, 109, 0.15)', color: '#C8AA6D', borderColor: '#C8AA6D' }}>
-                {getRoleIcon(post.role)}
-                {post.role}
-              </span>
-              {post.secondRole && (
-                <span className="px-3 py-1 rounded font-semibold text-sm border inline-flex items-center gap-1" style={{ background: 'rgba(200, 170, 109, 0.1)', color: '#C8AA6D', borderColor: '#C8AA6D', opacity: 0.8 }}>
-                  {getRoleIcon(post.secondRole)}
-                  {post.secondRole}
-                </span>
-              )}
+          {!loading && fetchError && (
+            <div className="text-center py-20">
+              <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>Post Not Found</h2>
+              <p className="mb-6" style={{ color: 'var(--color-text-secondary)' }}>{fetchError}</p>
+              <Link href="/feed" className="px-6 py-3 rounded font-semibold" style={{ background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))', color: 'var(--color-bg-primary)' }}>
+                Go to Feed
+              </Link>
             </div>
+          )}
 
-            {/* Account Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              {/* Posting Account */}
-              {postingAccount && (
-                <div className="rounded-lg p-4" style={{ background: 'var(--color-bg-tertiary)' }}>
-                  <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                    {hasMainAccount ? 'Posting With (Smurf)' : 'Posting With'}
-                  </p>
-                  <p className="font-semibold mb-2 flex items-center gap-1.5" style={{ color: 'var(--color-text-primary)' }}>
-                    <img width="16" height="16" src="https://img.icons8.com/color/48/riot-games.png" alt="riot-games" />
-                    {postingAccount.gameName}#{postingAccount.tagLine}
-                  </p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {getRankBadge(postingAccount.rank, postingAccount.division || undefined, postingAccount.lp || undefined)}
-                    {postingAccount.winrate !== null && getWinrateBadge(postingAccount.winrate)}
+          {!loading && post && (() => {
+            const postingAccount = post.postingRiotAccount;
+            const mainAccount = post.bestRank;
+            const hasMainAccount = mainAccount && !post.isMainAccount;
+            return (
+              <>
+                <div
+                  className="border rounded-xl p-8 mb-6"
+                  style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', borderRadius: 'var(--border-radius)', boxShadow: 'var(--shadow)' }}
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h2 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{post.username}</h2>
+                      <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                        {new Date(post.createdAt).toLocaleDateString()} at{' '}
+                        {new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <div className="px-4 py-2 rounded font-semibold" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', border: '1px solid var(--color-border)' }}>
+                      {post.region}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 mb-6">
+                    <span className="px-3 py-1 rounded font-semibold text-sm border inline-flex items-center gap-1" style={{ background: 'rgba(200, 170, 109, 0.15)', color: '#C8AA6D', borderColor: '#C8AA6D' }}>
+                      {getRoleIcon(post.role)}{post.role}
+                    </span>
+                    {post.secondRole && (
+                      <span className="px-3 py-1 rounded font-semibold text-sm border inline-flex items-center gap-1" style={{ background: 'rgba(200, 170, 109, 0.1)', color: '#C8AA6D', borderColor: '#C8AA6D', opacity: 0.8 }}>
+                        {getRoleIcon(post.secondRole)}{post.secondRole}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    {postingAccount && (
+                      <div className="rounded-lg p-4" style={{ background: 'var(--color-bg-tertiary)' }}>
+                        <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>{hasMainAccount ? 'Posting With (Smurf)' : 'Posting With'}</p>
+                        <p className="font-semibold mb-2 flex items-center gap-1.5" style={{ color: 'var(--color-text-primary)' }}>
+                          <img width="16" height="16" src="https://img.icons8.com/color/48/riot-games.png" alt="riot-games" />
+                          {postingAccount.gameName}#{postingAccount.tagLine}
+                        </p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {getRankBadge(postingAccount.rank, postingAccount.division || undefined, postingAccount.lp || undefined)}
+                          {postingAccount.winrate !== null && getWinrateBadge(postingAccount.winrate)}
+                        </div>
+                      </div>
+                    )}
+                    {hasMainAccount && mainAccount && (
+                      <div className="rounded-lg p-4" style={{ background: 'var(--color-bg-tertiary)' }}>
+                        <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>Main Account</p>
+                        <p className="font-semibold mb-2 flex items-center gap-1.5" style={{ color: 'var(--color-text-primary)' }}>
+                          <img width="16" height="16" src="https://img.icons8.com/color/48/riot-games.png" alt="riot-games" />
+                          {mainAccount.gameName}#{mainAccount.tagLine}
+                        </p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {getRankBadge(mainAccount.rank, mainAccount.division || undefined, mainAccount.lp || undefined)}
+                          {mainAccount.winrate !== null && getWinrateBadge(mainAccount.winrate)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {post.message && (
+                    <div className="rounded-lg p-4 mb-6" style={{ background: 'var(--color-bg-tertiary)' }}>
+                      <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{post.message}</p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="px-4 py-2 rounded font-semibold text-sm" style={{ backgroundColor: 'rgba(200, 170, 109, 0.1)', color: 'var(--color-accent-1)', border: '1px solid rgba(200, 170, 109, 0.3)' }}>
+                      {formatVCPreference(post.vcPreference)}
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {post.languages.map((lang) => (
+                        <span key={lang} className="px-3 py-1 rounded text-xs font-medium" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                          {lang.toUpperCase()}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* Main Account */}
-              {hasMainAccount && mainAccount && (
-                <div className="rounded-lg p-4" style={{ background: 'var(--color-bg-tertiary)' }}>
-                  <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                    Main Account
-                  </p>
-                  <p className="font-semibold mb-2 flex items-center gap-1.5" style={{ color: 'var(--color-text-primary)' }}>
-                    <img width="16" height="16" src="https://img.icons8.com/color/48/riot-games.png" alt="riot-games" />
-                    {mainAccount.gameName}#{mainAccount.tagLine}
-                  </p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {getRankBadge(mainAccount.rank, mainAccount.division || undefined, mainAccount.lp || undefined)}
-                    {mainAccount.winrate !== null && getWinrateBadge(mainAccount.winrate)}
-                  </div>
+                <div className="flex gap-4 justify-center flex-wrap">
+                  <Link href="/feed" className="px-6 py-3 rounded font-semibold transition-colors" style={{ background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))', color: 'var(--color-bg-primary)', borderRadius: 'var(--border-radius)' }}>
+                    Browse More Duo Posts
+                  </Link>
+                  <Link href="/register" className="px-6 py-3 rounded font-semibold border transition-colors" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)', borderRadius: 'var(--border-radius)' }}>
+                    Create Your Own Post
+                  </Link>
                 </div>
-              )}
-            </div>
-
-            {/* Message */}
-            {post.message && (
-              <div className="rounded-lg p-4 mb-6" style={{ background: 'var(--color-bg-tertiary)' }}>
-                <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-                  {post.message}
-                </p>
-              </div>
-            )}
-
-            {/* VC Preference & Languages */}
-            <div className="flex items-center gap-4 flex-wrap">
-              <div
-                className="px-4 py-2 rounded font-semibold text-sm"
-                style={{
-                  backgroundColor: 'rgba(200, 170, 109, 0.1)',
-                  color: 'var(--color-accent-1)',
-                  border: '1px solid rgba(200, 170, 109, 0.3)',
-                }}
-              >
-                {formatVCPreference(post.vcPreference)}
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {post.languages.map((lang) => (
-                  <span
-                    key={lang}
-                    className="px-3 py-1 rounded text-xs font-medium"
-                    style={{
-                      backgroundColor: 'var(--color-bg-tertiary)',
-                      color: 'var(--color-text-secondary)',
-                    }}
-                  >
-                    {lang.toUpperCase()}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* CTA Buttons */}
-          <div className="flex gap-4 justify-center flex-wrap">
-            <Link
-              href="/feed"
-              className="px-6 py-3 rounded font-semibold transition-colors"
-              style={{
-                background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
-                color: 'var(--color-bg-primary)',
-                borderRadius: 'var(--border-radius)',
-              }}
-            >
-              Browse More Duo Posts
-            </Link>
-            <Link
-              href="/register"
-              className="px-6 py-3 rounded font-semibold border transition-colors"
-              style={{
-                backgroundColor: 'var(--color-bg-secondary)',
-                color: 'var(--color-accent-1)',
-                borderColor: 'var(--color-border)',
-                borderRadius: 'var(--border-radius)',
-              }}
-            >
-              Create Your Own Post
-            </Link>
-          </div>
+              </>
+            );
+          })()}
         </div>
       </div>
     </>
@@ -368,44 +313,22 @@ export default function SharePostPage({ post, error, baseUrl }: SharePostPagePro
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { id } = context.params as { id: string };
   const { req } = context;
+
   const rawProto = req.headers['x-forwarded-proto'];
-  const proto = Array.isArray(rawProto) ? rawProto[0] : (typeof rawProto === 'string' ? rawProto.split(',')[0].trim() : null);
+  const proto = Array.isArray(rawProto)
+    ? rawProto[0]
+    : typeof rawProto === 'string'
+    ? rawProto.split(',')[0].trim()
+    : null;
   const protocol = proto || (process.env.NODE_ENV === 'production' ? 'https' : 'http');
+
   const rawHost = req.headers['x-forwarded-host'] || req.headers.host;
   const host = (Array.isArray(rawHost) ? rawHost[0] : rawHost) || 'www.riftessence.app';
-  const baseUrl = `${protocol}://${host}`;
 
-  try {
-    const res = await fetch(`${API_URL}/api/posts/${id}`, {
-      signal: AbortSignal.timeout(8000),
-    });
-
-    if (!res.ok) {
-      return {
-        props: {
-          post: null,
-          error: 'Post not found',
-          baseUrl,
-        },
-      };
-    }
-
-    const data = await res.json();
-
-    return {
-      props: {
-        post: data.post || null,
-        baseUrl,
-      },
-    };
-  } catch (error) {
-    console.error('Error fetching post:', error);
-    return {
-      props: {
-        post: null,
-        error: 'Failed to load post',
-        baseUrl,
-      },
-    };
-  }
+  return {
+    props: {
+      id,
+      baseUrl: `${protocol}://${host}`,
+    },
+  };
 };
