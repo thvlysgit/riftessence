@@ -41,7 +41,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Fetch post data from backend
-    const postRes = await fetch(`${API_URL}/api/posts/${id}`);
+    const postRes = await fetch(`${API_URL}/api/posts/${id}`, {
+      signal: AbortSignal.timeout(8000),
+    });
     
     if (!postRes.ok) {
       res.status(404).send('Post not found');

@@ -368,12 +368,17 @@ export default function SharePostPage({ post, error, baseUrl }: SharePostPagePro
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { id } = context.params as { id: string };
   const { req } = context;
-  const protocol = req.headers['x-forwarded-proto'] || 'https';
-  const host = req.headers['x-forwarded-host'] || req.headers.host || 'riftessence.app';
+  const rawProto = req.headers['x-forwarded-proto'];
+  const proto = Array.isArray(rawProto) ? rawProto[0] : (typeof rawProto === 'string' ? rawProto.split(',')[0].trim() : null);
+  const protocol = proto || (process.env.NODE_ENV === 'production' ? 'https' : 'http');
+  const rawHost = req.headers['x-forwarded-host'] || req.headers.host;
+  const host = (Array.isArray(rawHost) ? rawHost[0] : rawHost) || 'www.riftessence.app';
   const baseUrl = `${protocol}://${host}`;
 
   try {
-    const res = await fetch(`${API_URL}/api/posts/${id}`);
+    const res = await fetch(`${API_URL}/api/posts/${id}`, {
+      signal: AbortSignal.timeout(8000),
+    });
 
     if (!res.ok) {
       return {
@@ -389,7 +394,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
     return {
       props: {
-        post: data.post,
+        post: data.post || null,
         baseUrl,
       },
     };
