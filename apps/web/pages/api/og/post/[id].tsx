@@ -77,83 +77,77 @@ export default async function handler(req: NextRequest) {
         <div style={{ width: '1200px', height: '630px', display: 'flex', backgroundColor: '#06101F' }}>
 
           {/* Left accent bar */}
-          <div style={{ display: 'flex', width: '10px', backgroundColor: rankColor }} />
+          <div style={{ display: 'flex', width: '12px', backgroundColor: rankColor }} />
 
           {/* Content */}
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '48px 60px 40px 52px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', width: '1188px', padding: '44px 56px 36px 48px' }}>
 
-            {/* Top row */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-              {/* "LOOKING FOR DUO" stylized pill */}
-              <div style={{ display: 'flex', alignItems: 'center', backgroundColor: rankColor, padding: '10px 28px', borderRadius: '40px' }}>
-                <div style={{ display: 'flex', fontSize: '22px', fontWeight: 'bold', color: '#06101F', letterSpacing: '3px' }}>
+            {/* Top row: LFD pill + region */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+              {/* Pill with thick border style */}
+              <div style={{ display: 'flex', alignItems: 'center', border: `3px solid ${rankColor}`, padding: '8px 32px', borderRadius: '40px' }}>
+                <div style={{ display: 'flex', fontSize: '26px', fontWeight: 'bold', color: rankColor, letterSpacing: '4px' }}>
                   LOOKING FOR DUO
                 </div>
               </div>
-              {/* Region + username cluster */}
+              {/* Username + region */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ display: 'flex', fontSize: '17px', color: '#4B5563' }}>
+                <div style={{ display: 'flex', fontSize: '16px', color: '#374151' }}>
                   {post.username}
                 </div>
-                <div style={{ display: 'flex', fontSize: '17px', color: rankColor, backgroundColor: '#0D1B2E', padding: '8px 18px', borderRadius: '6px', border: `1px solid ${rankColor}` }}>
+                <div style={{ display: 'flex', fontSize: '16px', fontWeight: 'bold', color: rankColor, backgroundColor: '#0D1B2E', padding: '7px 16px', borderRadius: '6px', border: `1px solid ${rankColor}` }}>
                   {post.region}
                 </div>
               </div>
             </div>
 
-            {/* Riot account name — HERO */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px', marginBottom: '6px' }}>
-              <div style={{ display: 'flex', fontSize: '70px', fontWeight: 'bold', color: rankColor, lineHeight: 1 }}>
+            {/* Riot account (gameName#tag) — HERO */}
+            <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', fontSize: '74px', fontWeight: 'bold', color: '#F0E6D2', lineHeight: 1 }}>
                 {postingAccount ? postingAccount.gameName : post.username}
               </div>
               {postingAccount ? (
-                <div style={{ display: 'flex', fontSize: '36px', fontWeight: 'bold', color: '#374151', lineHeight: 1, marginLeft: '4px' }}>
+                <div style={{ display: 'flex', fontSize: '38px', fontWeight: 'bold', color: rankColor, lineHeight: 1, marginLeft: '6px', opacity: 0.6 }}>
                   #{postingAccount.tagLine}
                 </div>
               ) : null}
             </div>
 
-            {/* Divider line in rank color */}
-            <div style={{ display: 'flex', width: '80px', height: '3px', backgroundColor: rankColor, marginBottom: '24px' }} />
+            {/* Divider */}
+            <div style={{ display: 'flex', width: '100px', height: '4px', backgroundColor: rankColor, borderRadius: '2px', marginBottom: '22px' }} />
 
             {/* Badges row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px', flexWrap: 'nowrap' }}>
-              {/* Main role — filled */}
-              <div style={{ display: 'flex', fontSize: '17px', fontWeight: 'bold', color: '#06101F', backgroundColor: rankColor, padding: '8px 18px', borderRadius: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '22px' }}>
+              <div style={{ display: 'flex', fontSize: '16px', fontWeight: 'bold', color: '#06101F', backgroundColor: rankColor, padding: '8px 18px', borderRadius: '6px' }}>
                 {post.role}
               </div>
-              {/* Second role */}
               {post.secondRole ? (
-                <div style={{ display: 'flex', fontSize: '17px', fontWeight: 'bold', color: rankColor, backgroundColor: '#0D1B2E', padding: '8px 18px', borderRadius: '6px', border: `1px solid ${rankColor}` }}>
+                <div style={{ display: 'flex', fontSize: '16px', fontWeight: 'bold', color: rankColor, backgroundColor: '#0D1B2E', padding: '8px 18px', borderRadius: '6px', border: `1px solid ${rankColor}` }}>
                   {post.secondRole}
                 </div>
               ) : null}
-              {/* Separator */}
-              <div style={{ display: 'flex', width: '1px', height: '28px', backgroundColor: '#1E2D42' }} />
-              {/* Rank */}
+              <div style={{ display: 'flex', width: '1px', height: '26px', backgroundColor: '#1E2D42' }} />
               {postingAccount ? (
-                <div style={{ display: 'flex', fontSize: '17px', fontWeight: 'bold', color: rankColor, backgroundColor: '#0D1B2E', padding: '8px 18px', borderRadius: '6px' }}>
+                <div style={{ display: 'flex', fontSize: '16px', fontWeight: 'bold', color: rankColor, backgroundColor: '#0D1B2E', padding: '8px 18px', borderRadius: '6px' }}>
                   {rankLabel}
                 </div>
               ) : null}
-              {/* WR with flare */}
               {wrStyle ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '17px', fontWeight: 'bold', color: wrStyle.color, backgroundColor: wrStyle.bg, padding: '8px 18px', borderRadius: '6px', border: `1px solid ${wrStyle.color}` }}>
-                  <div style={{ display: 'flex' }}>WR</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '16px', fontWeight: 'bold', color: wrStyle.color, backgroundColor: wrStyle.bg, padding: '8px 18px', borderRadius: '6px', border: `1px solid ${wrStyle.color}` }}>
+                  <div style={{ display: 'flex', fontSize: '13px', color: wrStyle.color, opacity: 0.7 }}>WR</div>
                   <div style={{ display: 'flex', fontSize: '20px', fontWeight: 'bold' }}>{wrStyle.label}</div>
                 </div>
               ) : null}
-              {/* VC */}
-              <div style={{ display: 'flex', fontSize: '15px', color: '#4B5563', backgroundColor: '#0D1B2E', padding: '8px 14px', borderRadius: '6px' }}>
+              <div style={{ display: 'flex', fontSize: '14px', color: '#374151', backgroundColor: '#0D1B2E', padding: '8px 14px', borderRadius: '6px' }}>
                 {vcText}
               </div>
             </div>
 
-            {/* Message */}
+            {/* Message — flex: 1 on container, width: 100% on text to force wrapping */}
             {truncatedMessage ? (
-              <div style={{ display: 'flex', flex: 1, alignItems: 'flex-start' }}>
-                <div style={{ display: 'flex', width: '3px', backgroundColor: rankColor, borderRadius: '2px', marginRight: '18px', alignSelf: 'stretch' }} />
-                <div style={{ display: 'flex', fontSize: '19px', color: '#6B7280', lineHeight: 1.6, fontStyle: 'italic' }}>
+              <div style={{ display: 'flex', flex: 1, alignItems: 'flex-start', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', width: '4px', minHeight: '100%', backgroundColor: rankColor, borderRadius: '2px', marginRight: '20px', opacity: 0.6 }} />
+                <div style={{ display: 'flex', width: '1040px', fontSize: '20px', color: '#6B7280', lineHeight: 1.55, fontStyle: 'italic', flexWrap: 'wrap' }}>
                   {truncatedMessage}
                 </div>
               </div>
@@ -161,9 +155,9 @@ export default async function handler(req: NextRequest) {
               <div style={{ display: 'flex', flex: 1 }} />
             )}
 
-            {/* Bottom watermark */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-              <div style={{ display: 'flex', fontSize: '13px', color: '#1E2D42' }}>
+            {/* Watermark */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <div style={{ display: 'flex', fontSize: '13px', color: '#1E2D42', letterSpacing: '1px' }}>
                 riftessence.app
               </div>
             </div>
