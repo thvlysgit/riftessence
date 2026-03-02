@@ -106,9 +106,7 @@ export default async function handler(req: NextRequest) {
                   style={{
                     fontSize: '48px',
                     fontWeight: 'bold',
-                    background: 'linear-gradient(90deg, #C8AA6D 0%, #F0E6D2 100%)',
-                    backgroundClip: 'text',
-                    color: 'transparent',
+                  color: '#C8AA6D',
                   }}
                 >
                   RiftEssence
