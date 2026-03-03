@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import SEOHead from '../../components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useGlobalUI } from '../../components/GlobalUI';
@@ -172,10 +173,17 @@ const MatchupsPage: React.FC = () => {
   }
   
   return (
-    <div 
-      className="min-h-screen py-8 px-4"
-      style={{ backgroundColor: 'var(--color-bg-primary)' }}
-    >
+    <>
+      <SEOHead
+        title="My Matchups"
+        description="Create and manage your League of Legends matchup guides. Share your champion knowledge and strategies with the community."
+        path="/matchups"
+        keywords="LoL matchup guide creator, create matchup guide, League matchup database, champion matchup knowledge"
+      />
+      <div 
+        className="min-h-screen py-8 px-4"
+        style={{ backgroundColor: 'var(--color-bg-primary)' }}
+      >
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -371,7 +379,8 @@ const MatchupsPage: React.FC = () => {
           </>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

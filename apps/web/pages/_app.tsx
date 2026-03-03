@@ -84,6 +84,30 @@ export default function App({ Component, pageProps, router }: AppProps) {
         
         {/* Theme Color for Mobile Browsers */}
         <meta name="theme-color" content="#C8AA6E" />
+        
+        {/* Structured Data (JSON-LD) for SEO */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "name": "RiftEssence",
+              "url": "https://riftessence.app",
+              "description": "League of Legends duo finder, team recruitment, coaching, and community platform",
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": "https://riftessence.app/feed?search={search_term_string}",
+                "query-input": "required name=search_term_string"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "RiftEssence",
+                "url": "https://riftessence.app"
+              }
+            })
+          }}
+        />
       </Head>
       <Script
         src="https://challenges.cloudflare.com/turnstile/v0/api.js"

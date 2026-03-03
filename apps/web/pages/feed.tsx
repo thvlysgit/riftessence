@@ -672,9 +672,10 @@ export default function Feed() {
         }
       `}</style>
       <SEOHead
-        title="Looking for Duo - Trouvez votre partenaire LoL"
-        description="Trouvez votre duo parfait pour League of Legends. Filtres avancés par rôle, rank, région, langues. Système de rating communautaire et profils vérifiés Riot API."
+        title="Looking for Duo"
+        description="Find your perfect League of Legends duo partner. Advanced filters by role, rank, region, and language. Community ratings and Riot API verified profiles."
         path="/feed"
+        keywords="LoL duo finder, League of Legends duo, find duo partner, ranked duo, LFD League, LoL duoqueue"
       />
       <div className="min-h-screen py-8 px-4" style={{ backgroundColor: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}>
       <div className="max-w-4xl mx-auto space-y-6">

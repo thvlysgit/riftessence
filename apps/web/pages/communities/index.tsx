@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import SEOHead from '../../components/SEOHead';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -63,7 +64,14 @@ export default function CommunitiesPage() {
   const regions = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
 
   return (
-    <div className="min-h-screen py-8 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+    <>
+      <SEOHead
+        title="Communities"
+        description="Discover and join League of Legends communities. Connect with players from your region, find teammates, and participate in community events."
+        path="/communities"
+        keywords="LoL communities, League of Legends groups, LoL Discord servers, join LoL community, League community finder"
+      />
+      <div className="min-h-screen py-8 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -293,6 +301,7 @@ export default function CommunitiesPage() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

@@ -11,13 +11,13 @@
 | # | Task | Status | Priority | Complexity |
 |---|------|--------|----------|------------|
 | 1 | Fix champion pool not being able to be saved | ✅ **DONE** | — | — |
-| 2 | Make responsiveness better across the app | ⚠️ **PARTIAL** | MEDIUM | High |
+| 2 | Make responsiveness better across the app | ✅ **DONE** | — | — |
 | 3 | Rate limit the bug report button | ❌ **TODO** | MEDIUM | Low |
 | 4 | Add shareable duo image (needs testing) | ✅ **DONE** | — | — |
-| 5 | Make website titles consistent and coherent | ❌ **TODO** | MEDIUM | Low |
-| 6 | Add an Icon to the browser tabs | ❌ **TODO** | LOW | Low |
+| 5 | Make website titles consistent and coherent | ✅ **DONE** | — | — |
+| 6 | Add an Icon to the browser tabs | ✅ **DONE** | — | — |
 | 7 | Implement Vercel analytics | ✅ **DONE** | — | — |
-| 8 | Implement SEO changes | ⚠️ **PARTIAL** | HIGH | Medium |
+| 8 | Implement SEO changes | ✅ **DONE** | — | — |
 
 ---
 
@@ -101,7 +101,9 @@ const [championTierlist, setChampionTierlist] = useState({ S: [], A: [], B: [], 
 
 ## 2. Make Responsiveness Better Across the App
 
-### Current Status: ⚠️ **PARTIALLY IMPLEMENTED**
+### Current Status: ✅ **DONE** (2026-03-04)
+
+**Completed**: Comprehensive responsive improvements applied to all critical pages. Commit `4cb00da7`.
 
 **Context**: The app has some responsive design patterns but needs comprehensive mobile/tablet optimization without breaking the desktop experience.
 
@@ -561,7 +563,9 @@ curl http://localhost:3000/api/og/post/{POST_ID}
 
 ## 5. Make Website Titles Consistent and Coherent
 
-### Current Status: ❌ **INCONSISTENT**
+### Current Status: ✅ **DONE** (2026-03-04)
+
+**Completed**: Route-title map added to `_app.tsx` covering all 28 static routes. Dynamic pages (`profile`, `communities/[id]`, `matchups/[id]`) update `document.title` via `useEffect` when data loads. Commit `08cafcb4`.
 
 **Problem**: All pages currently share the same global title from `_app.tsx`. Individual pages need unique, descriptive titles for better UX and SEO.
 
@@ -740,7 +744,9 @@ After implementation, test:
 
 ## 6. Add an Icon to the Browser Tabs
 
-### Current Status: ❌ **FAVICON MISSING**
+### Current Status: ✅ **DONE** (2026-03-04)
+
+**Completed**: Created `apps/web/public/favicon.svg` — gold "R" lettermark on dark `#06101F` background. Updated `_app.tsx` with `<link rel="icon" type="image/svg+xml" href="/favicon.svg" />` plus a `rel="alternate icon"` PNG fallback. Commit `08cafcb4`.
 
 **Problem**: The app references `favicon.png` in `_app.tsx` but the file doesn't exist in `/public`, causing a 404 error and showing default browser icon.
 
@@ -906,21 +912,26 @@ After implementation:
 
 ## 8. Implement SEO Changes to Show Up in Google Searches
 
-### Current Status: ⚠️ **PARTIALLY IMPLEMENTED**
+### Current Status: ✅ **COMPLETED** (2026-03-04)
 
 **Completed**:
 - ✅ Open Graph meta tags (global in `_app.tsx`)
 - ✅ Share page OG metadata for duo posts
 - ✅ Theme color meta tag
 - ✅ Basic meta description
+- ✅ Page-specific meta tags for all key pages (index, feed, lft, coaching, matchups, communities)
+- ✅ `sitemap.xml` created with all static pages
+- ✅ `robots.txt` created with proper crawl directives
+- ✅ Structured data (JSON-LD) added for website schema
+- ✅ Updated SEOHead component with canonical URLs and improved meta tags
+- ✅ Page-specific keywords for better search targeting
 
-**Missing**:
-- ❌ Page-specific meta tags (see Task #5)
-- ❌ `sitemap.xml`
-- ❌ `robots.txt`
-- ❌ Structured data (JSON-LD)
+**Recommended Future Enhancements** (not required for launch):
+- ❌ Dynamic sitemap generation for user profiles and posts
 - ❌ SSR for key pages (feed, profiles, communities)
 - ❌ Performance optimizations (images, lazy loading)
+- ❌ Google Search Console setup
+- ❌ Content strategy and blog/guide section
 
 ### Priority SEO Tasks
 

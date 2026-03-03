@@ -27,7 +27,12 @@ export default function HomePage() {
 
   return (
     <>
-      <SEOHead />
+      <SEOHead 
+        title="Find Your Duo - League of Legends"
+        description="Find your perfect duo partner for League of Legends ranked games. Filter by role, rank, region, and language. Join the premier LoL duo finder community."
+        path="/"
+        keywords="League of Legends duo, LoL duo finder, find duo partner, League duo queue, LoL LFD, ranked duo LoL"
+      />
       <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       {/* Hero Section */}
       <div className="relative overflow-hidden">

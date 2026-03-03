@@ -1,6 +1,79 @@
 # Changelog
 
-> Last updated: 2026-03-02
+> Last updated: 2026-03-04
+
+---
+
+## 2026-03-04 — Unique Page Titles and SVG Favicon
+
+### Feature: Per-Page Browser Tab Titles (Task #5)
+
+**Overview**: Every page in the app now has a distinct, descriptive browser tab title. Previously every page showed the same default French title.
+
+**Architecture**: `_app.tsx` now contains a `ROUTE_TITLES` map with 28 static routes. The title resolution order is: `pageProps.ssrTitle` (GSSP pages like share) → `routeTitle` (static map) → fallback string. Dynamic pages set `document.title` via `useEffect` when their data loads.
+
+**Changes** ([apps/web/pages/_app.tsx](apps/web/pages/_app.tsx)):
+- Added `ROUTE_TITLES` map (28 routes) before the `App` component
+- Updated fallback description to English
+- Title resolution: `ssrTitle || routeTitle || 'RiftEssence - The League of Legends Community Platform'`
+
+**Dynamic titles added**:
+- [apps/web/pages/profile.tsx](apps/web/pages/profile.tsx): `{username}'s Profile | RiftEssence` when viewing another user; `My Profile | RiftEssence` for own profile
+- [apps/web/pages/communities/[id].tsx](apps/web/pages/communities/[id].tsx): `{community.name} | RiftEssence`
+- [apps/web/pages/matchups/[id].tsx](apps/web/pages/matchups/[id].tsx): `{myChampion} vs {enemyChampion} | RiftEssence`
+
+**Title format**: `{Feature} | RiftEssence` — consistent `|` separator, title-cased feature names.
+
+### Feature: SVG Favicon (Task #6)
+
+**Overview**: The app previously referenced `/favicon.png` in `_app.tsx` but the file didn't exist, causing a 404 and an empty browser tab icon.
+
+**Changes** ([apps/web/public/favicon.svg](apps/web/public/favicon.svg)):
+- New SVG favicon: dark `#06101F` rounded-rect background, gold `#C8AA6E` "R" lettermark in a bold path shape
+- SVG scales crisply at all sizes (16×16 through 256×256)
+
+**Changes** ([apps/web/pages/_app.tsx](apps/web/pages/_app.tsx)):
+- `<link rel="icon" type="image/svg+xml" href="/favicon.svg" />` — primary (supported by Chrome, Firefox, Safari, Edge)
+- `<link rel="alternate icon" type="image/png" href="/favicon.png" />` — fallback in case a PNG is added later
+
+**Commit**: `08cafcb4`
+
+---
+
+## 2026-03-04 — Responsive Improvements for Critical Pages
+
+### Feature: Mobile Responsiveness Pass
+
+**Overview**: Comprehensive mobile layout fixes applied to `feed.tsx`, `lft.tsx`, `profile.tsx`, and `create.tsx`. Desktop layouts are completely unchanged. All changes use Tailwind base classes (mobile-first) with `sm:`/`md:` overrides for larger screens.
+
+**Commit**: `4cb00da7`
+
+**Changes by file:**
+
+**[apps/web/pages/feed.tsx](apps/web/pages/feed.tsx)**:
+- Header row: `flex justify-between` → `flex flex-wrap justify-between gap-2` — prevents "Looking For Duo" title and "Create Post" button from overlapping on narrow screens
+- Title: `text-3xl` → `text-2xl sm:text-3xl`
+- Filter title: `text-lg` → `text-base sm:text-lg`
+- Filter panel: `p-6` → `p-4 sm:p-6`
+- Post cards: `p-6` → `p-4 sm:p-6`
+- Post header row: `flex justify-between items-start` → `flex flex-wrap justify-between items-start gap-2`
+
+**[apps/web/pages/lft.tsx](apps/web/pages/lft.tsx)**:
+- Header row: `flex items-center justify-between` → `flex flex-wrap items-start justify-between gap-2` — "Looking For Team (LFT)" title is long, wraps cleanly now
+- Title: `text-3xl font-extrabold` → `text-2xl sm:text-3xl font-extrabold`
+- Section container: `p-6` → `p-4 sm:p-6`
+- Post cards: `p-6` → `p-4 sm:p-6`
+- Post card header: `flex items-center justify-between mb-4` → `flex flex-wrap items-center justify-between mb-4 gap-2`
+
+**[apps/web/pages/profile.tsx](apps/web/pages/profile.tsx)**:
+- Action buttons row: `flex justify-end gap-3` → `flex flex-wrap justify-end gap-2` — refresh/edit buttons wrap on narrow screens
+- Profile header card + all 9 section cards: `rounded-xl p-6` → `rounded-xl p-4 sm:p-6` (global replacement)
+- Username heading: `text-3xl font-bold` → `text-2xl sm:text-3xl font-bold` (both view and edit modes)
+- Riot account rows: `flex items-center justify-between` → `flex flex-wrap items-center justify-between gap-2`
+
+**[apps/web/pages/create.tsx](apps/web/pages/create.tsx)**:
+- Form card: `p-6` → `p-4 sm:p-6`
+- Submit button: added `w-full sm:w-auto` — full width on mobile, auto on desktop
 
 Chronological log of significant changes. Maintained by @DocumentationManager.
 

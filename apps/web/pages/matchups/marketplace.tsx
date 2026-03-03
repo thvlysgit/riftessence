@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
+import SEOHead from '../../components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useGlobalUI } from '../../components/GlobalUI';
@@ -286,10 +287,17 @@ const MarketplacePage: React.FC = () => {
   };
   
   return (
-    <div 
-      className="min-h-screen py-8 px-4"
-      style={{ backgroundColor: 'var(--color-bg-primary)' }}
-    >
+    <>
+      <SEOHead
+        title="Matchup Marketplace"
+        description="Browse and discover League of Legends matchup guides created by the community. Find detailed strategies, tips, and counters for champion matchups across all roles."
+        path="/matchups/marketplace"
+        keywords="LoL matchup guides, League of Legends matchups, champion counters, LoL strategy guides, matchup tips"
+      />
+      <div 
+        className="min-h-screen py-8 px-4"
+        style={{ backgroundColor: 'var(--color-bg-primary)' }}
+      >
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -677,7 +685,8 @@ const MarketplacePage: React.FC = () => {
           </>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

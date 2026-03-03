@@ -398,9 +398,10 @@ export default function CoachingPage() {
   return (
     <>
       <SEOHead
-        title="Coaching Gratuit League of Legends"
-        description="Trouvez un coach Emerald+ ou offrez votre expertise gratuitement. Spécialisations : Wave Management, Vision Control, Macro, Teamfighting, Lane Control. Coaching communautaire 100% gratuit."
+        title="Free Coaching"
+        description="Find an Emerald+ coach or offer your expertise for free. Specializations: Wave Management, Vision Control, Macro, Teamfighting, Lane Control. 100% free community coaching for League of Legends."
         path="/coaching"
+        keywords="LoL coaching free, League of Legends coach, free LoL lessons, LoL improvement, League coaching, LoL mentoring"
       />
       <div className="min-h-screen py-10 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <div className="max-w-4xl mx-auto space-y-6">

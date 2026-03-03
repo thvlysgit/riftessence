@@ -344,9 +344,10 @@ export default function LFTPage() {
   return (
     <>
       <SEOHead
-        title="Looking for Team - Trouvez votre équipe LoL"
-        description="Recrutez des joueurs pour votre équipe ou rejoignez une équipe active. Système de rating, profils vérifiés Riot API, filtres par rôle et rank. LFT communautaire pour League of Legends."
+        title="Looking for Team"
+        description="Recruit players for your League of Legends team or join an active team. Community ratings, Riot API verified profiles, role and rank filters."
         path="/lft"
+        keywords="LoL LFT, League of Legends team, find LoL team, recruit LoL players, LoL team finder, League team recruitment"
       />
       <div className="min-h-screen py-10 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <div className="max-w-4xl mx-auto space-y-6">

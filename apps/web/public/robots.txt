@@ -1,0 +1,20 @@
+# RiftEssence Robots.txt
+# League of Legends Community Platform
+
+User-agent: *
+Allow: /
+
+# Disallow private and admin areas
+Disallow: /admin/
+Disallow: /api/
+Disallow: /settings
+Disallow: /notifications
+
+# Disallow auth pages (don't index login/register)
+Disallow: /authenticate
+
+# Sitemap
+Sitemap: https://riftessence.app/sitemap.xml
+
+# Crawl rate (be polite to our servers)
+Crawl-delay: 1
