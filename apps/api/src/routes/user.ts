@@ -754,7 +754,7 @@ export default async function userRoutes(fastify: any) {
           if (!leagueResp.ok) throw new Error(`League API error ${leagueResp.status}`);
           const entries = await leagueResp.json();
 
-          // Choose best entry by tier order and division; compute winrate
+          // Choose entry: always prefer RANKED_SOLO_5x5; fall back to RANKED_FLEX_SR only if unranked in solo
           const tierOrder = ['IRON','BRONZE','SILVER','GOLD','PLATINUM','EMERALD','DIAMOND','MASTER','GRANDMASTER','CHALLENGER'];
           const divisionOrder = ['IV', 'III', 'II', 'I']; // IV is lowest, I is highest
           let bestRank: 'IRON'|'BRONZE'|'SILVER'|'GOLD'|'PLATINUM'|'EMERALD'|'DIAMOND'|'MASTER'|'GRANDMASTER'|'CHALLENGER'|'UNRANKED' = 'UNRANKED';
@@ -762,24 +762,19 @@ export default async function userRoutes(fastify: any) {
           let bestWinrate: number | null = null;
           let bestLp: number | null = null;
           if (Array.isArray(entries) && entries.length > 0) {
-            // Sort entries by tier then by division (higher is better)
-            entries.sort((a: any, b: any) => {
-              const tierDiff = tierOrder.indexOf(a.tier) - tierOrder.indexOf(b.tier);
-              if (tierDiff !== 0) return tierDiff;
-              // Same tier, compare divisions (only for tiers that have divisions)
-              if (a.rank && b.rank) {
-                return divisionOrder.indexOf(a.rank) - divisionOrder.indexOf(b.rank);
-              }
-              return 0;
-            });
-            const best = entries[entries.length - 1];
-            bestRank = (best.tier as any) || 'UNRANKED';
-            bestDivision = best.rank || null; // I, II, III, IV (null for Master+)
-            const wins = Number(best.wins) || 0;
-            const losses = Number(best.losses) || 0;
-            const total = wins + losses;
-            bestWinrate = total > 0 ? (wins / total) * 100 : null;
-            bestLp = typeof best.leaguePoints === 'number' ? best.leaguePoints : null;
+            const soloEntry = entries.find((e: any) => e.queueType === 'RANKED_SOLO_5x5');
+            const flexEntry = entries.find((e: any) => e.queueType === 'RANKED_FLEX_SR');
+            // Solo/duo always takes priority; flex is fallback only
+            const best = soloEntry || flexEntry;
+            if (best) {
+              bestRank = (best.tier as any) || 'UNRANKED';
+              bestDivision = best.rank || null; // I, II, III, IV (null for Master+)
+              const wins = Number(best.wins) || 0;
+              const losses = Number(best.losses) || 0;
+              const total = wins + losses;
+              bestWinrate = total > 0 ? (wins / total) * 100 : null;
+              bestLp = typeof best.leaguePoints === 'number' ? best.leaguePoints : null;
+            }
           }
 
           await prisma.riotAccount.update({
