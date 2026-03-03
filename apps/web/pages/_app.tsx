@@ -3,7 +3,6 @@ import '../styles/globals.css';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
 import Script from 'next/script';
-import { useRouter } from 'next/router';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import OnboardingWizard from '../components/OnboardingWizard';
@@ -20,8 +19,7 @@ import { Analytics } from '@vercel/analytics/react';
 
 const queryClient = new QueryClient();
 
-export default function App({ Component, pageProps }: AppProps) {
-  const router = useRouter();
+export default function App({ Component, pageProps, router }: AppProps) {
   const isSharePage = router.pathname.startsWith('/share/');
 
   // Track new visitors on app load
