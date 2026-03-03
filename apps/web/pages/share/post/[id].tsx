@@ -169,13 +169,9 @@ export default function SharePostPage({ id, baseUrl, ssrTitle, ssrDescription }:
   return (
     <>
       <Head>
-        <title key="title">{pageTitle}</title>
-        <meta key="meta-title" name="title" content={pageTitle} />
-        <meta key="description" name="description" content={pageDescription} />
+        {/* title, description, og:title, og:description are handled by _app.tsx via pageProps.ssrTitle/ssrDescription */}
         <meta property="og:type" content="website" />
         <meta property="og:url" content={shareUrl} />
-        <meta key="og:title" property="og:title" content={pageTitle} />
-        <meta key="og:description" property="og:description" content={pageDescription} />
         <meta key="og:image" property="og:image" content={ogImageUrl} />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
@@ -183,8 +179,6 @@ export default function SharePostPage({ id, baseUrl, ssrTitle, ssrDescription }:
         <meta property="og:site_name" content="RiftEssence" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:url" content={shareUrl} />
-        <meta key="twitter:title" name="twitter:title" content={pageTitle} />
-        <meta key="twitter:description" name="twitter:description" content={pageDescription} />
         <meta key="twitter:image" name="twitter:image" content={ogImageUrl} />
         <meta name="theme-color" content="#C8AA6D" />
       </Head>

@@ -20,8 +20,8 @@ import { Analytics } from '@vercel/analytics/react';
 const queryClient = new QueryClient();
 
 export default function App({ Component, pageProps, router }: AppProps) {
-  // If a page provides its own SSR title (e.g. share pages), don't emit generic tags
-  const hasPageTitle = pageProps.ssrTitle != null;
+  const pageTitle = pageProps.ssrTitle || 'RiftEssence - Plateforme Communautaire League of Legends';
+  const pageDescription = pageProps.ssrDescription || 'Trouvez votre duo, rejoignez une équipe, obtenez du coaching gratuit et partagez vos connaissances sur les matchups. La plateforme tout-en-un pour la communauté LoL francophone.';
 
   // Track new visitors on app load
   useEffect(() => {
@@ -34,14 +34,14 @@ export default function App({ Component, pageProps, router }: AppProps) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         
-        {/* Primary Meta Tags — skipped on pages that set their own */}
-        {!hasPageTitle && (
-          <>
-            <title key="title">RiftEssence - Plateforme Communautaire League of Legends</title>
-            <meta key="meta-title" name="title" content="RiftEssence - Plateforme Communautaire League of Legends" />
-            <meta key="description" name="description" content="Trouvez votre duo, rejoignez une équipe, obtenez du coaching gratuit et partagez vos connaissances sur les matchups. La plateforme tout-en-un pour la communauté LoL francophone." />
-          </>
-        )}
+        {/* Single source of truth for title/description — reads pageProps for per-page overrides */}
+        <title key="title">{pageTitle}</title>
+        <meta key="meta-title" name="title" content={pageTitle} />
+        <meta key="description" name="description" content={pageDescription} />
+        <meta key="og:title" property="og:title" content={pageTitle} />
+        <meta key="og:description" property="og:description" content={pageDescription} />
+        <meta key="twitter:title" name="twitter:title" content={pageTitle} />
+        <meta key="twitter:description" name="twitter:description" content={pageDescription} />
         <meta name="keywords" content="League of Legends, LoL, LFD, Looking for Duo, LFT, Looking for Team, Coaching LoL, Matchups LoL, Communauté LoL, LoL France" />
         
         {/* Favicon */}
