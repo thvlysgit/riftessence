@@ -595,6 +595,15 @@ export default function ProfilePage() {
     }, accounts[0]);
   };
 
+  // Update browser tab title when user data loads
+  useEffect(() => {
+    if (user?.username) {
+      document.title = isViewingOther
+        ? `${user.username}'s Profile | RiftEssence`
+        : 'My Profile | RiftEssence';
+    }
+  }, [user?.username, isViewingOther]);
+
   // Fetch user profile from API (supports viewing other profiles via ?username=)
   useEffect(() => {
     async function fetchProfile() {

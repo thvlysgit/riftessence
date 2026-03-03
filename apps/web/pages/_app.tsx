@@ -19,9 +19,43 @@ import { Analytics } from '@vercel/analytics/react';
 
 const queryClient = new QueryClient();
 
+// Route → browser tab title map. Dynamic pages override via document.title in useEffect.
+const ROUTE_TITLES: Record<string, string> = {
+  '/': 'Find Your Duo - League of Legends | RiftEssence',
+  '/feed': 'Looking for Duo | RiftEssence',
+  '/create': 'Create Duo Post | RiftEssence',
+  '/lft': 'Looking for Team | RiftEssence',
+  '/login': 'Login | RiftEssence',
+  '/register': 'Sign Up | RiftEssence',
+  '/authenticate': 'Connecting... | RiftEssence',
+  '/profile': 'Profile | RiftEssence',
+  '/settings': 'Settings | RiftEssence',
+  '/notifications': 'Notifications | RiftEssence',
+  '/leaderboards': 'Leaderboards | RiftEssence',
+  '/communities': 'Communities | RiftEssence',
+  '/communities/register': 'Register Community | RiftEssence',
+  '/communities/guide': 'Community Guide | RiftEssence',
+  '/coaching': 'Free Coaching | RiftEssence',
+  '/matchups': 'My Matchups | RiftEssence',
+  '/matchups/marketplace': 'Matchup Marketplace | RiftEssence',
+  '/matchups/create': 'Create Matchup | RiftEssence',
+  '/status': 'Server Status | RiftEssence',
+  '/terms': 'Terms of Service | RiftEssence',
+  '/privacy': 'Privacy Policy | RiftEssence',
+  '/cookies': 'Cookie Policy | RiftEssence',
+  '/admin': 'Admin Dashboard | RiftEssence',
+  '/admin/users': 'User Management | RiftEssence',
+  '/admin/reports': 'Reports | RiftEssence',
+  '/admin/badges': 'Badge Management | RiftEssence',
+  '/admin/ads': 'Ad Management | RiftEssence',
+  '/admin/settings': 'Admin Settings | RiftEssence',
+  '/admin/broadcast': 'Broadcast Message | RiftEssence',
+};
+
 export default function App({ Component, pageProps, router }: AppProps) {
-  const pageTitle = pageProps.ssrTitle || 'RiftEssence - Plateforme Communautaire League of Legends';
-  const pageDescription = pageProps.ssrDescription || 'Trouvez votre duo, rejoignez une équipe, obtenez du coaching gratuit et partagez vos connaissances sur les matchups. La plateforme tout-en-un pour la communauté LoL francophone.';
+  const routeTitle = ROUTE_TITLES[router.pathname];
+  const pageTitle = pageProps.ssrTitle || routeTitle || 'RiftEssence - The League of Legends Community Platform';
+  const pageDescription = pageProps.ssrDescription || 'Find your duo partner, join a team, get free coaching and share matchup knowledge. The all-in-one platform for the LoL community.';
 
   // Track new visitors on app load
   useEffect(() => {
@@ -45,7 +79,8 @@ export default function App({ Component, pageProps, router }: AppProps) {
         <meta name="keywords" content="League of Legends, LoL, LFD, Looking for Duo, LFT, Looking for Team, Coaching LoL, Matchups LoL, Communauté LoL, LoL France" />
         
         {/* Favicon */}
-        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="alternate icon" type="image/png" href="/favicon.png" />
         
         {/* Theme Color for Mobile Browsers */}
         <meta name="theme-color" content="#C8AA6E" />

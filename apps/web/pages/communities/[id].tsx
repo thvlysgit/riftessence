@@ -46,6 +46,12 @@ export default function CommunityDetailPage() {
   }, []);
 
   useEffect(() => {
+    if (community?.name) {
+      document.title = `${community.name} | RiftEssence`;
+    }
+  }, [community?.name]);
+
+  useEffect(() => {
     if (id) {
       fetchCommunity();
     }

@@ -80,6 +80,12 @@ const MatchupDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'laning' | 'teamfight' | 'items' | 'spikes'>('laning');
   
   useEffect(() => {
+    if (matchup?.myChampion && matchup?.enemyChampion) {
+      document.title = `${matchup.myChampion} vs ${matchup.enemyChampion} | RiftEssence`;
+    }
+  }, [matchup?.myChampion, matchup?.enemyChampion]);
+
+  useEffect(() => {
     if (id) {
       fetchMatchup();
     }
