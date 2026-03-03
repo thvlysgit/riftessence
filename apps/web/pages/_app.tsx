@@ -76,7 +76,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
         <meta key="og:description" property="og:description" content={pageDescription} />
         <meta key="twitter:title" name="twitter:title" content={pageTitle} />
         <meta key="twitter:description" name="twitter:description" content={pageDescription} />
-        <meta name="keywords" content="League of Legends, LoL, LFD, Looking for Duo, LFT, Looking for Team, Coaching LoL, Matchups LoL, Communauté LoL, LoL France" />
+        <meta name="keywords" content="league of legends duo finder, lol duo partner, league of legends duo queue, lol ranked duo, duo partner lol, LoL duo finder, find duo partner, lol duo NA, lol duo EUW, lol duo EUNE, lol duo KR, duo partner lol plat, duo partner lol diamond, duo partner lol gold, League of Legends, LoL, LFD, Looking for Duo, LFT, Looking for Team, Coaching LoL, Matchups LoL" />
         
         {/* Favicon */}
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -94,7 +94,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
               "@type": "WebSite",
               "name": "RiftEssence",
               "url": "https://riftessence.app",
-              "description": "League of Legends duo finder, team recruitment, coaching, and community platform",
+              "description": "Find your perfect League of Legends duo partner. The premier LoL duo finder for ranked games across all regions (NA, EUW, EUNE, KR, OCE) and ranks (Iron-Challenger). Team recruitment, free coaching, and matchup guides.",
               "potentialAction": {
                 "@type": "SearchAction",
                 "target": "https://riftessence.app/feed?search={search_term_string}",

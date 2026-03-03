@@ -29,9 +29,9 @@ export default function HomePage() {
     <>
       <SEOHead 
         title="Find Your Duo - League of Legends"
-        description="Find your perfect duo partner for League of Legends ranked games. Filter by role, rank, region, and language. Join the premier LoL duo finder community."
+        description="Find your perfect duo partner for League of Legends ranked games. Search by rank (Iron-Challenger), region (NA, EUW, EUNE, KR), role, and language. The premier LoL duo finder community."
         path="/"
-        keywords="League of Legends duo, LoL duo finder, find duo partner, League duo queue, LoL LFD, ranked duo LoL"
+        keywords="league of legends duo finder, lol duo partner, league of legends duo queue, lol ranked duo, duo partner lol, find duo partner, lol duo finder, LoL duo EUW, lol duo NA, duo partner lol plat, duo partner lol diamond, duo partner lol gold, lol duo partner EUW, lol duo partner NA, league of legends duo, ranked duo LoL, duo queue lol, lol duo partner iron, lol duo partner bronze, lol duo partner silver, lol duo partner gold, lol duo partner platinum, lol duo partner emerald, lol duo partner diamond, lol duo partner master, lol duo partner grandmaster, lol duo partner challenger, lol duo KR, lol duo OCE, lol duo BR, lol duo LAN, lol duo LAS, lol duo EUNE"
       />
       <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       {/* Hero Section */}
@@ -72,6 +72,26 @@ export default function HomePage() {
                 {t('nav.login')}
               </Link>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SEO Content Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16" style={{ backgroundColor: 'var(--color-bg-secondary)/50' }}>
+        <div className="max-w-4xl mx-auto text-center space-y-6">
+          <h2 className="text-3xl font-bold mb-6" style={{ color: 'var(--color-text-primary)' }}>
+            The Best League of Legends Duo Finder
+          </h2>
+          <div className="space-y-4 text-lg" style={{ color: 'var(--color-text-secondary)' }}>
+            <p>
+              Looking for a duo partner in League of Legends? RiftEssence is the premier <strong>LoL duo finder</strong> platform that helps you find the perfect <strong>duo partner</strong> for ranked games. Whether you're searching for a <strong>duo partner in NA, EUW, EUNE, KR</strong>, or any other region, our platform makes it easy to connect with players who match your playstyle.
+            </p>
+            <p>
+              Find <strong>duo partners by rank</strong> - from Iron to Challenger. Search for a <strong>plat duo partner</strong>, <strong>diamond duo partner</strong>, or any rank tier. Our advanced filters let you find <strong>LoL duo partners</strong> by role (Top, Jungle, Mid, ADC, Support), rank, region, and language preferences.
+            </p>
+            <p>
+              Join thousands of players who use RiftEssence as their go-to <strong>League of Legends duo queue</strong> platform. Start your climb with the right <strong>ranked duo partner</strong> today!
+            </p>
           </div>
         </div>
       </div>

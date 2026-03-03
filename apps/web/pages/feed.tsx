@@ -673,9 +673,9 @@ export default function Feed() {
       `}</style>
       <SEOHead
         title="Looking for Duo"
-        description="Find your perfect League of Legends duo partner. Advanced filters by role, rank, region, and language. Community ratings and Riot API verified profiles."
+        description="Find your perfect League of Legends duo partner. Filter by rank (Iron-Challenger), region (NA, EUW, EUNE, KR, OCE), role, and language. Community ratings and Riot API verified profiles."
         path="/feed"
-        keywords="LoL duo finder, League of Legends duo, find duo partner, ranked duo, LFD League, LoL duoqueue"
+        keywords="league of legends duo finder, lol duo partner, league of legends duo queue, lol ranked duo, duo partner lol, LoL duo finder, find duo partner, ranked duo, duo queue lol, lol duo NA, lol duo EUW, lol duo EUNE, lol duo KR, duo partner lol plat, duo partner lol diamond, duo partner lol gold, lol duo partner NA, lol duo partner EUW, lol duo partner KR, lol duo partner OCE, lol duo partner BR, league of legends duo NA, league of legends duo EUW, duo partner lol iron, duo partner lol bronze, duo partner lol silver, duo partner lol emerald, duo partner lol master, duo partner lol grandmaster, duo partner lol challenger"
       />
       <div className="min-h-screen py-8 px-4" style={{ backgroundColor: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}>
       <div className="max-w-4xl mx-auto space-y-6">
