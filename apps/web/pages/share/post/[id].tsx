@@ -316,10 +316,14 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const { id } = context.params as { id: string };
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.riftessence.app';
 
+  // Cache the SSR response on Vercel's edge for 60s so repeated crawler hits are instant
+  context.res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+    // Keep well under Discord's ~2-3s crawler timeout
     const res = await fetch(`${apiUrl}/api/posts/${id}`, {
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(1500),
     });
     if (res.ok) {
       const { post } = await res.json();
