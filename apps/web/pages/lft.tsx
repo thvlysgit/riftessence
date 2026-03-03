@@ -351,8 +351,8 @@ export default function LFTPage() {
       <div className="min-h-screen py-10 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <div className="max-w-4xl mx-auto space-y-6">
         <header className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-extrabold" style={{ color: 'var(--color-accent-1)' }}>Looking For Team (LFT)</h1>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <h1 className="text-2xl sm:text-3xl font-extrabold" style={{ color: 'var(--color-accent-1)' }}>Looking For Team (LFT)</h1>
             <div className="flex gap-2">
               <button
                 onClick={async () => {
@@ -453,7 +453,7 @@ export default function LFTPage() {
           <LoadingSpinner />
         ) : (
           <section
-            className="border p-6"
+            className="border p-4 sm:p-6"
             style={{
               backgroundColor: 'var(--color-bg-secondary)',
               borderColor: 'var(--color-border)',
@@ -474,7 +474,7 @@ export default function LFTPage() {
                         <AdSpot ad={ad} feed="lft" userId={currentUserId} onDismiss={handleDismissAd} />
                       )}
                   <div 
-                    className="p-6 border rounded-xl relative overflow-hidden" 
+                    className="p-4 sm:p-6 border rounded-xl relative overflow-hidden" 
                     style={{ 
                       borderColor: 'var(--color-border)', 
                       backgroundColor: 'var(--color-bg-secondary)', 
@@ -493,7 +493,7 @@ export default function LFTPage() {
                       }}
                     />
                     
-                    <div className="flex items-center justify-between mb-4 relative">
+                    <div className="flex flex-wrap items-center justify-between mb-4 gap-2 relative">
                       <div className="flex items-center gap-3 flex-wrap">
                         {/* Type icon integrated into design */}
                         <div className="flex items-center gap-2">

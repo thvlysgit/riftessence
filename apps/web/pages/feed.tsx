@@ -693,8 +693,8 @@ export default function Feed() {
           </div>
         )}
         
-        <div className="flex justify-between items-center">{/* Rest of the content */}
-          <h1 className="text-3xl font-bold" style={{ color: 'var(--color-text-main)' }}>Looking For Duo</h1>
+        <div className="flex flex-wrap justify-between items-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-text-main)' }}>Looking For Duo</h1>
           <Link 
             href="/create" 
             className="px-4 py-2 font-semibold transition-colors"
@@ -779,7 +779,7 @@ export default function Feed() {
 
         {/* Filters */}
         <div 
-          className="border p-6"
+          className="border p-4 sm:p-6"
           style={{
             background: 'linear-gradient(to bottom right, var(--color-bg-secondary), var(--color-bg-tertiary))',
             borderColor: 'var(--color-border)',
@@ -787,7 +787,7 @@ export default function Feed() {
             boxShadow: 'var(--shadow)',
           }}
         >
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--color-accent-1)' }}>
+          <h2 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--color-accent-1)' }}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
@@ -1214,9 +1214,9 @@ export default function Feed() {
                   {ad && (
                     <AdSpot ad={ad} feed="duo" userId={currentUserId} onDismiss={handleDismissAd} />
                   )}
-                  <div className="border rounded-xl p-6" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow)' }}>
+                  <div className="border rounded-xl p-4 sm:p-6" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow)' }}>
                 {/* Header */}
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex flex-wrap justify-between items-start mb-4 gap-2">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{post.username}</h3>

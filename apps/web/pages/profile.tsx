@@ -1196,7 +1196,7 @@ export default function ProfilePage() {
         <div className="max-w-5xl mx-auto space-y-6">
         
         {/* Edit Mode Toggle + Refresh Stats */}
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-wrap justify-end gap-2">
           {!isViewingOther && (
             <button
               onClick={async () => {
@@ -1277,7 +1277,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Profile Header */}
-        <div className="rounded-xl p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
+        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
           <div className="flex flex-col md:flex-row items-start gap-6">
             {/* User Info with Icon */}
             <div className="flex-1">
@@ -1307,7 +1307,7 @@ export default function ProfilePage() {
                     type="text"
                     value={editedUsername}
                     onChange={(e) => setEditedUsername(e.target.value)}
-                    className="text-3xl font-bold px-3 py-1 rounded border-2 focus:outline-none"
+                    className="text-2xl sm:text-3xl font-bold px-3 py-1 rounded border-2 focus:outline-none"
                     style={{
                       color: 'var(--accent-primary)',
                       background: 'var(--bg-input)',
@@ -1316,7 +1316,7 @@ export default function ProfilePage() {
                     placeholder={t('profile.usernamePlaceholder')}
                   />
                 ) : (
-                  <h1 className="text-3xl font-bold" style={{ color: 'var(--accent-primary)' }}>{user.username}</h1>
+                  <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--accent-primary)' }}>{user.username}</h1>
                 )}
               </div>
               
@@ -1529,7 +1529,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Playstyles Section */}
-        <div className="rounded-xl p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
+        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
           <h2 className="text-xl font-bold flex items-center mb-4" style={{ color: 'var(--accent-primary)' }}>
             <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -1586,7 +1586,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Languages Section */}
-        <div className="rounded-xl p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
+        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
           <h2 className="text-xl font-bold flex items-center mb-4" style={{ color: 'var(--accent-primary)' }}>
             <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
@@ -1638,7 +1638,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Champions Section */}
-        <div className="rounded-xl p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
+        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--accent-primary)' }}>
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
@@ -1773,7 +1773,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Linked Riot Accounts */}
-        <div className="rounded-xl p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
+        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
           <h2 className="text-xl font-bold mb-4 flex items-center" style={{ color: 'var(--accent-primary)' }}>
             <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -1786,7 +1786,7 @@ export default function ProfilePage() {
                 {user.riotAccounts.map((account) => (
                   <div
                     key={account.id}
-                    className="p-4 rounded-lg border-2 flex items-center justify-between"
+                    className="p-4 rounded-lg border-2 flex flex-wrap items-center justify-between gap-2"
                     style={{
                       background: (isEditMode ? pendingMainAccountId === account.id : account.isMain) ? 'var(--accent-primary-bg)' : 'var(--bg-input)',
                       borderColor: (isEditMode ? pendingMainAccountId === account.id : account.isMain) ? 'var(--accent-primary)' : 'var(--border-card)'
@@ -1905,7 +1905,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Discord Account */}
-        <div className="rounded-xl p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
+        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
           <h2 className="text-xl font-bold mb-4 flex items-center" style={{ color: 'var(--accent-primary)' }}>
             <svg className="w-6 h-6 mr-2" style={{ color: 'var(--accent-discord)' }} fill="currentColor" viewBox="0 0 24 24">
               <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
@@ -1984,7 +1984,7 @@ export default function ProfilePage() {
         {/* Servers & Anonymous Mode */}
         <div className={`grid grid-cols-1 ${!isViewingOther ? 'md:grid-cols-2' : ''} gap-6`}>
           {/* Servers */}
-          <div className="rounded-xl p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
+          <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
             <h2 className="text-xl font-bold mb-4 flex items-center" style={{ color: 'var(--accent-primary)' }}>
               <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -2002,7 +2002,7 @@ export default function ProfilePage() {
 
           {/* Anonymous Mode - Only show when viewing own profile */}
           {!isViewingOther && (
-            <div className="rounded-xl p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
+            <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
               <h2 className="text-xl font-bold mb-4 flex items-center" style={{ color: 'var(--accent-primary)' }}>
                 <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
@@ -2031,7 +2031,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Communities */}
-        <div className="rounded-xl p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
+        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
           <h2 className="text-xl font-bold mb-4 flex items-center" style={{ color: 'var(--accent-primary)' }}>
             <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -2145,7 +2145,7 @@ export default function ProfilePage() {
           />
         )}
         {/* Feedback Section */}
-        <div className="rounded-xl p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
+        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
           <h2 className="text-xl font-bold mb-4 flex items-center" style={{ color: 'var(--accent-primary)' }}>
             <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />

@@ -123,7 +123,7 @@ export default function CreatePostPage() {
   return (
     <div className="min-h-screen py-8 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <div 
-        className="max-w-xl mx-auto border p-6"
+        className="max-w-xl mx-auto border p-4 sm:p-6"
         style={{
           backgroundColor: 'var(--color-bg-secondary)',
           borderColor: 'var(--color-border)',
@@ -304,7 +304,7 @@ export default function CreatePostPage() {
 
           <button
             onClick={() => mutation.mutate()}
-            className="px-4 py-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto px-4 py-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
               color: 'var(--color-bg-primary)',
