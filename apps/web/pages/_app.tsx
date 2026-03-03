@@ -20,7 +20,8 @@ import { Analytics } from '@vercel/analytics/react';
 const queryClient = new QueryClient();
 
 export default function App({ Component, pageProps, router }: AppProps) {
-  const isSharePage = router.pathname.startsWith('/share/');
+  // If a page provides its own SSR title (e.g. share pages), don't emit generic tags
+  const hasPageTitle = pageProps.ssrTitle != null;
 
   // Track new visitors on app load
   useEffect(() => {
@@ -33,8 +34,8 @@ export default function App({ Component, pageProps, router }: AppProps) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         
-        {/* Primary Meta Tags — skipped on share pages which set their own */}
-        {!isSharePage && (
+        {/* Primary Meta Tags — skipped on pages that set their own */}
+        {!hasPageTitle && (
           <>
             <title key="title">RiftEssence - Plateforme Communautaire League of Legends</title>
             <meta key="meta-title" name="title" content="RiftEssence - Plateforme Communautaire League of Legends" />
