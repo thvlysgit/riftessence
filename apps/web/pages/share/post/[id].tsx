@@ -316,34 +316,12 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const { id } = context.params as { id: string };
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.riftessence.app';
 
-  // Cache the SSR response on Vercel's edge for 60s so repeated crawler hits are instant
-  context.res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
-
-  try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-    // Keep well under Discord's ~2-3s crawler timeout
-    const res = await fetch(`${apiUrl}/api/posts/${id}`, {
-      signal: AbortSignal.timeout(1500),
-    });
-    if (res.ok) {
-      const { post } = await res.json();
-      const riotId = post?.postingRiotAccount
-        ? `${post.postingRiotAccount.gameName}#${post.postingRiotAccount.tagLine}`
-        : post?.username || null;
-      return {
-        props: {
-          id,
-          baseUrl,
-          ssrTitle: post ? `${post.username} is looking for a duo!` : null,
-          ssrDescription: riotId,
-        },
-      };
-    }
-  } catch (_) {
-    // Fall through — generic metadata served, client-side fetch will still work
-  }
+  // No API call here — respond instantly so Discord's crawler never times out.
+  // The OG card image already shows all player details. Title is generic but reliable.
+  // Post data is loaded client-side after hydration as before.
+  context.res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
 
   return {
-    props: { id, baseUrl, ssrTitle: null, ssrDescription: null },
+    props: { id, baseUrl, ssrTitle: 'Looking For Duo | RiftEssence', ssrDescription: 'Find your perfect duo partner on RiftEssence — the League of Legends LFD platform.' },
   };
 };
