@@ -3,6 +3,7 @@ import '../styles/globals.css';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
 import Script from 'next/script';
+import { useRouter } from 'next/router';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import OnboardingWizard from '../components/OnboardingWizard';
@@ -20,6 +21,9 @@ import { Analytics } from '@vercel/analytics/react';
 const queryClient = new QueryClient();
 
 export default function App({ Component, pageProps }: AppProps) {
+  const router = useRouter();
+  const isSharePage = router.pathname.startsWith('/share/');
+
   // Track new visitors on app load
   useEffect(() => {
     trackNewVisitor();
@@ -31,10 +35,14 @@ export default function App({ Component, pageProps }: AppProps) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         
-        {/* Primary Meta Tags */}
-        <title key="title">RiftEssence - Plateforme Communautaire League of Legends</title>
-        <meta key="meta-title" name="title" content="RiftEssence - Plateforme Communautaire League of Legends" />
-        <meta key="description" name="description" content="Trouvez votre duo, rejoignez une équipe, obtenez du coaching gratuit et partagez vos connaissances sur les matchups. La plateforme tout-en-un pour la communauté LoL francophone." />
+        {/* Primary Meta Tags — skipped on share pages which set their own */}
+        {!isSharePage && (
+          <>
+            <title key="title">RiftEssence - Plateforme Communautaire League of Legends</title>
+            <meta key="meta-title" name="title" content="RiftEssence - Plateforme Communautaire League of Legends" />
+            <meta key="description" name="description" content="Trouvez votre duo, rejoignez une équipe, obtenez du coaching gratuit et partagez vos connaissances sur les matchups. La plateforme tout-en-un pour la communauté LoL francophone." />
+          </>
+        )}
         <meta name="keywords" content="League of Legends, LoL, LFD, Looking for Duo, LFT, Looking for Team, Coaching LoL, Matchups LoL, Communauté LoL, LoL France" />
         
         {/* Favicon */}
