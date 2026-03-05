@@ -46,21 +46,51 @@ export default async function handler(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id') || req.url.split('/api/og/post/')[1]?.split('?')[0];
 
-    if (!id) {
-      return new Response('Post ID required', { status: 400 });
+    // ---- Fast path: read pre-encoded query params (set by GSSP, zero API calls) ----
+    const qGameName = searchParams.get('gn');
+    const qTagLine = searchParams.get('tag');
+    const hasInlineData = !!qGameName; // if gameName is present, we have everything we need
+
+    let post: any;
+    let postingAccount: any;
+
+    if (hasInlineData) {
+      // Reconstruct minimal post object from query params — no fetch needed
+      postingAccount = {
+        gameName: qGameName,
+        tagLine: qTagLine || '',
+        rank: searchParams.get('rank') || 'UNRANKED',
+        division: searchParams.get('div') || null,
+        lp: searchParams.get('lp') ? Number(searchParams.get('lp')) : null,
+        winrate: searchParams.get('wr') ? Number(searchParams.get('wr')) : null,
+      };
+      post = {
+        username: searchParams.get('user') || qGameName,
+        role: searchParams.get('role') || '',
+        secondRole: searchParams.get('role2') || null,
+        region: searchParams.get('region') || '',
+        vcPreference: searchParams.get('vc') || '',
+        message: searchParams.get('msg') || '',
+        postingRiotAccount: postingAccount,
+      };
+    } else {
+      // Slow path: fetch from API (direct visits to OG URL without query params)
+      if (!id) {
+        return new Response('Post ID required', { status: 400 });
+      }
+
+      const postRes = await fetch(`${API_URL}/api/posts/${id}`, {
+        signal: AbortSignal.timeout(3000),
+      });
+
+      if (!postRes.ok) {
+        return new Response('Post not found', { status: 404 });
+      }
+
+      const data = await postRes.json();
+      post = data.post;
+      postingAccount = post.postingRiotAccount;
     }
-
-    const postRes = await fetch(`${API_URL}/api/posts/${id}`, {
-      signal: AbortSignal.timeout(3000),
-    });
-
-    if (!postRes.ok) {
-      return new Response('Post not found', { status: 404 });
-    }
-
-    const { post } = await postRes.json();
-
-    const postingAccount = post.postingRiotAccount;
     const rankColor = postingAccount ? getRankColor(postingAccount.rank) : '#C8AA6D';
     const vcText = formatVCPreference(post.vcPreference);
     const message = post.message || '';

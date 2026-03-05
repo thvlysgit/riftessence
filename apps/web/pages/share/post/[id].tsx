@@ -46,6 +46,7 @@ interface SharePostPageProps {
   baseUrl: string;
   ssrTitle: string | null;
   ssrDescription: string | null;
+  ogImageUrl: string;
 }
 
 // Helper to format VC preference
@@ -135,7 +136,7 @@ const getRoleIcon = (role: string) => {
   }
 };
 
-export default function SharePostPage({ id, baseUrl, ssrTitle, ssrDescription }: SharePostPageProps) {
+export default function SharePostPage({ id, baseUrl, ssrTitle, ssrDescription, ogImageUrl }: SharePostPageProps) {
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -154,31 +155,21 @@ export default function SharePostPage({ id, baseUrl, ssrTitle, ssrDescription }:
       .finally(() => setLoading(false));
   }, [id]);
 
-  const ogImageUrl = `${baseUrl}/api/og/post/${id}`;
   const shareUrl = `${baseUrl}/share/post/${id}`;
-
-  const clientTitle = post ? `${post.username} is looking for a duo!` : 'Looking For Duo | RiftEssence';
-  const clientDescription = post
-    ? (post.postingRiotAccount ? `${post.postingRiotAccount.gameName}#${post.postingRiotAccount.tagLine}` : post.username)
-    : 'RiftEssence — League of Legends LFD platform.';
-
-  // SSR values (set by getServerSideProps for Discord/bots); client values used after hydration
-  const pageTitle = ssrTitle || clientTitle;
-  const pageDescription = ssrDescription || clientDescription;
 
   return (
     <>
       <Head>
-        {/* title, description, og:title, og:description are handled by _app.tsx via pageProps.ssrTitle/ssrDescription */}
-        <meta property="og:type" content="website" />
+        {/* Override _app.tsx defaults with correct keys */}
+        <meta key="og:type" property="og:type" content="website" />
+        <meta key="og:site_name" property="og:site_name" content="RiftEssence" />
         <meta property="og:url" content={shareUrl} />
         <meta key="og:image" property="og:image" content={ogImageUrl} />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
+        <meta key="og:image:width" property="og:image:width" content="1200" />
+        <meta key="og:image:height" property="og:image:height" content="630" />
         <meta property="og:image:type" content="image/png" />
-        <meta property="og:site_name" content="RiftEssence" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content={shareUrl} />
+        <meta key="twitter:card" name="twitter:card" content="summary_large_image" />
+        <meta property="twitter:url" content={shareUrl} />
         <meta key="twitter:image" name="twitter:image" content={ogImageUrl} />
         <meta name="theme-color" content="#C8AA6D" />
       </Head>
@@ -319,23 +310,45 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   context.res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
 
-  // Quick fetch to grab Riot ID for the embed description (short timeout so Discord never stalls)
+  // Quick fetch to grab post data for both the description AND the OG image query params.
+  // Encoding post data into the OG image URL means the edge function needs ZERO API calls.
   let riotId = '';
+  let ogParams = '';
   try {
     const res = await fetch(`${apiUrl}/api/posts/${id}`, {
       signal: AbortSignal.timeout(2500),
     });
     if (res.ok) {
       const { post } = await res.json();
-      if (post?.postingRiotAccount) {
-        riotId = `${post.postingRiotAccount.gameName}#${post.postingRiotAccount.tagLine}`;
+      const pa = post?.postingRiotAccount;
+      if (pa) {
+        riotId = `${pa.gameName}#${pa.tagLine}`;
       } else if (post?.username) {
         riotId = post.username;
       }
+      // Build query params so the OG image edge function can render without any fetch
+      const p = new URLSearchParams();
+      if (pa?.gameName) p.set('gn', pa.gameName);
+      if (pa?.tagLine) p.set('tag', pa.tagLine);
+      if (pa?.rank) p.set('rank', pa.rank);
+      if (pa?.division) p.set('div', pa.division);
+      if (pa?.lp != null) p.set('lp', String(pa.lp));
+      if (pa?.winrate != null) p.set('wr', String(pa.winrate));
+      if (post?.role) p.set('role', post.role);
+      if (post?.secondRole) p.set('role2', post.secondRole);
+      if (post?.region) p.set('region', post.region);
+      if (post?.username) p.set('user', post.username);
+      if (post?.vcPreference) p.set('vc', post.vcPreference);
+      if (post?.message) p.set('msg', post.message.slice(0, 200));
+      ogParams = p.toString();
     }
   } catch {
-    // Silently fall back to generic description
+    // Silently fall back — OG image endpoint will do its own fetch as last resort
   }
+
+  const ogImageUrl = ogParams
+    ? `${baseUrl}/api/og/post/${id}?${ogParams}`
+    : `${baseUrl}/api/og/post/${id}`;
 
   return {
     props: {
@@ -343,6 +356,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       baseUrl,
       ssrTitle: 'Looking for Duo',
       ssrDescription: riotId || 'Find your duo on RiftEssence',
+      ogImageUrl,
     },
   };
 };
