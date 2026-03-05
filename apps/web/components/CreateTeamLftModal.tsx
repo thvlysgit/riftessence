@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 
 // Helper to get custom arrow with theme color
@@ -46,6 +46,33 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
   const [coachingAvailability, setCoachingAvailability] = useState('');
   const [details, setDetails] = useState('');
   const [error, setError] = useState('');
+
+  // Restore saved draft from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('riftessence_lft_team_draft');
+      if (saved) {
+        const d = JSON.parse(saved);
+        if (d.teamName !== undefined) setTeamName(d.teamName);
+        if (d.region) setRegion(d.region);
+        if (Array.isArray(d.rolesNeeded)) setRolesNeeded(d.rolesNeeded);
+        if (d.averageRank !== undefined) setAverageRank(d.averageRank);
+        if (d.averageDivision !== undefined) setAverageDivision(d.averageDivision);
+        if (d.scrims !== undefined) setScrims(d.scrims);
+        if (d.minAvailability) setMinAvailability(d.minAvailability);
+        if (d.coachingAvailability !== undefined) setCoachingAvailability(d.coachingAvailability);
+        if (d.details !== undefined) setDetails(d.details);
+      }
+    } catch {}
+  }, []);
+
+  // Save draft to localStorage on change
+  useEffect(() => {
+    localStorage.setItem('riftessence_lft_team_draft', JSON.stringify({
+      teamName, region, rolesNeeded, averageRank, averageDivision,
+      scrims, minAvailability, coachingAvailability, details
+    }));
+  }, [teamName, region, rolesNeeded, averageRank, averageDivision, scrims, minAvailability, coachingAvailability, details]);
 
   const toggleRole = (role: string) => {
     setRolesNeeded(prev => 

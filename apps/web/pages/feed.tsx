@@ -1395,7 +1395,7 @@ export default function Feed() {
                   const display = [...sChamps.slice(0, 4), ...aChamps.slice(0, 3)];
                   if (display.length === 0) return null;
                   return (
-                    <div className="flex items-center gap-1 flex-wrap mt-1">
+                    <div className="flex items-center gap-1 flex-wrap mt-1 mb-3">
                       <span className="text-xs mr-1" style={{ color: 'var(--color-text-muted)' }}>Pool:</span>
                       {display.map((champ) => (
                         <img

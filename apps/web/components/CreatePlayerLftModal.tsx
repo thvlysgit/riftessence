@@ -46,6 +46,28 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // Restore user-editable fields from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('riftessence_lft_player_draft');
+      if (saved) {
+        const d = JSON.parse(saved);
+        if (d.experience) setExperience(d.experience);
+        if (Array.isArray(d.languages)) setLanguages(d.languages);
+        if (Array.isArray(d.skills)) setSkills(d.skills);
+        if (d.age !== undefined) setAge(d.age);
+        if (d.availability) setAvailability(d.availability);
+      }
+    } catch {}
+  }, []);
+
+  // Save user-editable fields to localStorage on change
+  useEffect(() => {
+    localStorage.setItem('riftessence_lft_player_draft', JSON.stringify({
+      experience, languages, skills, age, availability
+    }));
+  }, [experience, languages, skills, age, availability]);
+
   useEffect(() => {
     if (open) {
       const fetchUserData = async () => {

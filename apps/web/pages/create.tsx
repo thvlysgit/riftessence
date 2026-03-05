@@ -69,6 +69,19 @@ export default function CreatePostPage() {
             secondRole: data.secondaryRole || '' // Pre-select secondary role
           }));
         }
+        // Restore user-editable fields from localStorage draft
+        try {
+          const saved = localStorage.getItem('riftessence_duo_draft');
+          if (saved) {
+            const draft = JSON.parse(saved);
+            setForm(prev => ({
+              ...prev,
+              message: draft.message ?? prev.message,
+              vcPreference: draft.vcPreference ?? prev.vcPreference,
+              duoType: draft.duoType ?? prev.duoType,
+            }));
+          }
+        } catch {}
         setLoading(false);
       } catch {
         setLoading(false);
@@ -76,6 +89,17 @@ export default function CreatePostPage() {
     }
     loadProfile();
   }, []);
+
+  // Persist user-editable form fields to localStorage
+  useEffect(() => {
+    if (!loading) {
+      localStorage.setItem('riftessence_duo_draft', JSON.stringify({
+        message: form.message,
+        vcPreference: form.vcPreference,
+        duoType: form.duoType,
+      }));
+    }
+  }, [form.message, form.vcPreference, form.duoType, loading]);
 
   const mutation = useMutation({
     mutationFn: async () => {
