@@ -1379,24 +1379,19 @@ export default function Feed() {
                 )}
 
                 {/* Details */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <span className="px-2 py-1 rounded text-xs font-medium border" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}>
-                    VC: {post.vcPreference}
-                  </span>
-                  {post.languages.map(lang => (
-                    <span key={lang}>{getLanguageBadge(lang)}</span>
-                  ))}
-                </div>
-                {/* S/A tier champion pool icons */}
                 {(() => {
                   const tierlist = post.championTierlist as { S?: string[]; A?: string[] } | null;
                   const sChamps = tierlist?.S || [];
                   const aChamps = tierlist?.A || [];
                   const display = [...sChamps.slice(0, 4), ...aChamps.slice(0, 3)];
-                  if (display.length === 0) return null;
                   return (
-                    <div className="flex items-center gap-1 flex-wrap mt-1 mb-3">
-                      <span className="text-xs mr-1" style={{ color: 'var(--color-text-muted)' }}>Pool:</span>
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                      <span className="px-2 py-1 rounded text-xs font-medium border" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}>
+                        VC: {post.vcPreference}
+                      </span>
+                      {post.languages.map(lang => (
+                        <span key={lang}>{getLanguageBadge(lang)}</span>
+                      ))}
                       {display.map((champ) => (
                         <img
                           key={champ}
