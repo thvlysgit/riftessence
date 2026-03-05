@@ -1301,12 +1301,7 @@ export default function Feed() {
                       {post.authorId === currentUserId && (
                         <button
                           onClick={() => {
-                            const shareUrl = `${window.location.origin}/share/post/${post.id}`;
-                            navigator.clipboard.writeText(shareUrl).then(() => {
-                              showToast('Share link copied to clipboard! Paste it in Discord to share your duo post.', 'success');
-                            }).catch(() => {
-                              showToast('Failed to copy link', 'error');
-                            });
+                            window.open(`/share/post/${post.id}`, '_blank');
                           }}
                           className="px-3 py-1 rounded text-sm font-medium transition-colors border flex items-center gap-1"
                           style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}
