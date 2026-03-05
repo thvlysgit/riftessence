@@ -315,13 +315,34 @@ export default function SharePostPage({ id, baseUrl, ssrTitle, ssrDescription }:
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { id } = context.params as { id: string };
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.riftessence.app';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
-  // No API call here — respond instantly so Discord's crawler never times out.
-  // The OG card image already shows all player details. Title is generic but reliable.
-  // Post data is loaded client-side after hydration as before.
   context.res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
 
+  // Quick fetch to grab Riot ID for the embed description (short timeout so Discord never stalls)
+  let riotId = '';
+  try {
+    const res = await fetch(`${apiUrl}/api/posts/${id}`, {
+      signal: AbortSignal.timeout(2500),
+    });
+    if (res.ok) {
+      const { post } = await res.json();
+      if (post?.postingRiotAccount) {
+        riotId = `${post.postingRiotAccount.gameName}#${post.postingRiotAccount.tagLine}`;
+      } else if (post?.username) {
+        riotId = post.username;
+      }
+    }
+  } catch {
+    // Silently fall back to generic description
+  }
+
   return {
-    props: { id, baseUrl, ssrTitle: 'Looking For Duo | RiftEssence', ssrDescription: 'Find your perfect duo partner on RiftEssence — the League of Legends LFD platform.' },
+    props: {
+      id,
+      baseUrl,
+      ssrTitle: 'Looking for Duo',
+      ssrDescription: riotId || 'Find your duo on RiftEssence',
+    },
   };
 };

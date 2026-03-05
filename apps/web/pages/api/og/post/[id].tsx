@@ -51,7 +51,7 @@ export default async function handler(req: NextRequest) {
     }
 
     const postRes = await fetch(`${API_URL}/api/posts/${id}`, {
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(3000),
     });
 
     if (!postRes.ok) {
@@ -172,6 +172,17 @@ export default async function handler(req: NextRequest) {
     );
   } catch (error) {
     console.error('Error generating OG image:', error);
-    return new Response('Failed to generate image', { status: 500 });
+    // Return a branded fallback image instead of an error so Discord still shows something
+    return new ImageResponse(
+      (
+        <div style={{ width: '1200px', height: '630px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#06101F' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
+            <div style={{ display: 'flex', fontSize: '64px', fontWeight: 'bold', color: '#C8AA6D' }}>LOOKING FOR DUO</div>
+            <div style={{ display: 'flex', fontSize: '24px', color: '#8B9CB5' }}>riftessence.app</div>
+          </div>
+        </div>
+      ),
+      { width: 1200, height: 630 }
+    );
   }
 }
