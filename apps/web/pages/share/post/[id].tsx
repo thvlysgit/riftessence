@@ -9,9 +9,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 function getRankColor(rank: string): string {
   const base = rank.split(' ')[0].toUpperCase();
   const c: Record<string, string> = {
-    IRON: '#6B7280', BRONZE: '#CD7F32', SILVER: '#C0C0C0', GOLD: '#FFD700',
+    IRON: '#8B8B8B', BRONZE: '#CD7F32', SILVER: '#C0C0C0', GOLD: '#FFD700',
     PLATINUM: '#00CED1', EMERALD: '#50C878', DIAMOND: '#8BE3F9', MASTER: '#C084FC',
-    GRANDMASTER: '#FF6B6B', CHALLENGER: '#F4D03F', UNRANKED: '#6B7280',
+    GRANDMASTER: '#FF6B6B', CHALLENGER: '#F4D03F', UNRANKED: '#5B7FA6',
   };
   return c[base] || '#C8AA6D';
 }
@@ -24,6 +24,12 @@ function getWRColor(wr: number): string {
 }
 function formatVC(vc: string): string {
   return ({ ALWAYS: 'VC Required', SOMETIMES: 'VC Optional', NEVER: 'No VC' } as Record<string, string>)[vc] || vc;
+}
+function hexRgba(hex: string, a: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${a})`;
 }
 
 /* ─── canvas primitives ─── */
@@ -41,27 +47,35 @@ function rrect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h
   ctx.closePath();
 }
 
-/** Draw a pill badge, return its width */
-function badge(
-  ctx: CanvasRenderingContext2D, text: string, x: number, y: number,
-  bg: string, fg: string, opts?: { border?: string; font?: string },
+/** Draw rounded badge, returns drawn width */
+function pill(
+  ctx: CanvasRenderingContext2D,
+  text: string, x: number, y: number,
+  bg: string, fg: string,
+  opts: { border?: string; font?: string; px?: number; h?: number; r?: number } = {},
 ): number {
-  const font = opts?.font || 'bold 18px "Segoe UI", sans-serif';
+  const font = opts.font ?? 'bold 15px "Segoe UI", sans-serif';
   ctx.font = font;
   const tw = ctx.measureText(text).width;
-  const px = 22, bh = 38;
+  const px = opts.px ?? 18;
+  const bh = opts.h ?? 34;
+  const br = opts.r ?? 6;
   const bw = tw + px * 2;
-
-  rrect(ctx, x, y, bw, bh, 8);
-  ctx.fillStyle = bg;
-  ctx.fill();
-  if (opts?.border) { ctx.strokeStyle = opts.border; ctx.lineWidth = 1.5; ctx.stroke(); }
-
-  ctx.fillStyle = fg;
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'left';
+  rrect(ctx, x, y, bw, bh, br);
+  ctx.fillStyle = bg; ctx.fill();
+  if (opts.border) { ctx.strokeStyle = opts.border; ctx.lineWidth = 1.5; ctx.stroke(); }
+  ctx.fillStyle = fg; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
   ctx.fillText(text, x + px, y + bh / 2);
   return bw;
+}
+
+/** Spaced label text (workaround for canvas letterSpacing) */
+function spacedText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, spacing: number) {
+  let cx = x;
+  for (const ch of text) {
+    ctx.fillText(ch, cx, y);
+    cx += ctx.measureText(ch).width + spacing;
+  }
 }
 
 /* ─── main drawing routine ─── */
@@ -74,121 +88,315 @@ function drawShareImage(canvas: HTMLCanvasElement, post: any): string | null {
   canvas.height = H;
 
   const pa = post.postingRiotAccount;
-  const rc = pa ? getRankColor(pa.rank) : '#C8AA6D';
+  const rankBase = (pa?.rank || 'UNRANKED').split(' ')[0].toUpperCase();
+  const rc = getRankColor(rankBase);
+  const rca = (a: number) => hexRgba(rc, a);
 
-  /* background */
-  ctx.fillStyle = '#06101F';
+  /* ══════════════════ BACKGROUND ══════════════════ */
+  ctx.fillStyle = '#030A14';
   ctx.fillRect(0, 0, W, H);
 
-  /* left accent bar */
-  ctx.fillStyle = rc;
-  ctx.fillRect(0, 0, 12, H);
+  // Primary glow — top right
+  const g1 = ctx.createRadialGradient(W * 0.85, 0, 20, W * 0.85, 0, 580);
+  g1.addColorStop(0, rca(0.28));
+  g1.addColorStop(0.45, rca(0.08));
+  g1.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
 
-  const cx = 56;
-  let cy = 44;
+  // Secondary glow — bottom left
+  const g2 = ctx.createRadialGradient(0, H, 10, 0, H, 400);
+  g2.addColorStop(0, rca(0.14));
+  g2.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
 
-  /* ── "LOOKING FOR DUO" pill ── */
-  const pillText = 'LOOKING FOR DUO';
-  ctx.font = 'bold 28px "Segoe UI", sans-serif';
-  const pillTW = ctx.measureText(pillText).width;
-  const pillW = pillTW + 68, pillH = 48;
-  rrect(ctx, cx, cy, pillW, pillH, 40);
-  ctx.strokeStyle = rc; ctx.lineWidth = 3; ctx.stroke();
-  ctx.fillStyle = rc; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-  ctx.fillText(pillText, cx + 34, cy + pillH / 2);
+  // Subtle noise lines
+  ctx.save();
+  ctx.globalAlpha = 0.025;
+  ctx.fillStyle = '#FFFFFF';
+  for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+  ctx.restore();
 
-  /* ── Region badge (top-right) ── */
-  const regionText = post.region || '';
-  if (regionText) {
-    ctx.font = 'bold 16px "Segoe UI", sans-serif';
-    const rTW = ctx.measureText(regionText).width;
-    const rBW = rTW + 32, rBH = 34, rX = W - 52 - rBW;
-    rrect(ctx, rX, cy + 7, rBW, rBH, 6);
-    ctx.fillStyle = '#0D1B2E'; ctx.fill();
-    ctx.strokeStyle = rc; ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = rc; ctx.textBaseline = 'middle';
-    ctx.fillText(regionText, rX + 16, cy + 7 + rBH / 2);
-  }
+  /* ══════════════════ RIGHT PANEL ══════════════════ */
+  const PNL = 795;
 
-  cy += pillH + 20;
+  // Panel gradient fill
+  const panelGrd = ctx.createLinearGradient(PNL, 0, W, 0);
+  panelGrd.addColorStop(0, 'rgba(6,16,32,0)');
+  panelGrd.addColorStop(0.12, 'rgba(6,16,32,0.88)');
+  panelGrd.addColorStop(1, 'rgba(4,11,24,0.97)');
+  ctx.fillStyle = panelGrd;
+  ctx.fillRect(PNL, 0, W - PNL, H);
 
-  /* ── Riot ID hero ── */
+  // Panel left border (faded)
+  const pBorderGrd = ctx.createLinearGradient(PNL, 0, PNL, H);
+  pBorderGrd.addColorStop(0, 'rgba(0,0,0,0)');
+  pBorderGrd.addColorStop(0.25, rca(0.45));
+  pBorderGrd.addColorStop(0.75, rca(0.45));
+  pBorderGrd.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save(); ctx.strokeStyle = pBorderGrd; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PNL, 0); ctx.lineTo(PNL, H); ctx.stroke();
+  ctx.restore();
+
+  /* ══════════════════ LEFT ACCENT BAR ══════════════════ */
+  const barGrd = ctx.createLinearGradient(0, 0, 0, H);
+  barGrd.addColorStop(0, rc);
+  barGrd.addColorStop(0.55, rca(0.85));
+  barGrd.addColorStop(1, rca(0.15));
+  ctx.fillStyle = barGrd;
+  ctx.fillRect(0, 0, 7, H);
+
+  // Corner accent lines
+  ctx.save();
+  ctx.strokeStyle = rca(0.25); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(200, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(7, 50); ctx.stroke();
+  ctx.restore();
+
+  /* ══════════════════ LEFT CONTENT ══════════════════ */
+  const LX = 46;
+
+  // "LOOKING FOR DUO" spaced label
+  ctx.save();
+  ctx.font = '600 12px "Segoe UI", sans-serif';
+  ctx.fillStyle = rca(0.6); ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  spacedText(ctx, 'LOOKING  FOR  DUO', LX, 32, 3.5);
+  ctx.restore();
+
+  // Thin separator beneath label
+  const sepGrd = ctx.createLinearGradient(LX, 0, 720, 0);
+  sepGrd.addColorStop(0, rca(0.5));
+  sepGrd.addColorStop(0.7, rca(0.1));
+  sepGrd.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = sepGrd; ctx.fillRect(LX, 50, 720, 1);
+
+  // ── Game Name ──
   const gameName = pa?.gameName || post.username || '';
-  const tagLine = pa?.tagLine || '';
-  ctx.font = 'bold 80px "Segoe UI", sans-serif';
-  ctx.fillStyle = '#F0E6D2'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
-  ctx.fillText(gameName, cx, cy + 70);
+  const tagLine  = pa?.tagLine  || '';
+  const gLen = gameName.length;
+  const gFS  = gLen > 16 ? 64 : gLen > 12 ? 76 : gLen > 9 ? 88 : 98;
+
+  ctx.save();
+  ctx.shadowColor = rca(0.55); ctx.shadowBlur = 36;
+  ctx.font = `700 ${gFS}px "Segoe UI", sans-serif`;
+  ctx.fillStyle = '#F2ECD8'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  ctx.fillText(gameName, LX, 162);
   const gnW = ctx.measureText(gameName).width;
+  ctx.restore();
+
+  // #tagLine
   if (tagLine) {
     ctx.save();
-    ctx.font = 'bold 42px "Segoe UI", sans-serif';
-    ctx.fillStyle = rc; ctx.globalAlpha = 0.6;
-    ctx.fillText('#' + tagLine, cx + gnW + 8, cy + 70);
+    ctx.font = `600 ${Math.round(gFS * 0.44)}px "Segoe UI", sans-serif`;
+    ctx.fillStyle = rc; ctx.globalAlpha = 0.5;
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    ctx.fillText('#' + tagLine, LX + gnW + 10, 162);
     ctx.restore();
   }
-  cy += 84;
 
-  /* ── Divider ── */
-  rrect(ctx, cx, cy, 110, 4, 2);
-  ctx.fillStyle = rc; ctx.fill();
-  cy += 28;
+  // Username line (if different)
+  let nameOffsetY = 0;
+  if (post.username && post.username !== gameName) {
+    ctx.font = '400 13px "Segoe UI", sans-serif';
+    ctx.fillStyle = '#3D5470'; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    ctx.fillText(`@${post.username}`, LX, 172);
+    nameOffsetY = 14;
+  }
 
-  /* ── Badge row ── */
-  let bx = cx;
-  if (post.role)       bx += badge(ctx, post.role, bx, cy, rc, '#06101F') + 12;
-  if (post.secondRole) bx += badge(ctx, post.secondRole, bx, cy, '#0D1B2E', rc, { border: rc }) + 12;
-  // separator
-  ctx.fillStyle = '#1E2D42'; ctx.fillRect(bx, cy + 4, 1, 30); bx += 13;
+  // Name underline — gradient bar
+  const ulY = 182 + nameOffsetY;
+  const ulGrd = ctx.createLinearGradient(LX, ulY, LX + 260, ulY);
+  ulGrd.addColorStop(0, rc); ulGrd.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = ulGrd; ctx.fillRect(LX, ulY, 260, 3);
+
+  // ── Badge row ──
+  const BY = ulY + 22;
+  let bx = LX;
+
+  if (post.role) {
+    bx += pill(ctx, post.role, bx, BY, rc, '#030A14', { font: `700 15px "Segoe UI", sans-serif`, px: 20, h: 36, r: 6 }) + 10;
+  }
+  if (post.secondRole) {
+    bx += pill(ctx, post.secondRole, bx, BY, rca(0.08), rc, { border: rca(0.45), font: `600 15px "Segoe UI", sans-serif`, px: 20, h: 36 }) + 10;
+  }
+
+  // Thin vertical divider
+  ctx.fillStyle = '#162436'; ctx.fillRect(bx + 2, BY + 5, 1, 26); bx += 16;
+
   if (pa) {
-    const hi = ['MASTER', 'GRANDMASTER', 'CHALLENGER'];
-    const rl = hi.includes(pa.rank)
-      ? `${pa.rank}${pa.lp != null ? ' ' + pa.lp + 'LP' : ''}`
-      : pa.division ? `${pa.rank} ${pa.division}` : pa.rank;
-    bx += badge(ctx, rl, bx, cy, '#0D1B2E', rc) + 12;
+    const hi = ['MASTER','GRANDMASTER','CHALLENGER'].includes(rankBase);
+    const rl  = hi
+      ? `${rankBase}${pa.lp != null ? '  ' + pa.lp + ' LP' : ''}`
+      : pa.division ? `${rankBase} ${pa.division}` : rankBase;
+    ctx.save(); ctx.shadowColor = rca(0.5); ctx.shadowBlur = 10;
+    bx += pill(ctx, rl, bx, BY, rca(0.09), rc, { border: rca(0.38), font: `700 15px "Segoe UI", sans-serif`, px: 20, h: 36 }) + 10;
+    ctx.restore();
   }
   if (pa?.winrate != null) {
     const wrc = getWRColor(pa.winrate);
-    bx += badge(ctx, `WR ${pa.winrate.toFixed(1)}%`, bx, cy, '#0D1B2E', wrc, { border: wrc }) + 12;
+    const wa = (a: number) => hexRgba(wrc, a);
+    bx += pill(ctx, `${pa.winrate.toFixed(1)}%  WR`, bx, BY, wa(0.1), wrc, { border: wa(0.5), font: `700 15px "Segoe UI", sans-serif`, px: 20, h: 36 }) + 10;
   }
-  if (post.vcPreference)
-    badge(ctx, formatVC(post.vcPreference), bx, cy, '#0D1B2E', '#5B6B82', { font: 'bold 16px "Segoe UI", sans-serif' });
+  if (pa?.lp != null && !['MASTER','GRANDMASTER','CHALLENGER'].includes(rankBase)) {
+    const lpText = `${pa.lp} LP`;
+    pill(ctx, lpText, bx, BY, rca(0.07), rca(0.6), { border: rca(0.2), font: `500 14px "Segoe UI", sans-serif`, px: 16, h: 36 });
+  }
 
-  cy += 54;
-
-  /* ── Message ── */
+  // ── Message block ──
   const msg = post.message || '';
   if (msg) {
-    const trunc = msg.length > 200 ? msg.substring(0, 197) + '…' : msg;
-    ctx.font = 'italic 24px "Segoe UI", sans-serif';
-    const maxW = W - cx - 100;
+    const MX = LX;
+    const MY = BY + 52;
+    const maxMW = PNL - LX - 55;
+    const trunc = msg.length > 240 ? msg.substring(0, 237) + '…' : msg;
+
+    ctx.font = '400 20px "Segoe UI", sans-serif';
     const words = trunc.split(' ');
     const lines: string[] = [];
-    let line = '';
+    let cur = '';
     for (const w of words) {
-      const test = line ? line + ' ' + w : w;
-      if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; }
-      else line = test;
+      const test = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(test).width > maxMW && cur) { lines.push(cur); cur = w; }
+      else cur = test;
     }
-    if (line) lines.push(line);
+    if (cur) lines.push(cur);
+    const maxL = 4;
+    const dLines = lines.slice(0, maxL);
+    const lh = 30;
+    const blockH = dLines.length * lh + 22;
 
-    const lh = 36;
-    const mh = lines.length * lh;
+    // Block background
+    rrect(ctx, MX, MY, maxMW + 16, blockH, 8);
+    ctx.fillStyle = 'rgba(6,16,32,0.75)'; ctx.fill();
+    rrect(ctx, MX, MY, maxMW + 16, blockH, 8);
+    ctx.strokeStyle = rca(0.12); ctx.lineWidth = 1; ctx.stroke();
 
-    ctx.save(); ctx.globalAlpha = 0.5;
-    rrect(ctx, cx, cy, 4, mh, 2);
-    ctx.fillStyle = rc; ctx.fill(); ctx.restore();
+    // Left accent bar on message
+    rrect(ctx, MX, MY, 3, blockH, 2);
+    ctx.fillStyle = rca(0.7); ctx.fill();
 
-    ctx.font = 'italic 24px "Segoe UI", sans-serif';
-    ctx.fillStyle = '#8B9CB5'; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-    lines.forEach((l, i) => ctx.fillText(l, cx + 28, cy + i * lh));
+    // Big faded quote mark
+    ctx.save();
+    ctx.font = '700 56px "Segoe UI", sans-serif';
+    ctx.fillStyle = rca(0.08); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    ctx.fillText('"', MX + maxMW - 18, MY - 8);
+    ctx.restore();
+
+    ctx.font = '400 20px "Segoe UI", sans-serif';
+    ctx.fillStyle = '#7995B0'; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    dLines.forEach((l, i) => ctx.fillText(l, MX + 18, MY + 12 + i * lh));
   }
 
-  /* ── Watermark ── */
+  /* ══════════════════ RIGHT PANEL CONTENT ══════════════════ */
+  const PCX = PNL + (W - PNL) / 2; // panel center x
+  let PY = 60;
+
+  // Big rank name with glow
+  const rankLabel = rankBase === 'UNRANKED' ? 'UNRANKED' : rankBase;
+  const rkFS = rankLabel.length > 9 ? 38 : rankLabel.length > 7 ? 44 : 50;
   ctx.save();
-  ctx.font = '15px "Segoe UI", sans-serif';
-  ctx.globalAlpha = 0.45; ctx.fillStyle = '#C8AA6D';
+  ctx.shadowColor = rca(0.9); ctx.shadowBlur = 50;
+  ctx.font = `900 ${rkFS}px "Segoe UI", sans-serif`;
+  ctx.fillStyle = rc; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+  ctx.fillText(rankLabel, PCX, PY);
+  ctx.restore();
+  PY += rkFS + 10;
+
+  // Division / LP under rank
+  if (pa) {
+    if (!['MASTER','GRANDMASTER','CHALLENGER','UNRANKED'].includes(rankBase) && pa.division) {
+      ctx.font = `600 22px "Segoe UI", sans-serif`;
+      ctx.fillStyle = rca(0.55); ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+      ctx.fillText(pa.division, PCX, PY);
+      PY += 30;
+    } else if (['MASTER','GRANDMASTER','CHALLENGER'].includes(rankBase) && pa.lp != null) {
+      ctx.font = `500 17px "Segoe UI", sans-serif`;
+      ctx.fillStyle = rca(0.5); ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+      ctx.fillText(`${pa.lp} LP`, PCX, PY);
+      PY += 26;
+    }
+  }
+
+  // Panel thin divider
+  PY += 10;
+  const pdGrd = ctx.createLinearGradient(PNL + 20, PY, W - 20, PY);
+  pdGrd.addColorStop(0, 'rgba(0,0,0,0)'); pdGrd.addColorStop(0.5, rca(0.25)); pdGrd.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.strokeStyle = pdGrd; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PNL + 20, PY); ctx.lineTo(W - 20, PY); ctx.stroke();
+  PY += 18;
+
+  // WR stat
+  if (pa?.winrate != null) {
+    const wrc = getWRColor(pa.winrate);
+    ctx.save();
+    ctx.shadowColor = hexRgba(wrc, 0.6); ctx.shadowBlur = 14;
+    ctx.font = `800 34px "Segoe UI", sans-serif`;
+    ctx.fillStyle = wrc; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+    ctx.fillText(`${pa.winrate.toFixed(1)}%`, PCX, PY);
+    ctx.restore();
+    PY += 36;
+    ctx.font = '500 10px "Segoe UI", sans-serif';
+    ctx.fillStyle = '#2E4560'; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+    spacedText(ctx, 'WIN  RATE', PCX - 22, PY, 2);
+    PY += 22;
+  }
+
+  // Region
+  if (post.region) {
+    PY += 6;
+    ctx.font = `700 15px "Segoe UI", sans-serif`;
+    const rW = ctx.measureText(post.region).width + 36;
+    const rX = PCX - rW / 2;
+    rrect(ctx, rX, PY, rW, 30, 6);
+    ctx.fillStyle = rca(0.1); ctx.fill();
+    ctx.strokeStyle = rca(0.3); ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = rca(0.9); ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+    ctx.fillText(post.region, PCX, PY + 15);
+    PY += 40;
+  }
+
+  // VC preference
+  if (post.vcPreference) {
+    const vcLabel = formatVC(post.vcPreference).toUpperCase();
+    ctx.font = '500 12px "Segoe UI", sans-serif';
+    ctx.fillStyle = '#3A5470'; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+    ctx.fillText(vcLabel, PCX, PY);
+    PY += 22;
+  }
+
+  // Languages
+  const langs: string[] = post.languages || [];
+  if (langs.length > 0) {
+    PY += 6;
+    const LANG_PX = 12, LANG_H = 22, GAP = 5;
+    ctx.font = '600 11px "Segoe UI", sans-serif';
+    const totalW = langs.reduce((s: number, l: string) => s + ctx.measureText(l.toUpperCase()).width + LANG_PX * 2, 0) + (langs.length - 1) * GAP;
+    let lx = PCX - Math.min(totalW, (W - PNL - 40)) / 2;
+    for (const lang of langs) {
+      ctx.font = '600 11px "Segoe UI", sans-serif';
+      const lw = ctx.measureText(lang.toUpperCase()).width + LANG_PX * 2;
+      rrect(ctx, lx, PY, lw, LANG_H, 4);
+      ctx.fillStyle = rca(0.1); ctx.fill();
+      ctx.strokeStyle = rca(0.22); ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = rca(0.65); ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+      ctx.fillText(lang.toUpperCase(), lx + lw / 2, PY + LANG_H / 2);
+      lx += lw + GAP;
+    }
+  }
+
+  /* ══════════════════ BOTTOM BAR ══════════════════ */
+  const botGrd = ctx.createLinearGradient(0, H - 3, W, H - 3);
+  botGrd.addColorStop(0, rca(0.05));
+  botGrd.addColorStop(0.4, rca(0.9));
+  botGrd.addColorStop(0.7, rca(0.5));
+  botGrd.addColorStop(1, rca(0.1));
+  ctx.fillStyle = botGrd; ctx.fillRect(0, H - 3, W, 3);
+
+  /* ══════════════════ WATERMARK ══════════════════ */
+  ctx.save();
+  ctx.font = '500 12px "Segoe UI", sans-serif';
+  ctx.globalAlpha = 0.3; ctx.fillStyle = rc;
   ctx.textBaseline = 'bottom'; ctx.textAlign = 'right';
-  ctx.fillText('riftessence.app', W - 40, H - 24);
+  ctx.fillText('riftessence.app', W - 26, H - 9);
   ctx.restore();
 
   return canvas.toDataURL('image/png');
