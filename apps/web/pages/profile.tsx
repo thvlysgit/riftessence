@@ -492,7 +492,7 @@ export default function ProfilePage() {
   const [editedUsername, setEditedUsername] = useState<string>('');
   const [editedLanguages, setEditedLanguages] = useState<string[]>([]);
   const [pendingMainAccountId, setPendingMainAccountId] = useState<string | null>(null);
-  const [championPoolMode, setChampionPoolMode] = useState<'LIST' | 'TIERLIST'>('TIERLIST');
+  const [_championPoolMode, setChampionPoolMode] = useState<'LIST' | 'TIERLIST'>('TIERLIST');
   const [championInput, setChampionInput] = useState('');
   const [champions, setChampions] = useState<string[]>([]);
   const [championTierlist, setChampionTierlist] = useState<{ S: string[]; A: string[]; B: string[]; C: string[] }>({ S: [], A: [], B: [], C: [] });
