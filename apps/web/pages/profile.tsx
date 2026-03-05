@@ -644,7 +644,7 @@ export default function ProfilePage() {
         setAnonymousMode(data.anonymous || false);
         setEditedUsername(data.username || '');
         setEditedLanguages(data.languages || []);
-        setChampionPoolMode(data.championPoolMode || 'LIST');
+        setChampionPoolMode(data.championPoolMode || 'TIERLIST');
         setChampionTierlist(
           data.championTierlist && typeof data.championTierlist === 'object'
             ? {
@@ -862,22 +862,28 @@ export default function ProfilePage() {
       });
       setChampionTierlist(uniqueTierlist);
 
-      // Update champion pool using auth headers
+      // Update champion pool using auth headers — always send TIERLIST mode
       const cpRes = !isViewingOther ? await fetch(`${API_URL}/api/user/champion-pool`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({
-          mode: championPoolMode,
+          mode: 'TIERLIST',
           championList: [],
           championTierlist: uniqueTierlist,
         }),
       }) : null;
+      if (cpRes && !cpRes.ok) {
+        const errData = await cpRes.json().catch(() => ({ error: 'Failed to save champion pool' }));
+        showToast(errData.error || 'Failed to save champion pool', 'error');
+        setIsSaving(false);
+        return;
+      }
       if (cpRes && cpRes.ok) {
         const cpData = await cpRes.json().catch(() => null);
         if (cpData && user) {
           setUser({
             ...user,
-            championPoolMode: cpData.championPoolMode ?? championPoolMode,
+            championPoolMode: cpData.championPoolMode ?? 'TIERLIST',
             championList: cpData.championList ?? [],
             championTierlist: cpData.championTierlist ?? championTierlist,
           });
@@ -912,7 +918,7 @@ export default function ProfilePage() {
         setSelectedPlaystyles(data.playstyles || []);
         setEditedUsername(data.username || '');
         setEditedLanguages(data.languages || []);
-        setChampionPoolMode(data.championPoolMode || 'LIST');
+        setChampionPoolMode(data.championPoolMode || 'TIERLIST');
         setChampionTierlist(
           data.championTierlist && typeof data.championTierlist === 'object'
             ? {
@@ -1702,7 +1708,10 @@ export default function ProfilePage() {
                             <button
                               onClick={() => {
                                 const match = findChampionByName(championInput);
-                                if (match && !isInAnyTier(match)) addToTier(tier, match);
+                                if (match && !isInAnyTier(match)) {
+                                  addToTier(tier, match);
+                                  setChampionInput('');
+                                }
                               }}
                               disabled={!isValidChampion(championInput) || (findChampionByName(championInput) ? isInAnyTier(findChampionByName(championInput) as string) : false)}
                               className="px-2 py-1 text-xs rounded disabled:opacity-50"

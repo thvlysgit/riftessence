@@ -10,7 +10,7 @@ interface SEOHeadProps {
 
 const defaultTitle = 'RiftEssence - The League of Legends Community Platform';
 const defaultDescription = 'Find your duo partner, join a team, get free coaching and share matchup knowledge. The all-in-one platform for the LoL community.';
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://riftessence.app';
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://www.riftessence.app';
 const defaultOgImage = `${baseUrl}/assets/og-image.png`;
 const defaultKeywords = 'League of Legends, LoL, LFD, Looking for Duo, LFT, Looking for Team, Coaching LoL, Matchups LoL, LoL Community';
 
@@ -27,24 +27,27 @@ export default function SEOHead({
   return (
     <Head>
       {/* Primary Meta Tags */}
-      <title>{fullTitle}</title>
-      <meta name="title" content={fullTitle} />
-      <meta name="description" content={description} />
+      <title key="title">{fullTitle}</title>
+      <meta key="meta-title" name="title" content={fullTitle} />
+      <meta key="description" name="description" content={description} />
       <meta name="keywords" content={keywords} />
       
       {/* Open Graph / Facebook */}
-      <meta property="og:type" content="website" />
-      <meta property="og:url" content={url} />
-      <meta property="og:title" content={fullTitle} />
-      <meta property="og:description" content={description} />
-      <meta property="og:image" content={ogImage} />
+      <meta key="og:type" property="og:type" content="website" />
+      <meta key="og:site_name" property="og:site_name" content="RiftEssence" />
+      <meta key="og:url" property="og:url" content={url} />
+      <meta key="og:title" property="og:title" content={fullTitle} />
+      <meta key="og:description" property="og:description" content={description} />
+      <meta key="og:image" property="og:image" content={ogImage} />
+      <meta key="og:image:width" property="og:image:width" content="1200" />
+      <meta key="og:image:height" property="og:image:height" content="630" />
       
       {/* Twitter */}
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:url" content={url} />
-      <meta name="twitter:title" content={fullTitle} />
-      <meta name="twitter:description" content={description} />
-      <meta name="twitter:image" content={ogImage} />
+      <meta key="twitter:card" name="twitter:card" content="summary_large_image" />
+      <meta key="twitter:url" name="twitter:url" content={url} />
+      <meta key="twitter:title" name="twitter:title" content={fullTitle} />
+      <meta key="twitter:description" name="twitter:description" content={description} />
+      <meta key="twitter:image" name="twitter:image" content={ogImage} />
       
       {/* Canonical URL */}
       <link rel="canonical" href={url} />
