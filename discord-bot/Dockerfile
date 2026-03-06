@@ -17,10 +17,12 @@ RUN pnpm --filter @riftessence/discord-bot build
 # ── Runtime ──────────────────────────────────────
 FROM node:20-bookworm-slim
 
-WORKDIR /app/discord-bot
+WORKDIR /app
 
-COPY --from=builder /app/discord-bot/dist ./dist
-COPY --from=builder /app/discord-bot/package.json ./
-COPY --from=builder /app/discord-bot/node_modules ./node_modules
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/discord-bot/dist ./discord-bot/dist
+COPY --from=builder /app/discord-bot/package.json ./discord-bot/
+
+WORKDIR /app/discord-bot
 
 CMD ["node", "dist/index.js"]
