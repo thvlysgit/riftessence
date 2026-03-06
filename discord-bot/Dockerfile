@@ -12,8 +12,7 @@ RUN npm install -g pnpm && \
 
 COPY discord-bot/ ./discord-bot/
 
-WORKDIR /app/discord-bot
-RUN pnpm build
+RUN pnpm --filter @riftessence/discord-bot build
 
 # ── Runtime ──────────────────────────────────────
 FROM node:20-bookworm-slim
