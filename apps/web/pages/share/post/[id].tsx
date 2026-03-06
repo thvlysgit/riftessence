@@ -96,25 +96,18 @@ function drawShareImage(canvas: HTMLCanvasElement, post: any): string | null {
   ctx.fillStyle = '#030A14';
   ctx.fillRect(0, 0, W, H);
 
-  // Primary glow — top right
-  const g1 = ctx.createRadialGradient(W * 0.85, 0, 20, W * 0.85, 0, 580);
-  g1.addColorStop(0, rca(0.28));
-  g1.addColorStop(0.45, rca(0.08));
+  // Primary glow — top right, softer
+  const g1 = ctx.createRadialGradient(W * 0.85, 0, 20, W * 0.85, 0, 560);
+  g1.addColorStop(0, rca(0.18));
+  g1.addColorStop(0.5, rca(0.05));
   g1.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
 
-  // Secondary glow — bottom left
-  const g2 = ctx.createRadialGradient(0, H, 10, 0, H, 400);
-  g2.addColorStop(0, rca(0.14));
+  // Secondary glow — bottom left, softer
+  const g2 = ctx.createRadialGradient(0, H, 10, 0, H, 360);
+  g2.addColorStop(0, rca(0.09));
   g2.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
-
-  // Subtle noise lines
-  ctx.save();
-  ctx.globalAlpha = 0.025;
-  ctx.fillStyle = '#FFFFFF';
-  for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
-  ctx.restore();
 
   /* ══════════════════ RIGHT PANEL ══════════════════ */
   const PNL = 795;
@@ -175,13 +168,10 @@ function drawShareImage(canvas: HTMLCanvasElement, post: any): string | null {
   const gLen = gameName.length;
   const gFS  = gLen > 16 ? 64 : gLen > 12 ? 76 : gLen > 9 ? 88 : 98;
 
-  ctx.save();
-  ctx.shadowColor = rca(0.55); ctx.shadowBlur = 36;
   ctx.font = `700 ${gFS}px "Segoe UI", sans-serif`;
   ctx.fillStyle = '#F2ECD8'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
   ctx.fillText(gameName, LX, 162);
   const gnW = ctx.measureText(gameName).width;
-  ctx.restore();
 
   // #tagLine
   if (tagLine) {
@@ -293,12 +283,9 @@ function drawShareImage(canvas: HTMLCanvasElement, post: any): string | null {
   // Big rank name with glow
   const rankLabel = rankBase === 'UNRANKED' ? 'UNRANKED' : rankBase;
   const rkFS = rankLabel.length > 9 ? 38 : rankLabel.length > 7 ? 44 : 50;
-  ctx.save();
-  ctx.shadowColor = rca(0.9); ctx.shadowBlur = 50;
   ctx.font = `900 ${rkFS}px "Segoe UI", sans-serif`;
   ctx.fillStyle = rc; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
   ctx.fillText(rankLabel, PCX, PY);
-  ctx.restore();
   PY += rkFS + 10;
 
   // Division / LP under rank
@@ -327,12 +314,9 @@ function drawShareImage(canvas: HTMLCanvasElement, post: any): string | null {
   // WR stat
   if (pa?.winrate != null) {
     const wrc = getWRColor(pa.winrate);
-    ctx.save();
-    ctx.shadowColor = hexRgba(wrc, 0.6); ctx.shadowBlur = 14;
     ctx.font = `800 34px "Segoe UI", sans-serif`;
     ctx.fillStyle = wrc; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
     ctx.fillText(`${pa.winrate.toFixed(1)}%`, PCX, PY);
-    ctx.restore();
     PY += 36;
     ctx.font = '500 10px "Segoe UI", sans-serif';
     ctx.fillStyle = '#2E4560'; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
@@ -393,10 +377,10 @@ function drawShareImage(canvas: HTMLCanvasElement, post: any): string | null {
 
   /* ══════════════════ WATERMARK ══════════════════ */
   ctx.save();
-  ctx.font = '500 12px "Segoe UI", sans-serif';
-  ctx.globalAlpha = 0.3; ctx.fillStyle = rc;
+  ctx.font = '500 11px "Segoe UI", sans-serif';
+  ctx.globalAlpha = 0.35; ctx.fillStyle = rc;
   ctx.textBaseline = 'bottom'; ctx.textAlign = 'right';
-  ctx.fillText('riftessence.app', W - 26, H - 9);
+  ctx.fillText('Get your own duo card on riftessence.app', W - 26, H - 9);
   ctx.restore();
 
   return canvas.toDataURL('image/png');
