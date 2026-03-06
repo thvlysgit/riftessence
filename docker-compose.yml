@@ -54,5 +54,21 @@ services:
     # Run the image's default CMD (compiled JS). Removing the dev command
     # avoids ts-node-dev restarts and lets the image-run compiled app start.
 
+  discord-bot:
+    platform: linux/arm64
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./discord-bot/Dockerfile
+    environment:
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      DISCORD_BOT_API_KEY: ${DISCORD_BOT_API_KEY}
+      API_BASE_URL: http://api:3333
+      APP_URL: ${FRONTEND_URL:-https://riftessence.app}
+      DISCORD_BOT_POLL_INTERVAL_MS: ${DISCORD_BOT_POLL_INTERVAL_MS:-60000}
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes: {}
 
