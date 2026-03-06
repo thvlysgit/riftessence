@@ -2,6 +2,7 @@ FROM node:20-bookworm-slim AS builder
 
 WORKDIR /app
 
+COPY package.json ./
 COPY discord-bot/package.json ./discord-bot/
 COPY pnpm-lock.yaml ./
 COPY pnpm-workspace.yaml ./
