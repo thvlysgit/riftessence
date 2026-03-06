@@ -10,7 +10,7 @@ export default function CommunityGuidePage() {
             Communities • Quick Guide
           </p>
           <h1 className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-            How to register your community
+            How to link your Discord server
           </h1>
           <p className="text-sm mt-2" style={{ color: 'var(--color-text-muted)' }}>
             A fast, step-by-step walkthrough to connect your Discord server and start syncing posts.
@@ -20,24 +20,28 @@ export default function CommunityGuidePage() {
         <div className="space-y-4">
           {[
             {
-              title: '1) Grab your Discord Server ID',
-              body: 'Enable Developer Mode in Discord (User Settings → Advanced), right-click your server icon, and copy Server ID.',
+              title: '1) Invite the RiftEssence Bot',
+              body: 'Add our Discord bot to your server. You can find the invite link on our website or Discord.',
             },
             {
-              title: '2) Register on RiftEssence',
-              body: 'Go to the registration form, paste your Server ID, select regions/language, and submit. You will become the community admin.',
+              title: '2) Run /linkserver in Discord',
+              body: 'Use the /linkserver command in any channel on your server. You need Administrator permissions. The bot will give you a unique 8-character link code that expires in 10 minutes.',
+            },
+            {
+              title: '3) Enter the code on RiftEssence',
+              body: 'Go to the registration page, paste the code, and fill in your community details (name, regions, language). This will link your Discord server and make you the community admin.',
               action: {
-                label: 'Open registration form',
+                label: 'Open registration page',
                 href: '/communities/register',
               },
             },
             {
-              title: '3) Set a feed channel in Discord',
-              body: 'In your server, run /setfeedchannel in the channel that should receive app posts. Use /listfeedchannels to verify.',
+              title: '4) Set a feed channel in Discord',
+              body: 'In your server, run /setfeedchannel in the channel that should receive duo posts from the app. Use /listfeedchannels to verify.',
             },
             {
-              title: '4) Start syncing',
-              body: 'Posts created in the app (with your community selected) will mirror to Discord. Messages in the feed channel will ingest into the app.',
+              title: '5) Manage your community',
+              body: 'As the community admin, you can edit your community info, update the invite link, or remove it entirely from your community page on RiftEssence.',
             },
           ].map((step, idx) => (
             <div
@@ -74,7 +78,7 @@ export default function CommunityGuidePage() {
                   )}
                 </div>
                 <div
-                  className="flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold"
+                  className="flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold flex-shrink-0"
                   style={{
                     background: 'var(--color-bg-tertiary)',
                     color: 'var(--color-accent-1)',
@@ -93,11 +97,11 @@ export default function CommunityGuidePage() {
             Need help?
           </h3>
           <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-            Make sure your bot token and API keys are set. After running /setfeedchannel, wait a minute for mirroring to start.
+            Make sure you have Administrator permissions on your Discord server before running /linkserver. The link code expires in 10 minutes — you can generate a new one anytime.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/communities/register" className="px-4 py-2 rounded font-semibold" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}>
-              Register community
+              Link your server
             </Link>
             <Link href="/communities" className="px-4 py-2 rounded font-semibold" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}>
               Back to communities

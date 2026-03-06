@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, REST, Routes, SlashCommandBuilder, ChatInputCommandInteraction, TextChannel, EmbedBuilder, ActivityType } from 'discord.js';
+import { Client, GatewayIntentBits, Events, REST, Routes, SlashCommandBuilder, ChatInputCommandInteraction, TextChannel, EmbedBuilder, ActivityType, PermissionFlagsBits } from 'discord.js';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
 
@@ -26,7 +26,14 @@ const client = new Client({
 // Slash Commands
 // ============================================================
 
+const APP_URL = process.env.APP_URL || 'https://riftessence.app';
+
 const commands = [
+  new SlashCommandBuilder()
+    .setName('linkserver')
+    .setDescription('Generate a code to link this Discord server to RiftEssence')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .toJSON(),
   new SlashCommandBuilder()
     .setName('setfeedchannel')
     .setDescription('Set this channel to receive posts from the app')
@@ -111,6 +118,50 @@ async function apiRequest(endpoint: string, method = 'GET', body?: any) {
 // ============================================================
 // Command Handlers
 // ============================================================
+
+async function handleLinkServer(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const guildId = interaction.guildId;
+  const guild = interaction.guild;
+
+  if (!guildId || !guild) {
+    return interaction.editReply('❌ This command must be used in a server.');
+  }
+
+  // Double-check administrator permission
+  const member = interaction.member as any;
+  if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
+    return interaction.editReply('❌ You need **Administrator** permissions to link this server.');
+  }
+
+  // Request a link code from the API
+  const result = await apiRequest('/api/communities/link-code', 'POST', {
+    guildId,
+    guildName: guild.name,
+  });
+
+  if (!result.ok) {
+    return interaction.editReply(`❌ ${result.data.error || 'Failed to generate link code.'}`);
+  }
+
+  const { code, expiresAt } = result.data;
+  const expiresIn = Math.round((new Date(expiresAt).getTime() - Date.now()) / 60000);
+
+  const embed = new EmbedBuilder()
+    .setColor(0x0a84ff)
+    .setTitle('🔗 Server Link Code')
+    .setDescription(
+      `Your link code is:\n\n` +
+      `# \`${code}\`\n\n` +
+      `Go to **${APP_URL}/communities/register** and enter this code to link your server.\n\n` +
+      `⏳ This code expires in **${expiresIn} minutes**.`
+    )
+    .setFooter({ text: 'Only administrators can generate link codes.' })
+    .setTimestamp();
+
+  return interaction.editReply({ embeds: [embed] });
+}
 
 async function handleSetFeedChannel(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ ephemeral: true });
@@ -353,7 +404,17 @@ async function mirrorPostToDiscord(post: any) {
     embed.addFields({ name: '🗣️ Languages', value: languages.join(', '), inline: true });
   }
 
-  embed.setFooter({ text: 'Post on riftessence.com!' });
+  // Add community join link so users from Discord can auto-join
+  const communitySlug = post.communitySlug || post.communityId;
+  if (communitySlug) {
+    embed.addFields({
+      name: '🔗 Join Community',
+      value: `[Join on RiftEssence](${APP_URL}/communities/join/${communitySlug})`,
+      inline: false,
+    });
+  }
+
+  embed.setFooter({ text: 'Find your duo on riftessence.app!' });
   embed.setTimestamp();
 
   // Send to all feed channels
@@ -376,7 +437,7 @@ async function mirrorPostToDiscord(post: any) {
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`✅ Bot logged in as ${c.user.tag}`);
-  client.user?.setActivity('RiftEssence | /setfeedchannel', { type: ActivityType.Playing });
+  client.user?.setActivity('RiftEssence | /linkserver', { type: ActivityType.Playing });
 
   // Register slash commands (global, with per-guild fallback)
   const guildIds = client.guilds.cache.map(g => g.id);
@@ -392,7 +453,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   const { commandName } = interaction;
 
-  if (commandName === 'setfeedchannel') {
+  if (commandName === 'linkserver') {
+    await handleLinkServer(interaction);
+  } else if (commandName === 'setfeedchannel') {
     await handleSetFeedChannel(interaction);
   } else if (commandName === 'removefeedchannel') {
     await handleRemoveFeedChannel(interaction);

@@ -6,6 +6,9 @@ import { useGlobalUI } from '../../components/GlobalUI';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
+const allRegions = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
+const allLanguages = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Polish', 'Russian', 'Korean', 'Japanese'];
+
 type Community = {
   id: string;
   name: string;
@@ -37,7 +40,18 @@ export default function CommunityDetailPage() {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [isMember, setIsMember] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [editData, setEditData] = useState({
+    name: '',
+    description: '',
+    language: 'English',
+    regions: [] as string[],
+    inviteLink: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('lfd_token');
@@ -59,9 +73,24 @@ export default function CommunityDetailPage() {
 
   useEffect(() => {
     if (community && userId) {
-      setIsMember(community.members.some(m => m.userId === userId));
+      const membership = community.members.find(m => m.userId === userId);
+      setIsMember(!!membership);
+      setIsAdmin(membership?.role === 'ADMIN');
     }
   }, [community, userId]);
+
+  // Populate edit form when community loads
+  useEffect(() => {
+    if (community) {
+      setEditData({
+        name: community.name,
+        description: community.description || '',
+        language: community.language,
+        regions: [...community.regions],
+        inviteLink: community.inviteLink || '',
+      });
+    }
+  }, [community]);
 
   const fetchCommunity = async () => {
     try {
@@ -138,6 +167,72 @@ export default function CommunityDetailPage() {
     }
   };
 
+  const handleSaveEdits = async () => {
+    if (!community) return;
+    try {
+      setSaving(true);
+      const res = await fetch(`${API_URL}/api/communities/${community.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify(editData),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Community updated!', 'success');
+        await fetchCommunity();
+        setShowAdminPanel(false);
+      } else {
+        showToast(data.error || 'Failed to update community', 'error');
+      }
+    } catch {
+      showToast('Network error. Please try again.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteCommunity = async () => {
+    if (!community) return;
+    const confirmed = await confirm({
+      title: 'Delete Community',
+      message: `Are you sure you want to permanently delete "${community.name}"? This cannot be undone. All memberships will be removed.`,
+      confirmText: 'Delete Permanently',
+      cancelText: 'Cancel',
+    });
+    if (!confirmed) return;
+
+    try {
+      setDeleting(true);
+      const res = await fetch(`${API_URL}/api/communities/${community.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeader(),
+      });
+      if (res.ok) {
+        showToast('Community deleted.', 'success');
+        router.push('/communities');
+      } else {
+        const data = await res.json();
+        showToast(data.error || 'Failed to delete community', 'error');
+      }
+    } catch {
+      showToast('Network error. Please try again.', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const toggleEditRegion = (region: string) => {
+    setEditData(prev => ({
+      ...prev,
+      regions: prev.regions.includes(region)
+        ? prev.regions.filter(r => r !== region)
+        : [...prev.regions, region],
+    }));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen py-8 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
@@ -202,7 +297,21 @@ export default function CommunityDetailPage() {
             </div>
 
             {userId && (
-              <div>
+              <div className="flex items-center gap-2">
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowAdminPanel(!showAdminPanel)}
+                    className="px-4 py-2 border font-semibold transition-colors text-sm"
+                    style={{
+                      backgroundColor: showAdminPanel ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
+                      borderColor: showAdminPanel ? 'var(--color-accent-1)' : 'var(--color-border)',
+                      color: showAdminPanel ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+                      borderRadius: 'var(--border-radius)',
+                    }}
+                  >
+                    {showAdminPanel ? 'Close Admin Panel' : 'Admin Settings'}
+                  </button>
+                )}
                 {isMember ? (
                   <button
                     onClick={handleLeave}
@@ -233,6 +342,159 @@ export default function CommunityDetailPage() {
               </div>
             )}
           </div>
+
+          {/* Admin Panel */}
+          {isAdmin && showAdminPanel && (
+            <div
+              className="mb-6 p-6 border rounded-lg"
+              style={{
+                backgroundColor: 'var(--color-bg-tertiary)',
+                borderColor: 'var(--color-accent-1)',
+                borderWidth: '2px',
+              }}
+            >
+              <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
+                Admin Panel
+              </h3>
+
+              <div className="space-y-4">
+                {/* Edit Name */}
+                <div>
+                  <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    Community Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editData.name}
+                    onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                    className="w-full px-3 py-2 border text-sm"
+                    style={{
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                      borderRadius: 'var(--border-radius)',
+                    }}
+                  />
+                </div>
+
+                {/* Edit Description */}
+                <div>
+                  <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    Description
+                  </label>
+                  <textarea
+                    value={editData.description}
+                    onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border text-sm"
+                    style={{
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                      borderRadius: 'var(--border-radius)',
+                    }}
+                  />
+                </div>
+
+                {/* Edit Language */}
+                <div>
+                  <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    Language
+                  </label>
+                  <select
+                    value={editData.language}
+                    onChange={(e) => setEditData({ ...editData, language: e.target.value })}
+                    className="w-full px-3 py-2 border text-sm"
+                    style={{
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                      borderRadius: 'var(--border-radius)',
+                    }}
+                  >
+                    {allLanguages.map(lang => (
+                      <option key={lang} value={lang}>{lang}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Edit Regions */}
+                <div>
+                  <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    Regions
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {allRegions.map(region => (
+                      <button
+                        key={region}
+                        type="button"
+                        onClick={() => toggleEditRegion(region)}
+                        className="px-2 py-1 text-xs font-medium border transition-colors"
+                        style={{
+                          backgroundColor: editData.regions.includes(region) ? 'var(--color-accent-1)' : 'var(--color-bg-secondary)',
+                          borderColor: editData.regions.includes(region) ? 'var(--color-accent-1)' : 'var(--color-border)',
+                          color: editData.regions.includes(region) ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+                          borderRadius: 'var(--border-radius)',
+                        }}
+                      >
+                        {region}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Edit Invite Link */}
+                <div>
+                  <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    Discord Invite Link
+                  </label>
+                  <input
+                    type="url"
+                    value={editData.inviteLink}
+                    onChange={(e) => setEditData({ ...editData, inviteLink: e.target.value })}
+                    placeholder="https://discord.gg/..."
+                    className="w-full px-3 py-2 border text-sm"
+                    style={{
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                      borderRadius: 'var(--border-radius)',
+                    }}
+                  />
+                </div>
+
+                {/* Save / Delete buttons */}
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    onClick={handleSaveEdits}
+                    disabled={saving}
+                    className="px-6 py-2 font-bold text-sm disabled:opacity-50"
+                    style={{
+                      background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
+                      color: 'var(--color-bg-primary)',
+                      borderRadius: 'var(--border-radius)',
+                    }}
+                  >
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </button>
+
+                  <button
+                    onClick={handleDeleteCommunity}
+                    disabled={deleting}
+                    className="px-4 py-2 font-semibold text-sm border disabled:opacity-50"
+                    style={{
+                      backgroundColor: 'transparent',
+                      borderColor: '#C84040',
+                      color: '#C84040',
+                      borderRadius: 'var(--border-radius)',
+                    }}
+                  >
+                    {deleting ? 'Deleting...' : 'Delete Community'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Meta Info */}
           <div className="flex flex-wrap gap-4 mb-4">

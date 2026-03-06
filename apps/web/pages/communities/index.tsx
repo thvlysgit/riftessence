@@ -92,7 +92,7 @@ export default function CommunitiesPage() {
               borderRadius: 'var(--border-radius)',
             }}
           >
-            Register Community
+            Link Server
           </Link>
         </div>
 
@@ -111,10 +111,10 @@ export default function CommunitiesPage() {
                 New to communities?
               </p>
               <h3 className="text-xl font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                Follow the 3-step guide to register your server
+                Link your Discord server in 3 easy steps
               </h3>
               <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                Get your Discord Server ID, fill the form, then set a feed channel with /setfeedchannel.
+                Invite our bot, run /linkserver, enter the code here — done.
               </p>
             </div>
             <div className="flex gap-3">
@@ -138,7 +138,7 @@ export default function CommunitiesPage() {
                   borderRadius: 'var(--border-radius)',
                 }}
               >
-                Start registration
+                Start linking
               </Link>
             </div>
           </div>

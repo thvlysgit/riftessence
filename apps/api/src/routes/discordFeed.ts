@@ -448,6 +448,9 @@ export default async function discordFeedRoutes(fastify: any) {
             gameName: postingAccount.gameName,
             tagLine: postingAccount.tagLine,
           } : null,
+          communityId: post.community?.id || null,
+          communitySlug: post.community?.slug || null,
+          communityName: post.community?.name || null,
           feedChannels: feedChannels.map((fc: any) => ({
             channelId: fc.channelId,
             guildId: fc.guildId,

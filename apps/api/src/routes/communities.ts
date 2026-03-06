@@ -386,4 +386,222 @@ export default async function communitiesRoutes(fastify: any) {
       return reply.status(500).send({ error: 'Failed to fetch community posts' });
     }
   });
+
+  // ──────────────────────────────────────────────
+  // Discord Bot Link Code Flow
+  // ──────────────────────────────────────────────
+
+  // Bot auth middleware
+  const validateBotAuth = (request: any, reply: any, done: () => void) => {
+    const authHeader = request.headers.authorization;
+    const expectedKey = process.env.DISCORD_BOT_API_KEY;
+    if (!expectedKey) { reply.status(500).send({ error: 'Bot API key not configured' }); return; }
+    if (!authHeader || !authHeader.startsWith('Bearer ')) { reply.status(401).send({ error: 'Missing authorization' }); return; }
+    if (authHeader.substring(7) !== expectedKey) { reply.status(403).send({ error: 'Invalid bot API key' }); return; }
+    done();
+  };
+
+  // POST /api/communities/link-code - Generate a link code (bot only)
+  fastify.post('/communities/link-code', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { guildId, guildName } = request.body as any;
+      if (!guildId || !guildName) {
+        return reply.status(400).send({ error: 'Missing required fields: guildId, guildName' });
+      }
+
+      // Check if this Discord server is already linked to a community
+      const existingCommunity = await prisma.community.findUnique({
+        where: { discordServerId: guildId },
+      });
+      if (existingCommunity) {
+        return reply.status(400).send({ error: `This server is already linked to the community "${existingCommunity.name}".` });
+      }
+
+      // Invalidate any previous unused codes for this guild
+      await prisma.communityLinkCode.updateMany({
+        where: { guildId, used: false },
+        data: { used: true },
+      });
+
+      // Generate unique 8-char code
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I/O/0/1 to avoid confusion
+      let code = '';
+      for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      const linkCode = await prisma.communityLinkCode.create({
+        data: {
+          code,
+          guildId,
+          guildName,
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+        },
+      });
+
+      return reply.status(201).send({ success: true, code: linkCode.code, expiresAt: linkCode.expiresAt });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to generate link code' });
+    }
+  });
+
+  // POST /api/communities/verify-code - Verify a link code and create community (user auth)
+  fastify.post('/communities/verify-code', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { code, name, description, language, regions, inviteLink } = request.body as any;
+
+      if (!code) {
+        return reply.status(400).send({ error: 'Link code is required' });
+      }
+      if (!name || !regions || !Array.isArray(regions) || regions.length === 0) {
+        return reply.status(400).send({ error: 'Missing required fields: name, regions' });
+      }
+
+      // Find the link code
+      const linkCode = await prisma.communityLinkCode.findUnique({
+        where: { code: code.toUpperCase().trim() },
+      });
+
+      if (!linkCode) {
+        return reply.status(404).send({ error: 'Invalid link code. Please generate a new one with /linkserver in Discord.' });
+      }
+
+      if (linkCode.used) {
+        return reply.status(400).send({ error: 'This code has already been used. Generate a new one with /linkserver.' });
+      }
+
+      if (new Date() > linkCode.expiresAt) {
+        return reply.status(400).send({ error: 'This code has expired. Generate a new one with /linkserver.' });
+      }
+
+      // Check if Discord server already linked
+      const existingCommunity = await prisma.community.findUnique({
+        where: { discordServerId: linkCode.guildId },
+      });
+      if (existingCommunity) {
+        return reply.status(400).send({ error: 'This Discord server is already linked to a community.' });
+      }
+
+      // Generate slug
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const existingSlug = await prisma.community.findUnique({ where: { slug } });
+      if (existingSlug) {
+        return reply.status(400).send({ error: 'A community with this name already exists. Choose a different name.' });
+      }
+
+      // Mark code as used
+      await prisma.communityLinkCode.update({
+        where: { id: linkCode.id },
+        data: { used: true },
+      });
+
+      // Create community linked to the Discord server
+      const community = await prisma.community.create({
+        data: {
+          name,
+          slug,
+          description: description || null,
+          language: language || 'English',
+          regions: regions || [],
+          inviteLink: inviteLink || null,
+          discordServerId: linkCode.guildId,
+        },
+      });
+
+      // Make the user the community ADMIN
+      await prisma.communityMembership.create({
+        data: {
+          userId,
+          communityId: community.id,
+          role: 'ADMIN',
+        },
+      });
+
+      return reply.status(201).send({
+        success: true,
+        community,
+        guildName: linkCode.guildName,
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to verify code and create community' });
+    }
+  });
+
+  // DELETE /api/communities/:id - Delete a community (admin only)
+  fastify.delete('/communities/:id', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id } = request.params as { id: string };
+
+      // Check admin status
+      const membership = await prisma.communityMembership.findUnique({
+        where: { userId_communityId: { userId, communityId: id } },
+      });
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { badges: true },
+      });
+      const isAppAdmin = user?.badges.some((b: any) => b.key === 'admin');
+
+      if ((!membership || membership.role !== 'ADMIN') && !isAppAdmin) {
+        return reply.status(403).send({ error: 'Only community admins can delete a community' });
+      }
+
+      // Delete all related data (cascades handle feed channels)
+      await prisma.communityMembership.deleteMany({ where: { communityId: id } });
+      await prisma.post.updateMany({ where: { communityId: id }, data: { communityId: null } });
+      await prisma.lftPost.updateMany({ where: { communityId: id }, data: { communityId: null } });
+      await prisma.community.delete({ where: { id } });
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to delete community' });
+    }
+  });
+
+  // POST /api/communities/:id/auto-join - Auto-join from Discord referral link (user auth)
+  fastify.post('/communities/:id/auto-join', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id } = request.params as { id: string };
+
+      const community = await prisma.community.findUnique({ where: { id } });
+      if (!community) {
+        return reply.status(404).send({ error: 'Community not found' });
+      }
+
+      // Check if already a member
+      const existing = await prisma.communityMembership.findUnique({
+        where: { userId_communityId: { userId, communityId: id } },
+      });
+
+      if (existing) {
+        return reply.send({ success: true, alreadyMember: true, community });
+      }
+
+      await prisma.communityMembership.create({
+        data: {
+          userId,
+          communityId: id,
+          role: 'MEMBER',
+        },
+      });
+
+      return reply.send({ success: true, alreadyMember: false, community });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to auto-join community' });
+    }
+  });
 }
