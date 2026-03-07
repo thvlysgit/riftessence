@@ -14,6 +14,7 @@ interface User {
   riotAccountsCount?: number;
   onboardingCompleted?: boolean;
   profileIconId?: number;
+  discordLinked?: boolean;
 }
 
 interface AuthContextType {
@@ -66,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               riotAccountsCount: data.riotAccounts?.length || 0,
               onboardingCompleted: data.onboardingCompleted || false,
               profileIconId: data.profileIconId,
+              discordLinked: !!data.discordAccount,
             });
           } else {
             // Invalid token, clear it

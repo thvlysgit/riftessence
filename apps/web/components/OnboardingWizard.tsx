@@ -38,10 +38,12 @@ export default function OnboardingWizard() {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [selectedTheme, setSelectedTheme] = useState(theme.name);
   const [saving, setSaving] = useState(false);
+  const [discordLoading, setDiscordLoading] = useState(false);
 
   // Check if onboarding should be shown
   const shouldShow = user && !user.onboardingCompleted;
   const hasRiotAccount = (user?.riotAccountsCount || 0) > 0;
+  const hasDiscordLinked = !!user?.discordLinked;
   
   // Hide wizard on authenticate page so user can link their account
   const isOnAuthenticatePage = router.pathname === '/authenticate';
@@ -89,7 +91,7 @@ export default function OnboardingWizard() {
       return;
     }
 
-    if (currentStep < 2) {
+    if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
     } else {
       handleFinish();
@@ -211,6 +213,82 @@ export default function OnboardingWizard() {
         return (
           <div className="space-y-4">
             <div className="text-center mb-6">
+              <div className="text-6xl mb-4">💬</div>
+              <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                Connect Your Discord
+              </h2>
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                Link your Discord account so we can stay in touch — for bug reports, feedback, and community updates
+              </p>
+            </div>
+
+            {hasDiscordLinked ? (
+              <div className="text-center p-4 rounded border" style={{ 
+                backgroundColor: 'rgba(88, 101, 242, 0.1)', 
+                borderColor: 'rgba(88, 101, 242, 0.3)' 
+              }}>
+                <div className="text-3xl mb-2">✓</div>
+                <p className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                  Discord Account Connected!
+                </p>
+                <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  Great — we can reach out to you if needed
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-4 rounded-lg border text-center" style={{ 
+                  backgroundColor: 'var(--color-bg-tertiary)', 
+                  borderColor: 'var(--color-border)' 
+                }}>
+                  <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+                    Connecting Discord makes it easier for us to follow up on bug reports and keep you updated on new features.
+                  </p>
+                  <button
+                    onClick={async () => {
+                      setDiscordLoading(true);
+                      try {
+                        const response = await fetch(`${API_URL}/api/auth/discord/login`, {
+                          headers: getAuthHeader(),
+                        });
+                        if (!response.ok) {
+                          const data = await response.json().catch(() => ({}));
+                          throw new Error(data.error || 'Failed to get Discord auth URL');
+                        }
+                        const data = await response.json();
+                        window.location.href = data.url;
+                      } catch (err: any) {
+                        console.error('Error initiating Discord link:', err);
+                        showToast(err.message || 'Failed to start Discord linking', 'error');
+                      } finally {
+                        setDiscordLoading(false);
+                      }
+                    }}
+                    disabled={discordLoading}
+                    className="px-6 py-3 font-bold rounded-lg text-sm transition-all"
+                    style={{ 
+                      background: '#5865F2', 
+                      color: '#fff',
+                      opacity: discordLoading ? 0.6 : 1,
+                      cursor: discordLoading ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {discordLoading ? 'Connecting...' : '🔗 Connect Discord'}
+                  </button>
+                </div>
+
+                <p className="text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
+                  This step is optional — you can skip it and connect later from your profile.
+                </p>
+              </div>
+            )}
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-4">
+            <div className="text-center mb-6">
               <div className="text-6xl mb-4">�</div>
               <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
                 Choose Your Languages
@@ -245,7 +323,7 @@ export default function OnboardingWizard() {
           </div>
         );
 
-      case 2:
+      case 3:
         return (
           <div className="space-y-4">
             <div className="text-center mb-6">
@@ -292,7 +370,7 @@ export default function OnboardingWizard() {
   };
 
   // Progress calculation
-  const totalSteps = 3;
+  const totalSteps = 4;
   const progress = ((currentStep + 1) / totalSteps) * 100;
 
   return (
@@ -372,7 +450,7 @@ export default function OnboardingWizard() {
               color: 'var(--color-bg-primary)',
             }}
           >
-            {saving ? 'Saving...' : currentStep === 2 ? 'Finish & Create Post' : currentStep === 0 && !hasRiotAccount ? 'Link Account' : 'Next'}
+            {saving ? 'Saving...' : currentStep === 3 ? 'Finish & Create Post' : currentStep === 0 && !hasRiotAccount ? 'Link Account' : 'Next'}
           </button>
         </div>
       </div>

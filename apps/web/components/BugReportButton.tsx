@@ -177,7 +177,7 @@ export default function BugReportButton() {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.6)',
+            background: 'rgba(0,0,0,0.85)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -217,6 +217,40 @@ export default function BugReportButton() {
               >
                 Describe what went wrong and we'll look into it!
               </p>
+              <div
+                style={{
+                  marginTop: '10px',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  background: 'rgba(88, 101, 242, 0.1)',
+                  border: '1px solid rgba(88, 101, 242, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <span style={{ fontSize: '18px' }}>💬</span>
+                <p
+                  style={{
+                    fontSize: '13px',
+                    color: 'var(--text-muted)',
+                    margin: 0,
+                  }}
+                >
+                  Tip: Connect your Discord account in your{' '}
+                  <a
+                    href="/profile"
+                    style={{
+                      color: '#5865F2',
+                      textDecoration: 'underline',
+                      fontWeight: 500,
+                    }}
+                  >
+                    profile settings
+                  </a>{' '}
+                  so we can follow up with you more easily!
+                </p>
+              </div>
             </div>
 
             <form onSubmit={handleSubmit}>
