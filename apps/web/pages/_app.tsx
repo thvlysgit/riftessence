@@ -50,6 +50,23 @@ const ROUTE_TITLES: Record<string, string> = {
   '/admin/ads': 'Ad Management | RiftEssence',
   '/admin/settings': 'Admin Settings | RiftEssence',
   '/admin/broadcast': 'Broadcast Message | RiftEssence',
+  // Region / role landing pages
+  '/region/na':   'Find Duo Partner NA | RiftEssence',
+  '/region/euw':  'Find Duo Partner EUW | RiftEssence',
+  '/region/eune': 'Find Duo Partner EUNE | RiftEssence',
+  '/region/kr':   'Find Duo Partner KR | RiftEssence',
+  '/region/br':   'Find Duo Partner BR | RiftEssence',
+  '/region/lan':  'Find Duo Partner LAN | RiftEssence',
+  '/region/las':  'Find Duo Partner LAS | RiftEssence',
+  '/region/oce':  'Find Duo Partner OCE | RiftEssence',
+  '/region/jp':   'Find Duo Partner JP | RiftEssence',
+  '/region/tr':   'Find Duo Partner TR | RiftEssence',
+  '/region/ru':   'Find Duo Partner RU | RiftEssence',
+  '/role/top':     'Find Top Lane Duo | RiftEssence',
+  '/role/jungle':  'Find Jungle Duo | RiftEssence',
+  '/role/mid':     'Find Mid Lane Duo | RiftEssence',
+  '/role/adc':     'Find ADC Duo | RiftEssence',
+  '/role/support': 'Find Support Duo | RiftEssence',
 };
 
 export default function App({ Component, pageProps, router }: AppProps) {

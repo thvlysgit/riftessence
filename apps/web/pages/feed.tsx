@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/router';
 import SEOHead from '../components/SEOHead';
 import { useTheme } from '../contexts/ThemeContext';
 import { useChat } from '../contexts/ChatContext';
@@ -144,6 +145,7 @@ export default function Feed() {
   const { theme } = useTheme();
   const { showToast } = useGlobalUI();
   const { openConversation } = useChat();
+  const router = useRouter();
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -165,6 +167,22 @@ export default function Feed() {
     setDismissedAdIds(prev => [...prev, adId]);
   };
 
+  // Apply URL query params as initial filters (e.g. /feed?region=EUW&role=JUNGLE)
+  // Runs once when the router is ready (query params are available post-hydration)
+  useEffect(() => {
+    if (!router.isReady) return;
+    const { region, role } = router.query;
+    const urlRegions = Array.isArray(region) ? region : region ? [region] : [];
+    const urlRoles = Array.isArray(role) ? role : role ? [role] : [];
+    if (urlRegions.length > 0 || urlRoles.length > 0) {
+      setFilters(prev => ({
+        ...prev,
+        ...(urlRegions.length > 0 ? { regions: urlRegions.map(r => r.toUpperCase()) } : {}),
+        ...(urlRoles.length > 0 ? { roles: urlRoles.map(r => r.toUpperCase()) } : {}),
+      }));
+    }
+  }, [router.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch user preferences once on mount to set initial filters
   useEffect(() => {
     const token = getAuthToken();
@@ -182,11 +200,13 @@ export default function Feed() {
           const mainAccount = user.riotAccounts?.find((acc: any) => acc.isMain);
           const userLanguages = user.languages || [];
           
-          // Set filters with user's region and languages as defaults
+          // Only apply user preference defaults if no URL params override them
+          const { region: urlRegion, role: urlRole } = router.query;
           setFilters(prev => ({
             ...prev,
-            regions: mainAccount?.region ? [mainAccount.region] : prev.regions,
+            regions: urlRegion ? prev.regions : (mainAccount?.region ? [mainAccount.region] : prev.regions),
             languages: userLanguages.length > 0 ? userLanguages : prev.languages,
+            roles: urlRole ? prev.roles : prev.roles,
           }));
           
           if (mainAccount?.region) {
