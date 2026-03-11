@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import type { GetStaticPaths, GetStaticProps } from 'next';
+import type { GetServerSideProps } from 'next';
 
 // Canonical regions and their display labels
 const REGIONS: Record<string, { label: string; full: string }> = {
@@ -25,14 +25,7 @@ interface Props {
   fullName: string;
 }
 
-export const getStaticPaths: GetStaticPaths = async () => {
-  const paths = Object.keys(REGIONS).map((r) => ({
-    params: { region: r.toLowerCase() },
-  }));
-  return { paths, fallback: 'blocking' };
-};
-
-export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
+export const getServerSideProps: GetServerSideProps<Props> = async ({ params }) => {
   const slug = typeof params?.region === 'string' ? params.region.toUpperCase() : '';
   const info = REGIONS[slug];
   if (!info) return { notFound: true };
@@ -42,7 +35,6 @@ export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
       label: info.label,
       fullName: info.full,
     },
-    revalidate: 86400, // Re-generate at most once per day
   };
 };
 

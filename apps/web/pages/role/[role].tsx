@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import type { GetStaticPaths, GetStaticProps } from 'next';
+import type { GetServerSideProps } from 'next';
 
 const ROLES: Record<string, { label: string; description: string; keywords: string }> = {
   TOP: {
@@ -38,14 +38,7 @@ interface Props {
   keywords: string;
 }
 
-export const getStaticPaths: GetStaticPaths = async () => {
-  const paths = Object.keys(ROLES).map((r) => ({
-    params: { role: r.toLowerCase() },
-  }));
-  return { paths, fallback: 'blocking' };
-};
-
-export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
+export const getServerSideProps: GetServerSideProps<Props> = async ({ params }) => {
   const slug = typeof params?.role === 'string' ? params.role.toUpperCase() : '';
   const info = ROLES[slug];
   if (!info) return { notFound: true };
@@ -56,7 +49,6 @@ export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
       description: info.description,
       keywords: info.keywords,
     },
-    revalidate: 86400,
   };
 };
 
