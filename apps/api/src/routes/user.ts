@@ -464,6 +464,7 @@ export default async function userRoutes(fastify: any) {
         })),
         discordLinked: !!user.discordAccount,
         discordUsername: user.discordAccount?.username || null,
+        discordDmNotifications: user.discordDmNotifications || false,
         communities: user.communityMemberships.map((m: any) => ({
           id: m.community.id,
           name: m.community.name,
@@ -1189,6 +1190,39 @@ export default async function userRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Search failed' });
+    }
+  });
+
+  // Toggle Discord DM notifications for chat messages
+  fastify.patch('/discord-dm-notifications', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { enabled } = request.body as { enabled: boolean };
+      if (typeof enabled !== 'boolean') {
+        return reply.code(400).send({ error: 'enabled must be a boolean' });
+      }
+
+      // Verify user has a linked Discord account before enabling
+      if (enabled) {
+        const discordAccount = await prisma.discordAccount.findUnique({
+          where: { userId },
+        });
+        if (!discordAccount) {
+          return reply.code(400).send({ error: 'You must link a Discord account before enabling DM notifications' });
+        }
+      }
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: { discordDmNotifications: enabled },
+      });
+
+      return reply.send({ success: true, discordDmNotifications: enabled });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to toggle Discord DM notifications' });
     }
   });
 }

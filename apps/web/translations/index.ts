@@ -530,6 +530,13 @@ export type TranslationKey =
   | 'settings.riot.title'
   | 'settings.riot.description'
   | 'settings.riot.manage'
+  | 'settings.discordDm.title'
+  | 'settings.discordDm.description'
+  | 'settings.discordDm.note'
+  | 'settings.discordDm.enabled'
+  | 'settings.discordDm.disabled'
+  | 'settings.discordDm.enabledMessage'
+  | 'settings.discordDm.disabledMessage'
   
   // Theme names
   | 'theme.classic'
@@ -1179,6 +1186,13 @@ export const translations: Record<LanguageCode, Translations> = {
     'settings.riot.title': 'Riot Account',
     'settings.riot.description': 'Link your Riot account to verify your rank and access additional features.',
     'settings.riot.manage': 'Manage Riot Accounts',
+    'settings.discordDm.title': 'Discord DM Notifications',
+    'settings.discordDm.description': 'Receive your in-app chat messages as Discord DMs so you never miss a message from a duo partner.',
+    'settings.discordDm.note': 'Make sure you have DMs enabled from server members or have a mutual server with the RiftEssence bot. You can disable this at any time. By enabling, you consent to your message content being relayed to Discord.',
+    'settings.discordDm.enabled': 'Enabled',
+    'settings.discordDm.disabled': 'Disabled',
+    'settings.discordDm.enabledMessage': 'Discord DM notifications enabled! You will receive chat messages in your Discord DMs.',
+    'settings.discordDm.disabledMessage': 'Discord DM notifications disabled.',
     
     // Theme names
     'theme.classic': 'Classic Dark',
@@ -1825,6 +1839,13 @@ export const translations: Record<LanguageCode, Translations> = {
     'settings.riot.title': 'Compte Riot',
     'settings.riot.description': 'Liez votre compte Riot pour vérifier votre rang et accéder à des fonctionnalités supplémentaires.',
     'settings.riot.manage': 'Gérer les comptes Riot',
+    'settings.discordDm.title': 'Notifications Discord par DM',
+    'settings.discordDm.description': 'Recevez vos messages de chat en DM Discord pour ne jamais manquer un message d\'un partenaire duo.',
+    'settings.discordDm.note': 'Assurez-vous d\'avoir les DMs activés pour les membres du serveur ou d\'avoir un serveur en commun avec le bot RiftEssence. Vous pouvez désactiver cela à tout moment. En activant, vous consentez à ce que le contenu de vos messages soit relayé vers Discord.',
+    'settings.discordDm.enabled': 'Activé',
+    'settings.discordDm.disabled': 'Désactivé',
+    'settings.discordDm.enabledMessage': 'Notifications Discord par DM activées ! Vous recevrez les messages de chat dans vos DMs Discord.',
+    'settings.discordDm.disabledMessage': 'Notifications Discord par DM désactivées.',
     
     // Theme names
     'theme.classic': 'Sombre classique',

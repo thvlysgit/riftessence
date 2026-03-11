@@ -432,6 +432,83 @@ async function mirrorPostToDiscord(post: any) {
 }
 
 // ============================================================
+// Discord DM Notifications for Chat Messages
+// ============================================================
+
+const DM_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_DM_POLL_INTERVAL_MS || '15000', 10);
+
+async function pollDmQueue() {
+  try {
+    const result = await apiRequest('/api/discord/dm-queue');
+    if (!result.ok) {
+      console.error('❌ Failed to poll DM queue:', result.data.error);
+      return;
+    }
+
+    const dms = Array.isArray(result.data?.dms) ? result.data.dms : [];
+    if (dms.length === 0) return;
+
+    console.log(`📨 Found ${dms.length} pending DM notifications`);
+
+    for (const dm of dms) {
+      await sendChatDmNotification(dm);
+    }
+  } catch (error: any) {
+    console.error('❌ Error polling DM queue:', error.message);
+  }
+}
+
+async function sendChatDmNotification(dm: {
+  id: string;
+  recipientDiscordId: string;
+  senderUsername: string;
+  messagePreview: string;
+  conversationId: string;
+}) {
+  // Mark as sent FIRST to prevent duplicate sends
+  const markResult = await apiRequest(`/api/discord/dm-queue/${dm.id}/sent`, 'PATCH');
+  if (!markResult.ok) {
+    console.error(`❌ Failed to mark DM ${dm.id} as sent, skipping to prevent duplicates`);
+    return;
+  }
+
+  try {
+    const user = await client.users.fetch(dm.recipientDiscordId);
+    if (!user) {
+      console.warn(`⚠️ Could not find Discord user ${dm.recipientDiscordId}`);
+      return;
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(0x0a84ff)
+      .setTitle('💬 New message on RiftEssence')
+      .setDescription(`**${dm.senderUsername}** sent you a message:`)
+      .addFields({
+        name: 'Message',
+        value: dm.messagePreview.length > 180 
+          ? dm.messagePreview.substring(0, 180) + '...' 
+          : dm.messagePreview,
+      })
+      .addFields({
+        name: '🔗 Reply',
+        value: `[Open conversation on RiftEssence](${APP_URL})`,
+      })
+      .setFooter({ text: 'You can disable DM notifications in your RiftEssence settings.' })
+      .setTimestamp();
+
+    await user.send({ embeds: [embed] });
+    console.log(`✅ Sent DM notification to ${dm.recipientDiscordId} for message from ${dm.senderUsername}`);
+  } catch (error: any) {
+    // User may have DMs disabled on Discord - that's fine
+    if (error.code === 50007) {
+      console.warn(`⚠️ Cannot send DM to ${dm.recipientDiscordId} (DMs disabled or bot not in mutual server)`);
+    } else {
+      console.error(`❌ Failed to send DM to ${dm.recipientDiscordId}:`, error.message);
+    }
+  }
+}
+
+// ============================================================
 // Bot Events
 // ============================================================
 
@@ -446,6 +523,10 @@ client.once(Events.ClientReady, async (c) => {
   // Start polling for outgoing posts
   console.log(`🔄 Starting outgoing post poll (interval: ${POLL_INTERVAL_MS}ms)`);
   setInterval(pollOutgoingPosts, POLL_INTERVAL_MS);
+
+  // Start polling for DM notifications
+  console.log(`📨 Starting DM notification poll (interval: ${DM_POLL_INTERVAL_MS}ms)`);
+  setInterval(pollDmQueue, DM_POLL_INTERVAL_MS);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

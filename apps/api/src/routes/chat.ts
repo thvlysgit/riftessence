@@ -294,6 +294,39 @@ export default async function chatRoutes(fastify: FastifyInstance) {
         },
       };
 
+      // Check if the recipient has Discord DM notifications enabled
+      // and forward the message preview to their Discord DM (fire-and-forget)
+      try {
+        const recipientUser = await prisma.user.findUnique({
+          where: { id: recipientId },
+          select: {
+            discordDmNotifications: true,
+            discordAccount: { select: { discordId: true } },
+          },
+        });
+
+        if (recipientUser?.discordDmNotifications && recipientUser.discordAccount?.discordId) {
+          // Get sender username for the notification
+          const senderUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { username: true },
+          });
+
+          // Queue the DM notification for the Discord bot
+          await prisma.discordDmQueue.create({
+            data: {
+              recipientDiscordId: recipientUser.discordAccount.discordId,
+              senderUsername: senderUser?.username || 'Someone',
+              messagePreview: content.substring(0, 200),
+              conversationId: conversation.id,
+            },
+          });
+        }
+      } catch (dmError: any) {
+        // Don't fail the message send if DM notification fails
+        console.error('Failed to queue Discord DM notification:', dmError.message);
+      }
+
       return reply.send({ message: formattedMessage });
     } catch (error: any) {
       Errors.serverError(reply, request, 'send message', error);

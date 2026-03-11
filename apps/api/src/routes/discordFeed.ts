@@ -481,4 +481,37 @@ export default async function discordFeedRoutes(fastify: any) {
       return reply.status(500).send({ error: 'Failed to mark post as mirrored' });
     }
   });
+
+  // GET /api/discord/dm-queue - Get pending DM notifications (bot only)
+  fastify.get('/discord/dm-queue', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const pendingDms = await prisma.discordDmQueue.findMany({
+        where: { sent: false },
+        orderBy: { createdAt: 'asc' },
+        take: 50,
+      });
+
+      return reply.send({ dms: pendingDms });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch DM queue' });
+    }
+  });
+
+  // PATCH /api/discord/dm-queue/:id/sent - Mark a DM notification as sent (bot only)
+  fastify.patch('/discord/dm-queue/:id/sent', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { id } = request.params as { id: string };
+
+      await prisma.discordDmQueue.update({
+        where: { id },
+        data: { sent: true },
+      });
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to mark DM as sent' });
+    }
+  });
 }

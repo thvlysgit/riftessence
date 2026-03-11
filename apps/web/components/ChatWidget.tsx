@@ -131,6 +131,9 @@ export default function ChatWidget() {
   const [messageInput, setMessageInput] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [dmBannerDismissed, setDmBannerDismissed] = useState(false);
+  const [discordDmEnabled, setDiscordDmEnabled] = useState(false);
+  const [togglingDm, setTogglingDm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -217,6 +220,29 @@ export default function ChatWidget() {
       clearTimeout(initialTimeout);
       clearInterval(interval);
     };
+  }, [user]);
+
+  // Load DM banner dismiss state and Discord DM notification preference
+  useEffect(() => {
+    if (!user) return;
+    const dismissed = localStorage.getItem('riftessence_dm_banner_dismissed');
+    if (dismissed === 'true') setDmBannerDismissed(true);
+
+    // Fetch current DM notification state from profile
+    const fetchDmState = async () => {
+      try {
+        const headers = getAuthHeader();
+        if (!headers || !('Authorization' in headers)) return;
+        const res = await fetch(`${API_URL}/api/user/profile`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          setDiscordDmEnabled(data.discordDmNotifications || false);
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+    fetchDmState();
   }, [user]);
 
   // Fetch conversations when widget opens
@@ -427,6 +453,37 @@ export default function ChatWidget() {
     }
   };
 
+  const handleEnableDiscordDm = async () => {
+    setTogglingDm(true);
+    try {
+      const res = await fetch(`${API_URL}/api/user/discord-dm-notifications`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({ enabled: true }),
+      });
+      if (res.ok) {
+        setDiscordDmEnabled(true);
+        setDmBannerDismissed(true);
+        localStorage.setItem('riftessence_dm_banner_dismissed', 'true');
+      }
+    } catch (err) {
+      console.error('Error enabling Discord DM notifications:', err);
+    } finally {
+      setTogglingDm(false);
+    }
+  };
+
+  const handleDismissBanner = () => {
+    setDmBannerDismissed(true);
+    localStorage.setItem('riftessence_dm_banner_dismissed', 'true');
+  };
+
+  // Show banner if: user has Discord linked, hasn't enabled DM notifications, and hasn't dismissed
+  const showDmBanner = user?.discordLinked && !discordDmEnabled && !dmBannerDismissed;
+
   if (!user) return null;
 
   return (
@@ -581,6 +638,53 @@ export default function ChatWidget() {
           {!selectedConversation ? (
             /* Conversations list */
             <div className="flex-1 overflow-y-auto">
+              {/* Discord DM Notification Banner */}
+              {showDmBanner && (
+                <div 
+                  className="mx-3 mt-3 mb-2 p-3 rounded-lg relative"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(88, 101, 242, 0.15), rgba(87, 242, 135, 0.10))',
+                    border: '1px solid rgba(88, 101, 242, 0.3)',
+                  }}
+                >
+                  <button
+                    onClick={handleDismissBanner}
+                    className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity"
+                    style={{ color: 'var(--color-text-muted)' }}
+                    title="Dismiss"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                  <div className="flex items-start gap-2.5 pr-4">
+                    <span className="text-lg flex-shrink-0 mt-0.5">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="#5865F2">
+                        <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286z"/>
+                      </svg>
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                        Get messages on Discord!
+                      </p>
+                      <p className="text-xs mb-2 leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
+                        Never miss a duo request — receive chat notifications directly in your Discord DMs.
+                      </p>
+                      <button
+                        onClick={handleEnableDiscordDm}
+                        disabled={togglingDm}
+                        className="text-xs font-bold px-3 py-1.5 rounded-md transition-all hover:scale-105 disabled:opacity-50"
+                        style={{
+                          background: 'linear-gradient(to right, #5865F2, #57F287)',
+                          color: '#fff',
+                        }}
+                      >
+                        {togglingDm ? 'Enabling...' : 'Enable Discord DMs'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               {conversations.length === 0 ? (
                 <div
                   className="flex items-center justify-center h-full text-center px-4"

@@ -21,7 +21,7 @@ export default function PrivacyPolicyPage() {
             Privacy Policy
           </h1>
           <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            Last Updated: January 13, 2026
+            Last Updated: March 10, 2026
           </p>
         </div>
 
@@ -59,6 +59,7 @@ export default function PrivacyPolicyPage() {
               <li>Display your profile information to other users</li>
               <li>Match you with other players based on your preferences</li>
               <li>Send notifications about platform activity (if enabled)</li>
+              <li>Forward in-app chat messages to your Discord account via Direct Messages, if you have opted in to this feature</li>
               <li>Improve the platform and develop new features</li>
               <li>Prevent abuse, spam, and violations of our Terms of Service</li>
               <li>Comply with legal obligations</li>
@@ -75,6 +76,7 @@ export default function PrivacyPolicyPage() {
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
               <li>With Other Users: Your profile information and posts are visible to other platform users</li>
               <li>Third-Party Services: Discord for authentication, Riot Games API for game data, Cloudflare for security</li>
+              <li>Discord DM Notifications: If you enable Discord DM notifications, a preview of your in-app chat messages (sender username and message content) is forwarded to your Discord account via the RiftEssence bot. This requires an explicit opt-in and can be disabled at any time from your settings</li>
               <li>Legal Requirements: When required by law or to protect rights and safety</li>
             </ul>
           </section>
@@ -108,6 +110,7 @@ export default function PrivacyPolicyPage() {
               <li>Delete: Remove your posts, comments, and other content</li>
               <li>Account Deletion: Request deletion of your account and associated data</li>
               <li>Data Portability: Request a copy of your data</li>
+              <li>Opt-Out: Disable Discord DM notifications and other optional features at any time from your account settings</li>
             </ul>
             <p className="text-sm mt-2" style={{ color: 'var(--color-text-muted)' }}>
               Contact us to exercise your rights regarding data deletion or portability.
@@ -160,7 +163,7 @@ export default function PrivacyPolicyPage() {
               We integrate with the following third-party services:
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
-              <li>Discord: For account authentication (OAuth 2.0)</li>
+              <li>Discord: For account authentication (OAuth 2.0) and optional chat message DM notifications</li>
               <li>Riot Games: For League of Legends account verification and game data</li>
               <li>Cloudflare: For security, DDoS protection, and Turnstile bot prevention</li>
             </ul>

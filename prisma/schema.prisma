@@ -115,6 +115,7 @@ model User {
   lastUsernameChange DateTime?
   lastPostCreated DateTime?
   onboardingCompleted Boolean @default(false) // Track if user completed onboarding
+  discordDmNotifications Boolean @default(false) // Opt-in: forward in-app chat messages to Discord DMs
 
   reportCount    Int       @default(0) // Number of accepted reports against this user
   
@@ -654,6 +655,20 @@ model Message {
   
   @@index([conversationId, createdAt])
   @@index([senderId, createdAt])
+}
+
+// Queue for Discord DM notifications (polled by the Discord bot)
+model DiscordDmQueue {
+  id                  String   @id @default(cuid())
+  recipientDiscordId  String   // Discord user ID to send DM to
+  senderUsername      String   // RiftEssence username who sent the message
+  messagePreview      String   // Truncated message content (max 200 chars)
+  conversationId      String   // For deep link back to conversation
+  sent                Boolean  @default(false)
+  createdAt           DateTime @default(now())
+
+  @@index([sent, createdAt])
+  @@index([recipientDiscordId, sent])
 }
 
 model Matchup {
