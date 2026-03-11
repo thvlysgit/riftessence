@@ -181,7 +181,7 @@ export default function Feed() {
         ...(urlRoles.length > 0 ? { roles: urlRoles.map(r => r.toUpperCase()) } : {}),
       }));
     }
-  }, [router.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [router.isReady]); // only run when router becomes ready
 
   // Fetch user preferences once on mount to set initial filters
   useEffect(() => {
