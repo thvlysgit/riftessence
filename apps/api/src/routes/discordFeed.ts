@@ -1,5 +1,26 @@
 import prisma from '../prisma';
 
+// Ordered ranks for filter comparison (index = strength)
+const RANK_ORDER = [
+  'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM',
+  'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER',
+];
+
+function rankIndex(rank: string | null | undefined): number {
+  if (!rank) return -1;
+  return RANK_ORDER.indexOf(rank);
+}
+
+/** Returns true if `rank` falls within [min, max] (inclusive, null = no bound). */
+function rankInRange(rank: string | null | undefined, min: string | null | undefined, max: string | null | undefined): boolean {
+  if (!min && !max) return true; // no filter
+  const ri = rankIndex(rank);
+  if (ri < 0) return true; // UNRANKED passes through
+  if (min && ri < rankIndex(min)) return false;
+  if (max && ri > rankIndex(max)) return false;
+  return true;
+}
+
 // Role aliases for content parsing
 const ROLE_ALIASES: { [key: string]: string } = {
   'top': 'TOP',
@@ -138,10 +159,21 @@ export default async function discordFeedRoutes(fastify: any) {
   // POST /api/discord/feed/channels - Register a feed channel (bot only)
   fastify.post('/discord/feed/channels', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
     try {
-      const { communityId, guildId, channelId } = request.body as any;
+      const {
+        communityId, guildId, channelId,
+        feedType = 'DUO',
+        filterRegions = [],
+        filterRoles = [],
+        filterMinRank = null,
+        filterMaxRank = null,
+      } = request.body as any;
 
       if (!communityId || !guildId || !channelId) {
         return reply.status(400).send({ error: 'Missing required fields: communityId, guildId, channelId' });
+      }
+
+      if (!['DUO', 'LFT'].includes(feedType)) {
+        return reply.status(400).send({ error: 'feedType must be DUO or LFT' });
       }
 
       // Verify community exists and matches guildId
@@ -157,13 +189,26 @@ export default async function discordFeedRoutes(fastify: any) {
         return reply.status(400).send({ error: 'Guild ID does not match community Discord server' });
       }
 
-      // Check if channel already registered
+      // Enforce 5-channel-per-guild limit
+      const channelCount = await prisma.discordFeedChannel.count({
+        where: { guildId },
+      });
+      if (channelCount >= 5) {
+        return reply.status(400).send({ error: 'Maximum of 5 feed channels per server. Remove an existing channel first.' });
+      }
+
+      // Check if this exact config already exists
       const existing = await prisma.discordFeedChannel.findUnique({
-        where: { communityId_channelId: { communityId, channelId } },
+        where: { guildId_channelId_feedType: { guildId, channelId, feedType } },
       });
 
       if (existing) {
-        return reply.status(400).send({ error: 'Channel already registered for this community' });
+        // Update filters instead of erroring
+        const updated = await prisma.discordFeedChannel.update({
+          where: { id: existing.id },
+          data: { filterRegions, filterRoles, filterMinRank, filterMaxRank },
+        });
+        return reply.send({ success: true, feedChannel: updated, updated: true });
       }
 
       const feedChannel = await prisma.discordFeedChannel.create({
@@ -171,6 +216,11 @@ export default async function discordFeedRoutes(fastify: any) {
           communityId,
           guildId,
           channelId,
+          feedType,
+          filterRegions,
+          filterRoles,
+          filterMinRank: filterMinRank || null,
+          filterMaxRank: filterMaxRank || null,
         },
       });
 
@@ -388,7 +438,7 @@ export default async function discordFeedRoutes(fastify: any) {
     }
   });
 
-  // GET /api/discord/outgoing - Get posts to mirror to Discord (bot only)
+  // GET /api/discord/outgoing - Get DUO posts to mirror to Discord (bot only)
   fastify.get('/discord/outgoing', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
     try {
       const { since, limit = 50 } = request.query as any;
@@ -402,7 +452,7 @@ export default async function discordFeedRoutes(fastify: any) {
         where.createdAt = { gt: new Date(since) };
       }
 
-      // Fetch posts and all feed channels so every post is mirrored everywhere
+      // Fetch posts and DUO-type feed channels
       const [posts, feedChannels] = await Promise.all([
         prisma.post.findMany({
           where,
@@ -418,12 +468,30 @@ export default async function discordFeedRoutes(fastify: any) {
             community: true,
           },
         }),
-        prisma.discordFeedChannel.findMany(),
+        prisma.discordFeedChannel.findMany({
+          where: { feedType: 'DUO' },
+        }),
       ]);
 
       const formatted = posts.map((post: any) => {
         const mainAccount = post.author.riotAccounts.find((acc: any) => acc.isMain) || post.author.riotAccounts[0];
         const postingAccount = post.author.riotAccounts.find((acc: any) => acc.id === post.postingRiotAccountId) || mainAccount;
+
+        // Filter channels: only include channels whose filters match this post
+        const matchingChannels = feedChannels.filter((fc: any) => {
+          // Region filter
+          if (fc.filterRegions && fc.filterRegions.length > 0) {
+            if (!fc.filterRegions.includes(post.region)) return false;
+          }
+          // Role filter
+          if (fc.filterRoles && fc.filterRoles.length > 0) {
+            if (!fc.filterRoles.includes(post.role)) return false;
+          }
+          // Rank filter (use posting account rank)
+          const postRank = postingAccount?.rank || null;
+          if (!rankInRange(postRank, fc.filterMinRank, fc.filterMaxRank)) return false;
+          return true;
+        });
 
         return {
           id: post.id,
@@ -451,7 +519,7 @@ export default async function discordFeedRoutes(fastify: any) {
           communityId: post.community?.id || null,
           communitySlug: post.community?.slug || null,
           communityName: post.community?.name || null,
-          feedChannels: feedChannels.map((fc: any) => ({
+          feedChannels: matchingChannels.map((fc: any) => ({
             channelId: fc.channelId,
             guildId: fc.guildId,
           })),
@@ -462,6 +530,111 @@ export default async function discordFeedRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch outgoing posts' });
+    }
+  });
+
+  // GET /api/discord/outgoing-lft - Get LFT posts to mirror to Discord (bot only)
+  fastify.get('/discord/outgoing-lft', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { since, limit = 50 } = request.query as any;
+
+      const where: any = {
+        source: 'app',
+        discordMirrored: false,
+      };
+
+      if (since) {
+        where.createdAt = { gt: new Date(since) };
+      }
+
+      const [posts, feedChannels] = await Promise.all([
+        prisma.lftPost.findMany({
+          where,
+          take: parseInt(limit),
+          orderBy: { createdAt: 'asc' },
+          include: {
+            author: {
+              include: {
+                riotAccounts: true,
+                discordAccount: true,
+              },
+            },
+          },
+        }),
+        prisma.discordFeedChannel.findMany({
+          where: { feedType: 'LFT' },
+        }),
+      ]);
+
+      const formatted = posts.map((post: any) => {
+        // For TEAM posts, use averageRank. For PLAYER posts, use rank.
+        const postRank = post.type === 'TEAM' ? post.averageRank : post.rank;
+
+        // Filter channels
+        const matchingChannels = feedChannels.filter((fc: any) => {
+          if (fc.filterRegions && fc.filterRegions.length > 0) {
+            if (!fc.filterRegions.includes(post.region)) return false;
+          }
+          if (!rankInRange(postRank, fc.filterMinRank, fc.filterMaxRank)) return false;
+          return true;
+        });
+
+        return {
+          id: post.id,
+          type: post.type,
+          createdAt: post.createdAt,
+          region: post.region,
+          author: {
+            id: post.author.id,
+            username: post.author.username,
+            discordUsername: post.author.discordAccount?.username,
+            discordId: post.author.discordAccount?.discordId,
+          },
+          // TEAM fields
+          teamName: post.teamName,
+          rolesNeeded: post.rolesNeeded,
+          averageRank: post.averageRank,
+          averageDivision: post.averageDivision,
+          scrims: post.scrims,
+          minAvailability: post.minAvailability,
+          coachingAvailability: post.coachingAvailability,
+          details: post.details,
+          // PLAYER fields
+          mainRole: post.mainRole,
+          rank: post.rank,
+          division: post.division,
+          experience: post.experience,
+          languages: post.languages,
+          skills: post.skills,
+          availability: post.availability,
+          feedChannels: matchingChannels.map((fc: any) => ({
+            channelId: fc.channelId,
+            guildId: fc.guildId,
+          })),
+        };
+      });
+
+      return reply.send({ posts: formatted });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch outgoing LFT posts' });
+    }
+  });
+
+  // PATCH /api/discord/lft-posts/:postId/mirrored - Mark LFT post as mirrored (bot only)
+  fastify.patch('/discord/lft-posts/:postId/mirrored', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { postId } = request.params as { postId: string };
+
+      const post = await prisma.lftPost.update({
+        where: { id: postId },
+        data: { discordMirrored: true },
+      });
+
+      return reply.send({ success: true, post });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to mark LFT post as mirrored' });
     }
   });
 

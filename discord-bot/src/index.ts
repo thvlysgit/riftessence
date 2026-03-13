@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, REST, Routes, SlashCommandBuilder, ChatInputCommandInteraction, TextChannel, EmbedBuilder, ActivityType, PermissionFlagsBits } from 'discord.js';
+import { Client, GatewayIntentBits, Events, REST, Routes, SlashCommandBuilder, ChatInputCommandInteraction, TextChannel, EmbedBuilder, ActivityType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ComponentType, ButtonInteraction, StringSelectMenuInteraction } from 'discord.js';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
 
@@ -23,10 +23,27 @@ const client = new Client({
 });
 
 // ============================================================
-// Slash Commands
+// Constants
 // ============================================================
 
 const APP_URL = process.env.APP_URL || 'https://riftessence.app';
+
+const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'SG'];
+const ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
+const RANKS = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'];
+
+const RANK_EMOJIS: Record<string, string> = {
+  IRON: '🪨', BRONZE: '🥉', SILVER: '🥈', GOLD: '🥇', PLATINUM: '💎',
+  EMERALD: '💚', DIAMOND: '💠', MASTER: '🟣', GRANDMASTER: '🔴', CHALLENGER: '👑',
+};
+
+const ROLE_EMOJIS: Record<string, string> = {
+  TOP: '🛡️', JUNGLE: '🌿', MID: '⚔️', ADC: '🏹', SUPPORT: '❤️',
+};
+
+// ============================================================
+// Slash Commands
+// ============================================================
 
 const commands = [
   new SlashCommandBuilder()
@@ -35,16 +52,9 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .toJSON(),
   new SlashCommandBuilder()
-    .setName('setfeedchannel')
-    .setDescription('Set this channel to receive posts from the app')
-    .toJSON(),
-  new SlashCommandBuilder()
-    .setName('removefeedchannel')
-    .setDescription('Remove this channel from receiving app posts')
-    .toJSON(),
-  new SlashCommandBuilder()
-    .setName('listfeedchannels')
-    .setDescription('List all feed channels for this server')
+    .setName('setup')
+    .setDescription('Set up or manage post forwarding to Discord channels')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .toJSON(),
 ];
 
@@ -163,101 +173,320 @@ async function handleLinkServer(interaction: ChatInputCommandInteraction) {
   return interaction.editReply({ embeds: [embed] });
 }
 
-async function handleSetFeedChannel(interaction: ChatInputCommandInteraction) {
+// ============================================================
+// /setup — Interactive Feed Configuration
+// ============================================================
+
+// Temporary state for multi-step setup flows (keyed by `${userId}-${channelId}`)
+const pendingSetups = new Map<string, {
+  feedType: 'DUO' | 'LFT';
+  channelId: string;
+  guildId: string;
+  communityId: string;
+  filterRegions: string[];
+  filterRoles: string[];
+  filterMinRank: string | null;
+  filterMaxRank: string | null;
+}>();
+
+async function handleSetup(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ ephemeral: true });
 
   const guildId = interaction.guildId;
-  const channelId = interaction.channelId;
+  if (!guildId) return interaction.editReply('❌ This command must be used in a server.');
 
-  if (!guildId) {
-    return interaction.editReply('❌ This command must be used in a server');
-  }
-
-  // Find community by discordServerId
+  // Verify community link
   const communityRes = await apiRequest(`/api/communities?discordServerId=${guildId}`);
   if (!communityRes.ok || !communityRes.data.communities?.length) {
     return interaction.editReply(
-      '❌ No community is linked to this Discord server. Please register your community on the app first.'
+      '❌ No community is linked to this Discord server.\nUse `/linkserver` first, then register the community on the app.'
     );
   }
-
   const community = communityRes.data.communities[0];
-  if (!community) {
-    return interaction.editReply(
-      '❌ No community is linked to this Discord server. Please register your community on the app first.'
-    );
+
+  // Fetch existing channels for this guild
+  const channelsRes = await apiRequest(`/api/discord/feed/channels?guildId=${guildId}`);
+  const existingChannels = channelsRes.ok
+    ? (channelsRes.data.channels || channelsRes.data || [])
+    : [];
+
+  // Build the main setup embed
+  const embed = new EmbedBuilder()
+    .setColor(0x0a84ff)
+    .setTitle('⚙️ RiftEssence Feed Setup')
+    .setDescription(
+      `Community: **${community.name}**\n` +
+      `Channel: <#${interaction.channelId}>\n\n` +
+      `Choose what type of posts to forward to **this channel**, or manage existing channels.\n\n` +
+      `📌 Max 5 feed channels per server (currently ${existingChannels.length}/5).`
+    )
+    .setFooter({ text: 'Only administrators can configure feeds.' });
+
+  if (existingChannels.length > 0) {
+    const list = existingChannels.map((fc: any) =>
+      `• <#${fc.channelId}> — **${fc.feedType}**${describeFilters(fc)}`
+    ).join('\n');
+    embed.addFields({ name: '📋 Current Channels', value: list });
   }
 
-  // Register feed channel
-  const result = await apiRequest('/api/discord/feed/channels', 'POST', {
-    communityId: community.id,
-    guildId,
-    channelId,
-  });
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId('setup_duo').setLabel('🤝 Duo Feed').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('setup_lft').setLabel('👥 LFT Feed').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('setup_remove').setLabel('🗑️ Remove Channel').setStyle(ButtonStyle.Danger)
+      .setDisabled(existingChannels.length === 0),
+  );
 
-  if (result.ok) {
-    return interaction.editReply(
-      `✅ This channel is now registered to receive posts from **${community.name}** community!`
+  return interaction.editReply({ embeds: [embed], components: [row] });
+}
+
+function describeFilters(fc: any): string {
+  const parts: string[] = [];
+  if (fc.filterRegions?.length > 0) parts.push(`Regions: ${fc.filterRegions.join(', ')}`);
+  if (fc.filterRoles?.length > 0) parts.push(`Roles: ${fc.filterRoles.join(', ')}`);
+  if (fc.filterMinRank) parts.push(`Min: ${fc.filterMinRank}`);
+  if (fc.filterMaxRank) parts.push(`Max: ${fc.filterMaxRank}`);
+  return parts.length > 0 ? ` (${parts.join(' | ')})` : ' (Global)';
+}
+
+// ============================================================
+// Button & Select Menu Interaction Handlers
+// ============================================================
+
+async function handleButtonInteraction(interaction: ButtonInteraction) {
+  const guildId = interaction.guildId;
+  if (!guildId) return;
+
+  const customId = interaction.customId;
+  const key = `${interaction.user.id}-${interaction.channelId}`;
+
+  // ── Choose feed type ──
+  if (customId === 'setup_duo' || customId === 'setup_lft') {
+    const feedType = customId === 'setup_duo' ? 'DUO' : 'LFT';
+
+    const communityRes = await apiRequest(`/api/communities?discordServerId=${guildId}`);
+    const community = communityRes.data?.communities?.[0];
+    if (!community) {
+      return interaction.update({ content: '❌ Community not found.', embeds: [], components: [] });
+    }
+
+    pendingSetups.set(key, {
+      feedType,
+      channelId: interaction.channelId!,
+      guildId,
+      communityId: community.id,
+      filterRegions: [],
+      filterRoles: [],
+      filterMinRank: null,
+      filterMaxRank: null,
+    });
+
+    const embed = new EmbedBuilder()
+      .setColor(0x0a84ff)
+      .setTitle(`${feedType === 'DUO' ? '🤝 Duo' : '👥 LFT'} Feed Setup`)
+      .setDescription(
+        `Setting up **${feedType}** forwarding in <#${interaction.channelId}>.\n\n` +
+        'Choose a mode:'
+      );
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('setup_global').setLabel('🌐 Global (All Posts)').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('setup_filters').setLabel('⚙️ Custom Filters').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('setup_cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary),
     );
-  } else {
-    return interaction.editReply(
-      `❌ Failed to register feed channel: ${result.data.error || 'Unknown error'}`
-    );
+
+    return interaction.update({ embeds: [embed], components: [row] });
+  }
+
+  // ── Global (no filters) ──
+  if (customId === 'setup_global') {
+    const setup = pendingSetups.get(key);
+    if (!setup) return interaction.update({ content: '❌ Setup session expired. Run `/setup` again.', embeds: [], components: [] });
+
+    const res = await apiRequest('/api/discord/feed/channels', 'POST', {
+      communityId: setup.communityId,
+      guildId: setup.guildId,
+      channelId: setup.channelId,
+      feedType: setup.feedType,
+    });
+
+    pendingSetups.delete(key);
+
+    if (res.ok) {
+      const label = setup.feedType === 'DUO' ? 'Duo' : 'LFT';
+      const verb = res.data.updated ? 'updated' : 'configured';
+      return interaction.update({
+        content: `✅ **${label} Feed** ${verb} for <#${setup.channelId}> — **Global** (all posts).`,
+        embeds: [], components: [],
+      });
+    }
+    return interaction.update({ content: `❌ ${res.data.error || 'Failed to save channel.'}`, embeds: [], components: [] });
+  }
+
+  // ── Custom Filters: show select menus ──
+  if (customId === 'setup_filters') {
+    const setup = pendingSetups.get(key);
+    if (!setup) return interaction.update({ content: '❌ Setup session expired. Run `/setup` again.', embeds: [], components: [] });
+
+    const rows: ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>[] = [];
+
+    // Row 1: Region select
+    const regionMenu = new StringSelectMenuBuilder()
+      .setCustomId('filter_region')
+      .setPlaceholder('Select regions (leave empty = all)')
+      .setMinValues(0)
+      .setMaxValues(REGIONS.length)
+      .addOptions(REGIONS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r)));
+    rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(regionMenu));
+
+    // Row 2: Role select (DUO only)
+    if (setup.feedType === 'DUO') {
+      const roleMenu = new StringSelectMenuBuilder()
+        .setCustomId('filter_role')
+        .setPlaceholder('Select roles (leave empty = all)')
+        .setMinValues(0)
+        .setMaxValues(ROLES.length)
+        .addOptions(ROLES.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(ROLE_EMOJIS[r] || '🎮')));
+      rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(roleMenu));
+    }
+
+    // Row 3: Min rank
+    const minRankMenu = new StringSelectMenuBuilder()
+      .setCustomId('filter_min_rank')
+      .setPlaceholder('Minimum rank (optional)')
+      .setMinValues(0)
+      .setMaxValues(1)
+      .addOptions(RANKS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(RANK_EMOJIS[r] || '🏆')));
+    rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(minRankMenu));
+
+    // Row 4: Max rank
+    const maxRankMenu = new StringSelectMenuBuilder()
+      .setCustomId('filter_max_rank')
+      .setPlaceholder('Maximum rank (optional)')
+      .setMinValues(0)
+      .setMaxValues(1)
+      .addOptions(RANKS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(RANK_EMOJIS[r] || '🏆')));
+    rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(maxRankMenu));
+
+    // Row 5: Confirm / Cancel
+    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('setup_confirm').setLabel('✅ Confirm').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('setup_cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary),
+    ));
+
+    const embed = new EmbedBuilder()
+      .setColor(0x0a84ff)
+      .setTitle(`⚙️ Custom Filters — ${setup.feedType}`)
+      .setDescription(
+        'Use the dropdown menus below to set filters.\n' +
+        'Leave a menu empty to accept all values for that filter.\n' +
+        'Press **Confirm** when done.'
+      );
+
+    return interaction.update({ embeds: [embed], components: rows });
+  }
+
+  // ── Confirm filtered setup ──
+  if (customId === 'setup_confirm') {
+    const setup = pendingSetups.get(key);
+    if (!setup) return interaction.update({ content: '❌ Setup session expired. Run `/setup` again.', embeds: [], components: [] });
+
+    const res = await apiRequest('/api/discord/feed/channels', 'POST', {
+      communityId: setup.communityId,
+      guildId: setup.guildId,
+      channelId: setup.channelId,
+      feedType: setup.feedType,
+      filterRegions: setup.filterRegions,
+      filterRoles: setup.filterRoles,
+      filterMinRank: setup.filterMinRank,
+      filterMaxRank: setup.filterMaxRank,
+    });
+
+    pendingSetups.delete(key);
+
+    if (res.ok) {
+      const label = setup.feedType === 'DUO' ? 'Duo' : 'LFT';
+      const verb = res.data.updated ? 'updated' : 'configured';
+      const filterDesc = describeFilters(setup);
+      return interaction.update({
+        content: `✅ **${label} Feed** ${verb} for <#${setup.channelId}>${filterDesc}.`,
+        embeds: [], components: [],
+      });
+    }
+    return interaction.update({ content: `❌ ${res.data.error || 'Failed to save channel.'}`, embeds: [], components: [] });
+  }
+
+  // ── Cancel ──
+  if (customId === 'setup_cancel') {
+    pendingSetups.delete(key);
+    return interaction.update({ content: 'Setup cancelled.', embeds: [], components: [] });
+  }
+
+  // ── Remove channel flow ──
+  if (customId === 'setup_remove') {
+    const channelsRes = await apiRequest(`/api/discord/feed/channels?guildId=${guildId}`);
+    const channels = channelsRes.ok ? (channelsRes.data.channels || channelsRes.data || []) : [];
+
+    if (channels.length === 0) {
+      return interaction.update({ content: 'ℹ️ No feed channels to remove.', embeds: [], components: [] });
+    }
+
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId('remove_channel_select')
+      .setPlaceholder('Select a channel config to remove')
+      .setMinValues(1)
+      .setMaxValues(1)
+      .addOptions(channels.slice(0, 25).map((fc: any) =>
+        new StringSelectMenuOptionBuilder()
+          .setLabel(`#${fc.channelId} — ${fc.feedType}${fc.filterRegions?.length ? ` (${fc.filterRegions.join(',')})` : ' (Global)'}`)
+          .setValue(fc.id)
+      ));
+
+    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
+    return interaction.update({ content: 'Select a feed channel configuration to remove:', embeds: [], components: [row] });
+  }
+
+  // ── Remove channel button after selecting from delete list ──
+  if (customId.startsWith('remove_confirm_')) {
+    const channelConfigId = customId.replace('remove_confirm_', '');
+    const deleteRes = await apiRequest(`/api/discord/feed/channels/${channelConfigId}`, 'DELETE');
+    if (deleteRes.ok) {
+      return interaction.update({ content: '✅ Feed channel removed.', components: [] });
+    }
+    return interaction.update({ content: `❌ ${deleteRes.data.error || 'Failed to remove.'}`, components: [] });
   }
 }
 
-async function handleRemoveFeedChannel(interaction: ChatInputCommandInteraction) {
-  await interaction.deferReply({ ephemeral: true });
+async function handleSelectMenuInteraction(interaction: StringSelectMenuInteraction) {
+  const key = `${interaction.user.id}-${interaction.channelId}`;
+  const customId = interaction.customId;
 
-  const guildId = interaction.guildId;
-  const channelId = interaction.channelId;
+  // ── Filter select menus (update pending state) ──
+  if (customId === 'filter_region' || customId === 'filter_role' || customId === 'filter_min_rank' || customId === 'filter_max_rank') {
+    const setup = pendingSetups.get(key);
+    if (!setup) {
+      return interaction.deferUpdate(); // session expired, don't crash
+    }
 
-  if (!guildId) {
-    return interaction.editReply('❌ This command must be used in a server');
+    if (customId === 'filter_region') setup.filterRegions = interaction.values;
+    if (customId === 'filter_role') setup.filterRoles = interaction.values;
+    if (customId === 'filter_min_rank') setup.filterMinRank = interaction.values[0] || null;
+    if (customId === 'filter_max_rank') setup.filterMaxRank = interaction.values[0] || null;
+
+    return interaction.deferUpdate();
   }
 
-  // Get feed channels for this guild
-  const result = await apiRequest(`/api/discord/feed/channels?guildId=${guildId}`);
-  if (!result.ok) {
-    return interaction.editReply('❌ Failed to fetch feed channels');
+  // ── Remove channel selection ──
+  if (customId === 'remove_channel_select') {
+    const channelConfigId = interaction.values[0];
+    if (!channelConfigId) return interaction.deferUpdate();
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId(`remove_confirm_${channelConfigId}`).setLabel('🗑️ Confirm Remove').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('setup_cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary),
+    );
+
+    return interaction.update({ content: 'Are you sure you want to remove this feed channel?', components: [row] });
   }
-
-  const feedChannel = result.data.find((fc: any) => fc.channelId === channelId);
-  if (!feedChannel) {
-    return interaction.editReply('❌ This channel is not registered as a feed channel');
-  }
-
-  // Delete feed channel
-  const deleteRes = await apiRequest(`/api/discord/feed/channels/${feedChannel.id}`, 'DELETE');
-  if (deleteRes.ok) {
-    return interaction.editReply('✅ This channel has been removed from the feed');
-  } else {
-    return interaction.editReply(`❌ Failed to remove feed channel: ${deleteRes.data.error || 'Unknown error'}`);
-  }
-}
-
-async function handleListFeedChannels(interaction: ChatInputCommandInteraction) {
-  await interaction.deferReply({ ephemeral: true });
-
-  const guildId = interaction.guildId;
-  if (!guildId) {
-    return interaction.editReply('❌ This command must be used in a server');
-  }
-
-  const result = await apiRequest(`/api/discord/feed/channels?guildId=${guildId}`);
-  if (!result.ok) {
-    return interaction.editReply('❌ Failed to fetch feed channels');
-  }
-
-  if (result.data.length === 0) {
-    return interaction.editReply('ℹ️ No feed channels registered for this server');
-  }
-
-  const channelList = result.data
-    .map((fc: any) => `• <#${fc.channelId}>`)
-    .join('\n');
-
-  return interaction.editReply(`**Feed Channels:**\n${channelList}`);
 }
 
 // ============================================================
@@ -308,7 +537,7 @@ async function ingestDiscordMessage(message: any) {
 }
 
 // ============================================================
-// Outgoing Post Mirroring
+// Outgoing Duo Post Mirroring
 // ============================================================
 
 let lastPollTime = new Date().toISOString();
@@ -327,18 +556,17 @@ async function pollOutgoingPosts() {
         ? result.data
         : [];
 
-    // Update poll time IMMEDIATELY - even if no posts - to keep progressing forward
     lastPollTime = new Date().toISOString();
 
     if (!posts || posts.length === 0) return;
 
-    console.log(`📤 Found ${posts.length} outgoing posts to mirror`);
+    console.log(`📤 Found ${posts.length} outgoing duo posts to mirror`);
 
     for (const post of posts) {
       await mirrorPostToDiscord(post);
     }
   } catch (error: any) {
-    console.error('❌ Error in polling loop:', error.message);
+    console.error('❌ Error in duo polling loop:', error.message);
   }
 }
 
@@ -357,23 +585,19 @@ async function mirrorPostToDiscord(post: any) {
     return;
   }
 
-  // Build embed
   const mainAccount = riotAccount || { gameName: 'Unknown', tagLine: '', rank: '', division: '', winrate: null };
-  
-  // Use gameName#tagLine if available, otherwise fallback to summonerName
   const displayName = mainAccount.gameName && mainAccount.tagLine
     ? `${mainAccount.gameName}#${mainAccount.tagLine}`
     : mainAccount.summonerName || 'Unknown';
-  
-  // Build title with Discord mention
+
   let titleSuffix = '';
   if (author.discordId) {
     titleSuffix = ` <@${author.discordId}>`;
   }
-  
+
   const embed = new EmbedBuilder()
     .setColor(0x0a84ff)
-    .setTitle(`Post from: ${author.username}${titleSuffix}`)
+    .setTitle(`🤝 Duo Post — ${author.username}${titleSuffix}`)
     .setDescription(message || 'Looking for teammates!')
     .addFields(
       { name: '🎮 Riot Account', value: displayName, inline: true },
@@ -384,19 +608,15 @@ async function mirrorPostToDiscord(post: any) {
   if (author.discordUsername) {
     embed.addFields({ name: '💬 Discord', value: author.discordUsername, inline: true });
   }
-
   if (mainAccount.rank) {
     embed.addFields({ name: '🏆 Rank', value: mainAccount.rank, inline: true });
   }
-  
   if (mainAccount.division) {
     embed.addFields({ name: '📊 Division', value: mainAccount.division, inline: true });
   }
-  
   if (mainAccount.winrate !== null && mainAccount.winrate !== undefined) {
     embed.addFields({ name: '📈 Winrate', value: `${mainAccount.winrate.toFixed(1)}%`, inline: true });
   }
-  
   if (vcPreference) {
     embed.addFields({ name: '🎤 Voice', value: vcPreference, inline: true });
   }
@@ -404,7 +624,6 @@ async function mirrorPostToDiscord(post: any) {
     embed.addFields({ name: '🗣️ Languages', value: languages.join(', '), inline: true });
   }
 
-  // Add community join link so users from Discord can auto-join
   const communitySlug = post.communitySlug || post.communityId;
   if (communitySlug) {
     embed.addFields({
@@ -417,16 +636,123 @@ async function mirrorPostToDiscord(post: any) {
   embed.setFooter({ text: 'Find your duo on riftessence.app!' });
   embed.setTimestamp();
 
-  // Send to all feed channels
   for (const fc of feedChannels) {
     try {
       const channel = await client.channels.fetch(fc.channelId) as TextChannel;
       if (channel && channel.isTextBased()) {
         await channel.send({ embeds: [embed] });
-        console.log(`✅ Mirrored post ${id} to channel ${fc.channelId}`);
+        console.log(`✅ Mirrored duo post ${id} to channel ${fc.channelId}`);
       }
     } catch (error: any) {
       console.error(`❌ Failed to send to channel ${fc.channelId}:`, error.message);
+    }
+  }
+}
+
+// ============================================================
+// Outgoing LFT Post Mirroring
+// ============================================================
+
+async function pollOutgoingLftPosts() {
+  try {
+    const result = await apiRequest('/api/discord/outgoing-lft');
+    if (!result.ok) {
+      console.error('❌ Failed to poll outgoing LFT posts:', result.data.error);
+      return;
+    }
+
+    const posts = Array.isArray(result.data?.posts)
+      ? result.data.posts
+      : Array.isArray(result.data)
+        ? result.data
+        : [];
+
+    if (!posts || posts.length === 0) return;
+
+    console.log(`📤 Found ${posts.length} outgoing LFT posts to mirror`);
+
+    for (const post of posts) {
+      await mirrorLftPostToDiscord(post);
+    }
+  } catch (error: any) {
+    console.error('❌ Error in LFT polling loop:', error.message);
+  }
+}
+
+async function mirrorLftPostToDiscord(post: any) {
+  const { id, feedChannels } = post;
+
+  // Mark as mirrored FIRST
+  const markResult = await apiRequest(`/api/discord/lft-posts/${id}/mirrored`, 'PATCH');
+  if (!markResult.ok) {
+    console.error(`❌ Failed to mark LFT post ${id} as mirrored, skipping`);
+    return;
+  }
+
+  if (!feedChannels || feedChannels.length === 0) {
+    console.warn(`⚠️ LFT post ${id} has no feed channels, skipping`);
+    return;
+  }
+
+  const isTeam = post.type === 'TEAM';
+
+  const embed = new EmbedBuilder()
+    .setColor(isTeam ? 0xe74c3c : 0x2ecc71)
+    .setTimestamp();
+
+  if (isTeam) {
+    // TEAM looking for players
+    embed.setTitle(`👥 Team LFT — ${post.teamName || 'Unnamed Team'}`);
+    embed.setDescription(post.description || 'Looking for players!');
+
+    if (post.region) embed.addFields({ name: '🌍 Region', value: post.region, inline: true });
+    if (post.averageRank) embed.addFields({ name: '🏆 Average Rank', value: post.averageRank, inline: true });
+    if (post.rolesNeeded?.length > 0) {
+      embed.addFields({
+        name: '🎭 Roles Needed',
+        value: post.rolesNeeded.map((r: string) => `${ROLE_EMOJIS[r] || '🎮'} ${r}`).join(', '),
+        inline: true,
+      });
+    }
+    if (post.schedule) embed.addFields({ name: '📅 Schedule', value: post.schedule, inline: true });
+  } else {
+    // PLAYER looking for team
+    const authorName = post.author?.username || 'Unknown';
+    let titleSuffix = '';
+    if (post.author?.discordId) titleSuffix = ` <@${post.author.discordId}>`;
+
+    embed.setTitle(`🙋 Player LFT — ${authorName}${titleSuffix}`);
+    embed.setDescription(post.description || 'Looking for a team!');
+
+    if (post.region) embed.addFields({ name: '🌍 Region', value: post.region, inline: true });
+    if (post.mainRole) embed.addFields({ name: '🎭 Main Role', value: `${ROLE_EMOJIS[post.mainRole] || '🎮'} ${post.mainRole}`, inline: true });
+    if (post.rank) embed.addFields({ name: '🏆 Rank', value: post.rank, inline: true });
+    if (post.availability) embed.addFields({ name: '📅 Availability', value: post.availability, inline: true });
+    if (post.author?.discordUsername) {
+      embed.addFields({ name: '💬 Discord', value: post.author.discordUsername, inline: true });
+    }
+  }
+
+  const communitySlug = post.communitySlug || post.communityId;
+  if (communitySlug) {
+    embed.addFields({
+      name: '🔗 View on RiftEssence',
+      value: `[Open](${APP_URL}/communities/${communitySlug}/lft)`,
+      inline: false,
+    });
+  }
+
+  embed.setFooter({ text: 'Find your team on riftessence.app!' });
+
+  for (const fc of feedChannels) {
+    try {
+      const channel = await client.channels.fetch(fc.channelId) as TextChannel;
+      if (channel && channel.isTextBased()) {
+        await channel.send({ embeds: [embed] });
+        console.log(`✅ Mirrored LFT post ${id} to channel ${fc.channelId}`);
+      }
+    } catch (error: any) {
+      console.error(`❌ Failed to send LFT to channel ${fc.channelId}:`, error.message);
     }
   }
 }
@@ -465,7 +791,6 @@ async function sendChatDmNotification(dm: {
   messagePreview: string;
   conversationId: string;
 }) {
-  // Mark as sent FIRST to prevent duplicate sends
   const markResult = await apiRequest(`/api/discord/dm-queue/${dm.id}/sent`, 'PATCH');
   if (!markResult.ok) {
     console.error(`❌ Failed to mark DM ${dm.id} as sent, skipping to prevent duplicates`);
@@ -485,8 +810,8 @@ async function sendChatDmNotification(dm: {
       .setDescription(`**${dm.senderUsername}** sent you a message:`)
       .addFields({
         name: 'Message',
-        value: dm.messagePreview.length > 180 
-          ? dm.messagePreview.substring(0, 180) + '...' 
+        value: dm.messagePreview.length > 180
+          ? dm.messagePreview.substring(0, 180) + '...'
           : dm.messagePreview,
       })
       .addFields({
@@ -499,7 +824,6 @@ async function sendChatDmNotification(dm: {
     await user.send({ embeds: [embed] });
     console.log(`✅ Sent DM notification to ${dm.recipientDiscordId} for message from ${dm.senderUsername}`);
   } catch (error: any) {
-    // User may have DMs disabled on Discord - that's fine
     if (error.code === 50007) {
       console.warn(`⚠️ Cannot send DM to ${dm.recipientDiscordId} (DMs disabled or bot not in mutual server)`);
     } else {
@@ -514,15 +838,20 @@ async function sendChatDmNotification(dm: {
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`✅ Bot logged in as ${c.user.tag}`);
-  client.user?.setActivity('RiftEssence | /linkserver', { type: ActivityType.Playing });
+  client.user?.setActivity('RiftEssence | /setup', { type: ActivityType.Playing });
 
-  // Register slash commands (global, with per-guild fallback)
+  // Register slash commands
   const guildIds = client.guilds.cache.map(g => g.id);
   await registerCommands(c.user.id, guildIds);
 
-  // Start polling for outgoing posts
-  console.log(`🔄 Starting outgoing post poll (interval: ${POLL_INTERVAL_MS}ms)`);
+  // Start polling for outgoing duo posts
+  console.log(`🔄 Starting duo post poll (interval: ${POLL_INTERVAL_MS}ms)`);
   setInterval(pollOutgoingPosts, POLL_INTERVAL_MS);
+
+  // Start polling for outgoing LFT posts
+  const LFT_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_LFT_POLL_INTERVAL_MS || '30000', 10);
+  console.log(`🔄 Starting LFT post poll (interval: ${LFT_POLL_INTERVAL_MS}ms)`);
+  setInterval(pollOutgoingLftPosts, LFT_POLL_INTERVAL_MS);
 
   // Start polling for DM notifications
   console.log(`📨 Starting DM notification poll (interval: ${DM_POLL_INTERVAL_MS}ms)`);
@@ -530,18 +859,36 @@ client.once(Events.ClientReady, async (c) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
+  // Slash commands
+  if (interaction.isChatInputCommand()) {
+    const { commandName } = interaction;
+    if (commandName === 'linkserver') {
+      await handleLinkServer(interaction);
+    } else if (commandName === 'setup') {
+      await handleSetup(interaction);
+    }
+    return;
+  }
 
-  const { commandName } = interaction;
+  // Button interactions (setup flow)
+  if (interaction.isButton()) {
+    // Only allow administrators for setup buttons
+    const member = interaction.member as any;
+    if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
+      return interaction.reply({ content: '❌ Only administrators can configure feeds.', ephemeral: true });
+    }
+    await handleButtonInteraction(interaction as ButtonInteraction);
+    return;
+  }
 
-  if (commandName === 'linkserver') {
-    await handleLinkServer(interaction);
-  } else if (commandName === 'setfeedchannel') {
-    await handleSetFeedChannel(interaction);
-  } else if (commandName === 'removefeedchannel') {
-    await handleRemoveFeedChannel(interaction);
-  } else if (commandName === 'listfeedchannels') {
-    await handleListFeedChannels(interaction);
+  // Select menu interactions (filter menus)
+  if (interaction.isStringSelectMenu()) {
+    const member = interaction.member as any;
+    if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
+      return interaction.reply({ content: '❌ Only administrators can configure feeds.', ephemeral: true });
+    }
+    await handleSelectMenuInteraction(interaction as StringSelectMenuInteraction);
+    return;
   }
 });
 
