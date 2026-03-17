@@ -99,7 +99,10 @@ export default function AdminUsersPage() {
       setPageLoading(true);
       const offset = page * pageSize;
       const res = await fetch(
-        `${API_URL}/api/admin/users?userId=${encodeURIComponent(user.id)}&offset=${offset}&limit=${pageSize}&search=${encodeURIComponent(search)}`
+        `${API_URL}/api/admin/users?offset=${offset}&limit=${pageSize}&search=${encodeURIComponent(search)}`,
+        {
+          headers: getAuthHeader() as Record<string, string>,
+        }
       );
 
       if (res.ok) {
