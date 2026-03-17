@@ -76,6 +76,149 @@ interface PublicMatchup {
   createdAt: string;
 }
 
+// Compact card component for featured sections
+interface FeaturedMatchupCardProps {
+  matchup: PublicMatchup;
+  onClick: () => void;
+  getDifficultyLabel: (difficulty: string) => string;
+  getNetLikes: (matchup: PublicMatchup) => string;
+  user: any;
+  handleVote: (id: string, isLike: boolean) => void;
+  handleDownload: (id: string) => void;
+  handleRemove: (id: string) => void;
+  t: (key: any) => string;
+}
+
+const FeaturedMatchupCard: React.FC<FeaturedMatchupCardProps> = ({
+  matchup,
+  onClick,
+  getDifficultyLabel,
+  getNetLikes,
+  user,
+  handleVote,
+  handleDownload,
+  handleRemove,
+  t,
+}) => {
+  const difficultyColor = DIFFICULTY_COLORS[matchup.difficulty] || DIFFICULTY_COLORS.SKILL_MATCHUP;
+  const netLikes = getNetLikes(matchup);
+  const isOwnMatchup = user && matchup.authorId === user.id;
+
+  return (
+    <div 
+      className="rounded-lg p-4 transition-all hover:shadow-lg cursor-pointer"
+      style={{
+        backgroundColor: 'var(--color-bg-secondary)',
+        border: '1px solid var(--color-border)',
+      }}
+      onClick={onClick}
+    >
+      {/* Champions */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Image
+            src={getChampionIconUrl(matchup.myChampion)}
+            alt={matchup.myChampion}
+            width={36}
+            height={36}
+            className="rounded"
+          />
+          <span 
+            className="text-xs font-bold"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
+            VS
+          </span>
+          <Image
+            src={getChampionIconUrl(matchup.enemyChampion)}
+            alt={matchup.enemyChampion}
+            width={36}
+            height={36}
+            className="rounded"
+          />
+        </div>
+        
+        {/* Role badge */}
+        <div 
+          className="flex items-center gap-1 px-2 py-1 rounded text-xs"
+          style={{
+            backgroundColor: 'var(--color-accent-primary-bg)',
+            color: 'var(--color-accent-1)',
+          }}
+        >
+          {getRoleIcon(matchup.role)}
+          <span>{matchup.role}</span>
+        </div>
+      </div>
+      
+      {/* Title */}
+      <h3 
+        className="font-semibold text-sm mb-1 truncate"
+        style={{ color: 'var(--color-text-primary)' }}
+      >
+        {matchup.title}
+      </h3>
+      
+      {/* Author */}
+      <p 
+        className="text-xs mb-2"
+        style={{ color: 'var(--color-text-muted)' }}
+      >
+        {t('matchups.author')}: {matchup.authorUsername}
+      </p>
+      
+      {/* Stats */}
+      <div 
+        className="flex items-center justify-between pt-2 border-t text-xs"
+        style={{ borderColor: 'var(--color-border)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2">
+          <span style={{ color: netLikes.startsWith('+') ? '#22c55e' : netLikes === '0' ? 'var(--color-text-muted)' : '#f87171' }}>
+            {netLikes}
+          </span>
+          <span style={{ color: 'var(--color-text-muted)' }}>
+            📥 {matchup.downloadCount}
+          </span>
+        </div>
+        
+        {/* Quick action button */}
+        {!isOwnMatchup && user && (
+          matchup.isDownloaded ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRemove(matchup.id);
+              }}
+              className="px-2 py-1 rounded text-xs transition-all"
+              style={{
+                backgroundColor: 'var(--color-accent-danger-bg)',
+                color: '#f87171',
+              }}
+            >
+              ✓ {t('matchups.downloaded')}
+            </button>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDownload(matchup.id);
+              }}
+              className="px-2 py-1 rounded text-xs transition-all"
+              style={{
+                backgroundColor: 'var(--color-accent-primary-bg)',
+                color: 'var(--color-accent-1)',
+              }}
+            >
+              + {t('matchups.download')}
+            </button>
+          )
+        )}
+      </div>
+    </div>
+  );
+};
+
 const MarketplacePage: React.FC = () => {
   const router = useRouter();
   const { user } = useAuth();
@@ -87,6 +230,11 @@ const MarketplacePage: React.FC = () => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   
+  // Featured matchups
+  const [trending, setTrending] = useState<PublicMatchup[]>([]);
+  const [bestRated, setBestRated] = useState<PublicMatchup[]>([]);
+  const [showCreateBanner, setShowCreateBanner] = useState(false);
+  
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
@@ -95,6 +243,41 @@ const MarketplacePage: React.FC = () => {
   
   const limit = 12;
   const [offset, setOffset] = useState(0);
+  
+  // Fetch featured matchups and check library count
+  useEffect(() => {
+    const fetchFeaturedAndCount = async () => {
+      try {
+        // Fetch featured matchups
+        const headers: Record<string, string> = {};
+        if (user) {
+          Object.assign(headers, getAuthHeader());
+        }
+        
+        const featuredResponse = await fetch(`${API_URL}/api/matchups/featured`, { headers });
+        if (featuredResponse.ok) {
+          const data = await featuredResponse.json();
+          setTrending(data.trending || []);
+          setBestRated(data.bestRated || []);
+        }
+        
+        // Check if user has < 5 guides to show create banner
+        if (user) {
+          const countResponse = await fetch(`${API_URL}/api/matchups/count`, {
+            headers: getAuthHeader() as Record<string, string>,
+          });
+          if (countResponse.ok) {
+            const countData = await countResponse.json();
+            setShowCreateBanner(countData.count < 5);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching featured matchups:', error);
+      }
+    };
+    
+    fetchFeaturedAndCount();
+  }, [user]);
   
   // Fetch public matchups
   const fetchMatchups = async (reset: boolean = false) => {
@@ -326,6 +509,106 @@ const MarketplacePage: React.FC = () => {
             </button>
           </Link>
         </div>
+        
+        {/* Create Your Own Banner - for users with < 5 guides */}
+        {showCreateBanner && (
+          <div 
+            className="rounded-lg p-6 mb-6 flex items-center justify-between"
+            style={{
+              background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent-1) 100%)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            <div>
+              <h3 className="text-xl font-bold text-white mb-1">
+                {t('matchups.createYourOwn')}
+              </h3>
+              <p className="text-white/80 text-sm">
+                {t('matchups.createYourOwnDesc')}
+              </p>
+            </div>
+            <Link href="/matchups/create">
+              <button 
+                className="px-6 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"
+                style={{
+                  backgroundColor: 'white',
+                  color: 'var(--color-primary)',
+                }}
+              >
+                + {t('matchups.createNew')}
+              </button>
+            </Link>
+          </div>
+        )}
+        
+        {/* Featured Sections */}
+        {(trending.length > 0 || bestRated.length > 0) && (
+          <div className="mb-8 space-y-6">
+            {/* Trending Guides */}
+            {trending.length > 0 && (
+              <div>
+                <h2 
+                  className="text-xl font-bold mb-4 flex items-center gap-2"
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  🔥 {t('matchups.trending')}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {trending.map((matchup) => (
+                    <FeaturedMatchupCard
+                      key={`trending-${matchup.id}`}
+                      matchup={matchup}
+                      onClick={() => router.push(`/matchups/${matchup.id}`)}
+                      getDifficultyLabel={getDifficultyLabel}
+                      getNetLikes={getNetLikes}
+                      user={user}
+                      handleVote={handleVote}
+                      handleDownload={handleDownload}
+                      handleRemove={handleRemove}
+                      t={t}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Best Rated Guides */}
+            {bestRated.length > 0 && (
+              <div>
+                <h2 
+                  className="text-xl font-bold mb-4 flex items-center gap-2"
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  ⭐ {t('matchups.bestRated')}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {bestRated.map((matchup) => (
+                    <FeaturedMatchupCard
+                      key={`bestrated-${matchup.id}`}
+                      matchup={matchup}
+                      onClick={() => router.push(`/matchups/${matchup.id}`)}
+                      getDifficultyLabel={getDifficultyLabel}
+                      getNetLikes={getNetLikes}
+                      user={user}
+                      handleVote={handleVote}
+                      handleDownload={handleDownload}
+                      handleRemove={handleRemove}
+                      t={t}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* All Matchups Section Header */}
+        <h2 
+          className="text-xl font-bold mb-4"
+          style={{ color: 'var(--color-text-primary)' }}
+        >
+          {t('matchups.allGuides')}
+        </h2>
         
         {/* Filters */}
         <div 

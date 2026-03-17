@@ -676,6 +676,11 @@ export type TranslationKey =
   | 'matchups.difficulty.hard'
   | 'matchups.difficulty.very_hard'
   | 'matchups.difficulty.free_lose'
+  | 'matchups.trending'
+  | 'matchups.bestRated'
+  | 'matchups.allGuides'
+  | 'matchups.createYourOwn'
+  | 'matchups.createYourOwnDesc'
   | 'common.loadMore';
 
 export type Translations = Record<TranslationKey, string>;
@@ -1332,6 +1337,11 @@ export const translations: Record<LanguageCode, Translations> = {
     'matchups.difficulty.hard': 'Hard',
     'matchups.difficulty.very_hard': 'Very Hard',
     'matchups.difficulty.free_lose': 'Free Lose',
+    'matchups.trending': 'Trending',
+    'matchups.bestRated': 'Best Rated',
+    'matchups.allGuides': 'All Guides',
+    'matchups.createYourOwn': 'Create Your Own Guide!',
+    'matchups.createYourOwnDesc': 'Share your knowledge with the community and help others master their matchups.',
     'common.loadMore': 'Load More',
   },
   
@@ -1985,6 +1995,11 @@ export const translations: Record<LanguageCode, Translations> = {
     'matchups.difficulty.hard': 'Difficile',
     'matchups.difficulty.very_hard': 'Très Difficile',
     'matchups.difficulty.free_lose': 'Défaite Assurée',
+    'matchups.trending': 'Tendances',
+    'matchups.bestRated': 'Mieux Notés',
+    'matchups.allGuides': 'Tous les Guides',
+    'matchups.createYourOwn': 'Créez Votre Guide!',
+    'matchups.createYourOwnDesc': 'Partagez vos connaissances avec la communauté et aidez les autres à maîtriser leurs matchups.',
     'common.loadMore': 'Charger Plus',
   },
 };

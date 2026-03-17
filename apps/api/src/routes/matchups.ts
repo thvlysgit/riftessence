@@ -81,6 +81,8 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
         })
         .map((sm: any) => ({
           ...sm.matchup,
+          authorId: sm.matchup.userId,
+          authorUsername: sm.matchup.user?.username || 'Unknown',
           isSaved: true,
           isOwned: false,
         }));
@@ -88,6 +90,8 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
       // Mark owned matchups
       const ownedWithMeta = ownedMatchups.map((m: any) => ({
         ...m,
+        authorId: m.userId,
+        authorUsername: m.user?.username || 'Unknown',
         isSaved: false,
         isOwned: true,
       }));
@@ -132,10 +136,9 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
     }
   });
   
-  // GET /api/matchups/:id - Get single matchup
+  // GET /api/matchups/:id - Get single matchup (public matchups viewable without auth)
   fastify.get('/matchups/:id', async (request: any, reply: any) => {
-    const userId = await getUserIdFromRequest(request, reply);
-    if (!userId) return;
+    const userId = await getUserIdFromRequest(request, reply, false); // Optional auth
     
     const { id } = request.params;
     
@@ -166,7 +169,21 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
         return reply.code(403).send({ error: 'Access denied' });
       }
       
-      return reply.send({ matchup });
+      // Format response with author info
+      const likeCount = matchup.likes.filter((l: any) => l.isLike).length;
+      const dislikeCount = matchup.likes.filter((l: any) => !l.isLike).length;
+      const userVote = userId ? matchup.likes.find((l: any) => l.userId === userId) : null;
+      
+      const formattedMatchup = {
+        ...matchup,
+        authorId: matchup.userId,
+        authorUsername: matchup.user?.username || 'Unknown',
+        likeCount,
+        dislikeCount,
+        userVote: userVote ? (userVote.isLike ? 'like' : 'dislike') : null,
+      };
+      
+      return reply.send({ matchup: formattedMatchup });
     } catch (error: any) {
       request.log.error({ err: error, userId, matchupId: id }, 'Failed to fetch matchup');
       return reply.code(500).send({ error: 'Failed to fetch matchup' });
@@ -230,6 +247,120 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
     } catch (error: any) {
       request.log.error({ err: error, userId, matchupId: id }, 'Failed to delete matchup');
       return reply.code(500).send({ error: 'Failed to delete matchup' });
+    }
+  });
+  
+  // GET /api/matchups/count - Get user's matchup library count (for smart default view)
+  fastify.get('/matchups/count', async (request: any, reply: any) => {
+    const userId = await getUserIdFromRequest(request, reply);
+    if (!userId) return;
+    
+    try {
+      // Count owned matchups
+      const ownedCount = await prisma.matchup.count({
+        where: { userId },
+      });
+      
+      // Count saved matchups
+      const savedCount = await prisma.savedMatchup.count({
+        where: { userId },
+      });
+      
+      const total = ownedCount + savedCount;
+      
+      return reply.send({ count: total, owned: ownedCount, saved: savedCount });
+    } catch (error: any) {
+      request.log.error({ err: error, userId }, 'Failed to get matchup count');
+      return reply.code(500).send({ error: 'Failed to get matchup count' });
+    }
+  });
+  
+  // GET /api/matchups/featured - Get trending and best-rated matchups for marketplace
+  fastify.get('/matchups/featured', async (request: any, reply: any) => {
+    const userId = await getUserIdFromRequest(request, reply, false); // Optional auth
+    
+    try {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      // Get all public matchups with their likes
+      const publicMatchups = await prisma.matchup.findMany({
+        where: { isPublic: true },
+        include: {
+          user: {
+            select: { id: true, username: true },
+          },
+          likes: {
+            select: { isLike: true, createdAt: true, userId: true },
+          },
+        },
+      });
+      
+      // Check which matchups user has saved
+      let userSavedMatchups: { matchupId: string }[] = [];
+      if (userId) {
+        userSavedMatchups = await prisma.savedMatchup.findMany({
+          where: { userId },
+          select: { matchupId: true },
+        });
+      }
+      
+      // Calculate scores for each matchup
+      const processedMatchups = publicMatchups.map((m: any) => {
+        const likeCount = m.likes.filter((l: any) => l.isLike).length;
+        const dislikeCount = m.likes.filter((l: any) => !l.isLike).length;
+        const totalVotes = likeCount + dislikeCount;
+        
+        // Trending score: interactions in last 7 days
+        const recentInteractions = m.likes.filter((l: any) => 
+          new Date(l.createdAt) >= sevenDaysAgo
+        ).length;
+        
+        // Best rated score: weighted by engagement
+        // Formula: likeCount * (likeCount / totalVotes) - gives higher weight to guides with more votes AND good ratio
+        const ratingScore = totalVotes > 0 
+          ? likeCount * (likeCount / totalVotes)
+          : 0;
+        
+        const userVote = userId ? m.likes.find((l: any) => l.userId === userId) : null;
+        const isDownloaded = userId ? userSavedMatchups.some(sm => sm.matchupId === m.id) : false;
+        
+        return {
+          id: m.id,
+          myChampion: m.myChampion,
+          enemyChampion: m.enemyChampion,
+          role: m.role,
+          difficulty: m.difficulty,
+          title: m.title,
+          description: m.description,
+          authorId: m.userId,
+          authorUsername: m.user?.username || 'Unknown',
+          likeCount,
+          dislikeCount,
+          downloadCount: m.downloadCount,
+          userVote: userVote ? (userVote.isLike ? 'like' : 'dislike') : null,
+          isDownloaded,
+          createdAt: m.createdAt,
+          recentInteractions,
+          ratingScore,
+        };
+      });
+      
+      // Get top 3 trending (most recent interactions)
+      const trending = [...processedMatchups]
+        .sort((a, b) => b.recentInteractions - a.recentInteractions || b.downloadCount - a.downloadCount)
+        .slice(0, 3);
+      
+      // Get top 3 best rated (highest rating score, minimum 1 vote to qualify)
+      const bestRated = [...processedMatchups]
+        .filter(m => (m.likeCount + m.dislikeCount) >= 1)
+        .sort((a, b) => b.ratingScore - a.ratingScore || b.downloadCount - a.downloadCount)
+        .slice(0, 3);
+      
+      return reply.send({ trending, bestRated });
+    } catch (error: any) {
+      request.log.error({ err: error }, 'Failed to fetch featured matchups');
+      return reply.code(500).send({ error: 'Failed to fetch featured matchups' });
     }
   });
   

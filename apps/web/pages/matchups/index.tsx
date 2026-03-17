@@ -34,6 +34,7 @@ const MatchupsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [hasCheckedCount, setHasCheckedCount] = useState(false);
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,6 +43,33 @@ const MatchupsPage: React.FC = () => {
   
   const limit = 12;
   const [offset, setOffset] = useState(0);
+  
+  // Check library count and redirect if < 5 guides
+  useEffect(() => {
+    const checkLibraryCount = async () => {
+      if (!user || hasCheckedCount) return;
+      
+      try {
+        const response = await fetch(`${API_URL}/api/matchups/count`, {
+          headers: getAuthHeader() as Record<string, string>,
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.count < 5) {
+            router.replace('/matchups/marketplace');
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking matchup count:', error);
+      }
+      
+      setHasCheckedCount(true);
+    };
+    
+    checkLibraryCount();
+  }, [user, hasCheckedCount, router]);
   
   // Fetch matchups
   const fetchMatchups = async (reset: boolean = false) => {
