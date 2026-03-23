@@ -47,7 +47,9 @@ export default function AdminReportsPage() {
           const data = await res.json();
           console.log('Profile data:', data);
           console.log('Badges:', data.badges);
-          const adminCheck = data.badges?.some((b: string) => b.toLowerCase() === 'admin');
+          const adminCheck = data.badges?.some((b: any) =>
+            (typeof b === 'string' ? b : (b.key || b.name || '')).toLowerCase() === 'admin'
+          );
           console.log('Is admin:', adminCheck);
           setIsAdmin(adminCheck);
           
