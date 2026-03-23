@@ -408,6 +408,7 @@ export type TranslationKey =
   | 'profile.addRiotAccount'
   | 'profile.discord'
   | 'profile.bestRank'
+  | 'profile.peakElo'
   | 'profile.usernamePlaceholder'
   | 'profile.save.usernameSuccess'
   | 'profile.save.usernameError'
@@ -480,6 +481,7 @@ export type TranslationKey =
   | 'common.rank.CHALLENGER'
   | 'common.rank.UNRANKED'
   | 'profile.bestRank'
+  | 'profile.peakElo'
   | 'profile.usernamePlaceholder'
   | 'profile.save.usernameSuccess'
   | 'profile.save.usernameError'
@@ -1104,6 +1106,7 @@ export const translations: Record<LanguageCode, Translations> = {
     'profile.unlink': 'Unlink',
     'profile.noDiscordAccount': 'No Discord account linked',
     'profile.bestRank': 'Best Rank:',
+    'profile.peakElo': 'Peak Elo:',
     'profile.usernamePlaceholder': 'Username',
     'profile.save.usernameSuccess': 'Username updated! ✨',
     'profile.save.usernameError': 'Failed to save username: {error}',
@@ -1762,6 +1765,7 @@ export const translations: Record<LanguageCode, Translations> = {
     'profile.unlink': 'Délier',
     'profile.noDiscordAccount': 'Aucun compte Discord lié',
     'profile.bestRank': 'Meilleur Rang :',
+    'profile.peakElo': 'Elo Maximum :',
     'profile.usernamePlaceholder': 'Nom d\'utilisateur',
     'profile.save.usernameSuccess': 'Nom d\'utilisateur mis à jour ! ✨',
     'profile.save.usernameError': 'Échec de l\'enregistrement du nom d\'utilisateur : {error}',

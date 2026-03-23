@@ -14,6 +14,22 @@ function generatePseudoPuuid(summonerName: string, region: string) {
     .slice(0, 32); // shrink to 32 chars to keep indices smaller
 }
 
+// Rank score calculation for peak elo tracking
+const RANK_VALUES: Record<string, number> = {
+  'IRON': 1, 'BRONZE': 2, 'SILVER': 3, 'GOLD': 4, 'PLATINUM': 5,
+  'EMERALD': 6, 'DIAMOND': 7, 'MASTER': 8, 'GRANDMASTER': 9, 'CHALLENGER': 10, 'UNRANKED': 0,
+};
+const DIVISION_VALUES: Record<string, number> = { 'IV': 1, 'III': 2, 'II': 3, 'I': 4 };
+
+function calculateRankScore(rank: string | null, division: string | null, lp: number | null): number {
+  if (!rank || rank === 'UNRANKED') return 0;
+  const baseScore = (RANK_VALUES[rank] || 0) * 1000;
+  if (['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(rank)) {
+    return baseScore + (lp || 0);
+  }
+  return baseScore + (DIVISION_VALUES[division || 'IV'] || 0) * 100;
+}
+
 export default async function userRoutes(fastify: any) {
   // Verify Riot account and create/link user
   fastify.post('/verify-riot', async (request: any, reply: any) => {
@@ -441,6 +457,10 @@ export default async function userRoutes(fastify: any) {
         skillStars: Math.round(avgStars),
         personalityMoons: Math.round(avgMoons),
         reportCount: user.reportCount || 0,
+        peakRank: user.peakRank || null,
+        peakDivision: user.peakDivision || null,
+        peakLp: user.peakLp || null,
+        peakDate: user.peakDate?.toISOString() || null,
         badges: user.badges.map((b: any) => ({ key: b.key, name: b.name })),
         championPoolMode: user.championPoolMode,
         championList: user.championList || [],
@@ -784,6 +804,40 @@ export default async function userRoutes(fastify: any) {
           });
         } catch (err) {
           fastify.log.warn({ err }, `Failed to refresh stats for account ${acc.id}`);
+        }
+      }
+
+      // Update peak elo if current highest rank is higher than stored peak
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { riotAccounts: true }
+      });
+      if (updatedUser) {
+        let highestScore = 0;
+        let highestRank: string | null = null;
+        let highestDiv: string | null = null;
+        let highestLp: number | null = null;
+        for (const acc of updatedUser.riotAccounts) {
+          const score = calculateRankScore(acc.rank, acc.division, acc.lp);
+          if (score > highestScore) {
+            highestScore = score;
+            highestRank = acc.rank;
+            highestDiv = acc.division;
+            highestLp = acc.lp;
+          }
+        }
+        const peakScore = calculateRankScore(updatedUser.peakRank, updatedUser.peakDivision, updatedUser.peakLp);
+        if (highestScore > peakScore) {
+          await prisma.user.update({
+            where: { id: userId },
+            data: {
+              peakRank: highestRank as any,
+              peakDivision: highestDiv,
+              peakLp: highestLp,
+              peakDate: new Date(),
+            },
+          });
+          fastify.log.info({ userId, peak: { rank: highestRank, division: highestDiv, lp: highestLp } }, 'New peak elo recorded');
         }
       }
 

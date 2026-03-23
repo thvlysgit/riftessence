@@ -332,6 +332,10 @@ type UserProfile = {
   skillStars: number;
   personalityMoons: number;
   reportCount: number;
+  peakRank: string | null;
+  peakDivision: string | null;
+  peakLp: number | null;
+  peakDate: string | null;
   badges: Array<string | { id: string; key: string; name: string; description?: string }>;
   championPoolMode: 'LIST' | 'TIERLIST';
   championList: string[];
@@ -1353,6 +1357,18 @@ export default function ProfilePage() {
                     </div>
                   );
                 })()
+              )}
+              {/* Peak Elo */}
+              {user.peakRank && user.peakRank !== 'UNRANKED' && (
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('profile.peakElo')}</span>
+                  {getRankBadge(user.peakRank, user.peakDivision || undefined, user.peakLp || undefined, rankColor, t)}
+                  {user.peakDate && (
+                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      ({new Date(user.peakDate).toLocaleDateString()})
+                    </span>
+                  )}
+                </div>
               )}
               {user.bio && (
                 <p className="text-sm mt-2" style={{ color: 'var(--text-main)' }}>{user.bio}</p>

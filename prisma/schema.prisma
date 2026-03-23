@@ -118,7 +118,13 @@ model User {
   discordDmNotifications Boolean @default(false) // Opt-in: forward in-app chat messages to Discord DMs
 
   reportCount    Int       @default(0) // Number of accepted reports against this user
-  
+
+  // Peak Elo tracking (highest rank ever achieved across all accounts)
+  peakRank       Rank?
+  peakDivision   String?   // I, II, III, IV (null for Master+)
+  peakLp         Int?      // LP at peak (meaningful for Master+)
+  peakDate       DateTime? // When peak was achieved
+
   // Champion pool settings
   championPoolMode ChampionPoolDisplayMode @default(LIST)
   championList     String[]  @default([]) // Array of champion names (max 5)
