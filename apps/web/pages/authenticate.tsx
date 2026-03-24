@@ -284,20 +284,37 @@ export default function AuthenticatePage(): JSX.Element {
           {currentIcon !== null && (
             <div className="mt-8 pt-6" style={{ borderTop: '2px solid var(--border-card)' }}>
               <div className="rounded-lg p-4 mb-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
-                <div className="flex items-center">
-                  <span className="text-sm font-semibold mr-4" style={{ color: 'var(--accent-primary)' }}>Account found! Current icon:</span>
-                  {currentIcon !== null && (
-                    <div className="flex items-center">
-                      <img
-                        src={`https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${currentIcon}.png`}
-                        alt={`Icon ${currentIcon}`}
-                        className="w-10 h-10 rounded-md mr-3"
-                        style={{ boxShadow: 'var(--shadow-md)' }}
-                      />
-                      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>ID: {currentIcon}</span>
-                    </div>
-                  )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <span className="text-sm font-semibold mr-4" style={{ color: 'var(--accent-primary)' }}>Account found! Current icon:</span>
+                    {currentIcon !== null && (
+                      <div className="flex items-center">
+                        <img
+                          src={`https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${currentIcon}.png`}
+                          alt={`Icon ${currentIcon}`}
+                          className="w-10 h-10 rounded-md mr-3"
+                          style={{ boxShadow: 'var(--shadow-md)' }}
+                        />
+                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>ID: {currentIcon}</span>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleLookup}
+                    disabled={loadingLookup}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
+                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)', color: 'var(--text-secondary)' }}
+                    title="Refresh to check if icon changed"
+                  >
+                    <svg className={`w-4 h-4 ${loadingLookup ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh
+                  </button>
                 </div>
+                <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                  Note: Riot's servers may take 1-2 minutes to update after changing your icon. Use Refresh to check.
+                </p>
               </div>
 
               <div className="space-y-4">

@@ -362,17 +362,34 @@ export default function RateUserPage(): JSX.Element {
         return (
           <div className="space-y-4">
             <div className="rounded-lg p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
-              <div className="flex items-center">
-                <span className="text-sm font-semibold mr-4" style={{ color: 'var(--accent-primary)' }}>Your current icon:</span>
-                {currentIcon !== null && (
-                  <img
-                    src={`https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${currentIcon}.png`}
-                    alt={`Icon ${currentIcon}`}
-                    className="w-10 h-10 rounded-md"
-                    style={{ boxShadow: 'var(--shadow-md)' }}
-                  />
-                )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <span className="text-sm font-semibold mr-4" style={{ color: 'var(--accent-primary)' }}>Your current icon:</span>
+                  {currentIcon !== null && (
+                    <img
+                      src={`https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${currentIcon}.png`}
+                      alt={`Icon ${currentIcon}`}
+                      className="w-10 h-10 rounded-md"
+                      style={{ boxShadow: 'var(--shadow-md)' }}
+                    />
+                  )}
+                </div>
+                <button
+                  onClick={handleLookup}
+                  disabled={loadingLookup}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
+                  style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)', color: 'var(--text-secondary)' }}
+                  title="Refresh to check if icon changed"
+                >
+                  <svg className={`w-4 h-4 ${loadingLookup ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
               </div>
+              <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                Note: Riot's servers may take 1-2 minutes to update after changing your icon. Use Refresh to check.
+              </p>
             </div>
 
             <div>
