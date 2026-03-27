@@ -2,19 +2,17 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import SEOHead from '../../components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
-import { useLanguage } from '../../contexts/LanguageContext';
 import NoAccess from '../../components/NoAccess';
 
 const TeamsDashboardPage: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'my-teams' | 'invitations'>('my-teams');
 
   if (!user) {
     return (
       <div className="min-h-screen py-10 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
         <div className="max-w-4xl mx-auto">
-          <NoAccess action="view-teams" showButtons={true} />
+          <NoAccess action="view" showButtons={true} />
         </div>
       </div>
     );
