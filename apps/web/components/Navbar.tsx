@@ -27,14 +27,16 @@ export default function Navbar() {
   const { t, currentLanguage } = useLanguage();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isTeamsMenuOpen, setIsTeamsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
-  
+
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  const teamsMenuRef = useRef<HTMLDivElement>(null);
 
   // Theme-based logo SVG icon
   const getThemeLogo = () => {
@@ -123,6 +125,9 @@ export default function Navbar() {
       }
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowSearchResults(false);
+      }
+      if (teamsMenuRef.current && !teamsMenuRef.current.contains(event.target as Node)) {
+        setIsTeamsMenuOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -252,7 +257,95 @@ export default function Navbar() {
             {/* Desktop Navigation Links */}
             <div className="hidden md:flex items-center space-x-1">
               <NavLink href="/feed">LFD</NavLink>
-              <NavLink href="/lft">LFT</NavLink>
+
+              {/* Teams Dropdown */}
+              <div className="relative" ref={teamsMenuRef}>
+                <button
+                  onClick={() => setIsTeamsMenuOpen(!isTeamsMenuOpen)}
+                  className="px-3 py-2 text-sm font-medium transition-colors flex items-center gap-1"
+                  style={{
+                    color: 'var(--color-text-secondary)',
+                    borderRadius: 'var(--border-radius)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--color-accent-1)';
+                    e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isTeamsMenuOpen) {
+                      e.currentTarget.style.color = 'var(--color-text-secondary)';
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                >
+                  Teams
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {isTeamsMenuOpen && (
+                  <div
+                    className="absolute left-0 mt-2 w-48 border py-1 z-50"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      borderColor: 'var(--color-border)',
+                      borderRadius: 'var(--border-radius)',
+                      boxShadow: 'var(--shadow)',
+                    }}
+                  >
+                    <Link
+                      href="/lft"
+                      onClick={() => setIsTeamsMenuOpen(false)}
+                      className="block px-4 py-2 text-sm transition-colors"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
+                        e.currentTarget.style.color = 'var(--color-accent-1)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = 'var(--color-text-secondary)';
+                      }}
+                    >
+                      LFT
+                    </Link>
+                    <Link
+                      href="/teams/dashboard"
+                      onClick={() => setIsTeamsMenuOpen(false)}
+                      className="block px-4 py-2 text-sm transition-colors"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
+                        e.currentTarget.style.color = 'var(--color-accent-1)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = 'var(--color-text-secondary)';
+                      }}
+                    >
+                      Teams Dashboard
+                    </Link>
+                    <Link
+                      href="/teams/schedule"
+                      onClick={() => setIsTeamsMenuOpen(false)}
+                      className="block px-4 py-2 text-sm transition-colors"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
+                        e.currentTarget.style.color = 'var(--color-accent-1)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = 'var(--color-text-secondary)';
+                      }}
+                    >
+                      Team Schedule
+                    </Link>
+                  </div>
+                )}
+              </div>
+
               <NavLink href="/matchups">Matchups</NavLink>
               <NavLink href="/coaching">Coaching</NavLink>
               <NavLink href="/profile">Profile</NavLink>
@@ -654,7 +747,12 @@ export default function Navbar() {
             
             {/* Mobile Navigation Links */}
             <MobileNavLink href="/feed">LFD</MobileNavLink>
+            <div className="px-4 py-1">
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>Teams</p>
+            </div>
             <MobileNavLink href="/lft">LFT</MobileNavLink>
+            <MobileNavLink href="/teams/dashboard">Teams Dashboard</MobileNavLink>
+            <MobileNavLink href="/teams/schedule">Team Schedule</MobileNavLink>
             <MobileNavLink href="/matchups">Matchups</MobileNavLink>
             <MobileNavLink href="/coaching">Coaching</MobileNavLink>
             <MobileNavLink href="/profile">Profile</MobileNavLink>
