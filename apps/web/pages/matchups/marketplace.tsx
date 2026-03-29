@@ -93,6 +93,8 @@ const MarketplacePage: React.FC = () => {
   // Featured matchup IDs for labeling
   const [trendingIds, setTrendingIds] = useState<Set<string>>(new Set());
   const [bestRatedIds, setBestRatedIds] = useState<Set<string>>(new Set());
+  const [trendingMatchups, setTrendingMatchups] = useState<PublicMatchup[]>([]);
+  const [bestRatedMatchups, setBestRatedMatchups] = useState<PublicMatchup[]>([]);
   const [showCreateBanner, setShowCreateBanner] = useState(false);
   
   // Filters
@@ -120,6 +122,9 @@ const MarketplacePage: React.FC = () => {
           // Store IDs for labeling
           setTrendingIds(new Set((data.trending || []).map((m: PublicMatchup) => m.id)));
           setBestRatedIds(new Set((data.bestRated || []).map((m: PublicMatchup) => m.id)));
+          // Store full matchups for featured sections
+          setTrendingMatchups(data.trending || []);
+          setBestRatedMatchups(data.bestRated || []);
         }
 
         // Check if user has < 5 guides to show create banner
@@ -401,7 +406,471 @@ const MarketplacePage: React.FC = () => {
             </Link>
           </div>
         )}
-        
+
+        {/* Trending Matchups Section */}
+        {trendingMatchups.length > 0 && (
+          <div className="mb-8">
+            <h2
+              className="text-xl font-bold mb-4 flex items-center gap-2"
+              style={{ color: 'var(--color-text-primary)' }}
+            >
+              <span>🔥</span>
+              <span>{t('matchups.trendingGuides')}</span>
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {trendingMatchups.map((matchup) => {
+                const difficultyColor = DIFFICULTY_COLORS[matchup.difficulty] || DIFFICULTY_COLORS.SKILL_MATCHUP;
+                const netLikes = getNetLikes(matchup);
+                const isOwnMatchup = user && matchup.authorId === user.id;
+
+                return (
+                  <div
+                    key={matchup.id}
+                    className="rounded-lg p-4 transition-all hover:shadow-lg cursor-pointer relative"
+                    style={{
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      border: '1px solid var(--color-border)',
+                    }}
+                    onClick={() => router.push(`/matchups/${matchup.id}`)}
+                  >
+                    {/* Trending Badge */}
+                    <div className="flex gap-2 mb-3">
+                      <span
+                        className="px-2 py-1 rounded text-xs font-semibold"
+                        style={{
+                          backgroundColor: '#f97316',
+                          color: 'white',
+                        }}
+                      >
+                        🔥 {t('matchups.trending')}
+                      </span>
+                    </div>
+
+                    {/* Champions */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <Image
+                          src={getChampionIconUrl(matchup.myChampion)}
+                          alt={matchup.myChampion}
+                          width={40}
+                          height={40}
+                          className="rounded"
+                        />
+                        <span
+                          className="text-sm font-bold"
+                          style={{ color: 'var(--color-text-muted)' }}
+                        >
+                          VS
+                        </span>
+                        <Image
+                          src={getChampionIconUrl(matchup.enemyChampion)}
+                          alt={matchup.enemyChampion}
+                          width={40}
+                          height={40}
+                          className="rounded"
+                        />
+                      </div>
+
+                      {/* Badges */}
+                      <div className="flex flex-col gap-1 items-end">
+                        <div
+                          className="flex items-center gap-1 px-2 py-1 rounded text-xs"
+                          style={{
+                            backgroundColor: 'var(--color-accent-primary-bg)',
+                            color: 'var(--color-accent-1)',
+                          }}
+                        >
+                          {getRoleIcon(matchup.role)}
+                          <span>{matchup.role}</span>
+                        </div>
+
+                        <div
+                          className="px-2 py-1 rounded text-xs font-semibold"
+                          style={{
+                            backgroundColor: `${difficultyColor}20`,
+                            color: difficultyColor,
+                          }}
+                        >
+                          {getDifficultyLabel(matchup.difficulty)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Title & Description */}
+                    <h3
+                      className="font-semibold text-lg mb-2"
+                      style={{ color: 'var(--color-text-primary)' }}
+                    >
+                      {matchup.title}
+                    </h3>
+                    <p
+                      className="text-sm mb-3 line-clamp-2"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                    >
+                      {matchup.description || 'No description provided'}
+                    </p>
+
+                    {/* Author */}
+                    <div
+                      className="text-xs mb-4"
+                      style={{ color: 'var(--color-text-muted)' }}
+                    >
+                      {t('matchups.author')}: <Link href={`/profile/${matchup.authorUsername}`} onClick={(e) => e.stopPropagation()} className="underline hover:opacity-75">{matchup.authorUsername}</Link>
+                    </div>
+
+                    {/* Stats & Actions */}
+                    <div
+                      className="flex items-center justify-between pt-3 border-t"
+                      style={{ borderColor: 'var(--color-border)' }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-3 text-sm">
+                        <span style={{ color: netLikes.startsWith('+') ? '#22c55e' : '#f87171' }}>
+                          {netLikes}
+                        </span>
+                        <span style={{ color: 'var(--color-text-muted)' }}>
+                          📥 {matchup.downloadCount}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {/* Like Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isOwnMatchup) {
+                              handleVote(matchup.id, true);
+                            }
+                          }}
+                          disabled={isOwnMatchup || !user}
+                          className={`p-2 rounded transition-all ${
+                            matchup.userVote === 'like' ? 'opacity-100' : 'opacity-50 hover:opacity-75'
+                          }`}
+                          style={{
+                            backgroundColor: matchup.userVote === 'like'
+                              ? 'var(--color-accent-success-bg)'
+                              : 'var(--color-bg-tertiary)',
+                            color: matchup.userVote === 'like'
+                              ? '#22c55e'
+                              : 'var(--color-text-secondary)',
+                            cursor: isOwnMatchup || !user ? 'not-allowed' : 'pointer',
+                          }}
+                          title={isOwnMatchup ? 'Cannot vote on own matchup' : t('matchups.like')}
+                        >
+                          👍
+                        </button>
+
+                        {/* Dislike Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isOwnMatchup) {
+                              handleVote(matchup.id, false);
+                            }
+                          }}
+                          disabled={isOwnMatchup || !user}
+                          className={`p-2 rounded transition-all ${
+                            matchup.userVote === 'dislike' ? 'opacity-100' : 'opacity-50 hover:opacity-75'
+                          }`}
+                          style={{
+                            backgroundColor: matchup.userVote === 'dislike'
+                              ? 'var(--color-accent-danger-bg)'
+                              : 'var(--color-bg-tertiary)',
+                            color: matchup.userVote === 'dislike'
+                              ? '#f87171'
+                              : 'var(--color-text-secondary)',
+                            cursor: isOwnMatchup || !user ? 'not-allowed' : 'pointer',
+                          }}
+                          title={isOwnMatchup ? 'Cannot vote on own matchup' : t('matchups.dislike')}
+                        >
+                          👎
+                        </button>
+
+                        {/* Add/Remove from Library Button */}
+                        {matchup.isDownloaded ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isOwnMatchup) {
+                                handleRemove(matchup.id);
+                              }
+                            }}
+                            disabled={isOwnMatchup || !user}
+                            className="px-3 py-2 rounded text-sm font-medium transition-all"
+                            style={{
+                              backgroundColor: 'var(--color-accent-danger-bg)',
+                              color: '#f87171',
+                              border: '1px solid var(--color-accent-danger-border)',
+                              cursor: isOwnMatchup || !user ? 'not-allowed' : 'pointer',
+                              opacity: isOwnMatchup ? 0.5 : 1,
+                            }}
+                            title={isOwnMatchup ? 'Your own matchup' : t('matchups.removeFromLibrary')}
+                          >
+                            {t('matchups.removeFromLibrary')}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isOwnMatchup) {
+                                handleDownload(matchup.id);
+                              }
+                            }}
+                            disabled={isOwnMatchup || !user}
+                            className="px-3 py-2 rounded text-sm font-medium transition-all"
+                            style={{
+                              backgroundColor: 'var(--color-accent-primary-bg)',
+                              color: 'var(--color-accent-1)',
+                              border: '1px solid var(--color-accent-primary-border)',
+                              cursor: isOwnMatchup || !user ? 'not-allowed' : 'pointer',
+                              opacity: isOwnMatchup ? 0.5 : 1,
+                            }}
+                            title={isOwnMatchup ? 'Your own matchup' : t('matchups.addToLibrary')}
+                          >
+                            {t('matchups.addToLibrary')}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Best Rated Matchups Section */}
+        {bestRatedMatchups.length > 0 && (
+          <div className="mb-8">
+            <h2
+              className="text-xl font-bold mb-4 flex items-center gap-2"
+              style={{ color: 'var(--color-text-primary)' }}
+            >
+              <span>⭐</span>
+              <span>{t('matchups.bestRatedGuides')}</span>
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {bestRatedMatchups.map((matchup) => {
+                const difficultyColor = DIFFICULTY_COLORS[matchup.difficulty] || DIFFICULTY_COLORS.SKILL_MATCHUP;
+                const netLikes = getNetLikes(matchup);
+                const isOwnMatchup = user && matchup.authorId === user.id;
+
+                return (
+                  <div
+                    key={matchup.id}
+                    className="rounded-lg p-4 transition-all hover:shadow-lg cursor-pointer relative"
+                    style={{
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      border: '1px solid var(--color-border)',
+                    }}
+                    onClick={() => router.push(`/matchups/${matchup.id}`)}
+                  >
+                    {/* Best Rated Badge */}
+                    <div className="flex gap-2 mb-3">
+                      <span
+                        className="px-2 py-1 rounded text-xs font-semibold"
+                        style={{
+                          backgroundColor: '#eab308',
+                          color: 'white',
+                        }}
+                      >
+                        ⭐ {t('matchups.bestRated')}
+                      </span>
+                    </div>
+
+                    {/* Champions */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <Image
+                          src={getChampionIconUrl(matchup.myChampion)}
+                          alt={matchup.myChampion}
+                          width={40}
+                          height={40}
+                          className="rounded"
+                        />
+                        <span
+                          className="text-sm font-bold"
+                          style={{ color: 'var(--color-text-muted)' }}
+                        >
+                          VS
+                        </span>
+                        <Image
+                          src={getChampionIconUrl(matchup.enemyChampion)}
+                          alt={matchup.enemyChampion}
+                          width={40}
+                          height={40}
+                          className="rounded"
+                        />
+                      </div>
+
+                      {/* Badges */}
+                      <div className="flex flex-col gap-1 items-end">
+                        <div
+                          className="flex items-center gap-1 px-2 py-1 rounded text-xs"
+                          style={{
+                            backgroundColor: 'var(--color-accent-primary-bg)',
+                            color: 'var(--color-accent-1)',
+                          }}
+                        >
+                          {getRoleIcon(matchup.role)}
+                          <span>{matchup.role}</span>
+                        </div>
+
+                        <div
+                          className="px-2 py-1 rounded text-xs font-semibold"
+                          style={{
+                            backgroundColor: `${difficultyColor}20`,
+                            color: difficultyColor,
+                          }}
+                        >
+                          {getDifficultyLabel(matchup.difficulty)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Title & Description */}
+                    <h3
+                      className="font-semibold text-lg mb-2"
+                      style={{ color: 'var(--color-text-primary)' }}
+                    >
+                      {matchup.title}
+                    </h3>
+                    <p
+                      className="text-sm mb-3 line-clamp-2"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                    >
+                      {matchup.description || 'No description provided'}
+                    </p>
+
+                    {/* Author */}
+                    <div
+                      className="text-xs mb-4"
+                      style={{ color: 'var(--color-text-muted)' }}
+                    >
+                      {t('matchups.author')}: <Link href={`/profile/${matchup.authorUsername}`} onClick={(e) => e.stopPropagation()} className="underline hover:opacity-75">{matchup.authorUsername}</Link>
+                    </div>
+
+                    {/* Stats & Actions */}
+                    <div
+                      className="flex items-center justify-between pt-3 border-t"
+                      style={{ borderColor: 'var(--color-border)' }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-3 text-sm">
+                        <span style={{ color: netLikes.startsWith('+') ? '#22c55e' : '#f87171' }}>
+                          {netLikes}
+                        </span>
+                        <span style={{ color: 'var(--color-text-muted)' }}>
+                          📥 {matchup.downloadCount}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {/* Like Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isOwnMatchup) {
+                              handleVote(matchup.id, true);
+                            }
+                          }}
+                          disabled={isOwnMatchup || !user}
+                          className={`p-2 rounded transition-all ${
+                            matchup.userVote === 'like' ? 'opacity-100' : 'opacity-50 hover:opacity-75'
+                          }`}
+                          style={{
+                            backgroundColor: matchup.userVote === 'like'
+                              ? 'var(--color-accent-success-bg)'
+                              : 'var(--color-bg-tertiary)',
+                            color: matchup.userVote === 'like'
+                              ? '#22c55e'
+                              : 'var(--color-text-secondary)',
+                            cursor: isOwnMatchup || !user ? 'not-allowed' : 'pointer',
+                          }}
+                          title={isOwnMatchup ? 'Cannot vote on own matchup' : t('matchups.like')}
+                        >
+                          👍
+                        </button>
+
+                        {/* Dislike Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isOwnMatchup) {
+                              handleVote(matchup.id, false);
+                            }
+                          }}
+                          disabled={isOwnMatchup || !user}
+                          className={`p-2 rounded transition-all ${
+                            matchup.userVote === 'dislike' ? 'opacity-100' : 'opacity-50 hover:opacity-75'
+                          }`}
+                          style={{
+                            backgroundColor: matchup.userVote === 'dislike'
+                              ? 'var(--color-accent-danger-bg)'
+                              : 'var(--color-bg-tertiary)',
+                            color: matchup.userVote === 'dislike'
+                              ? '#f87171'
+                              : 'var(--color-text-secondary)',
+                            cursor: isOwnMatchup || !user ? 'not-allowed' : 'pointer',
+                          }}
+                          title={isOwnMatchup ? 'Cannot vote on own matchup' : t('matchups.dislike')}
+                        >
+                          👎
+                        </button>
+
+                        {/* Add/Remove from Library Button */}
+                        {matchup.isDownloaded ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isOwnMatchup) {
+                                handleRemove(matchup.id);
+                              }
+                            }}
+                            disabled={isOwnMatchup || !user}
+                            className="px-3 py-2 rounded text-sm font-medium transition-all"
+                            style={{
+                              backgroundColor: 'var(--color-accent-danger-bg)',
+                              color: '#f87171',
+                              border: '1px solid var(--color-accent-danger-border)',
+                              cursor: isOwnMatchup || !user ? 'not-allowed' : 'pointer',
+                              opacity: isOwnMatchup ? 0.5 : 1,
+                            }}
+                            title={isOwnMatchup ? 'Your own matchup' : t('matchups.removeFromLibrary')}
+                          >
+                            {t('matchups.removeFromLibrary')}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isOwnMatchup) {
+                                handleDownload(matchup.id);
+                              }
+                            }}
+                            disabled={isOwnMatchup || !user}
+                            className="px-3 py-2 rounded text-sm font-medium transition-all"
+                            style={{
+                              backgroundColor: 'var(--color-accent-primary-bg)',
+                              color: 'var(--color-accent-1)',
+                              border: '1px solid var(--color-accent-primary-border)',
+                              cursor: isOwnMatchup || !user ? 'not-allowed' : 'pointer',
+                              opacity: isOwnMatchup ? 0.5 : 1,
+                            }}
+                            title={isOwnMatchup ? 'Your own matchup' : t('matchups.addToLibrary')}
+                          >
+                            {t('matchups.addToLibrary')}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* All Matchups Section Header */}
         <h2 
           className="text-xl font-bold mb-4"

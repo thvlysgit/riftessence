@@ -680,6 +680,8 @@ export type TranslationKey =
   | 'matchups.difficulty.free_lose'
   | 'matchups.trending'
   | 'matchups.bestRated'
+  | 'matchups.trendingGuides'
+  | 'matchups.bestRatedGuides'
   | 'matchups.allGuides'
   | 'matchups.createYourOwn'
   | 'matchups.createYourOwnDesc'
@@ -1342,6 +1344,8 @@ export const translations: Record<LanguageCode, Translations> = {
     'matchups.difficulty.free_lose': 'Free Lose',
     'matchups.trending': 'Trending',
     'matchups.bestRated': 'Best Rated',
+    'matchups.trendingGuides': 'Trending Guides',
+    'matchups.bestRatedGuides': 'Best Rated Guides',
     'matchups.allGuides': 'All Guides',
     'matchups.createYourOwn': 'Create Your Own Guide!',
     'matchups.createYourOwnDesc': 'Share your knowledge with the community and help others master their matchups.',
@@ -2001,6 +2005,8 @@ export const translations: Record<LanguageCode, Translations> = {
     'matchups.difficulty.free_lose': 'Défaite Assurée',
     'matchups.trending': 'Tendances',
     'matchups.bestRated': 'Mieux Notés',
+    'matchups.trendingGuides': 'Guides Tendances',
+    'matchups.bestRatedGuides': 'Meilleurs Guides',
     'matchups.allGuides': 'Tous les Guides',
     'matchups.createYourOwn': 'Créez Votre Guide!',
     'matchups.createYourOwnDesc': 'Partagez vos connaissances avec la communauté et aidez les autres à maîtriser leurs matchups.',

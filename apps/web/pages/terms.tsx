@@ -21,7 +21,7 @@ export default function TermsOfServicePage() {
             Terms of Service
           </h1>
           <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            Last Updated: March 10, 2026
+            Last Updated: March 29, 2026
           </p>
         </div>
 
@@ -53,7 +53,8 @@ export default function TermsOfServicePage() {
               To use certain features, you must create an account:
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
-              <li>You must authenticate using a valid Discord account</li>
+              <li>You must authenticate using a valid Discord account or Riot Games account</li>
+              <li>If using Riot Sign-On (RSO), you authorize us to access your Riot Games account information as permitted by Riot Games</li>
               <li>You must provide accurate and complete information</li>
               <li>You are responsible for maintaining the security of your account</li>
               <li>You must notify us immediately of any unauthorized access</li>
@@ -139,10 +140,11 @@ export default function TermsOfServicePage() {
               <li>Our platform, code, and design are protected by copyright</li>
               <li>You may not copy, modify, or distribute our platform without permission</li>
               <li>League of Legends content is owned by Riot Games, Inc.</li>
+              <li>We use Riot Games&apos; API and authentication services in accordance with their Developer Terms of Service</li>
               <li>Discord integration is subject to Discord&apos;s terms and policies</li>
             </ul>
             <p className="text-sm mt-2" style={{ color: 'var(--color-text-muted)' }}>
-              RiftEssence is not endorsed by Riot Games and does not reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties.
+              RiftEssence is not endorsed by Riot Games and does not reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.
             </p>
           </section>
 
@@ -154,11 +156,13 @@ export default function TermsOfServicePage() {
               RiftEssence integrates with third-party services:
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
-              <li>Discord for authentication</li>
+              <li>Discord OAuth for authentication</li>
+              <li>Riot Sign-On (RSO) for Riot Games account authentication and verification</li>
               <li>Discord DM notifications: If enabled, in-app chat message previews are sent to your Discord account via the RiftEssence bot. This is an opt-in feature that you can disable at any time in your settings. Message delivery depends on your Discord privacy settings</li>
-              <li>Riot Games API for League of Legends data</li>
+              <li>Riot Games API for League of Legends data and account information</li>
               <li>Cloudflare for security and bot protection</li>
               <li>These services have their own terms and privacy policies</li>
+              <li>By using Riot Sign-On, you agree to Riot Games&apos; Terms of Service and Privacy Policy</li>
             </ul>
           </section>
 
