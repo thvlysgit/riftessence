@@ -182,11 +182,19 @@ model RiotAccount {
   gamesPerWeek Int?     @default(0)
   lastStatsUpdate DateTime?
   createdAt    DateTime @default(now())
+
+  // RSO (Riot Sign-On) OAuth fields
+  rsoLinked        Boolean  @default(false)  // True if account was verified via RSO
+  rsoAccessToken   String?                   // Encrypted RSO access token
+  rsoRefreshToken  String?                   // Encrypted RSO refresh token
+  rsoTokenExpiresAt DateTime?                // When the access token expires
+
   user         User?    @relation(fields: [userId], references: [id])
   userId       String?
 
   @@unique([puuid, region])
   @@index([region, createdAt])
+  @@index([rsoLinked])
 }
 
 model DiscordAccount {

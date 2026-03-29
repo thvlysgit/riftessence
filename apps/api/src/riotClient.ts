@@ -108,6 +108,79 @@ export async function getPuuid(gameName: string, tagLine: string, region: string
   return null;
 }
 
+/**
+ * Fetch account info by PUUID from Riot Account API
+ * @param puuid - The player's PUUID (from RSO)
+ * @returns Account info including gameName, tagLine, and region
+ */
+export async function getAccountByPuuid(puuid: string): Promise<{ gameName: string; tagLine: string; region: string } | null> {
+  // Check cache first (24 hour TTL)
+  const cacheKey = `riot:account:${puuid}`;
+  const cached = await cacheGet<{ gameName: string; tagLine: string; region: string }>(cacheKey);
+  if (cached !== null) {
+    return cached;
+  }
+
+  // For quick local testing
+  if (process.env.USE_FAKE_RIOT === '1') {
+    const fakeAccount = {
+      gameName: `FakeSummoner_${puuid.slice(0, 4)}`,
+      tagLine: 'FAKE',
+      region: 'EUW',
+    };
+    await cacheSet(cacheKey, fakeAccount, 86400);
+    return fakeAccount;
+  }
+
+  const apiKey = process.env.RIOT_API_KEY;
+  if (!apiKey) throw new Error('Riot API key (RIOT_API_KEY) not set');
+
+  // Try each routing region to find the account
+  // PUUID is global, but we need to find which region has summoner data
+  const routingRegions = ['europe', 'americas', 'asia', 'sea'];
+
+  for (const routing of routingRegions) {
+    try {
+      const accountUrl = `https://${routing}.api.riotgames.com/riot/account/v1/accounts/by-puuid/${encodeURIComponent(puuid)}`;
+
+      console.log(`[Riot API] Looking up PUUID in ${routing}: ${puuid.substring(0, 8)}...`);
+
+      const accountResp = await fetch(accountUrl, { headers: { 'X-Riot-Token': apiKey } });
+
+      if (accountResp.ok) {
+        const accountData = await accountResp.json();
+
+        // Determine region from routing
+        const regionMap: Record<string, string> = {
+          europe: 'EUW',
+          americas: 'NA',
+          asia: 'KR',
+          sea: 'OCE',
+        };
+
+        const result = {
+          gameName: accountData.gameName,
+          tagLine: accountData.tagLine,
+          region: regionMap[routing] || 'EUW',
+        };
+
+        // Cache for 24 hours
+        await cacheSet(cacheKey, result, 86400);
+        return result;
+      }
+
+      if (accountResp.status !== 404) {
+        const txt = await accountResp.text().catch(() => '');
+        console.log(`[Riot API] Error from ${routing}:`, accountResp.status, txt);
+      }
+    } catch (err) {
+      console.log(`[Riot API] Failed to fetch from ${routing}:`, err);
+    }
+  }
+
+  return null;
+}
+
 export async function getProfileIcon(account: RiotAccountRef, bypassCache: boolean = false): Promise<number | null> {
   // Check cache first (1 hour TTL) unless bypassing
   const cacheKey = `riot:profileIcon:${account.puuid}`;

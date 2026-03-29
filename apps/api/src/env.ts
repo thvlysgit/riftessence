@@ -13,6 +13,12 @@ const envSchema = z.object({
   DISCORD_CLIENT_SECRET: z.string().optional(),
   DISCORD_BOT_API_KEY: z.string().optional(),
   DISCORD_REDIRECT_URI: z.string().url().optional(),
+
+  // Riot Sign-On (RSO) OAuth (optional)
+  RIOT_RSO_CLIENT_ID: z.string().optional(),
+  RIOT_RSO_CLIENT_SECRET: z.string().optional(),
+  RIOT_RSO_REDIRECT_URI: z.string().url().optional(),
+  RIOT_RSO_POST_LOGOUT_REDIRECT_URI: z.string().url().optional(),
   
   // CAPTCHA (optional)
   TURNSTILE_SECRET_KEY: z.string().optional(),

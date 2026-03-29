@@ -1,7 +1,7 @@
 // Authentication & Riot verification page (theme-aware)
-// Renamed from verify-test for clarity
+// Updated to use Riot Sign-On (RSO) as primary with icon verification as fallback
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import IconPicker from '../src/components/IconPicker';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,8 +19,13 @@ const apiBase = typeof window !== 'undefined' && (process.env.NEXT_PUBLIC_API_UR
 export default function AuthenticatePage(): JSX.Element {
   const { refreshUser } = useAuth();
   const router = useRouter();
-  
-  // Two-step flow state
+
+  // RSO state
+  const [rsoLoading, setRsoLoading] = useState(false);
+  const [rsoConfigured, setRsoConfigured] = useState<boolean | null>(null);
+  const [showFallback, setShowFallback] = useState(false);
+
+  // Two-step flow state (icon verification fallback)
   const [summonerName, setSummonerName] = useState('');
   const [region, setRegion] = useState('EUW');
 
@@ -34,19 +39,112 @@ export default function AuthenticatePage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Load userId from JWT token on mount
-  React.useEffect(() => {
+  // Check RSO status and handle callback on mount
+  useEffect(() => {
+    // Check RSO configuration status
+    checkRsoStatus();
+
+    // Handle RSO callback parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const rsoResult = urlParams.get('rso');
+    const token = urlParams.get('token');
+    const isNew = urlParams.get('isNew');
+    const rsoError = urlParams.get('error');
+    const riotLinked = urlParams.get('riot');
+
+    if (rsoResult === 'success' && token) {
+      // RSO login/registration successful
+      localStorage.setItem('lfd_token', token);
+      refreshUser().then(() => {
+        const returnUrl = urlParams.get('returnUrl') || '/profile';
+        router.replace(returnUrl);
+      });
+    } else if (riotLinked === 'linked') {
+      // Account was linked successfully (from profile page flow)
+      refreshUser().then(() => {
+        router.replace('/profile?riot=linked');
+      });
+    } else if (rsoError) {
+      // RSO error
+      const errorMessages: Record<string, string> = {
+        'missing_params': 'Authentication failed: missing parameters',
+        'invalid_state': 'Authentication failed: invalid state',
+        'state_expired': 'Authentication session expired. Please try again.',
+        'rso_not_configured': 'Riot Sign-On is not configured. Please use icon verification instead.',
+        'token_exchange_failed': 'Failed to authenticate with Riot. Please try again.',
+        'userinfo_failed': 'Failed to get account information from Riot.',
+        'no_puuid': 'Failed to get your Riot account ID.',
+        'callback_failed': 'Authentication callback failed. Please try again.',
+        'user_not_found': 'User account not found.',
+        'account_already_linked': 'This Riot account is already linked to another user.',
+      };
+      setError(errorMessages[rsoError] || rsoError);
+      // Clear the error from URL
+      router.replace('/authenticate', undefined, { shallow: true });
+    }
+
+    // Load userId from JWT token
     try {
-      const token = localStorage.getItem('lfd_token');
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
+      const storedToken = localStorage.getItem('lfd_token');
+      if (storedToken) {
+        const payload = JSON.parse(atob(storedToken.split('.')[1]));
         setCurrentUserId(payload.userId);
-        console.log('[Authenticate] Current userId:', payload.userId);
       }
     } catch (e) {
       console.error('[Authenticate] Failed to extract userId from token:', e);
     }
   }, []);
+
+  async function checkRsoStatus() {
+    try {
+      const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/auth/riot/status` : '/api/auth/riot/status';
+      const res = await fetch(url);
+      const data = await res.json();
+      setRsoConfigured(data.configured);
+      // If RSO is not configured, show fallback immediately
+      if (!data.configured) {
+        setShowFallback(true);
+      }
+    } catch (err) {
+      console.error('[Authenticate] Failed to check RSO status:', err);
+      setRsoConfigured(false);
+      setShowFallback(true);
+    }
+  }
+
+  async function handleRsoLogin() {
+    setRsoLoading(true);
+    setError(null);
+    try {
+      // For new registration/login (no existing account)
+      const endpoint = currentUserId ? '/api/auth/riot/login' : '/api/auth/riot/auth';
+      const url = apiBase ? `${apiBase.replace(/\/$/, '')}${endpoint}` : endpoint;
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+      // If linking to existing account, include auth header
+      if (currentUserId) {
+        const token = localStorage.getItem('lfd_token');
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      }
+
+      const res = await fetch(url, { headers });
+      const data = await res.json();
+
+      if (data.url) {
+        // Redirect to Riot's OAuth page
+        window.location.href = data.url;
+      } else {
+        setError(data.error || 'Failed to start Riot Sign-On');
+        setRsoLoading(false);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to connect to authentication service');
+      setRsoLoading(false);
+    }
+  }
 
   function isValidRiotId(id: string): boolean {
     const trimmed = id.trim();
@@ -59,9 +157,7 @@ export default function AuthenticatePage(): JSX.Element {
   function sanitizeRiotId(id: string): string {
     return id
       .trim()
-      // Remove directional marks, zero-width characters, soft hyphens, etc.
       .replace(/[\u200B-\u200D\u2060\uFEFF\u202A-\u202E\u2066-\u2069\u00AD]/g, '')
-      // Normalize to remove any combining characters
       .normalize('NFKC');
   }
 
@@ -94,7 +190,7 @@ export default function AuthenticatePage(): JSX.Element {
       } else {
         const icon = data.profileIconId ?? null;
         setCurrentIcon(icon);
-        setOriginalIcon(icon); // Store original icon
+        setOriginalIcon(icon);
         if (icon === null) {
           setError('Could not determine profile icon from Riot response');
         }
@@ -123,14 +219,13 @@ export default function AuthenticatePage(): JSX.Element {
     try {
       const verifyName = sanitizeRiotId(summonerName);
       const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/user/verify-riot` : '/api/user/verify-riot';
-      console.log('[Authenticate] Sending verification with userId:', currentUserId);
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ 
-          summonerName: verifyName, 
-          region, 
+        body: JSON.stringify({
+          summonerName: verifyName,
+          region,
           verificationIconId: Number(selectedIconId),
           userId: currentUserId,
         }),
@@ -142,8 +237,7 @@ export default function AuthenticatePage(): JSX.Element {
       } else {
         setResult(data);
         if (data.success && data.userId) {
-          console.log('[Authenticate] Storing token:', data.userId);
-          try { 
+          try {
             if (data.token) {
               localStorage.setItem('lfd_token', data.token);
             }
@@ -151,9 +245,7 @@ export default function AuthenticatePage(): JSX.Element {
           } catch (e) {
             console.error('[Authenticate] Failed to store token:', e);
           }
-          // Refresh auth state immediately
           await refreshUser();
-          // Navigate to returnUrl if provided (for onboarding flow), otherwise go to profile
           const returnUrl = router.query.returnUrl as string | undefined;
           router.push(returnUrl || '/profile');
         }
@@ -165,47 +257,34 @@ export default function AuthenticatePage(): JSX.Element {
     }
   }
 
+  // RSO logo SVG
+  const RiotLogo = () => (
+    <svg className="w-5 h-5" viewBox="0 0 30 32" fill="currentColor">
+      <path d="M1.06 32V9.06L6.56 0h16.97l3.94 4.23-4.88 2.3-.35-.38-.03.02-3.56-3.74H8.27L4.66 8.2v19.8H1.06zm9.91-5.35l.01-12.22 2.98-4.57h10.7l4.13 4.4-2.95 1.69-2.22-2.36H15.9l-1.33 2.02v11.04H9.97zm8.52-5.22l4.6 10.57H30l-4.66-10.57h-5.85z"/>
+    </svg>
+  );
+
   return (
     <div className="min-h-screen flex items-center justify-center py-8 px-4" style={{ background: 'var(--bg-main)' }}>
       <div className="max-w-2xl w-full space-y-6">
-        {/* Progress Indicator */}
-        <div className="rounded-lg p-4" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)' }}>
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>Verification Progress</span>
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              {!summonerName ? '0' : !currentIcon ? '1' : !selectedIconId ? '2' : '3'} / 3
-            </span>
-          </div>
-          <div className="w-full rounded-full h-2" style={{ background: 'var(--bg-input)' }}>
-            <div
-              className="h-2 rounded-full transition-all duration-300"
-              style={{
-                background: 'var(--accent-primary)',
-                width: !summonerName ? '0%' : !currentIcon ? '33%' : !selectedIconId ? '66%' : '100%',
-              }}
-            />
-          </div>
-          <div className="flex justify-between text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-            <span>Enter ID</span>
-            <span>Lookup Current</span>
-            <span>Select New</span>
-            <span>Verify</span>
-          </div>
-        </div>
-
-        {/* Main Verification Card */}
+        {/* Main Authentication Card */}
         <div className="rounded-xl p-8" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
           {/* Title */}
           <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--accent-primary)' }}>Authenticate & Link Your Riot Account</h1>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Connect your Riot account to unlock features</p>
+            <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--accent-primary)' }}>
+              {currentUserId ? 'Link Your Riot Account' : 'Authenticate with Riot'}
+            </h1>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              {currentUserId
+                ? 'Connect your Riot account to unlock all features'
+                : 'Sign in with your Riot Games account to get started'
+              }
+            </p>
             {currentUserId && (
               <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)' }}>
                 <span className="text-xs font-mono" style={{ color: 'var(--accent-primary)' }}>Session: {currentUserId.slice(0, 12)}...</span>
                 <button
-                  onClick={() => {
-                    setCurrentUserId(null);
-                  }}
+                  onClick={() => setCurrentUserId(null)}
                   className="ml-2 text-xs transition-colors"
                   style={{ color: 'var(--accent-danger)' }}
                   title="Clear session"
@@ -216,198 +295,306 @@ export default function AuthenticatePage(): JSX.Element {
             )}
           </div>
 
-          {/* 3-step instructions */}
-          <div className="rounded-lg p-4 mb-6" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
-            <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--accent-primary)' }}>How it works:</h2>
-            <ol className="space-y-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-              <li className="flex items-start"><span className="font-bold mr-2" style={{ color: 'var(--accent-primary)' }}>1.</span> Enter your Riot ID and click Lookup</li>
-              <li className="flex items-start"><span className="font-bold mr-2" style={{ color: 'var(--accent-primary)' }}>2.</span> Select a verification icon and change it in your League client</li>
-              <li className="flex items-start"><span className="font-bold mr-2" style={{ color: 'var(--accent-primary)' }}>3.</span> Click Verify to confirm the change</li>
-            </ol>
-          </div>
-
-          {/* Lookup Form */}
-          <form onSubmit={handleLookup} className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--accent-primary)' }}>Riot ID</label>
-              <input
-                value={summonerName}
-                onChange={(e) => setSummonerName(e.target.value)}
-                className="block w-full px-4 py-3 rounded-lg"
-                style={{ background: 'var(--bg-input)', border: '2px solid var(--border-card)', color: 'var(--text-main)' }}
-                placeholder="GameName#TAG (e.g., Example#TAG)"
-                required
-              />
-              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Include your full Riot ID with tagline</p>
+          {/* Error display */}
+          {error && (
+            <div className="rounded-lg p-4 mb-6" style={{ background: 'var(--accent-danger-bg)', border: '2px solid var(--accent-danger)' }}>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--accent-danger)' }}>Error</h3>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{error}</p>
             </div>
+          )}
 
-            <div>
-              <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--accent-primary)' }}>Region</label>
-              <select 
-                value={region} 
-                onChange={(e) => setRegion(e.target.value)} 
-                className="block w-full px-4 py-3 rounded-lg"
-                style={{ background: 'var(--bg-input)', border: '2px solid var(--border-card)', color: 'var(--text-main)', outlineColor: 'var(--accent-primary)' }}
-              >
-                <option>EUW</option>
-                <option>NA</option>
-                <option>EUNE</option>
-                <option>KR</option>
-                <option>OCE</option>
-                <option>LAN</option>
-                <option>LAS</option>
-                <option>BR</option>
-                <option>RU</option>
-              </select>
-            </div>
-
-            {/* Submit button */}
-            <button 
-              type="submit" 
-              disabled={loadingLookup}
-              className="w-full px-6 py-3 font-bold rounded-lg transition-all shadow-lg disabled:cursor-not-allowed flex items-center justify-center uppercase tracking-wide"
-              style={{ background: 'var(--btn-gradient)', color: 'var(--btn-gradient-text)' }}
-            >
-              {loadingLookup ? (
-                <>
-                  <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Looking up...
-                </>
-              ) : 'Lookup Account'}
-            </button>
-          </form>
-
-          {/* Icon selection section */}
-          {currentIcon !== null && (
-            <div className="mt-8 pt-6" style={{ borderTop: '2px solid var(--border-card)' }}>
-              <div className="rounded-lg p-4 mb-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <span className="text-sm font-semibold mr-4" style={{ color: 'var(--accent-primary)' }}>Account found! Current icon:</span>
-                    {currentIcon !== null && (
-                      <div className="flex items-center">
-                        <img
-                          src={`https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${currentIcon}.png`}
-                          alt={`Icon ${currentIcon}`}
-                          className="w-10 h-10 rounded-md mr-3"
-                          style={{ boxShadow: 'var(--shadow-md)' }}
-                        />
-                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>ID: {currentIcon}</span>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleLookup}
-                    disabled={loadingLookup}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
-                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)', color: 'var(--text-secondary)' }}
-                    title="Refresh to check if icon changed"
-                  >
-                    <svg className={`w-4 h-4 ${loadingLookup ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Refresh
-                  </button>
-                </div>
-                <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                  Note: Riot's servers may take 1-2 minutes to update after changing your icon. Use Refresh to check.
-                </p>
-              </div>
-
+          {/* RSO Login Section */}
+          {!showFallback && (
+            <>
               <div className="space-y-4">
-                <label className="block text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>Choose Verification Icon</label>
-                <p className="text-xs -mt-2" style={{ color: 'var(--text-muted)' }}>Select an icon you own, then change it in your League client</p>
-                
-                <div className="rounded-lg p-4" style={{ border: '2px solid var(--border-card)', background: 'var(--bg-main)' }}>
-                  <IconPicker 
-                    selectedId={selectedIconId ? Number(selectedIconId) : null} 
-                    onSelect={(id) => setSelectedIconId(String(id))} 
-                    count={29}
-                    excludeIds={originalIcon !== null ? [originalIcon] : []}
+                {/* RSO Button */}
+                <button
+                  onClick={handleRsoLogin}
+                  disabled={rsoLoading || rsoConfigured === false}
+                  className="w-full px-6 py-4 font-bold rounded-lg transition-all shadow-lg disabled:cursor-not-allowed flex items-center justify-center gap-3 uppercase tracking-wide"
+                  style={{
+                    background: rsoConfigured === false ? 'var(--bg-input)' : '#D13639',
+                    color: rsoConfigured === false ? 'var(--text-muted)' : 'white',
+                    border: rsoConfigured === false ? '2px solid var(--border-card)' : 'none'
+                  }}
+                >
+                  {rsoLoading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Connecting to Riot...
+                    </>
+                  ) : rsoConfigured === null ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Loading...
+                    </>
+                  ) : rsoConfigured === false ? (
+                    'RSO Not Available'
+                  ) : (
+                    <>
+                      <RiotLogo />
+                      Sign in with Riot Games
+                    </>
+                  )}
+                </button>
+
+                {rsoConfigured && (
+                  <div className="rounded-lg p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
+                    <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--accent-primary)' }}>Recommended Method</h3>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      Signing in with Riot Games is the fastest and most secure way to verify your account.
+                      You&apos;ll be redirected to Riot&apos;s official login page.
+                    </p>
+                  </div>
+                )}
+
+                {/* Divider */}
+                <div className="flex items-center gap-4 my-6">
+                  <div className="flex-1 h-px" style={{ background: 'var(--border-card)' }}></div>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>OR</span>
+                  <div className="flex-1 h-px" style={{ background: 'var(--border-card)' }}></div>
+                </div>
+
+                {/* Fallback option */}
+                <button
+                  onClick={() => setShowFallback(true)}
+                  className="w-full px-4 py-3 font-medium rounded-lg transition-all flex items-center justify-center gap-2"
+                  style={{
+                    background: 'var(--bg-input)',
+                    color: 'var(--text-secondary)',
+                    border: '2px solid var(--border-card)'
+                  }}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  Use Icon Verification Instead
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Icon Verification Fallback Section */}
+          {showFallback && (
+            <>
+              {/* Back button */}
+              {rsoConfigured && (
+                <button
+                  onClick={() => setShowFallback(false)}
+                  className="flex items-center gap-2 mb-4 text-sm hover:underline"
+                  style={{ color: 'var(--accent-primary)' }}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back to Riot Sign-On
+                </button>
+              )}
+
+              {/* Progress Indicator */}
+              <div className="rounded-lg p-4 mb-6" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>Icon Verification Progress</span>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {!summonerName ? '0' : !currentIcon ? '1' : !selectedIconId ? '2' : '3'} / 3
+                  </span>
+                </div>
+                <div className="w-full rounded-full h-2" style={{ background: 'var(--bg-input)' }}>
+                  <div
+                    className="h-2 rounded-full transition-all duration-300"
+                    style={{
+                      background: 'var(--accent-primary)',
+                      width: !summonerName ? '0%' : !currentIcon ? '33%' : !selectedIconId ? '66%' : '100%',
+                    }}
                   />
                 </div>
+                <div className="flex justify-between text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                  <span>Enter ID</span>
+                  <span>Lookup</span>
+                  <span>Select Icon</span>
+                  <span>Verify</span>
+                </div>
+              </div>
 
-                {originalIcon !== null && originalIcon >= 0 && originalIcon <= 29 && (
-                  <div className="rounded-lg p-3" style={{ background: 'var(--accent-danger-bg)', border: '1px solid var(--accent-danger)' }}>
-                    <p className="text-sm" style={{ color: 'var(--accent-danger)' }}>
-                      <span className="font-semibold">⚠️ Icon {originalIcon} is excluded</span>
-                    </p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                      This is your current icon - you cannot use it for verification to prevent impersonation
-                    </p>
-                  </div>
-                )}
+              {/* 3-step instructions */}
+              <div className="rounded-lg p-4 mb-6" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
+                <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--accent-primary)' }}>How icon verification works:</h2>
+                <ol className="space-y-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <li className="flex items-start"><span className="font-bold mr-2" style={{ color: 'var(--accent-primary)' }}>1.</span> Enter your Riot ID and click Lookup</li>
+                  <li className="flex items-start"><span className="font-bold mr-2" style={{ color: 'var(--accent-primary)' }}>2.</span> Select a verification icon and change it in your League client</li>
+                  <li className="flex items-start"><span className="font-bold mr-2" style={{ color: 'var(--accent-primary)' }}>3.</span> Click Verify to confirm the change</li>
+                </ol>
+              </div>
 
-                {selectedIconId && (
-                  <div className="rounded-lg p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
-                    <p className="text-sm" style={{ color: 'var(--accent-primary)' }}>
-                      <span className="font-semibold">Selected icon ID:</span> {selectedIconId}
-                    </p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                      Change your profile icon to this one in the League client, then verify below.
-                    </p>
-                  </div>
-                )}
+              {/* Lookup Form */}
+              <form onSubmit={handleLookup} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--accent-primary)' }}>Riot ID</label>
+                  <input
+                    value={summonerName}
+                    onChange={(e) => setSummonerName(e.target.value)}
+                    className="block w-full px-4 py-3 rounded-lg"
+                    style={{ background: 'var(--bg-input)', border: '2px solid var(--border-card)', color: 'var(--text-main)' }}
+                    placeholder="GameName#TAG (e.g., Example#TAG)"
+                    required
+                  />
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Include your full Riot ID with tagline</p>
+                </div>
 
-                <button 
-                  onClick={handleVerify} 
-                  disabled={loadingVerify || !selectedIconId}
+                <div>
+                  <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--accent-primary)' }}>Region</label>
+                  <select
+                    value={region}
+                    onChange={(e) => setRegion(e.target.value)}
+                    className="block w-full px-4 py-3 rounded-lg"
+                    style={{ background: 'var(--bg-input)', border: '2px solid var(--border-card)', color: 'var(--text-main)', outlineColor: 'var(--accent-primary)' }}
+                  >
+                    <option>EUW</option>
+                    <option>NA</option>
+                    <option>EUNE</option>
+                    <option>KR</option>
+                    <option>OCE</option>
+                    <option>LAN</option>
+                    <option>LAS</option>
+                    <option>BR</option>
+                    <option>RU</option>
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loadingLookup}
                   className="w-full px-6 py-3 font-bold rounded-lg transition-all shadow-lg disabled:cursor-not-allowed flex items-center justify-center uppercase tracking-wide"
                   style={{ background: 'var(--btn-gradient)', color: 'var(--btn-gradient-text)' }}
                 >
-                  {loadingVerify ? (
+                  {loadingLookup ? (
                     <>
                       <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Verifying...
+                      Looking up...
                     </>
-                  ) : 'Verify Icon Change'}
+                  ) : 'Lookup Account'}
                 </button>
-              </div>
-            </div>
-          )}
+              </form>
 
-          {(error || result) && (
-            <div className="mt-6 space-y-3">
-              {error && (
-                <div className="rounded-lg p-4" style={{ background: 'var(--accent-danger-bg)', border: '2px solid var(--accent-danger)' }}>
-                  <div className="flex items-start">
-                    <div>
-                      <h3 className="text-sm font-semibold" style={{ color: 'var(--accent-danger)' }}>Error</h3>
-                      <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{error}</p>
+              {/* Icon selection section */}
+              {currentIcon !== null && (
+                <div className="mt-8 pt-6" style={{ borderTop: '2px solid var(--border-card)' }}>
+                  <div className="rounded-lg p-4 mb-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <span className="text-sm font-semibold mr-4" style={{ color: 'var(--accent-primary)' }}>Account found! Current icon:</span>
+                        <div className="flex items-center">
+                          <img
+                            src={`https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${currentIcon}.png`}
+                            alt={`Icon ${currentIcon}`}
+                            className="w-10 h-10 rounded-md mr-3"
+                            style={{ boxShadow: 'var(--shadow-md)' }}
+                          />
+                          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>ID: {currentIcon}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleLookup}
+                        disabled={loadingLookup}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
+                        style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)', color: 'var(--text-secondary)' }}
+                        title="Refresh to check if icon changed"
+                      >
+                        <svg className={`w-4 h-4 ${loadingLookup ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh
+                      </button>
                     </div>
+                    <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                      Note: Riot&apos;s servers may take 1-2 minutes to update after changing your icon. Use Refresh to check.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="block text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>Choose Verification Icon</label>
+                    <p className="text-xs -mt-2" style={{ color: 'var(--text-muted)' }}>Select an icon you own, then change it in your League client</p>
+
+                    <div className="rounded-lg p-4" style={{ border: '2px solid var(--border-card)', background: 'var(--bg-main)' }}>
+                      <IconPicker
+                        selectedId={selectedIconId ? Number(selectedIconId) : null}
+                        onSelect={(id) => setSelectedIconId(String(id))}
+                        count={29}
+                        excludeIds={originalIcon !== null ? [originalIcon] : []}
+                      />
+                    </div>
+
+                    {originalIcon !== null && originalIcon >= 0 && originalIcon <= 29 && (
+                      <div className="rounded-lg p-3" style={{ background: 'var(--accent-danger-bg)', border: '1px solid var(--accent-danger)' }}>
+                        <p className="text-sm" style={{ color: 'var(--accent-danger)' }}>
+                          <span className="font-semibold">Icon {originalIcon} is excluded</span>
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                          This is your current icon - you cannot use it for verification to prevent impersonation
+                        </p>
+                      </div>
+                    )}
+
+                    {selectedIconId && (
+                      <div className="rounded-lg p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
+                        <p className="text-sm" style={{ color: 'var(--accent-primary)' }}>
+                          <span className="font-semibold">Selected icon ID:</span> {selectedIconId}
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                          Change your profile icon to this one in the League client, then verify below.
+                        </p>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={handleVerify}
+                      disabled={loadingVerify || !selectedIconId}
+                      className="w-full px-6 py-3 font-bold rounded-lg transition-all shadow-lg disabled:cursor-not-allowed flex items-center justify-center uppercase tracking-wide"
+                      style={{ background: 'var(--btn-gradient)', color: 'var(--btn-gradient-text)' }}
+                    >
+                      {loadingVerify ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Verifying...
+                        </>
+                      ) : 'Verify Icon Change'}
+                    </button>
                   </div>
                 </div>
               )}
 
-              {result && result.success && (
-                <div className="rounded-lg p-4" style={{ background: 'var(--accent-primary-bg)', border: '2px solid var(--accent-primary)' }}>
-                  <div className="flex items-start">
-                    <div>
+              {/* Success/Error display for icon verification */}
+              {result && (
+                <div className="mt-6 space-y-3">
+                  {result.success && (
+                    <div className="rounded-lg p-4" style={{ background: 'var(--accent-primary-bg)', border: '2px solid var(--accent-primary)' }}>
                       <h3 className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>Verification Successful!</h3>
                       <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Your Riot account has been verified.</p>
                     </div>
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {result && !result.success && !error && (
-                <div className="rounded-lg p-4" style={{ background: 'var(--bg-elevated)', border: '2px solid var(--border-card)' }}>
-                  <div className="flex items-start">
-                    <div>
+                  {!result.success && !error && (
+                    <div className="rounded-lg p-4" style={{ background: 'var(--bg-elevated)', border: '2px solid var(--border-card)' }}>
                       <h3 className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>Verification Failed</h3>
                       <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Make sure you changed your icon to the selected one.</p>
                       <pre className="text-xs mt-2 whitespace-pre-wrap" style={{ color: 'var(--text-muted)' }}>{JSON.stringify(result, null, 2)}</pre>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </div>

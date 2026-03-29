@@ -9,6 +9,7 @@ import prisma from './prisma';
 import * as riotClient from './riotClient';
 import authRoutes from './routes/auth';
 import discordRoutes from './routes/discord';
+import riotRsoRoutes from './routes/riotRso';
 import userRoutes from './routes/user';
 import postsRoutes from './routes/posts';
 import lftRoutes from './routes/lft';
@@ -105,6 +106,9 @@ async function build() {
 
   // Register Discord OAuth routes
   await server.register(discordRoutes, { prefix: '/api/auth/discord' });
+
+  // Register Riot Sign-On (RSO) OAuth routes
+  await server.register(riotRsoRoutes, { prefix: '/api/auth/riot' });
 
   // Register other route groups
   await server.register(userRoutes, { prefix: '/api/user' });
