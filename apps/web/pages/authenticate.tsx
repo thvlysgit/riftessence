@@ -48,7 +48,7 @@ export default function AuthenticatePage(): JSX.Element {
     const urlParams = new URLSearchParams(window.location.search);
     const rsoResult = urlParams.get('rso');
     const token = urlParams.get('token');
-    const isNew = urlParams.get('isNew');
+    const _isNew = urlParams.get('isNew'); // Available for welcome message if needed
     const rsoError = urlParams.get('error');
     const riotLinked = urlParams.get('riot');
 
