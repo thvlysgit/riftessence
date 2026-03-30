@@ -158,6 +158,11 @@ model User {
   matchupLikes   MatchupLike[]
   matchupDownloads MatchupDownload[]
   savedMatchups  SavedMatchup[]    @relation("SavedMatchups")
+  
+  // Team relations
+  teamsOwned         Team[]           @relation("TeamOwner")
+  teamMemberships    TeamMember[]     @relation("TeamMemberships")
+  teamInvitations    TeamInvitation[] @relation("TeamInvitations")
 
   @@index([region, primaryRole, createdAt])
 }
@@ -780,4 +785,96 @@ model SavedMatchup {
   @@unique([userId, matchupId])
   @@index([userId])
   @@index([matchupId])
+}
+
+// Teams system for organized team management
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum TeamEventType {
+  SCRIM
+  PRACTICE
+  VOD_REVIEW
+  TOURNAMENT
+  TEAM_MEETING
+}
+
+model Team {
+  id          String       @id @default(cuid())
+  name        String
+  tag         String?      // Short team tag (e.g., "TSM")
+  description String?
+  region      Region
+  
+  // Owner (team creator)
+  owner       User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId     String
+  
+  // Relations
+  members     TeamMember[]
+  invitations TeamInvitation[]
+  events      TeamEvent[]
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  @@index([ownerId])
+  @@index([region, createdAt])
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId    String
+  user      User     @relation("TeamMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  
+  role      Role     // TOP, JUNGLE, MID, ADC, SUPPORT, FILL
+  isOwner   Boolean  @default(false)
+  joinedAt  DateTime @default(now())
+  
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+}
+
+model TeamInvitation {
+  id          String           @id @default(cuid())
+  team        Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId      String
+  invitedUser User             @relation("TeamInvitations", fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  
+  role        Role             // Role being invited for
+  status      InvitationStatus @default(PENDING)
+  message     String?          // Optional invite message
+  
+  invitedAt   DateTime         @default(now())
+  respondedAt DateTime?
+  
+  @@unique([teamId, userId])
+  @@index([teamId, status])
+  @@index([userId, status])
+}
+
+model TeamEvent {
+  id          String        @id @default(cuid())
+  team        Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId      String
+  
+  title       String
+  type        TeamEventType
+  description String?
+  scheduledAt DateTime      // When the event is scheduled
+  duration    Int?          // Duration in minutes
+  
+  createdBy   String        // userId who created the event
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  @@index([teamId, scheduledAt])
+  @@index([createdBy])
 }
