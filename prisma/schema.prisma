@@ -160,9 +160,9 @@ model User {
   savedMatchups  SavedMatchup[]    @relation("SavedMatchups")
   
   // Team relations
-  teamsOwned         Team[]           @relation("TeamOwner")
-  teamMemberships    TeamMember[]     @relation("TeamMemberships")
-  teamInvitations    TeamInvitation[] @relation("TeamInvitations")
+  teamsOwned             Team[]                 @relation("TeamOwner")
+  teamMemberships        TeamMember[]           @relation("TeamMemberships")
+  teamEventAttendances   TeamEventAttendance[]  @relation("TeamEventAttendances")
 
   @@index([region, primaryRole, createdAt])
 }
@@ -788,10 +788,16 @@ model SavedMatchup {
 }
 
 // Teams system for organized team management
-enum InvitationStatus {
-  PENDING
-  ACCEPTED
-  DECLINED
+enum TeamRole {
+  TOP
+  JGL
+  MID
+  ADC
+  SUP
+  SUBS
+  MANAGER
+  OWNER
+  COACH
 }
 
 enum TeamEventType {
@@ -800,6 +806,12 @@ enum TeamEventType {
   VOD_REVIEW
   TOURNAMENT
   TEAM_MEETING
+}
+
+enum AttendanceStatus {
+  ABSENT
+  PRESENT
+  UNSURE
 }
 
 model Team {
@@ -815,7 +827,7 @@ model Team {
   
   // Relations
   members     TeamMember[]
-  invitations TeamInvitation[]
+  pendingSpots TeamPendingSpot[]
   events      TeamEvent[]
   
   createdAt   DateTime     @default(now())
@@ -832,8 +844,7 @@ model TeamMember {
   user      User     @relation("TeamMemberships", fields: [userId], references: [id], onDelete: Cascade)
   userId    String
   
-  role      Role     // TOP, JUNGLE, MID, ADC, SUPPORT, FILL
-  isOwner   Boolean  @default(false)
+  role      TeamRole
   joinedAt  DateTime @default(now())
   
   @@unique([teamId, userId])
@@ -841,23 +852,26 @@ model TeamMember {
   @@index([userId])
 }
 
-model TeamInvitation {
-  id          String           @id @default(cuid())
-  team        Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+// Pending roster spots - for players added by Riot ID or managers/coaches by username
+model TeamPendingSpot {
+  id          String    @id @default(cuid())
+  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
   teamId      String
-  invitedUser User             @relation("TeamInvitations", fields: [userId], references: [id], onDelete: Cascade)
-  userId      String
   
-  role        Role             // Role being invited for
-  status      InvitationStatus @default(PENDING)
-  message     String?          // Optional invite message
+  // For players: Riot ID info
+  riotId      String?   // e.g., "Player#NA1"
+  puuid       String?   // Validated PUUID from Riot API
   
-  invitedAt   DateTime         @default(now())
-  respondedAt DateTime?
+  // For managers/coaches: riftessence username
+  username    String?   // Must have existing riftessence account
   
-  @@unique([teamId, userId])
-  @@index([teamId, status])
-  @@index([userId, status])
+  role        TeamRole  // Role they will be assigned when joining
+  addedAt     DateTime  @default(now())
+  
+  @@unique([teamId, puuid])
+  @@index([teamId])
+  @@index([puuid])
+  @@index([username])
 }
 
 model TeamEvent {
@@ -875,6 +889,23 @@ model TeamEvent {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   
+  // Relations
+  attendances TeamEventAttendance[]
+  
   @@index([teamId, scheduledAt])
   @@index([createdBy])
+}
+
+model TeamEventAttendance {
+  id        String           @id @default(cuid())
+  event     TeamEvent        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId   String
+  user      User             @relation("TeamEventAttendances", fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  status    AttendanceStatus @default(UNSURE)
+  updatedAt DateTime         @updatedAt
+  
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
 }

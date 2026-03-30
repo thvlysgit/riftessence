@@ -11,19 +11,18 @@ interface TeamMember {
   userId: string;
   username: string;
   role: string;
-  isOwner: boolean;
   joinedAt: string;
   rank: string | null;
   division: string | null;
   riotId: string | null;
 }
 
-interface PendingInvitation {
+interface PendingSpot {
   id: string;
-  userId: string;
-  username: string;
+  riotId: string | null;
+  username: string | null;
   role: string;
-  invitedAt: string;
+  addedAt: string;
 }
 
 interface TeamEvent {
@@ -33,6 +32,7 @@ interface TeamEvent {
   description: string | null;
   scheduledAt: string;
   duration: number | null;
+  attendances: { userId: string; status: string }[];
 }
 
 interface TeamDetails {
@@ -44,14 +44,22 @@ interface TeamDetails {
   ownerId: string;
   ownerUsername: string;
   isOwner: boolean;
+  isMember: boolean;
+  canJoin: boolean;
+  pendingSpotId: string | null;
+  pendingSpotRole: string | null;
   myRole: string | null;
+  canManageRoster: boolean;
+  canEditSchedule: boolean;
   members: TeamMember[];
-  pendingInvitations: PendingInvitation[];
+  pendingRoster: PendingSpot[];
   upcomingEvents: TeamEvent[];
   createdAt: string;
 }
 
-const ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FILL'];
+const PLAYER_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS'];
+const STAFF_ROLES = ['MANAGER', 'COACH'];
+const ALL_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS', 'MANAGER', 'COACH'];
 
 const TeamDetailPage: React.FC = () => {
   const router = useRouter();
@@ -60,12 +68,15 @@ const TeamDetailPage: React.FC = () => {
   const [team, setTeam] = useState<TeamDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [joining, setJoining] = useState(false);
 
-  // Invite modal
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ username: '', role: 'FILL', message: '' });
-  const [inviting, setInviting] = useState(false);
-  const [inviteError, setInviteError] = useState<string | null>(null);
+  // Add to roster modal
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({ riotId: '', username: '', role: 'TOP' });
+  const [addType, setAddType] = useState<'player' | 'staff'>('player');
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -81,12 +92,12 @@ const TeamDetailPage: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setTeam(data);
+        setError(null);
       } else if (res.status === 404) {
         setError('Team not found');
-      } else if (res.status === 403) {
-        setError('You are not a member of this team');
       } else {
-        setError('Failed to load team');
+        const data = await res.json();
+        setError(data.error || 'Failed to load team');
       }
     } catch (err) {
       setError('Failed to load team');
@@ -101,50 +112,85 @@ const TeamDetailPage: React.FC = () => {
     }
   }, [id]);
 
-  const handleInvite = async (e: React.FormEvent) => {
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/teams/${id}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleJoinTeam = async () => {
+    const token = getAuthToken();
+    if (!token || !id) return;
+
+    setJoining(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/teams/${id}/join`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        await fetchTeam();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to join team');
+      }
+    } catch (err) {
+      alert('Failed to join team');
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const handleAddToRoster = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = getAuthToken();
-    if (!token || !id || !inviteForm.username.trim()) return;
+    if (!token || !id) return;
 
-    setInviting(true);
-    setInviteError(null);
+    setAdding(true);
+    setAddError(null);
+
+    const body: any = { role: addForm.role };
+    if (addType === 'player') {
+      body.riotId = addForm.riotId.trim();
+    } else {
+      body.username = addForm.username.trim();
+    }
 
     try {
-      const res = await fetch(`${apiUrl}/api/teams/${id}/invite`, {
+      const res = await fetch(`${apiUrl}/api/teams/${id}/roster`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({
-          username: inviteForm.username.trim(),
-          role: inviteForm.role,
-          message: inviteForm.message.trim() || null
-        })
+        body: JSON.stringify(body)
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        setShowInviteModal(false);
-        setInviteForm({ username: '', role: 'FILL', message: '' });
+        setShowAddModal(false);
+        setAddForm({ riotId: '', username: '', role: 'TOP' });
         await fetchTeam();
       } else {
-        setInviteError(data.error || 'Failed to send invitation');
+        setAddError(data.error || 'Failed to add to roster');
       }
     } catch (err) {
-      setInviteError('Failed to send invitation');
+      setAddError('Failed to add to roster');
     } finally {
-      setInviting(false);
+      setAdding(false);
     }
   };
 
-  const handleCancelInvitation = async (invitationId: string) => {
+  const handleRemovePendingSpot = async (spotId: string) => {
     const token = getAuthToken();
     if (!token || !id) return;
+    if (!confirm('Remove this pending roster spot?')) return;
 
     try {
-      const res = await fetch(`${apiUrl}/api/teams/${id}/invitations/${invitationId}`, {
+      const res = await fetch(`${apiUrl}/api/teams/${id}/roster/${spotId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -153,7 +199,7 @@ const TeamDetailPage: React.FC = () => {
         await fetchTeam();
       }
     } catch (err) {
-      console.error('Failed to cancel invitation:', err);
+      console.error('Failed to remove roster spot:', err);
     }
   };
 
@@ -285,18 +331,49 @@ const TeamDetailPage: React.FC = () => {
                 </p>
               )}
             </div>
-            {team.isOwner && (
-              <button
-                onClick={() => setShowInviteModal(true)}
-                className="px-4 py-2 font-semibold rounded transition-all hover:opacity-90"
-                style={{
-                  background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
-                  color: 'var(--color-bg-primary)',
-                }}
-              >
-                + Invite Player
-              </button>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {/* Copy Link Button */}
+              {team.canManageRoster && (
+                <button
+                  onClick={handleCopyLink}
+                  className="px-4 py-2 font-medium rounded transition-all hover:opacity-80 border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  {copied ? '✓ Copied!' : '🔗 Copy Link'}
+                </button>
+              )}
+              {/* Join Team Button (for users with pending spot) */}
+              {team.canJoin && (
+                <button
+                  onClick={handleJoinTeam}
+                  disabled={joining}
+                  className="px-4 py-2 font-semibold rounded transition-all hover:opacity-90 disabled:opacity-50"
+                  style={{
+                    background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
+                    color: 'var(--color-bg-primary)',
+                  }}
+                >
+                  {joining ? 'Joining...' : `Join as ${team.pendingSpotRole}`}
+                </button>
+              )}
+              {/* Add to Roster Button (for owner/manager) */}
+              {team.canManageRoster && (
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="px-4 py-2 font-semibold rounded transition-all hover:opacity-90"
+                  style={{
+                    background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
+                    color: 'var(--color-bg-primary)',
+                  }}
+                >
+                  + Add to Roster
+                </button>
+              )}
+            </div>
           </header>
 
           {/* Roster */}
@@ -311,73 +388,82 @@ const TeamDetailPage: React.FC = () => {
             <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
               Roster
             </h2>
-            <div className="space-y-3">
-              {team.members.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex flex-wrap items-center justify-between gap-3 p-3 rounded border"
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    borderColor: 'var(--color-border)',
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <Link
-                      href={`/profile/${member.username}`}
-                      className="font-semibold hover:opacity-80"
-                      style={{ color: 'var(--color-text-primary)' }}
-                    >
-                      {member.username}
-                    </Link>
-                    {member.isOwner && (
-                      <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(200, 170, 109, 0.2)', color: 'var(--color-accent-1)' }}>
-                        Owner
-                      </span>
-                    )}
-                    {member.rank && (
-                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                        {member.rank}{member.division ? ` ${member.division}` : ''}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {team.isOwner && !member.isOwner ? (
-                      <select
-                        value={member.role}
-                        onChange={(e) => handleUpdateRole(member.userId, e.target.value)}
-                        className="px-2 py-1 text-sm rounded border"
-                        style={{
-                          backgroundColor: 'var(--color-bg-secondary)',
-                          borderColor: 'var(--color-border)',
-                          color: 'var(--color-accent-1)',
-                        }}
+            {team.members.length === 0 ? (
+              <p style={{ color: 'var(--color-text-muted)' }}>No members yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {team.members.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex flex-wrap items-center justify-between gap-3 p-3 rounded border"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      borderColor: 'var(--color-border)',
+                    }}
+                  >
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <Link
+                        href={`/profile/${member.username}`}
+                        className="font-semibold hover:opacity-80"
+                        style={{ color: 'var(--color-text-primary)' }}
                       >
-                        {ROLES.map((r) => (
-                          <option key={r} value={r}>{r}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-sm px-2 py-1 rounded" style={{ backgroundColor: 'var(--color-accent-primary-bg)', color: 'var(--color-accent-1)' }}>
-                        {member.role}
-                      </span>
-                    )}
-                    {team.isOwner && !member.isOwner && (
-                      <button
-                        onClick={() => handleRemoveMember(member.userId)}
-                        className="text-xs px-2 py-1 rounded hover:opacity-80"
-                        style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444' }}
-                      >
-                        Remove
-                      </button>
-                    )}
+                        {member.username}
+                      </Link>
+                      {member.role === 'OWNER' && (
+                        <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(200, 170, 109, 0.2)', color: 'var(--color-accent-1)' }}>
+                          Owner
+                        </span>
+                      )}
+                      {member.riotId && (
+                        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                          {member.riotId}
+                        </span>
+                      )}
+                      {member.rank && (
+                        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                          {member.rank}{member.division ? ` ${member.division}` : ''}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {team.canManageRoster && member.role !== 'OWNER' ? (
+                        <select
+                          value={member.role}
+                          onChange={(e) => handleUpdateRole(member.userId, e.target.value)}
+                          className="px-2 py-1 text-sm rounded border"
+                          style={{
+                            backgroundColor: 'var(--color-bg-secondary)',
+                            borderColor: 'var(--color-border)',
+                            color: 'var(--color-accent-1)',
+                          }}
+                        >
+                          {ALL_ROLES.map((r) => (
+                            <option key={r} value={r}>{r}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-sm px-2 py-1 rounded" style={{ backgroundColor: 'var(--color-accent-primary-bg)', color: 'var(--color-accent-1)' }}>
+                          {member.role}
+                        </span>
+                      )}
+                      {team.canManageRoster && member.role !== 'OWNER' && (
+                        <button
+                          onClick={() => handleRemoveMember(member.userId)}
+                          className="text-xs px-2 py-1 rounded hover:opacity-80"
+                          style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444' }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
 
-          {/* Pending Invitations (Owner only) */}
-          {team.isOwner && team.pendingInvitations.length > 0 && (
+          {/* Pending Roster (Owner/Manager only) */}
+          {team.canManageRoster && team.pendingRoster.length > 0 && (
             <section
               className="border p-6"
               style={{
@@ -386,33 +472,39 @@ const TeamDetailPage: React.FC = () => {
                 borderRadius: 'var(--border-radius)',
               }}
             >
-              <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
-                Pending Invitations
+              <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                Pending Roster
               </h2>
+              <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
+                These players/staff need to visit this page and click "Join" to confirm.
+              </p>
               <div className="space-y-3">
-                {team.pendingInvitations.map((inv) => (
+                {team.pendingRoster.map((spot) => (
                   <div
-                    key={inv.id}
+                    key={spot.id}
                     className="flex flex-wrap items-center justify-between gap-3 p-3 rounded border"
                     style={{
                       backgroundColor: 'var(--color-bg-tertiary)',
                       borderColor: 'var(--color-border)',
                     }}
                   >
-                    <div>
+                    <div className="flex items-center gap-3">
                       <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                        {inv.username}
+                        {spot.riotId || spot.username}
                       </span>
-                      <span className="text-sm ml-2" style={{ color: 'var(--color-text-muted)' }}>
-                        as {inv.role}
+                      <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--color-accent-primary-bg)', color: 'var(--color-accent-1)' }}>
+                        {spot.role}
+                      </span>
+                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                        {spot.riotId ? '(Riot ID)' : '(Username)'}
                       </span>
                     </div>
                     <button
-                      onClick={() => handleCancelInvitation(inv.id)}
+                      onClick={() => handleRemovePendingSpot(spot.id)}
                       className="text-sm px-3 py-1 rounded hover:opacity-80"
                       style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444' }}
                     >
-                      Cancel
+                      Remove
                     </button>
                   </div>
                 ))}
@@ -420,56 +512,58 @@ const TeamDetailPage: React.FC = () => {
             </section>
           )}
 
-          {/* Upcoming Events */}
-          <section
-            className="border p-6"
-            style={{
-              backgroundColor: 'var(--color-bg-secondary)',
-              borderColor: 'var(--color-border)',
-              borderRadius: 'var(--border-radius)',
-            }}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                Upcoming Events
-              </h2>
-              <Link
-                href="/teams/schedule"
-                className="text-sm font-medium hover:opacity-80"
-                style={{ color: 'var(--color-accent-1)' }}
-              >
-                View Schedule →
-              </Link>
-            </div>
-            {team.upcomingEvents.length === 0 ? (
-              <p style={{ color: 'var(--color-text-muted)' }}>No upcoming events scheduled.</p>
-            ) : (
-              <div className="space-y-2">
-                {team.upcomingEvents.slice(0, 5).map((event) => (
-                  <div
-                    key={event.id}
-                    className="flex items-center gap-3 p-2 rounded"
-                    style={{ backgroundColor: 'var(--color-bg-tertiary)' }}
-                  >
-                    <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                      {new Date(event.scheduledAt).toLocaleDateString()} at {new Date(event.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                      {event.title}
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--color-accent-primary-bg)', color: 'var(--color-accent-1)' }}>
-                      {event.type.replace('_', ' ')}
-                    </span>
-                  </div>
-                ))}
+          {/* Upcoming Events (Members only) */}
+          {team.isMember && (
+            <section
+              className="border p-6"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                borderColor: 'var(--color-border)',
+                borderRadius: 'var(--border-radius)',
+              }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                  Upcoming Events
+                </h2>
+                <Link
+                  href="/teams/schedule"
+                  className="text-sm font-medium hover:opacity-80"
+                  style={{ color: 'var(--color-accent-1)' }}
+                >
+                  View Schedule →
+                </Link>
               </div>
-            )}
-          </section>
+              {team.upcomingEvents.length === 0 ? (
+                <p style={{ color: 'var(--color-text-muted)' }}>No upcoming events scheduled.</p>
+              ) : (
+                <div className="space-y-2">
+                  {team.upcomingEvents.slice(0, 5).map((event) => (
+                    <div
+                      key={event.id}
+                      className="flex items-center gap-3 p-2 rounded"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)' }}
+                    >
+                      <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                        {new Date(event.scheduledAt).toLocaleDateString()} at {new Date(event.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                        {event.title}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--color-accent-primary-bg)', color: 'var(--color-accent-1)' }}>
+                        {event.type.replace('_', ' ')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
         </div>
       </div>
 
-      {/* Invite Modal */}
-      {showInviteModal && (
+      {/* Add to Roster Modal */}
+      {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
           <div
             className="w-full max-w-md border rounded-lg p-6"
@@ -479,42 +573,95 @@ const TeamDetailPage: React.FC = () => {
             }}
           >
             <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-              Invite Player
+              Add to Roster
             </h2>
 
-            {inviteError && (
-              <div className="mb-4 p-3 rounded text-sm" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444' }}>
-                {inviteError}
+            {/* Type Toggle */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => { setAddType('player'); setAddForm({ ...addForm, role: 'TOP' }); }}
+                className="flex-1 px-3 py-2 rounded font-medium transition-all"
+                style={{
+                  backgroundColor: addType === 'player' ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
+                  color: addType === 'player' ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
+                  border: `1px solid ${addType === 'player' ? 'var(--color-accent-1)' : 'var(--color-border)'}`,
+                }}
+              >
+                Player (Riot ID)
+              </button>
+              <button
+                onClick={() => { setAddType('staff'); setAddForm({ ...addForm, role: 'MANAGER' }); }}
+                className="flex-1 px-3 py-2 rounded font-medium transition-all"
+                style={{
+                  backgroundColor: addType === 'staff' ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
+                  color: addType === 'staff' ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
+                  border: `1px solid ${addType === 'staff' ? 'var(--color-accent-1)' : 'var(--color-border)'}`,
+                }}
+              >
+                Staff (Username)
+              </button>
+            </div>
+
+            {addType === 'staff' && (
+              <div className="mb-4 p-3 rounded text-sm" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
+                ℹ️ Managers and Coaches must already have a riftessence profile before being added.
               </div>
             )}
 
-            <form onSubmit={handleInvite} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                  Username *
-                </label>
-                <input
-                  type="text"
-                  value={inviteForm.username}
-                  onChange={(e) => setInviteForm({ ...inviteForm, username: e.target.value })}
-                  className="w-full px-3 py-2 rounded border"
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    borderColor: 'var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                  }}
-                  placeholder="Enter username"
-                  required
-                />
+            {addError && (
+              <div className="mb-4 p-3 rounded text-sm" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444' }}>
+                {addError}
               </div>
+            )}
+
+            <form onSubmit={handleAddToRoster} className="space-y-4">
+              {addType === 'player' ? (
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                    Riot ID *
+                  </label>
+                  <input
+                    type="text"
+                    value={addForm.riotId}
+                    onChange={(e) => setAddForm({ ...addForm, riotId: e.target.value })}
+                    className="w-full px-3 py-2 rounded border"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                    placeholder="GameName#TAG"
+                    required
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                    Username *
+                  </label>
+                  <input
+                    type="text"
+                    value={addForm.username}
+                    onChange={(e) => setAddForm({ ...addForm, username: e.target.value })}
+                    className="w-full px-3 py-2 rounded border"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                    placeholder="Enter riftessence username"
+                    required
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
                   Role *
                 </label>
                 <select
-                  value={inviteForm.role}
-                  onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
+                  value={addForm.role}
+                  onChange={(e) => setAddForm({ ...addForm, role: e.target.value })}
                   className="w-full px-3 py-2 rounded border"
                   style={{
                     backgroundColor: 'var(--color-bg-tertiary)',
@@ -522,35 +669,16 @@ const TeamDetailPage: React.FC = () => {
                     color: 'var(--color-text-primary)',
                   }}
                 >
-                  {ROLES.map((r) => (
+                  {(addType === 'player' ? PLAYER_ROLES : STAFF_ROLES).map((r) => (
                     <option key={r} value={r}>{r}</option>
                   ))}
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                  Message (optional)
-                </label>
-                <textarea
-                  value={inviteForm.message}
-                  onChange={(e) => setInviteForm({ ...inviteForm, message: e.target.value })}
-                  className="w-full px-3 py-2 rounded border resize-none"
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    borderColor: 'var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                  }}
-                  placeholder="Add a message..."
-                  rows={3}
-                  maxLength={200}
-                />
-              </div>
-
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowInviteModal(false)}
+                  onClick={() => { setShowAddModal(false); setAddError(null); }}
                   className="flex-1 px-4 py-2 font-medium rounded border transition-all hover:opacity-80"
                   style={{
                     backgroundColor: 'var(--color-bg-tertiary)',
@@ -562,14 +690,14 @@ const TeamDetailPage: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={inviting || !inviteForm.username.trim()}
+                  disabled={adding || (addType === 'player' ? !addForm.riotId.trim() : !addForm.username.trim())}
                   className="flex-1 px-4 py-2 font-semibold rounded transition-all hover:opacity-90 disabled:opacity-50"
                   style={{
                     background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
                     color: 'var(--color-bg-primary)',
                   }}
                 >
-                  {inviting ? 'Sending...' : 'Send Invite'}
+                  {adding ? 'Adding...' : 'Add'}
                 </button>
               </div>
             </form>

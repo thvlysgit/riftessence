@@ -1,4 +1,10 @@
 import prisma from '../prisma';
+import { getPuuid } from '../riotClient';
+
+// Valid team roles
+const TEAM_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS', 'MANAGER', 'OWNER', 'COACH'] as const;
+const PLAYER_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS'] as const;
+const STAFF_ROLES = ['MANAGER', 'COACH'] as const;
 
 export default async function teamsRoutes(fastify: any) {
   // Helper to extract userId from JWT
@@ -28,14 +34,34 @@ export default async function teamsRoutes(fastify: any) {
     }
   };
 
-  // Helper to check if user is team owner or admin
-  const isTeamOwnerOrAdmin = async (userId: string, teamId: string): Promise<boolean> => {
+  // Helper to check if user is team owner
+  const isTeamOwner = async (userId: string, teamId: string): Promise<boolean> => {
+    const team = await prisma.team.findUnique({ where: { id: teamId } });
+    return team?.ownerId === userId;
+  };
+
+  // Helper to check if user can manage roster (OWNER or MANAGER)
+  const canManageRoster = async (userId: string, teamId: string): Promise<boolean> => {
     const team = await prisma.team.findUnique({ where: { id: teamId } });
     if (!team) return false;
     if (team.ownerId === userId) return true;
     
-    const user = await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } });
-    return (user?.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin');
+    const member = await prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId } }
+    });
+    return member?.role === 'MANAGER';
+  };
+
+  // Helper to check if user can edit schedule (OWNER, MANAGER, COACH)
+  const canEditSchedule = async (userId: string, teamId: string): Promise<boolean> => {
+    const team = await prisma.team.findUnique({ where: { id: teamId } });
+    if (!team) return false;
+    if (team.ownerId === userId) return true;
+    
+    const member = await prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId } }
+    });
+    return member?.role === 'MANAGER' || member?.role === 'COACH';
   };
 
   // Helper to check if user is team member
@@ -46,6 +72,14 @@ export default async function teamsRoutes(fastify: any) {
     return !!member;
   };
 
+  // Helper to get user's Riot account PUUID
+  const getUserPuuid = async (userId: string): Promise<string | null> => {
+    const account = await prisma.riotAccount.findFirst({
+      where: { userId, isMain: true }
+    });
+    return account?.puuid || null;
+  };
+
   // ==================== TEAM CRUD ====================
 
   // GET /api/teams - Get user's teams (as owner or member)
@@ -54,7 +88,6 @@ export default async function teamsRoutes(fastify: any) {
       const userId = await getUserIdFromRequest(request, reply);
       if (!userId) return;
 
-      // Get teams where user is a member (includes teams they own)
       const memberships = await prisma.teamMember.findMany({
         where: { userId },
         include: {
@@ -67,7 +100,7 @@ export default async function teamsRoutes(fastify: any) {
                 }
               },
               _count: {
-                select: { members: true, events: true, invitations: true }
+                select: { members: true, events: true, pendingSpots: true }
               }
             }
           }
@@ -84,14 +117,14 @@ export default async function teamsRoutes(fastify: any) {
         ownerUsername: m.team.owner.username,
         isOwner: m.team.ownerId === userId,
         myRole: m.role,
+        canEditSchedule: m.team.ownerId === userId || m.role === 'MANAGER' || m.role === 'COACH',
         memberCount: m.team._count.members,
         eventCount: m.team._count.events,
-        pendingInvites: m.team._count.invitations,
+        pendingCount: m.team._count.pendingSpots,
         members: m.team.members.map((mem: any) => ({
           userId: mem.userId,
           username: mem.user.username,
           role: mem.role,
-          isOwner: mem.isOwner,
           joinedAt: mem.joinedAt
         })),
         createdAt: m.team.createdAt,
@@ -131,13 +164,7 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(400).send({ error: 'You can own up to 5 teams' });
       }
 
-      // Get user's primary role for default member role
-      const user = await prisma.user.findUnique({ where: { id: userId } });
-      if (!user) {
-        return reply.status(404).send({ error: 'User not found' });
-      }
-
-      // Create team and add owner as first member
+      // Create team and add owner as first member with OWNER role
       const team = await prisma.team.create({
         data: {
           name,
@@ -148,8 +175,7 @@ export default async function teamsRoutes(fastify: any) {
           members: {
             create: {
               userId,
-              role: user.primaryRole || 'FILL',
-              isOwner: true
+              role: 'OWNER'
             }
           }
         },
@@ -177,7 +203,6 @@ export default async function teamsRoutes(fastify: any) {
             userId: m.userId,
             username: m.user.username,
             role: m.role,
-            isOwner: m.isOwner,
             joinedAt: m.joinedAt
           })),
           createdAt: team.createdAt
@@ -189,7 +214,7 @@ export default async function teamsRoutes(fastify: any) {
     }
   });
 
-  // GET /api/teams/:id - Get team details
+  // GET /api/teams/:id - Get team details (public for link sharing, returns canJoin info)
   fastify.get('/teams/:id', async (request: any, reply: any) => {
     try {
       const userId = await getUserIdFromRequest(request, reply);
@@ -209,23 +234,23 @@ export default async function teamsRoutes(fastify: any) {
                   username: true,
                   riotAccounts: {
                     where: { isMain: true },
-                    select: { rank: true, division: true }
+                    select: { rank: true, division: true, gameName: true, tagLine: true }
                   }
                 } 
               }
             },
             orderBy: { joinedAt: 'asc' }
           },
-          invitations: {
-            where: { status: 'PENDING' },
-            include: {
-              invitedUser: { select: { id: true, username: true } }
-            }
+          pendingSpots: {
+            orderBy: { addedAt: 'asc' }
           },
           events: {
             where: { scheduledAt: { gte: new Date() } },
             orderBy: { scheduledAt: 'asc' },
-            take: 10
+            take: 10,
+            include: {
+              attendances: true
+            }
           }
         }
       });
@@ -234,10 +259,40 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(404).send({ error: 'Team not found' });
       }
 
-      // Check if user is a member
       const isMember = await isTeamMember(userId, id);
+      const canManage = await canManageRoster(userId, id);
+      
+      // Check if user can join (has pending spot matching their account)
+      let canJoin = false;
+      let pendingSpotId: string | null = null;
+      let pendingSpotRole: string | null = null;
+      
       if (!isMember) {
-        return reply.status(403).send({ error: 'You are not a member of this team' });
+        // Check by PUUID (for players)
+        const userPuuid = await getUserPuuid(userId);
+        if (userPuuid) {
+          const spotByPuuid = team.pendingSpots.find((s: any) => s.puuid === userPuuid);
+          if (spotByPuuid) {
+            canJoin = true;
+            pendingSpotId = spotByPuuid.id;
+            pendingSpotRole = spotByPuuid.role;
+          }
+        }
+        
+        // Check by username (for staff)
+        if (!canJoin) {
+          const user = await prisma.user.findUnique({ where: { id: userId } });
+          if (user) {
+            const spotByUsername = team.pendingSpots.find((s: any) => 
+              s.username && s.username.toLowerCase() === user.username.toLowerCase()
+            );
+            if (spotByUsername) {
+              canJoin = true;
+              pendingSpotId = spotByUsername.id;
+              pendingSpotRole = spotByUsername.role;
+            }
+          }
+        }
       }
 
       const myMembership = team.members.find((m: any) => m.userId === userId);
@@ -251,32 +306,44 @@ export default async function teamsRoutes(fastify: any) {
         ownerId: team.ownerId,
         ownerUsername: team.owner.username,
         isOwner: team.ownerId === userId,
+        isMember,
+        canJoin,
+        pendingSpotId,
+        pendingSpotRole,
         myRole: myMembership?.role || null,
+        canManageRoster: canManage,
+        canEditSchedule: await canEditSchedule(userId, id),
         members: team.members.map((m: any) => ({
+          id: m.id,
           userId: m.userId,
           username: m.user.username,
           role: m.role,
-          isOwner: m.isOwner,
           joinedAt: m.joinedAt,
           rank: m.user.riotAccounts?.[0]?.rank || null,
-          division: m.user.riotAccounts?.[0]?.division || null
+          division: m.user.riotAccounts?.[0]?.division || null,
+          riotId: m.user.riotAccounts?.[0] 
+            ? `${m.user.riotAccounts[0].gameName}#${m.user.riotAccounts[0].tagLine}`
+            : null
         })),
-        pendingInvitations: team.ownerId === userId ? team.invitations.map((inv: any) => ({
-          id: inv.id,
-          userId: inv.userId,
-          username: inv.invitedUser.username,
-          role: inv.role,
-          status: inv.status,
-          invitedAt: inv.invitedAt
+        pendingRoster: canManage ? team.pendingSpots.map((spot: any) => ({
+          id: spot.id,
+          riotId: spot.riotId,
+          username: spot.username,
+          role: spot.role,
+          addedAt: spot.addedAt
         })) : [],
-        upcomingEvents: team.events.map((e: any) => ({
+        upcomingEvents: isMember ? team.events.map((e: any) => ({
           id: e.id,
           title: e.title,
           type: e.type,
           description: e.description,
           scheduledAt: e.scheduledAt,
-          duration: e.duration
-        })),
+          duration: e.duration,
+          attendances: e.attendances.map((a: any) => ({
+            userId: a.userId,
+            status: a.status
+          }))
+        })) : [],
         createdAt: team.createdAt,
         updatedAt: team.updatedAt
       });
@@ -295,7 +362,7 @@ export default async function teamsRoutes(fastify: any) {
       const { id } = request.params as any;
       const { name, tag, description, region } = request.body as any;
 
-      if (!await isTeamOwnerOrAdmin(userId, id)) {
+      if (!await isTeamOwner(userId, id)) {
         return reply.status(403).send({ error: 'Only team owner can update team' });
       }
 
@@ -332,7 +399,7 @@ export default async function teamsRoutes(fastify: any) {
 
       const { id } = request.params as any;
 
-      if (!await isTeamOwnerOrAdmin(userId, id)) {
+      if (!await isTeamOwner(userId, id)) {
         return reply.status(403).send({ error: 'Only team owner can delete team' });
       }
 
@@ -345,57 +412,246 @@ export default async function teamsRoutes(fastify: any) {
     }
   });
 
-  // ==================== TEAM MEMBERS ====================
+  // ==================== ROSTER MANAGEMENT ====================
 
-  // GET /api/teams/:id/members - Get team roster
-  fastify.get('/teams/:id/members', async (request: any, reply: any) => {
+  // POST /api/teams/:id/roster - Add pending spot (OWNER/MANAGER only)
+  // For players: { riotId: "Player#TAG", role: "TOP" }
+  // For staff: { username: "username", role: "MANAGER" or "COACH" }
+  fastify.post('/teams/:id/roster', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id } = request.params as any;
+      const { riotId, username, role } = request.body as any;
+
+      if (!await canManageRoster(userId, id)) {
+        return reply.status(403).send({ error: 'Only owner or manager can add to roster' });
+      }
+
+      if (!role || !TEAM_ROLES.includes(role)) {
+        return reply.status(400).send({ error: `Role must be one of: ${TEAM_ROLES.join(', ')}` });
+      }
+
+      // Cannot add OWNER role (there's only one owner)
+      if (role === 'OWNER') {
+        return reply.status(400).send({ error: 'Cannot add another owner' });
+      }
+
+      const team = await prisma.team.findUnique({ where: { id } });
+      if (!team) {
+        return reply.status(404).send({ error: 'Team not found' });
+      }
+
+      // Check team size limit (max 15 total including pending)
+      const memberCount = await prisma.teamMember.count({ where: { teamId: id } });
+      const pendingCount = await prisma.teamPendingSpot.count({ where: { teamId: id } });
+      if (memberCount + pendingCount >= 15) {
+        return reply.status(400).send({ error: 'Team roster is full (max 15 spots)' });
+      }
+
+      // Staff roles require username
+      if (STAFF_ROLES.includes(role as any)) {
+        if (!username) {
+          return reply.status(400).send({ error: 'Username is required for Manager/Coach roles' });
+        }
+
+        // Verify user exists
+        const staffUser = await prisma.user.findUnique({ where: { username } });
+        if (!staffUser) {
+          return reply.status(404).send({ error: 'User not found. They must have a riftessence profile first.' });
+        }
+
+        // Check if already a member
+        const existingMember = await prisma.teamMember.findUnique({
+          where: { teamId_userId: { teamId: id, userId: staffUser.id } }
+        });
+        if (existingMember) {
+          return reply.status(400).send({ error: 'User is already a team member' });
+        }
+
+        // Check if already pending
+        const existingPending = await prisma.teamPendingSpot.findFirst({
+          where: { teamId: id, username: { equals: username, mode: 'insensitive' } }
+        });
+        if (existingPending) {
+          return reply.status(400).send({ error: 'User already has a pending spot' });
+        }
+
+        const spot = await prisma.teamPendingSpot.create({
+          data: {
+            teamId: id,
+            username,
+            role
+          }
+        });
+
+        return reply.status(201).send({ success: true, spot });
+      }
+
+      // Player roles require riotId
+      if (PLAYER_ROLES.includes(role as any)) {
+        if (!riotId) {
+          return reply.status(400).send({ error: 'Riot ID is required for player roles' });
+        }
+
+        // Parse Riot ID
+        const riotIdParts = riotId.split('#');
+        if (riotIdParts.length !== 2) {
+          return reply.status(400).send({ error: 'Invalid Riot ID format. Use: GameName#TAG' });
+        }
+        const [gameName, tagLine] = riotIdParts;
+
+        // Validate Riot ID via Riot API
+        let puuid: string | null = null;
+        try {
+          puuid = await getPuuid(gameName, tagLine, team.region);
+        } catch (err: any) {
+          fastify.log.error('Riot API error:', err);
+          return reply.status(500).send({ error: 'Failed to verify Riot ID. Please try again.' });
+        }
+
+        if (!puuid) {
+          return reply.status(404).send({ error: 'Riot ID not found. Please check the name and tag.' });
+        }
+
+        // Check if PUUID already in a team (as member)
+        const existingMember = await prisma.teamMember.findFirst({
+          where: {
+            user: {
+              riotAccounts: {
+                some: { puuid }
+              }
+            }
+          },
+          include: { team: { select: { name: true } } }
+        });
+        if (existingMember) {
+          return reply.status(400).send({ 
+            error: `This player is already in team "${existingMember.team.name}"` 
+          });
+        }
+
+        // Check if already pending in THIS team
+        const existingPending = await prisma.teamPendingSpot.findUnique({
+          where: { teamId_puuid: { teamId: id, puuid } }
+        });
+        if (existingPending) {
+          return reply.status(400).send({ error: 'This Riot ID already has a pending spot' });
+        }
+
+        const spot = await prisma.teamPendingSpot.create({
+          data: {
+            teamId: id,
+            riotId,
+            puuid,
+            role
+          }
+        });
+
+        return reply.status(201).send({ success: true, spot });
+      }
+
+      return reply.status(400).send({ error: 'Invalid role type' });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to add to roster' });
+    }
+  });
+
+  // DELETE /api/teams/:id/roster/:spotId - Remove pending spot (OWNER/MANAGER only)
+  fastify.delete('/teams/:id/roster/:spotId', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id, spotId } = request.params as any;
+
+      if (!await canManageRoster(userId, id)) {
+        return reply.status(403).send({ error: 'Only owner or manager can remove roster spots' });
+      }
+
+      const spot = await prisma.teamPendingSpot.findUnique({ where: { id: spotId } });
+      if (!spot || spot.teamId !== id) {
+        return reply.status(404).send({ error: 'Pending spot not found' });
+      }
+
+      await prisma.teamPendingSpot.delete({ where: { id: spotId } });
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to remove roster spot' });
+    }
+  });
+
+  // POST /api/teams/:id/join - Join team (claim pending spot)
+  fastify.post('/teams/:id/join', async (request: any, reply: any) => {
     try {
       const userId = await getUserIdFromRequest(request, reply);
       if (!userId) return;
 
       const { id } = request.params as any;
 
-      if (!await isTeamMember(userId, id)) {
-        return reply.status(403).send({ error: 'You are not a member of this team' });
+      // Check if already a member
+      if (await isTeamMember(userId, id)) {
+        return reply.status(400).send({ error: 'You are already a member of this team' });
       }
 
-      const members = await prisma.teamMember.findMany({
-        where: { teamId: id },
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              riotAccounts: {
-                where: { isMain: true },
-                select: { rank: true, division: true, gameName: true, tagLine: true }
-              }
-            }
-          }
-        },
-        orderBy: { joinedAt: 'asc' }
+      const team = await prisma.team.findUnique({
+        where: { id },
+        include: { pendingSpots: true }
       });
 
-      return reply.send(members.map((m: any) => ({
-        id: m.id,
-        userId: m.userId,
-        username: m.user.username,
-        role: m.role,
-        isOwner: m.isOwner,
-        joinedAt: m.joinedAt,
-        rank: m.user.riotAccounts?.[0]?.rank || null,
-        division: m.user.riotAccounts?.[0]?.division || null,
-        riotId: m.user.riotAccounts?.[0] 
-          ? `${m.user.riotAccounts[0].gameName}#${m.user.riotAccounts[0].tagLine}`
-          : null
-      })));
+      if (!team) {
+        return reply.status(404).send({ error: 'Team not found' });
+      }
+
+      // Find matching pending spot
+      let matchingSpot: any = null;
+
+      // Check by PUUID
+      const userPuuid = await getUserPuuid(userId);
+      if (userPuuid) {
+        matchingSpot = team.pendingSpots.find((s: any) => s.puuid === userPuuid);
+      }
+
+      // Check by username
+      if (!matchingSpot) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (user) {
+          matchingSpot = team.pendingSpots.find((s: any) => 
+            s.username && s.username.toLowerCase() === user.username.toLowerCase()
+          );
+        }
+      }
+
+      if (!matchingSpot) {
+        return reply.status(403).send({ error: 'You have not been added to this team\'s roster' });
+      }
+
+      // Join team and remove pending spot
+      await prisma.$transaction([
+        prisma.teamMember.create({
+          data: {
+            teamId: id,
+            userId,
+            role: matchingSpot.role
+          }
+        }),
+        prisma.teamPendingSpot.delete({ where: { id: matchingSpot.id } })
+      ]);
+
+      return reply.send({ success: true, role: matchingSpot.role });
     } catch (error: any) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch members' });
+      return reply.status(500).send({ error: 'Failed to join team' });
     }
   });
 
-  // PUT /api/teams/:id/members/:userId - Update member role (owner only)
+  // ==================== TEAM MEMBERS ====================
+
+  // PUT /api/teams/:id/members/:memberId - Update member role (OWNER/MANAGER only)
   fastify.put('/teams/:id/members/:memberId', async (request: any, reply: any) => {
     try {
       const userId = await getUserIdFromRequest(request, reply);
@@ -404,12 +660,31 @@ export default async function teamsRoutes(fastify: any) {
       const { id, memberId } = request.params as any;
       const { role } = request.body as any;
 
-      if (!await isTeamOwnerOrAdmin(userId, id)) {
-        return reply.status(403).send({ error: 'Only team owner can update member roles' });
+      if (!await canManageRoster(userId, id)) {
+        return reply.status(403).send({ error: 'Only owner or manager can update roles' });
       }
 
-      if (!role) {
-        return reply.status(400).send({ error: 'Role is required' });
+      if (!role || !TEAM_ROLES.includes(role)) {
+        return reply.status(400).send({ error: `Role must be one of: ${TEAM_ROLES.join(', ')}` });
+      }
+
+      // Cannot change to OWNER
+      if (role === 'OWNER') {
+        return reply.status(400).send({ error: 'Cannot assign OWNER role. Transfer ownership instead.' });
+      }
+
+      const member = await prisma.teamMember.findUnique({
+        where: { teamId_userId: { teamId: id, userId: memberId } }
+      });
+
+      if (!member) {
+        return reply.status(404).send({ error: 'Member not found' });
+      }
+
+      // Cannot change owner's role
+      const team = await prisma.team.findUnique({ where: { id } });
+      if (team?.ownerId === memberId) {
+        return reply.status(400).send({ error: 'Cannot change team owner\'s role' });
       }
 
       const updated = await prisma.teamMember.update({
@@ -424,7 +699,7 @@ export default async function teamsRoutes(fastify: any) {
     }
   });
 
-  // DELETE /api/teams/:id/members/:userId - Remove member (owner or self)
+  // DELETE /api/teams/:id/members/:memberId - Remove member (OWNER/MANAGER or self)
   fastify.delete('/teams/:id/members/:memberId', async (request: any, reply: any) => {
     try {
       const userId = await getUserIdFromRequest(request, reply);
@@ -442,16 +717,12 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(400).send({ error: 'Team owner cannot be removed. Transfer ownership or delete team.' });
       }
 
-      // Allow self-leave or owner removal
-      const isOwner = team.ownerId === userId;
+      // Allow self-leave, owner removal, or manager removal
       const isSelf = memberId === userId;
+      const canManage = await canManageRoster(userId, id);
       
-      if (!isOwner && !isSelf) {
-        const user = await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } });
-        const isAdmin = (user?.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin');
-        if (!isAdmin) {
-          return reply.status(403).send({ error: 'Only team owner can remove members' });
-        }
+      if (!isSelf && !canManage) {
+        return reply.status(403).send({ error: 'Only owner/manager can remove members' });
       }
 
       await prisma.teamMember.delete({
@@ -465,193 +736,6 @@ export default async function teamsRoutes(fastify: any) {
     }
   });
 
-  // ==================== TEAM INVITATIONS ====================
-
-  // GET /api/teams/invitations - Get user's pending invitations
-  fastify.get('/teams/invitations', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
-
-      const invitations = await prisma.teamInvitation.findMany({
-        where: { userId, status: 'PENDING' },
-        include: {
-          team: {
-            select: {
-              id: true,
-              name: true,
-              tag: true,
-              region: true,
-              owner: { select: { id: true, username: true } },
-              _count: { select: { members: true } }
-            }
-          }
-        },
-        orderBy: { invitedAt: 'desc' }
-      });
-
-      return reply.send(invitations.map((inv: any) => ({
-        id: inv.id,
-        teamId: inv.team.id,
-        teamName: inv.team.name,
-        teamTag: inv.team.tag,
-        teamRegion: inv.team.region,
-        ownerUsername: inv.team.owner.username,
-        memberCount: inv.team._count.members,
-        role: inv.role,
-        message: inv.message,
-        invitedAt: inv.invitedAt
-      })));
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch invitations' });
-    }
-  });
-
-  // POST /api/teams/:id/invite - Invite user to team (owner only)
-  fastify.post('/teams/:id/invite', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
-
-      const { id } = request.params as any;
-      const { username, role, message } = request.body as any;
-
-      if (!await isTeamOwnerOrAdmin(userId, id)) {
-        return reply.status(403).send({ error: 'Only team owner can invite members' });
-      }
-
-      if (!username || !role) {
-        return reply.status(400).send({ error: 'Username and role are required' });
-      }
-
-      // Find user to invite
-      const invitedUser = await prisma.user.findUnique({ where: { username } });
-      if (!invitedUser) {
-        return reply.status(404).send({ error: 'User not found' });
-      }
-
-      // Check if already a member
-      if (await isTeamMember(invitedUser.id, id)) {
-        return reply.status(400).send({ error: 'User is already a team member' });
-      }
-
-      // Check for existing pending invitation
-      const existing = await prisma.teamInvitation.findUnique({
-        where: { teamId_userId: { teamId: id, userId: invitedUser.id } }
-      });
-      if (existing && existing.status === 'PENDING') {
-        return reply.status(400).send({ error: 'Invitation already pending' });
-      }
-
-      // Check team size limit (max 10 members)
-      const memberCount = await prisma.teamMember.count({ where: { teamId: id } });
-      if (memberCount >= 10) {
-        return reply.status(400).send({ error: 'Team is full (max 10 members)' });
-      }
-
-      // Create or update invitation
-      const invitation = await prisma.teamInvitation.upsert({
-        where: { teamId_userId: { teamId: id, userId: invitedUser.id } },
-        update: { status: 'PENDING', role, message: message || null, invitedAt: new Date(), respondedAt: null },
-        create: { teamId: id, userId: invitedUser.id, role, message: message || null }
-      });
-
-      return reply.status(201).send({ success: true, invitation });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to send invitation' });
-    }
-  });
-
-  // PUT /api/teams/invitations/:id - Accept or decline invitation
-  fastify.put('/teams/invitations/:invitationId', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
-
-      const { invitationId } = request.params as any;
-      const { action } = request.body as any; // 'accept' or 'decline'
-
-      if (!action || !['accept', 'decline'].includes(action)) {
-        return reply.status(400).send({ error: 'Action must be "accept" or "decline"' });
-      }
-
-      const invitation = await prisma.teamInvitation.findUnique({
-        where: { id: invitationId },
-        include: { team: true }
-      });
-
-      if (!invitation) {
-        return reply.status(404).send({ error: 'Invitation not found' });
-      }
-
-      if (invitation.userId !== userId) {
-        return reply.status(403).send({ error: 'This invitation is not for you' });
-      }
-
-      if (invitation.status !== 'PENDING') {
-        return reply.status(400).send({ error: 'Invitation has already been responded to' });
-      }
-
-      if (action === 'accept') {
-        // Check team size limit
-        const memberCount = await prisma.teamMember.count({ where: { teamId: invitation.teamId } });
-        if (memberCount >= 10) {
-          return reply.status(400).send({ error: 'Team is full (max 10 members)' });
-        }
-
-        // Add as member and update invitation
-        await prisma.$transaction([
-          prisma.teamMember.create({
-            data: {
-              teamId: invitation.teamId,
-              userId,
-              role: invitation.role,
-              isOwner: false
-            }
-          }),
-          prisma.teamInvitation.update({
-            where: { id: invitationId },
-            data: { status: 'ACCEPTED', respondedAt: new Date() }
-          })
-        ]);
-      } else {
-        // Decline
-        await prisma.teamInvitation.update({
-          where: { id: invitationId },
-          data: { status: 'DECLINED', respondedAt: new Date() }
-        });
-      }
-
-      return reply.send({ success: true, action });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to respond to invitation' });
-    }
-  });
-
-  // DELETE /api/teams/:id/invitations/:invitationId - Cancel invitation (owner only)
-  fastify.delete('/teams/:id/invitations/:invitationId', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
-
-      const { id, invitationId } = request.params as any;
-
-      if (!await isTeamOwnerOrAdmin(userId, id)) {
-        return reply.status(403).send({ error: 'Only team owner can cancel invitations' });
-      }
-
-      await prisma.teamInvitation.delete({ where: { id: invitationId } });
-
-      return reply.send({ success: true });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to cancel invitation' });
-    }
-  });
-
   // ==================== TEAM EVENTS ====================
 
   // GET /api/teams/:id/events - Get team events
@@ -661,7 +745,7 @@ export default async function teamsRoutes(fastify: any) {
       if (!userId) return;
 
       const { id } = request.params as any;
-      const { past } = request.query as any; // ?past=true to include past events
+      const { past } = request.query as any;
 
       if (!await isTeamMember(userId, id)) {
         return reply.status(403).send({ error: 'You are not a member of this team' });
@@ -675,7 +759,14 @@ export default async function teamsRoutes(fastify: any) {
       const events = await prisma.teamEvent.findMany({
         where,
         orderBy: { scheduledAt: past ? 'desc' : 'asc' },
-        take: 50
+        take: 50,
+        include: {
+          attendances: {
+            include: {
+              user: { select: { id: true, username: true } }
+            }
+          }
+        }
       });
 
       return reply.send(events.map((e: any) => ({
@@ -686,7 +777,12 @@ export default async function teamsRoutes(fastify: any) {
         scheduledAt: e.scheduledAt,
         duration: e.duration,
         createdBy: e.createdBy,
-        createdAt: e.createdAt
+        createdAt: e.createdAt,
+        attendances: e.attendances.map((a: any) => ({
+          userId: a.userId,
+          username: a.user.username,
+          status: a.status
+        }))
       })));
     } catch (error: any) {
       fastify.log.error(error);
@@ -694,7 +790,7 @@ export default async function teamsRoutes(fastify: any) {
     }
   });
 
-  // POST /api/teams/:id/events - Create team event (members can create)
+  // POST /api/teams/:id/events - Create team event (OWNER/MANAGER/COACH only)
   fastify.post('/teams/:id/events', async (request: any, reply: any) => {
     try {
       const userId = await getUserIdFromRequest(request, reply);
@@ -703,8 +799,8 @@ export default async function teamsRoutes(fastify: any) {
       const { id } = request.params as any;
       const { title, type, description, scheduledAt, duration } = request.body as any;
 
-      if (!await isTeamMember(userId, id)) {
-        return reply.status(403).send({ error: 'You are not a member of this team' });
+      if (!await canEditSchedule(userId, id)) {
+        return reply.status(403).send({ error: 'Only owner, manager, or coach can create events' });
       }
 
       if (!title || !type || !scheduledAt) {
@@ -740,7 +836,7 @@ export default async function teamsRoutes(fastify: any) {
     }
   });
 
-  // PUT /api/teams/:id/events/:eventId - Update event (creator or owner)
+  // PUT /api/teams/:id/events/:eventId - Update event (OWNER/MANAGER/COACH only)
   fastify.put('/teams/:id/events/:eventId', async (request: any, reply: any) => {
     try {
       const userId = await getUserIdFromRequest(request, reply);
@@ -749,15 +845,13 @@ export default async function teamsRoutes(fastify: any) {
       const { id, eventId } = request.params as any;
       const { title, type, description, scheduledAt, duration } = request.body as any;
 
+      if (!await canEditSchedule(userId, id)) {
+        return reply.status(403).send({ error: 'Only owner, manager, or coach can update events' });
+      }
+
       const event = await prisma.teamEvent.findUnique({ where: { id: eventId } });
       if (!event || event.teamId !== id) {
         return reply.status(404).send({ error: 'Event not found' });
-      }
-
-      // Allow creator or team owner
-      const isOwner = await isTeamOwnerOrAdmin(userId, id);
-      if (event.createdBy !== userId && !isOwner) {
-        return reply.status(403).send({ error: 'Only event creator or team owner can update' });
       }
 
       const validTypes = ['SCRIM', 'PRACTICE', 'VOD_REVIEW', 'TOURNAMENT', 'TEAM_MEETING'];
@@ -791,7 +885,7 @@ export default async function teamsRoutes(fastify: any) {
     }
   });
 
-  // DELETE /api/teams/:id/events/:eventId - Delete event (creator or owner)
+  // DELETE /api/teams/:id/events/:eventId - Delete event (OWNER/MANAGER/COACH only)
   fastify.delete('/teams/:id/events/:eventId', async (request: any, reply: any) => {
     try {
       const userId = await getUserIdFromRequest(request, reply);
@@ -799,15 +893,13 @@ export default async function teamsRoutes(fastify: any) {
 
       const { id, eventId } = request.params as any;
 
+      if (!await canEditSchedule(userId, id)) {
+        return reply.status(403).send({ error: 'Only owner, manager, or coach can delete events' });
+      }
+
       const event = await prisma.teamEvent.findUnique({ where: { id: eventId } });
       if (!event || event.teamId !== id) {
         return reply.status(404).send({ error: 'Event not found' });
-      }
-
-      // Allow creator or team owner
-      const isOwner = await isTeamOwnerOrAdmin(userId, id);
-      if (event.createdBy !== userId && !isOwner) {
-        return reply.status(403).send({ error: 'Only event creator or team owner can delete' });
       }
 
       await prisma.teamEvent.delete({ where: { id: eventId } });
@@ -816,6 +908,51 @@ export default async function teamsRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to delete event' });
+    }
+  });
+
+  // PUT /api/teams/:id/events/:eventId/attendance - Toggle attendance status (any member)
+  fastify.put('/teams/:id/events/:eventId/attendance', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id, eventId } = request.params as any;
+
+      if (!await isTeamMember(userId, id)) {
+        return reply.status(403).send({ error: 'You are not a member of this team' });
+      }
+
+      const event = await prisma.teamEvent.findUnique({ where: { id: eventId } });
+      if (!event || event.teamId !== id) {
+        return reply.status(404).send({ error: 'Event not found' });
+      }
+
+      // Get current attendance or create new
+      const existing = await prisma.teamEventAttendance.findUnique({
+        where: { eventId_userId: { eventId, userId } }
+      });
+
+      // Cycle: UNSURE -> ABSENT -> PRESENT -> UNSURE
+      const statusCycle: Record<string, string> = {
+        'UNSURE': 'ABSENT',
+        'ABSENT': 'PRESENT',
+        'PRESENT': 'UNSURE'
+      };
+
+      const currentStatus = existing?.status || 'UNSURE';
+      const newStatus = statusCycle[currentStatus] || 'ABSENT';
+
+      const attendance = await prisma.teamEventAttendance.upsert({
+        where: { eventId_userId: { eventId, userId } },
+        update: { status: newStatus as any },
+        create: { eventId, userId, status: newStatus as any }
+      });
+
+      return reply.send({ success: true, status: attendance.status });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to update attendance' });
     }
   });
 }

@@ -9,6 +9,13 @@ interface Team {
   id: string;
   name: string;
   tag: string | null;
+  canEditSchedule?: boolean;
+}
+
+interface EventAttendance {
+  userId: string;
+  username: string;
+  status: 'ABSENT' | 'PRESENT' | 'UNSURE';
 }
 
 interface TeamEvent {
@@ -18,6 +25,7 @@ interface TeamEvent {
   description: string | null;
   scheduledAt: string;
   duration: number | null;
+  attendances: EventAttendance[];
 }
 
 const EVENT_COLORS: Record<string, string> = {
@@ -36,11 +44,24 @@ const EVENT_LABELS: Record<string, string> = {
   TEAM_MEETING: 'Team Meeting',
 };
 
+const ATTENDANCE_COLORS: Record<string, string> = {
+  ABSENT: '#EF4444',
+  PRESENT: '#22C55E',
+  UNSURE: '#F59E0B',
+};
+
+const ATTENDANCE_ICONS: Record<string, string> = {
+  ABSENT: '✕',
+  PRESENT: '✓',
+  UNSURE: '?',
+};
+
 const TeamSchedulePage: React.FC = () => {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [events, setEvents] = useState<TeamEvent[]>([]);
   
   // Create event modal
@@ -88,6 +109,7 @@ const TeamSchedulePage: React.FC = () => {
         setTeams(data);
         if (data.length > 0 && !selectedTeamId) {
           setSelectedTeamId(data[0].id);
+          setSelectedTeam(data[0]);
         }
       }
     } catch (err) {
@@ -111,6 +133,53 @@ const TeamSchedulePage: React.FC = () => {
     }
   };
 
+  const handleToggleAttendance = async (eventId: string) => {
+    const token = getAuthToken();
+    if (!token || !selectedTeamId) return;
+
+    try {
+      const res = await fetch(`${apiUrl}/api/teams/${selectedTeamId}/events/${eventId}/attendance`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        const updatedAttendance = await res.json();
+        // Update local state
+        setEvents(prevEvents => prevEvents.map(event => {
+          if (event.id !== eventId) return event;
+          
+          const existingIdx = event.attendances.findIndex(a => a.userId === user?.id);
+          if (existingIdx >= 0) {
+            const newAttendances = [...event.attendances];
+            newAttendances[existingIdx] = {
+              ...newAttendances[existingIdx],
+              status: updatedAttendance.status
+            };
+            return { ...event, attendances: newAttendances };
+          } else {
+            return {
+              ...event,
+              attendances: [...event.attendances, {
+                userId: user?.id || '',
+                username: user?.username || '',
+                status: updatedAttendance.status
+              }]
+            };
+          }
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to toggle attendance:', err);
+    }
+  };
+
+  const getMyAttendance = (event: TeamEvent): 'ABSENT' | 'PRESENT' | 'UNSURE' | null => {
+    if (!user) return null;
+    const myAttendance = event.attendances?.find(a => a.userId === user.id);
+    return myAttendance?.status || null;
+  };
+
   useEffect(() => {
     const loadData = async () => {
       await fetchTeams();
@@ -122,8 +191,10 @@ const TeamSchedulePage: React.FC = () => {
   useEffect(() => {
     if (selectedTeamId) {
       fetchEvents();
+      const team = teams.find(t => t.id === selectedTeamId);
+      setSelectedTeam(team || null);
     }
-  }, [selectedTeamId]);
+  }, [selectedTeamId, teams]);
 
   const getEventsForDate = (date: Date): TeamEvent[] => {
     return events.filter(event => {
@@ -364,31 +435,68 @@ const TeamSchedulePage: React.FC = () => {
                             backgroundColor: isToday ? 'rgba(200, 170, 109, 0.03)' : 'transparent',
                           }}
                         >
-                          {dayEvents.map((event) => (
-                            <div
-                              key={event.id}
-                              className="mb-2 p-2 rounded text-xs cursor-pointer hover:opacity-80 transition-all group relative"
-                              style={{
-                                backgroundColor: `${EVENT_COLORS[event.type]}20`,
-                                borderLeft: `3px solid ${EVENT_COLORS[event.type]}`,
-                              }}
-                              title={`${event.title}\n${formatEventTime(event.scheduledAt)}${event.duration ? ` (${event.duration}min)` : ''}`}
-                            >
-                              <p className="font-semibold truncate" style={{ color: EVENT_COLORS[event.type] }}>
-                                {formatEventTime(event.scheduledAt)}
-                              </p>
-                              <p className="truncate" style={{ color: 'var(--color-text-primary)' }}>
-                                {event.title}
-                              </p>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
-                                className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-xs px-1 rounded"
-                                style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}
+                          {dayEvents.map((event) => {
+                            const myAttendance = getMyAttendance(event);
+                            return (
+                              <div
+                                key={event.id}
+                                className="mb-2 p-2 rounded text-xs cursor-pointer hover:opacity-80 transition-all group relative"
+                                style={{
+                                  backgroundColor: `${EVENT_COLORS[event.type]}20`,
+                                  borderLeft: `3px solid ${EVENT_COLORS[event.type]}`,
+                                }}
+                                onClick={() => handleToggleAttendance(event.id)}
+                                title={`Click to toggle attendance: ${myAttendance || 'Not set'}\n${event.title}\n${formatEventTime(event.scheduledAt)}${event.duration ? ` (${event.duration}min)` : ''}`}
                               >
-                                ×
-                              </button>
-                            </div>
-                          ))}
+                                <div className="flex items-center justify-between">
+                                  <p className="font-semibold truncate" style={{ color: EVENT_COLORS[event.type] }}>
+                                    {formatEventTime(event.scheduledAt)}
+                                  </p>
+                                  {myAttendance && (
+                                    <span
+                                      className="w-4 h-4 flex items-center justify-center rounded-full text-[10px] font-bold"
+                                      style={{ 
+                                        backgroundColor: ATTENDANCE_COLORS[myAttendance],
+                                        color: '#fff'
+                                      }}
+                                    >
+                                      {ATTENDANCE_ICONS[myAttendance]}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="truncate" style={{ color: 'var(--color-text-primary)' }}>
+                                  {event.title}
+                                </p>
+                                {/* Attendance summary */}
+                                {event.attendances && event.attendances.length > 0 && (
+                                  <div className="flex gap-1 mt-1">
+                                    {(['PRESENT', 'UNSURE', 'ABSENT'] as const).map(status => {
+                                      const count = event.attendances.filter(a => a.status === status).length;
+                                      if (count === 0) return null;
+                                      return (
+                                        <span
+                                          key={status}
+                                          className="text-[9px] px-1 rounded"
+                                          style={{ backgroundColor: `${ATTENDANCE_COLORS[status]}30`, color: ATTENDANCE_COLORS[status] }}
+                                        >
+                                          {count}{ATTENDANCE_ICONS[status]}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                                {selectedTeam?.canEditSchedule && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
+                                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-xs px-1 rounded"
+                                    style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}
+                                  >
+                                    ×
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })}
