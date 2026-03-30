@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import SEOHead from '../../components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
+import { getAuthToken } from '../../utils/auth';
 import NoAccess from '../../components/NoAccess';
 
 interface TeamMember {
@@ -45,7 +46,7 @@ interface Invitation {
 const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
 
 const TeamsDashboardPage: React.FC = () => {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'my-teams' | 'invitations'>('my-teams');
   const [teams, setTeams] = useState<Team[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
@@ -60,6 +61,7 @@ const TeamsDashboardPage: React.FC = () => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
   const fetchTeams = async () => {
+    const token = getAuthToken();
     if (!token) return;
     try {
       const res = await fetch(`${apiUrl}/api/teams`, {
@@ -75,6 +77,7 @@ const TeamsDashboardPage: React.FC = () => {
   };
 
   const fetchInvitations = async () => {
+    const token = getAuthToken();
     if (!token) return;
     try {
       const res = await fetch(`${apiUrl}/api/teams/invitations`, {
@@ -95,11 +98,13 @@ const TeamsDashboardPage: React.FC = () => {
       await Promise.all([fetchTeams(), fetchInvitations()]);
       setLoading(false);
     };
+    const token = getAuthToken();
     if (token) loadData();
-  }, [token]);
+  }, []);
 
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
+    const token = getAuthToken();
     if (!token || !createForm.name.trim()) return;
     
     setCreating(true);
@@ -137,6 +142,7 @@ const TeamsDashboardPage: React.FC = () => {
   };
 
   const handleInvitationResponse = async (invitationId: string, action: 'accept' | 'decline') => {
+    const token = getAuthToken();
     if (!token) return;
     
     try {
@@ -158,6 +164,7 @@ const TeamsDashboardPage: React.FC = () => {
   };
 
   const handleLeaveTeam = async (teamId: string) => {
+    const token = getAuthToken();
     if (!token || !user) return;
     if (!confirm('Are you sure you want to leave this team?')) return;
     
@@ -176,6 +183,7 @@ const TeamsDashboardPage: React.FC = () => {
   };
 
   const handleDeleteTeam = async (teamId: string) => {
+    const token = getAuthToken();
     if (!token) return;
     if (!confirm('Are you sure you want to delete this team? This cannot be undone.')) return;
     

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import SEOHead from '../../components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
+import { getAuthToken } from '../../utils/auth';
 import NoAccess from '../../components/NoAccess';
 
 interface Team {
@@ -36,12 +37,11 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 const TeamSchedulePage: React.FC = () => {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
   const [events, setEvents] = useState<TeamEvent[]>([]);
-  const [loading, setLoading] = useState(true);
   
   // Create event modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -77,6 +77,7 @@ const TeamSchedulePage: React.FC = () => {
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   const fetchTeams = async () => {
+    const token = getAuthToken();
     if (!token) return;
     try {
       const res = await fetch(`${apiUrl}/api/teams`, {
@@ -95,6 +96,7 @@ const TeamSchedulePage: React.FC = () => {
   };
 
   const fetchEvents = async () => {
+    const token = getAuthToken();
     if (!token || !selectedTeamId) return;
     try {
       const res = await fetch(`${apiUrl}/api/teams/${selectedTeamId}/events`, {
@@ -111,18 +113,17 @@ const TeamSchedulePage: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
       await fetchTeams();
-      setLoading(false);
     };
+    const token = getAuthToken();
     if (token) loadData();
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     if (selectedTeamId) {
       fetchEvents();
     }
-  }, [selectedTeamId, token]);
+  }, [selectedTeamId]);
 
   const getEventsForDate = (date: Date): TeamEvent[] => {
     return events.filter(event => {
@@ -138,6 +139,7 @@ const TeamSchedulePage: React.FC = () => {
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
+    const token = getAuthToken();
     if (!token || !selectedTeamId || !eventForm.title.trim() || !eventForm.scheduledAt) return;
 
     setCreating(true);
@@ -176,6 +178,7 @@ const TeamSchedulePage: React.FC = () => {
   };
 
   const handleDeleteEvent = async (eventId: string) => {
+    const token = getAuthToken();
     if (!token || !selectedTeamId) return;
     if (!confirm('Delete this event?')) return;
 
