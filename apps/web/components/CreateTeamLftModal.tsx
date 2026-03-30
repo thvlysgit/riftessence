@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { getAuthToken } from '../utils/auth';
+
+interface UserTeam {
+  id: string;
+  name: string;
+  tag: string | null;
+  isOwner: boolean;
+}
 
 // Helper to get custom arrow with theme color
 const getCustomArrow = () => {
@@ -36,7 +44,9 @@ export interface CreateTeamLftModalProps {
 
 export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, onClose, onSubmit }) => {
   const { currentTheme } = useTheme();
-  const [teamName, setTeamName] = useState('');
+  const [userTeams, setUserTeams] = useState<UserTeam[]>([]);
+  const [teamsLoading, setTeamsLoading] = useState(false);
+  const [selectedTeamId, setSelectedTeamId] = useState('');
   const [region, setRegion] = useState('EUW');
   const [rolesNeeded, setRolesNeeded] = useState<string[]>([]);
   const [averageRank, setAverageRank] = useState('');
@@ -47,13 +57,43 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
   const [details, setDetails] = useState('');
   const [error, setError] = useState('');
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+  // Fetch user's teams when modal opens
+  useEffect(() => {
+    if (open) {
+      const fetchTeams = async () => {
+        const token = getAuthToken();
+        if (!token) return;
+
+        setTeamsLoading(true);
+        try {
+          const res = await fetch(`${apiUrl}/api/teams`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            // Filter to only teams where user is owner (can post LFT for)
+            const ownedTeams = data.filter((t: UserTeam) => t.isOwner);
+            setUserTeams(ownedTeams);
+          }
+        } catch (err) {
+          console.error('Failed to fetch teams:', err);
+        } finally {
+          setTeamsLoading(false);
+        }
+      };
+      fetchTeams();
+    }
+  }, [open, apiUrl]);
+
   // Restore saved draft from localStorage on mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem('riftessence_lft_team_draft');
       if (saved) {
         const d = JSON.parse(saved);
-        if (d.teamName !== undefined) setTeamName(d.teamName);
+        if (d.selectedTeamId !== undefined) setSelectedTeamId(d.selectedTeamId);
         if (d.region) setRegion(d.region);
         if (Array.isArray(d.rolesNeeded)) setRolesNeeded(d.rolesNeeded);
         if (d.averageRank !== undefined) setAverageRank(d.averageRank);
@@ -69,10 +109,10 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
   // Save draft to localStorage on change
   useEffect(() => {
     localStorage.setItem('riftessence_lft_team_draft', JSON.stringify({
-      teamName, region, rolesNeeded, averageRank, averageDivision,
+      selectedTeamId, region, rolesNeeded, averageRank, averageDivision,
       scrims, minAvailability, coachingAvailability, details
     }));
-  }, [teamName, region, rolesNeeded, averageRank, averageDivision, scrims, minAvailability, coachingAvailability, details]);
+  }, [selectedTeamId, region, rolesNeeded, averageRank, averageDivision, scrims, minAvailability, coachingAvailability, details]);
 
   const toggleRole = (role: string) => {
     setRolesNeeded(prev => 
@@ -82,8 +122,8 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!teamName.trim()) {
-      setError('Team name is required');
+    if (!selectedTeamId) {
+      setError('Please select a team');
       return;
     }
     if (rolesNeeded.length === 0) {
@@ -102,9 +142,11 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
       setError('Coaching availability is required');
       return;
     }
+    const selectedTeam = userTeams.find(t => t.id === selectedTeamId);
     setError('');
     onSubmit({
-      teamName,
+      teamName: selectedTeam?.name || '',
+      teamId: selectedTeamId,
       region,
       rolesNeeded,
       averageRank,
@@ -222,24 +264,58 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Team Name */}
+          {/* Team Selector */}
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-              Team Name *
+              Team *
             </label>
-            <input
-              type="text"
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              className="w-full px-3 py-2 rounded border"
-              style={{
-                background: 'var(--color-bg-tertiary)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-primary)'
-              }}
-              placeholder="Enter team name"
-              required
-            />
+            {teamsLoading ? (
+              <div 
+                className="w-full px-3 py-2 rounded border flex items-center gap-2"
+                style={{
+                  background: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-muted)'
+                }}
+              >
+                <div className="animate-spin w-4 h-4 border-2 border-t-transparent rounded-full" style={{ borderColor: 'var(--color-accent-1)', borderTopColor: 'transparent' }} />
+                Loading teams...
+              </div>
+            ) : userTeams.length === 0 ? (
+              <div 
+                className="w-full px-3 py-2 rounded border text-sm"
+                style={{
+                  background: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-muted)'
+                }}
+              >
+                You need to create a team first. <a href="/teams/dashboard" className="underline" style={{ color: 'var(--color-accent-1)' }}>Go to Teams →</a>
+              </div>
+            ) : (
+              <select
+                value={selectedTeamId}
+                onChange={(e) => setSelectedTeamId(e.target.value)}
+                className="w-full px-3 py-2 rounded border appearance-none cursor-pointer"
+                style={{
+                  background: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                  backgroundImage: getCustomArrow(),
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 0.75rem center',
+                  paddingRight: '2.5rem'
+                }}
+                required
+              >
+                <option value="">Select your team...</option>
+                {userTeams.map(team => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}{team.tag ? ` [${team.tag}]` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Region */}
@@ -449,7 +525,8 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
         <div className="flex gap-3 mt-6">
           <button
             type="submit"
-            className="flex-1 px-4 py-2 rounded font-semibold"
+            disabled={userTeams.length === 0 || teamsLoading}
+            className="flex-1 px-4 py-2 rounded font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
               color: 'var(--color-bg-primary)',
