@@ -131,13 +131,6 @@ const TeamSchedulePage: React.FC = () => {
     });
   };
 
-  const getEventsForDate = (date: Date) => {
-    return events.filter(event => {
-      const eventDate = new Date(event.scheduledAt);
-      return eventDate.toDateString() === date.toDateString();
-    });
-  };
-
   const isCurrentMonth = (date: Date) => {
     return date.getMonth() === currentMonth.getMonth();
   };
