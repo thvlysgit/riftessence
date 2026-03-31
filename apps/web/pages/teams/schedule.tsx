@@ -437,16 +437,19 @@ const TeamSchedulePage: React.FC = () => {
                         >
                           {dayEvents.map((event) => {
                             const myAttendance = getMyAttendance(event);
+                            const presentUsers = event.attendances?.filter(a => a.status === 'PRESENT') || [];
+                            const absentUsers = event.attendances?.filter(a => a.status === 'ABSENT') || [];
+                            const unsureUsers = event.attendances?.filter(a => a.status === 'UNSURE') || [];
+                            
                             return (
                               <div
                                 key={event.id}
-                                className="mb-2 p-2 rounded text-xs cursor-pointer hover:opacity-80 transition-all group relative"
+                                className="mb-2 p-2 rounded text-xs cursor-pointer transition-all group relative"
                                 style={{
                                   backgroundColor: `${EVENT_COLORS[event.type]}20`,
                                   borderLeft: `3px solid ${EVENT_COLORS[event.type]}`,
                                 }}
                                 onClick={() => handleToggleAttendance(event.id)}
-                                title={`Click to toggle attendance: ${myAttendance || 'Not set'}\n${event.title}\n${formatEventTime(event.scheduledAt)}${event.duration ? ` (${event.duration}min)` : ''}`}
                               >
                                 <div className="flex items-center justify-between">
                                   <p className="font-semibold truncate" style={{ color: EVENT_COLORS[event.type] }}>
@@ -467,7 +470,7 @@ const TeamSchedulePage: React.FC = () => {
                                 <p className="truncate" style={{ color: 'var(--color-text-primary)' }}>
                                   {event.title}
                                 </p>
-                                {/* Attendance summary */}
+                                {/* Attendance summary counts */}
                                 {event.attendances && event.attendances.length > 0 && (
                                   <div className="flex gap-1 mt-1">
                                     {(['PRESENT', 'UNSURE', 'ABSENT'] as const).map(status => {
@@ -485,6 +488,73 @@ const TeamSchedulePage: React.FC = () => {
                                     })}
                                   </div>
                                 )}
+                                
+                                {/* Hover Tooltip with attendance details */}
+                                <div 
+                                  className="absolute left-0 top-full mt-1 z-50 opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 w-48"
+                                  style={{ transform: 'translateY(-5px)' }}
+                                >
+                                  <div 
+                                    className="p-3 rounded-lg shadow-xl border text-xs"
+                                    style={{ 
+                                      backgroundColor: 'var(--color-bg-secondary)', 
+                                      borderColor: 'var(--color-border)',
+                                    }}
+                                  >
+                                    <p className="font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                                      {event.title}
+                                    </p>
+                                    <p className="mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                                      {formatEventTime(event.scheduledAt)}{event.duration ? ` • ${event.duration}min` : ''}
+                                    </p>
+                                    <p className="text-[10px] mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                                      Click to toggle: {myAttendance || 'Not set'}
+                                    </p>
+                                    
+                                    {event.attendances && event.attendances.length > 0 ? (
+                                      <div className="space-y-2 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
+                                        {presentUsers.length > 0 && (
+                                          <div>
+                                            <p className="font-semibold flex items-center gap-1" style={{ color: ATTENDANCE_COLORS.PRESENT }}>
+                                              <span className="w-3 h-3 flex items-center justify-center rounded-full text-[8px]" style={{ backgroundColor: ATTENDANCE_COLORS.PRESENT, color: '#fff' }}>✓</span>
+                                              Available ({presentUsers.length})
+                                            </p>
+                                            <p className="pl-4 truncate" style={{ color: 'var(--color-text-secondary)' }}>
+                                              {presentUsers.map(u => u.username).join(', ')}
+                                            </p>
+                                          </div>
+                                        )}
+                                        {unsureUsers.length > 0 && (
+                                          <div>
+                                            <p className="font-semibold flex items-center gap-1" style={{ color: ATTENDANCE_COLORS.UNSURE }}>
+                                              <span className="w-3 h-3 flex items-center justify-center rounded-full text-[8px]" style={{ backgroundColor: ATTENDANCE_COLORS.UNSURE, color: '#fff' }}>?</span>
+                                              Unsure ({unsureUsers.length})
+                                            </p>
+                                            <p className="pl-4 truncate" style={{ color: 'var(--color-text-secondary)' }}>
+                                              {unsureUsers.map(u => u.username).join(', ')}
+                                            </p>
+                                          </div>
+                                        )}
+                                        {absentUsers.length > 0 && (
+                                          <div>
+                                            <p className="font-semibold flex items-center gap-1" style={{ color: ATTENDANCE_COLORS.ABSENT }}>
+                                              <span className="w-3 h-3 flex items-center justify-center rounded-full text-[8px]" style={{ backgroundColor: ATTENDANCE_COLORS.ABSENT, color: '#fff' }}>✕</span>
+                                              Absent ({absentUsers.length})
+                                            </p>
+                                            <p className="pl-4 truncate" style={{ color: 'var(--color-text-secondary)' }}>
+                                              {absentUsers.map(u => u.username).join(', ')}
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <p className="text-[10px] italic" style={{ color: 'var(--color-text-muted)' }}>
+                                        No responses yet
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                
                                 {selectedTeam?.canEditSchedule && (
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}

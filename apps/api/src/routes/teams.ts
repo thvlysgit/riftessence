@@ -233,7 +233,9 @@ export default async function teamsRoutes(fastify: any) {
                   id: true, 
                   username: true,
                   riotAccounts: {
-                    where: { isMain: true },
+                    where: { OR: [{ isMain: true }, { hidden: false }] },
+                    orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
+                    take: 1,
                     select: { rank: true, division: true, lp: true, gameName: true, tagLine: true, region: true }
                   }
                 } 
