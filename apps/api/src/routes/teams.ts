@@ -101,6 +101,10 @@ export default async function teamsRoutes(fastify: any) {
               },
               _count: {
                 select: { members: true, events: true, pendingSpots: true }
+              },
+              events: {
+                where: { scheduledAt: { gte: new Date() } },
+                select: { id: true }
               }
             }
           }
@@ -120,6 +124,7 @@ export default async function teamsRoutes(fastify: any) {
         canEditSchedule: m.team.ownerId === userId || m.role === 'MANAGER' || m.role === 'COACH',
         memberCount: m.team._count.members,
         eventCount: m.team._count.events,
+        upcomingEventCount: m.team.events.length,
         pendingCount: m.team._count.pendingSpots,
         members: m.team.members.map((mem: any) => ({
           userId: mem.userId,
@@ -394,6 +399,61 @@ export default async function teamsRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to update team' });
+    }
+  });
+
+  // PUT /api/teams/:id/transfer - Transfer ownership (owner only)
+  fastify.put('/teams/:id/transfer', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id } = request.params as any;
+      const { newOwnerId } = request.body as any;
+
+      if (!newOwnerId) {
+        return reply.status(400).send({ error: 'New owner ID is required' });
+      }
+
+      // Check if user is current owner
+      if (!await isTeamOwner(userId, id)) {
+        return reply.status(403).send({ error: 'Only team owner can transfer ownership' });
+      }
+
+      // Verify new owner is a team member
+      const newOwnerMembership = await prisma.teamMember.findFirst({
+        where: { teamId: id, userId: newOwnerId }
+      });
+
+      if (!newOwnerMembership) {
+        return reply.status(400).send({ error: 'New owner must be a team member' });
+      }
+
+      // Use transaction to update both team owner and member roles
+      await prisma.$transaction(async (tx) => {
+        // Update team owner
+        await tx.team.update({
+          where: { id },
+          data: { ownerId: newOwnerId }
+        });
+
+        // Update old owner's role to a regular role (keep as MANAGER)
+        await tx.teamMember.update({
+          where: { teamId_userId: { teamId: id, userId: userId } },
+          data: { role: 'MANAGER' }
+        });
+
+        // Update new owner's role to OWNER
+        await tx.teamMember.update({
+          where: { teamId_userId: { teamId: id, userId: newOwnerId } },
+          data: { role: 'OWNER' }
+        });
+      });
+
+      return reply.send({ success: true, message: 'Ownership transferred successfully' });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to transfer ownership' });
     }
   });
 
@@ -771,6 +831,11 @@ export default async function teamsRoutes(fastify: any) {
             include: {
               user: { select: { id: true, username: true } }
             }
+          },
+          assignedCoaches: {
+            include: {
+              user: { select: { id: true, username: true } }
+            }
           }
         }
       });
@@ -782,12 +847,17 @@ export default async function teamsRoutes(fastify: any) {
         description: e.description,
         scheduledAt: e.scheduledAt,
         duration: e.duration,
+        enemyMultigg: e.enemyMultigg,
         createdBy: e.createdBy,
         createdAt: e.createdAt,
         attendances: e.attendances.map((a: any) => ({
           userId: a.userId,
           username: a.user.username,
           status: a.status
+        })),
+        assignedCoaches: e.assignedCoaches.map((c: any) => ({
+          userId: c.userId,
+          username: c.user.username
         }))
       })));
     } catch (error: any) {
@@ -803,7 +873,7 @@ export default async function teamsRoutes(fastify: any) {
       if (!userId) return;
 
       const { id } = request.params as any;
-      const { title, type, description, scheduledAt, duration } = request.body as any;
+      const { title, type, description, scheduledAt, duration, enemyMultigg, assignedCoachIds } = request.body as any;
 
       if (!await canEditSchedule(userId, id)) {
         return reply.status(403).send({ error: 'Only owner, manager, or coach can create events' });
@@ -831,9 +901,20 @@ export default async function teamsRoutes(fastify: any) {
           description: description || null,
           scheduledAt: scheduledDate,
           duration: duration ? parseInt(duration) : null,
+          enemyMultigg: (type === 'SCRIM' || type === 'TOURNAMENT') ? (enemyMultigg || null) : null,
           createdBy: userId
         }
       });
+
+      // If VOD_REVIEW and coaches specified, create coach assignments
+      if (type === 'VOD_REVIEW' && assignedCoachIds && Array.isArray(assignedCoachIds) && assignedCoachIds.length > 0) {
+        await prisma.teamEventCoach.createMany({
+          data: assignedCoachIds.map((coachId: string) => ({
+            eventId: event.id,
+            userId: coachId
+          }))
+        });
+      }
 
       return reply.status(201).send({ success: true, event });
     } catch (error: any) {
@@ -849,7 +930,7 @@ export default async function teamsRoutes(fastify: any) {
       if (!userId) return;
 
       const { id, eventId } = request.params as any;
-      const { title, type, description, scheduledAt, duration } = request.body as any;
+      const { title, type, description, scheduledAt, duration, enemyMultigg, assignedCoachIds } = request.body as any;
 
       if (!await canEditSchedule(userId, id)) {
         return reply.status(403).send({ error: 'Only owner, manager, or coach can update events' });
@@ -873,6 +954,8 @@ export default async function teamsRoutes(fastify: any) {
         }
       }
 
+      const eventType = type || event.type;
+
       const updated = await prisma.teamEvent.update({
         where: { id: eventId },
         data: {
@@ -880,9 +963,26 @@ export default async function teamsRoutes(fastify: any) {
           ...(type && { type }),
           ...(description !== undefined && { description: description || null }),
           ...(scheduledDate && { scheduledAt: scheduledDate }),
-          ...(duration !== undefined && { duration: duration ? parseInt(duration) : null })
+          ...(duration !== undefined && { duration: duration ? parseInt(duration) : null }),
+          ...(enemyMultigg !== undefined && (eventType === 'SCRIM' || eventType === 'TOURNAMENT') && { enemyMultigg: enemyMultigg || null })
         }
       });
+
+      // Update coach assignments for VOD_REVIEW events
+      if (eventType === 'VOD_REVIEW' && assignedCoachIds !== undefined) {
+        // Remove existing assignments
+        await prisma.teamEventCoach.deleteMany({ where: { eventId } });
+        
+        // Add new assignments
+        if (Array.isArray(assignedCoachIds) && assignedCoachIds.length > 0) {
+          await prisma.teamEventCoach.createMany({
+            data: assignedCoachIds.map((coachId: string) => ({
+              eventId,
+              userId: coachId
+            }))
+          });
+        }
+      }
 
       return reply.send({ success: true, event: updated });
     } catch (error: any) {

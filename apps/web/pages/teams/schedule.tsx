@@ -18,6 +18,11 @@ interface EventAttendance {
   status: 'ABSENT' | 'PRESENT' | 'UNSURE';
 }
 
+interface AssignedCoach {
+  userId: string;
+  username: string;
+}
+
 interface TeamEvent {
   id: string;
   title: string;
@@ -25,7 +30,9 @@ interface TeamEvent {
   description: string | null;
   scheduledAt: string;
   duration: number | null;
+  enemyMultigg: string | null;
   attendances: EventAttendance[];
+  assignedCoaches: AssignedCoach[];
 }
 
 const EVENT_COLORS: Record<string, string> = {
@@ -72,10 +79,21 @@ const TeamSchedulePage: React.FC = () => {
     type: 'PRACTICE' as TeamEvent['type'],
     description: '',
     scheduledAt: '',
-    duration: ''
+    duration: '',
+    enemyMultigg: '',
+    assignedCoachIds: [] as string[]
   });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Get coaches from team members for VOD Review assignment
+  const getTeamCoaches = (): { userId: string; username: string }[] => {
+    if (!selectedTeam) return [];
+    return selectedTeam.members?.filter((m: any) => m.role === 'COACH').map((m: any) => ({
+      userId: m.userId,
+      username: m.username
+    })) || [];
+  };
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -270,7 +288,9 @@ const TeamSchedulePage: React.FC = () => {
           type: eventForm.type,
           description: eventForm.description.trim() || null,
           scheduledAt: eventForm.scheduledAt,
-          duration: eventForm.duration ? parseInt(eventForm.duration) : null
+          duration: eventForm.duration ? parseInt(eventForm.duration) : null,
+          enemyMultigg: (eventForm.type === 'SCRIM' || eventForm.type === 'TOURNAMENT') ? (eventForm.enemyMultigg.trim() || null) : null,
+          assignedCoachIds: eventForm.type === 'VOD_REVIEW' ? eventForm.assignedCoachIds : []
         })
       });
 
@@ -278,7 +298,7 @@ const TeamSchedulePage: React.FC = () => {
 
       if (res.ok) {
         setShowCreateModal(false);
-        setEventForm({ title: '', type: 'PRACTICE', description: '', scheduledAt: '', duration: '' });
+        setEventForm({ title: '', type: 'PRACTICE', description: '', scheduledAt: '', duration: '', enemyMultigg: '', assignedCoachIds: [] });
         await fetchEvents();
       } else {
         setError(data.error || 'Failed to create event');
@@ -345,7 +365,20 @@ const TeamSchedulePage: React.FC = () => {
                 Plan and manage your team activities
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-3">
+              {/* Warning for missing multigg */}
+              {selectedTeam?.canEditSchedule && events.some(e => (e.type === 'SCRIM' || e.type === 'TOURNAMENT') && !e.enemyMultigg) && (
+                <div 
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
+                  style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B', border: '1px solid rgba(245, 158, 11, 0.3)' }}
+                  title="Some scrims/tournaments are missing enemy team multi.gg links"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <span className="hidden sm:inline">Missing enemy info</span>
+                </div>
+              )}
               <button
                 onClick={() => setShowCreateModal(true)}
                 disabled={!selectedTeamId}
@@ -968,6 +1001,76 @@ const TeamSchedulePage: React.FC = () => {
                   maxLength={500}
                 />
               </div>
+
+              {/* Enemy Multi.gg for Scrim/Tournament */}
+              {(eventForm.type === 'SCRIM' || eventForm.type === 'TOURNAMENT') && (
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                    Enemy Team Multi.gg
+                    <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>(optional but recommended)</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={eventForm.enemyMultigg}
+                    onChange={(e) => setEventForm({ ...eventForm, enemyMultigg: e.target.value })}
+                    className="w-full px-3 py-2 rounded border"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                    placeholder="https://multi.gg/..."
+                  />
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Paste the multi.gg link of the enemy team for easy scouting
+                  </p>
+                </div>
+              )}
+
+              {/* Coach Assignment for VOD Review */}
+              {eventForm.type === 'VOD_REVIEW' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                    Assign Coaches
+                    <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>(optional)</span>
+                  </label>
+                  {getTeamCoaches().length > 0 ? (
+                    <div className="space-y-2">
+                      {getTeamCoaches().map((coach) => (
+                        <label 
+                          key={coach.userId} 
+                          className="flex items-center gap-2 p-2 rounded cursor-pointer transition-all hover:opacity-80"
+                          style={{ backgroundColor: 'var(--color-bg-tertiary)' }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={eventForm.assignedCoachIds.includes(coach.userId)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEventForm({ ...eventForm, assignedCoachIds: [...eventForm.assignedCoachIds, coach.userId] });
+                              } else {
+                                setEventForm({ ...eventForm, assignedCoachIds: eventForm.assignedCoachIds.filter(id => id !== coach.userId) });
+                              }
+                            }}
+                            className="w-4 h-4 rounded"
+                          />
+                          <span style={{ color: 'var(--color-text-primary)' }}>{coach.username}</span>
+                          <span 
+                            className="text-xs px-2 py-0.5 rounded"
+                            style={{ backgroundColor: 'rgba(157, 78, 221, 0.2)', color: '#9D4EDD' }}
+                          >
+                            Coach
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm py-2" style={{ color: 'var(--color-text-muted)' }}>
+                      No coaches in this team yet
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button

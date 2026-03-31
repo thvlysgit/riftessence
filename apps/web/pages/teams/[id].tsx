@@ -161,6 +161,12 @@ const TeamDetailPage: React.FC = () => {
   const [editing, setEditing] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
+  // Transfer ownership modal
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferTarget, setTransferTarget] = useState('');
+  const [transferring, setTransferring] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
+
   // Add to roster modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [addForm, setAddForm] = useState({ riotId: '', username: '', role: 'TOP' });
@@ -250,6 +256,42 @@ const TeamDetailPage: React.FC = () => {
       setEditError('Failed to update team');
     } finally {
       setEditing(false);
+    }
+  };
+
+  const handleTransferOwnership = async () => {
+    const token = getAuthToken();
+    if (!token || !id || !transferTarget) return;
+
+    if (!confirm(`Are you sure you want to transfer ownership? You will become a Manager and cannot undo this action.`)) {
+      return;
+    }
+
+    setTransferring(true);
+    setTransferError(null);
+
+    try {
+      const res = await fetch(`${apiUrl}/api/teams/${id}/transfer`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ newOwnerId: transferTarget }),
+      });
+
+      if (res.ok) {
+        setShowTransferModal(false);
+        setTransferTarget('');
+        await fetchTeam();
+      } else {
+        const data = await res.json();
+        setTransferError(data.error || 'Failed to transfer ownership');
+      }
+    } catch (err) {
+      setTransferError('Failed to transfer ownership');
+    } finally {
+      setTransferring(false);
     }
   };
 
@@ -540,6 +582,25 @@ const TeamDetailPage: React.FC = () => {
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                     </svg>
                     Edit Team
+                  </button>
+                )}
+                {/* Transfer Ownership Button (owner only) */}
+                {team.isOwner && team.members.length > 1 && (
+                  <button
+                    onClick={() => { setShowTransferModal(true); setTransferTarget(''); setTransferError(null); }}
+                    className="px-4 py-2.5 font-medium rounded-lg transition-all hover:opacity-80 border flex items-center justify-center gap-2"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      borderColor: 'rgba(245, 158, 11, 0.4)',
+                      color: '#F59E0B',
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                      <circle cx="8.5" cy="7" r="4"/>
+                      <polyline points="17 11 19 13 23 9"/>
+                    </svg>
+                    Transfer
                   </button>
                 )}
                 {/* Copy Link Button */}
@@ -1409,6 +1470,118 @@ const TeamDetailPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Ownership Modal */}
+      {showTransferModal && team && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)' }}
+          onClick={(e) => e.target === e.currentTarget && setShowTransferModal(false)}
+        >
+          <div 
+            className="w-full max-w-md rounded-xl border overflow-hidden"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              borderColor: 'var(--color-border)',
+            }}
+          >
+            <div 
+              className="px-6 py-4 border-b"
+              style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', borderColor: 'var(--color-border)' }}
+            >
+              <h3 className="text-xl font-bold flex items-center gap-2" style={{ color: '#F59E0B' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="8.5" cy="7" r="4"/>
+                  <polyline points="17 11 19 13 23 9"/>
+                </svg>
+                Transfer Ownership
+              </h3>
+              <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                This action cannot be undone. You will become a Manager.
+              </p>
+            </div>
+            <div className="p-6 space-y-4">
+              {transferError && (
+                <div 
+                  className="p-3 rounded-lg text-sm"
+                  style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+                >
+                  {transferError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                  Select New Owner
+                </label>
+                <select
+                  value={transferTarget}
+                  onChange={(e) => setTransferTarget(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg border text-sm transition-all focus:outline-none cursor-pointer"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  <option value="">Select a team member...</option>
+                  {team.members.filter(m => m.role !== 'OWNER').map((member) => (
+                    <option key={member.userId} value={member.userId}>
+                      {member.username} ({member.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div 
+                className="p-3 rounded-lg text-sm"
+                style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B', border: '1px solid rgba(245, 158, 11, 0.2)' }}
+              >
+                <strong>Warning:</strong> The new owner will have full control over the team, including the ability to remove members and delete the team.
+              </div>
+
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowTransferModal(false); setTransferError(null); }}
+                  className="flex-1 px-4 py-3 font-medium rounded-lg border transition-all hover:opacity-80"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleTransferOwnership}
+                  disabled={transferring || !transferTarget}
+                  className="flex-1 px-4 py-3 font-semibold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{
+                    backgroundColor: '#F59E0B',
+                    color: '#000',
+                  }}
+                >
+                  {transferring ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      Transferring...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="17 11 19 13 23 9"/>
+                      </svg>
+                      Transfer Ownership
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

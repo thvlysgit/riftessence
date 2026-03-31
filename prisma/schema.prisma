@@ -163,6 +163,7 @@ model User {
   teamsOwned             Team[]                 @relation("TeamOwner")
   teamMemberships        TeamMember[]           @relation("TeamMemberships")
   teamEventAttendances   TeamEventAttendance[]  @relation("TeamEventAttendances")
+  assignedCoachEvents    TeamEventCoach[]       @relation("AssignedCoachEvents")
 
   @@index([region, primaryRole, createdAt])
 }
@@ -885,15 +886,33 @@ model TeamEvent {
   scheduledAt DateTime      // When the event is scheduled
   duration    Int?          // Duration in minutes
   
+  // Scrim/Tournament specific - opponent's multi.gg link
+  enemyMultigg String?
+  
   createdBy   String        // userId who created the event
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   
   // Relations
   attendances TeamEventAttendance[]
+  assignedCoaches TeamEventCoach[]  // For VOD Review events
   
   @@index([teamId, scheduledAt])
   @@index([createdBy])
+}
+
+// Junction table for assigning coaches to VOD Review events
+model TeamEventCoach {
+  id        String    @id @default(cuid())
+  event     TeamEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId   String
+  user      User      @relation("AssignedCoachEvents", fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime  @default(now())
+  
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
 }
 
 model TeamEventAttendance {

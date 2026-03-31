@@ -26,6 +26,7 @@ interface Team {
   myRole: string;
   memberCount: number;
   eventCount: number;
+  upcomingEventCount: number;
   pendingInvites: number;
   members: TeamMember[];
   createdAt: string;
@@ -268,80 +269,162 @@ const TeamsDashboardPage: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {teams.map((team) => (
-                    <div
-                      key={team.id}
-                      className="border p-4 rounded-lg flex flex-wrap items-center justify-between gap-4"
-                      style={{
-                        backgroundColor: 'var(--color-bg-tertiary)',
-                        borderColor: 'var(--color-border)',
-                      }}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-lg truncate" style={{ color: 'var(--color-text-primary)' }}>
-                            {team.name}
-                          </h3>
-                          {team.tag && (
-                            <span className="text-sm px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--color-accent-primary-bg)', color: 'var(--color-accent-1)' }}>
-                              [{team.tag}]
-                            </span>
-                          )}
-                          {team.isOwner && (
-                            <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(200, 170, 109, 0.2)', color: 'var(--color-accent-1)' }}>
-                              Owner
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                          <span>{team.region}</span>
-                          <span>•</span>
-                          <span>{team.memberCount} member{team.memberCount !== 1 ? 's' : ''}</span>
-                          <span>•</span>
-                          <span>Your role: {team.myRole}</span>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Link
-                          href={`/teams/${team.id}`}
-                          className="px-3 py-1.5 text-sm font-medium rounded border transition-all hover:opacity-80"
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {teams.map((team) => {
+                    // Role colors
+                    const roleColors: Record<string, string> = {
+                      OWNER: '#FFD700',
+                      MANAGER: '#C8AA6D',
+                      COACH: '#9D4EDD',
+                      TOP: '#FF6B6B',
+                      JGL: '#4ECDC4',
+                      MID: '#FFE66D',
+                      ADC: '#95E1D3',
+                      SUP: '#DDA0DD',
+                      SUBS: '#6B7280',
+                    };
+                    const roleColor = roleColors[team.myRole] || '#6B7280';
+                    
+                    return (
+                      <div
+                        key={team.id}
+                        className="border rounded-xl overflow-hidden transition-all hover:shadow-lg hover:border-opacity-60 group"
+                        style={{
+                          backgroundColor: 'var(--color-bg-tertiary)',
+                          borderColor: 'var(--color-border)',
+                        }}
+                      >
+                        {/* Team Header with gradient */}
+                        <div 
+                          className="p-4 pb-3"
                           style={{
-                            backgroundColor: 'var(--color-bg-secondary)',
-                            borderColor: 'var(--color-border)',
-                            color: 'var(--color-text-primary)',
+                            background: `linear-gradient(135deg, ${roleColor}15 0%, transparent 100%)`,
+                            borderBottom: '1px solid var(--color-border)',
                           }}
                         >
-                          View
-                        </Link>
-                        {team.isOwner ? (
-                          <button
-                            onClick={() => handleDeleteTeam(team.id)}
-                            className="px-3 py-1.5 text-sm font-medium rounded border transition-all hover:opacity-80"
-                            style={{
-                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                              borderColor: 'rgba(239, 68, 68, 0.3)',
-                              color: '#EF4444',
-                            }}
-                          >
-                            Delete
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleLeaveTeam(team.id)}
-                            className="px-3 py-1.5 text-sm font-medium rounded border transition-all hover:opacity-80"
-                            style={{
-                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                              borderColor: 'rgba(239, 68, 68, 0.3)',
-                              color: '#EF4444',
-                            }}
-                          >
-                            Leave
-                          </button>
-                        )}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              {/* Team Avatar/Icon */}
+                              <div 
+                                className="w-12 h-12 rounded-lg flex items-center justify-center font-bold text-lg flex-shrink-0"
+                                style={{
+                                  background: `linear-gradient(135deg, ${roleColor}30 0%, ${roleColor}10 100%)`,
+                                  color: roleColor,
+                                  border: `1px solid ${roleColor}40`,
+                                }}
+                              >
+                                {team.tag ? team.tag.substring(0, 2) : team.name.substring(0, 2).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h3 className="font-bold text-lg truncate" style={{ color: 'var(--color-text-primary)' }}>
+                                    {team.name}
+                                  </h3>
+                                  {team.tag && (
+                                    <span 
+                                      className="text-xs px-2 py-0.5 rounded font-semibold"
+                                      style={{ backgroundColor: 'var(--color-accent-primary-bg)', color: 'var(--color-accent-1)' }}
+                                    >
+                                      [{team.tag}]
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
+                                    </svg>
+                                    {team.region}
+                                  </span>
+                                  <span>•</span>
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                                    </svg>
+                                    {team.memberCount}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Team Body */}
+                        <div className="p-4 pt-3">
+                          {/* Role Badge */}
+                          <div className="flex items-center justify-between mb-3">
+                            <div 
+                              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold"
+                              style={{ backgroundColor: `${roleColor}20`, color: roleColor, border: `1px solid ${roleColor}40` }}
+                            >
+                              {team.isOwner && (
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M12 1l3.22 3.22h4.56v4.56L23 12l-3.22 3.22v4.56h-4.56L12 23l-3.22-3.22H4.22v-4.56L1 12l3.22-3.22V4.22h4.56L12 1z"/>
+                                </svg>
+                              )}
+                              {team.myRole}
+                            </div>
+                            {team.upcomingEventCount > 0 && (
+                              <div 
+                                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
+                                style={{ backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#22C55E' }}
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                {team.upcomingEventCount} upcoming
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Actions */}
+                          <div className="flex gap-2">
+                            <Link
+                              href={`/teams/${team.id}`}
+                              className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-lg text-center transition-all hover:opacity-90"
+                              style={{
+                                background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
+                                color: 'var(--color-bg-primary)',
+                              }}
+                            >
+                              View Team
+                            </Link>
+                            {team.isOwner ? (
+                              <button
+                                onClick={() => handleDeleteTeam(team.id)}
+                                className="px-4 py-2.5 text-sm font-medium rounded-lg border transition-all hover:opacity-80"
+                                style={{
+                                  backgroundColor: 'transparent',
+                                  borderColor: 'rgba(239, 68, 68, 0.4)',
+                                  color: '#EF4444',
+                                }}
+                                title="Delete team"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleLeaveTeam(team.id)}
+                                className="px-4 py-2.5 text-sm font-medium rounded-lg border transition-all hover:opacity-80"
+                                style={{
+                                  backgroundColor: 'transparent',
+                                  borderColor: 'rgba(239, 68, 68, 0.4)',
+                                  color: '#EF4444',
+                                }}
+                                title="Leave team"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
           </section>
