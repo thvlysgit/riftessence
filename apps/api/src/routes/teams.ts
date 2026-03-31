@@ -234,7 +234,7 @@ export default async function teamsRoutes(fastify: any) {
                   username: true,
                   riotAccounts: {
                     where: { isMain: true },
-                    select: { rank: true, division: true, gameName: true, tagLine: true }
+                    select: { rank: true, division: true, lp: true, gameName: true, tagLine: true, region: true }
                   }
                 } 
               }
@@ -313,18 +313,22 @@ export default async function teamsRoutes(fastify: any) {
         myRole: myMembership?.role || null,
         canManageRoster: canManage,
         canEditSchedule: await canEditSchedule(userId, id),
-        members: team.members.map((m: any) => ({
-          id: m.id,
-          userId: m.userId,
-          username: m.user.username,
-          role: m.role,
-          joinedAt: m.joinedAt,
-          rank: m.user.riotAccounts?.[0]?.rank || null,
-          division: m.user.riotAccounts?.[0]?.division || null,
-          riotId: m.user.riotAccounts?.[0] 
-            ? `${m.user.riotAccounts[0].gameName}#${m.user.riotAccounts[0].tagLine}`
-            : null
-        })),
+        members: team.members.map((m: any) => {
+          const riotAccount = m.user.riotAccounts?.[0];
+          return {
+            id: m.id,
+            userId: m.userId,
+            username: m.user.username,
+            role: m.role,
+            joinedAt: m.joinedAt,
+            rank: riotAccount?.rank || null,
+            division: riotAccount?.division || null,
+            lp: riotAccount?.lp || null,
+            gameName: riotAccount?.gameName || null,
+            tagLine: riotAccount?.tagLine || null,
+            riotRegion: riotAccount?.region || null,
+          };
+        }),
         pendingRoster: canManage ? team.pendingSpots.map((spot: any) => ({
           id: spot.id,
           riotId: spot.riotId,
