@@ -343,8 +343,7 @@ const TeamsDashboardPage: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              )
-            )}
+              )}
           </section>
 
           {/* Quick Action Buttons */}

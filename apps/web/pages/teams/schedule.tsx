@@ -105,7 +105,7 @@ const TeamSchedulePage: React.FC = () => {
     
     // First day of month
     const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
+    const _lastDay = new Date(year, month + 1, 0); // Keep for reference if needed later
     
     // Get the Monday before or on the first day
     const startDate = new Date(firstDay);
