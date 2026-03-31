@@ -63,6 +63,7 @@ const TeamSchedulePage: React.FC = () => {
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [events, setEvents] = useState<TeamEvent[]>([]);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   
   // Create event modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -96,6 +97,54 @@ const TeamSchedulePage: React.FC = () => {
 
   const weekDates = getCurrentWeekDates();
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  // Get month calendar data
+  const getMonthCalendarDays = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    
+    // First day of month
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    
+    // Get the Monday before or on the first day
+    const startDate = new Date(firstDay);
+    const dayOfWeek = firstDay.getDay();
+    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    startDate.setDate(firstDay.getDate() + diff);
+    
+    // Generate 6 weeks of days (42 days) to fill the calendar grid
+    const days: Date[] = [];
+    const current = new Date(startDate);
+    for (let i = 0; i < 42; i++) {
+      days.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    return days;
+  };
+
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    setCurrentMonth(prev => {
+      const newMonth = new Date(prev);
+      newMonth.setMonth(prev.getMonth() + (direction === 'next' ? 1 : -1));
+      return newMonth;
+    });
+  };
+
+  const getEventsForDate = (date: Date) => {
+    return events.filter(event => {
+      const eventDate = new Date(event.scheduledAt);
+      return eventDate.toDateString() === date.toDateString();
+    });
+  };
+
+  const isCurrentMonth = (date: Date) => {
+    return date.getMonth() === currentMonth.getMonth();
+  };
+
+  const isToday = (date: Date) => {
+    return date.toDateString() === new Date().toDateString();
+  };
 
   const fetchTeams = async () => {
     const token = getAuthToken();
@@ -573,11 +622,162 @@ const TeamSchedulePage: React.FC = () => {
                   </div>
                 </>
               ) : (
-                <div className="p-8 text-center">
-                  <p style={{ color: 'var(--color-text-muted)' }}>
-                    Month view coming soon...
-                  </p>
-                </div>
+                /* Month View */
+                <>
+                  {/* Month Navigation */}
+                  <div 
+                    className="flex items-center justify-between px-4 py-3 border-b"
+                    style={{ borderColor: 'var(--color-border)' }}
+                  >
+                    <button
+                      onClick={() => navigateMonth('prev')}
+                      className="p-2 rounded hover:opacity-80 transition-opacity"
+                      style={{ color: 'var(--color-text-primary)' }}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M15 18l-6-6 6-6"/>
+                      </svg>
+                    </button>
+                    <h3 
+                      className="text-lg font-semibold"
+                      style={{ color: 'var(--color-text-primary)' }}
+                    >
+                      {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                    </h3>
+                    <button
+                      onClick={() => navigateMonth('next')}
+                      className="p-2 rounded hover:opacity-80 transition-opacity"
+                      style={{ color: 'var(--color-text-primary)' }}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M9 18l6-6-6-6"/>
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  {/* Calendar Grid */}
+                  <div className="p-2">
+                    {/* Day Headers */}
+                    <div className="grid grid-cols-7 gap-1 mb-1">
+                      {dayNames.map(day => (
+                        <div 
+                          key={day}
+                          className="text-center py-2 text-xs font-semibold"
+                          style={{ color: 'var(--color-text-muted)' }}
+                        >
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Calendar Days */}
+                    <div className="grid grid-cols-7 gap-1">
+                      {getMonthCalendarDays().map((date, idx) => {
+                        const dayEvents = getEventsForDate(date);
+                        const isInCurrentMonth = isCurrentMonth(date);
+                        const isTodayDate = isToday(date);
+                        
+                        return (
+                          <div
+                            key={idx}
+                            className="min-h-[80px] p-1 rounded border transition-all hover:border-opacity-60"
+                            style={{
+                              backgroundColor: isTodayDate 
+                                ? 'rgba(var(--color-accent-1-rgb), 0.1)' 
+                                : isInCurrentMonth 
+                                  ? 'var(--color-bg-tertiary)' 
+                                  : 'var(--color-bg-primary)',
+                              borderColor: isTodayDate 
+                                ? 'var(--color-accent-1)' 
+                                : 'var(--color-border)',
+                              opacity: isInCurrentMonth ? 1 : 0.5,
+                            }}
+                          >
+                            <div 
+                              className={`text-xs font-medium mb-1 ${isTodayDate ? 'text-center' : ''}`}
+                              style={{ 
+                                color: isTodayDate 
+                                  ? 'var(--color-accent-1)' 
+                                  : 'var(--color-text-secondary)'
+                              }}
+                            >
+                              {isTodayDate ? (
+                                <span 
+                                  className="inline-block w-6 h-6 rounded-full flex items-center justify-center"
+                                  style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}
+                                >
+                                  {date.getDate()}
+                                </span>
+                              ) : date.getDate()}
+                            </div>
+                            
+                            {/* Events for this day */}
+                            <div className="space-y-0.5">
+                              {dayEvents.slice(0, 3).map(event => (
+                                <div
+                                  key={event.id}
+                                  className="group relative text-[10px] px-1 py-0.5 rounded truncate cursor-pointer"
+                                  style={{
+                                    backgroundColor: `${EVENT_COLORS[event.type]}20`,
+                                    color: EVENT_COLORS[event.type],
+                                    borderLeft: `2px solid ${EVENT_COLORS[event.type]}`,
+                                  }}
+                                  title={`${event.title} - ${new Date(event.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                                >
+                                  {event.title}
+                                  
+                                  {/* Hover tooltip */}
+                                  <div 
+                                    className="absolute left-0 top-full mt-1 z-20 hidden group-hover:block w-48 p-2 rounded shadow-lg border"
+                                    style={{
+                                      backgroundColor: 'var(--color-bg-secondary)',
+                                      borderColor: 'var(--color-border)',
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <div className="text-xs font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                                      {event.title}
+                                    </div>
+                                    <div className="text-[10px] mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                                      {new Date(event.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      {event.duration && ` (${event.duration}min)`}
+                                    </div>
+                                    {event.attendances.length > 0 && (
+                                      <div className="text-[10px] space-y-0.5 pt-1 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                                        {['PRESENT', 'UNSURE', 'ABSENT'].map(status => {
+                                          const attending = event.attendances.filter(a => a.status === status);
+                                          if (attending.length === 0) return null;
+                                          return (
+                                            <div key={status} className="flex items-center gap-1">
+                                              <span style={{ color: ATTENDANCE_COLORS[status] }}>
+                                                {ATTENDANCE_ICONS[status]}
+                                              </span>
+                                              <span style={{ color: 'var(--color-text-secondary)' }}>
+                                                {attending.map(a => a.username).join(', ')}
+                                              </span>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                              {dayEvents.length > 3 && (
+                                <div 
+                                  className="text-[9px] text-center py-0.5"
+                                  style={{ color: 'var(--color-text-muted)' }}
+                                >
+                                  +{dayEvents.length - 3} more
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
               )}
             </section>
           ) : (

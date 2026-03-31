@@ -31,27 +31,12 @@ interface Team {
   createdAt: string;
 }
 
-interface Invitation {
-  id: string;
-  teamId: string;
-  teamName: string;
-  teamTag: string | null;
-  teamRegion: string;
-  ownerUsername: string;
-  memberCount: number;
-  role: string;
-  message: string | null;
-  invitedAt: string;
-}
-
 const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
 
 const TeamsDashboardPage: React.FC = () => {
   const router = useRouter();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'my-teams' | 'invitations'>('my-teams');
   const [teams, setTeams] = useState<Team[]>([]);
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -81,26 +66,10 @@ const TeamsDashboardPage: React.FC = () => {
     }
   };
 
-  const fetchInvitations = async () => {
-    const token = getAuthToken();
-    if (!token) return;
-    try {
-      const res = await fetch(`${apiUrl}/api/teams/invitations`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setInvitations(data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch invitations:', err);
-    }
-  };
-
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchTeams(), fetchInvitations()]);
+      await fetchTeams();
       setLoading(false);
     };
     const token = getAuthToken();
@@ -143,28 +112,6 @@ const TeamsDashboardPage: React.FC = () => {
       setError('Failed to create team');
     } finally {
       setCreating(false);
-    }
-  };
-
-  const handleInvitationResponse = async (invitationId: string, action: 'accept' | 'decline') => {
-    const token = getAuthToken();
-    if (!token) return;
-    
-    try {
-      const res = await fetch(`${apiUrl}/api/teams/invitations/${invitationId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ action })
-      });
-      
-      if (res.ok) {
-        await Promise.all([fetchTeams(), fetchInvitations()]);
-      }
-    } catch (err) {
-      console.error('Failed to respond to invitation:', err);
     }
   };
 
@@ -269,35 +216,7 @@ const TeamsDashboardPage: React.FC = () => {
             </button>
           </header>
 
-          {/* Tabs */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab('my-teams')}
-              className="px-4 py-2 rounded font-medium transition-all"
-              style={{
-                backgroundColor: activeTab === 'my-teams' ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
-                color: activeTab === 'my-teams' ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
-                border: `1px solid ${activeTab === 'my-teams' ? 'var(--color-accent-1)' : 'var(--color-border)'}`,
-                borderRadius: 'var(--border-radius)',
-              }}
-            >
-              My Teams {teams.length > 0 && `(${teams.length})`}
-            </button>
-            <button
-              onClick={() => setActiveTab('invitations')}
-              className="px-4 py-2 rounded font-medium transition-all"
-              style={{
-                backgroundColor: activeTab === 'invitations' ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
-                color: activeTab === 'invitations' ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
-                border: `1px solid ${activeTab === 'invitations' ? 'var(--color-accent-1)' : 'var(--color-border)'}`,
-                borderRadius: 'var(--border-radius)',
-              }}
-            >
-              Invitations {invitations.length > 0 && `(${invitations.length})`}
-            </button>
-          </div>
-
-          {/* Content */}
+          {/* My Teams Section */}
           <section
             className="border p-6 sm:p-8"
             style={{
@@ -306,13 +225,15 @@ const TeamsDashboardPage: React.FC = () => {
               borderRadius: 'var(--border-radius)',
             }}
           >
+            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
+              My Teams {teams.length > 0 && <span className="text-sm font-normal" style={{ color: 'var(--color-text-muted)' }}>({teams.length})</span>}
+            </h2>
             {loading ? (
               <div className="text-center py-12">
                 <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full mx-auto mb-4" style={{ borderColor: 'var(--color-accent-1)', borderTopColor: 'transparent' }} />
                 <p style={{ color: 'var(--color-text-muted)' }}>Loading...</p>
               </div>
-            ) : activeTab === 'my-teams' ? (
-              teams.length === 0 ? (
+            ) : teams.length === 0 ? (
                 <div className="text-center py-12">
                   <svg
                     className="w-16 h-16 mx-auto mb-4"
@@ -418,100 +339,6 @@ const TeamsDashboardPage: React.FC = () => {
                             Leave
                           </button>
                         )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            ) : (
-              invitations.length === 0 ? (
-                <div className="text-center py-12">
-                  <svg
-                    className="w-16 h-16 mx-auto mb-4"
-                    style={{ color: 'var(--color-text-muted)' }}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
-                  </svg>
-                  <h3
-                    className="text-xl font-semibold mb-2"
-                    style={{ color: 'var(--color-text-primary)' }}
-                  >
-                    No Pending Invitations
-                  </h3>
-                  <p style={{ color: 'var(--color-text-secondary)' }}>
-                    When a team invites you to join, it will appear here.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {invitations.map((inv) => (
-                    <div
-                      key={inv.id}
-                      className="border p-4 rounded-lg"
-                      style={{
-                        backgroundColor: 'var(--color-bg-tertiary)',
-                        borderColor: 'var(--color-border)',
-                      }}
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-lg" style={{ color: 'var(--color-text-primary)' }}>
-                              {inv.teamName}
-                            </h3>
-                            {inv.teamTag && (
-                              <span className="text-sm px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--color-accent-primary-bg)', color: 'var(--color-accent-1)' }}>
-                                [{inv.teamTag}]
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-3 text-sm mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                            <span>{inv.teamRegion}</span>
-                            <span>•</span>
-                            <span>{inv.memberCount} member{inv.memberCount !== 1 ? 's' : ''}</span>
-                            <span>•</span>
-                            <span>Owner: {inv.ownerUsername}</span>
-                          </div>
-                          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                            Invited as: <span style={{ color: 'var(--color-accent-1)' }}>{inv.role}</span>
-                          </p>
-                          {inv.message && (
-                            <p className="text-sm mt-2 italic" style={{ color: 'var(--color-text-secondary)' }}>
-                              "{inv.message}"
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleInvitationResponse(inv.id, 'accept')}
-                            className="px-4 py-2 text-sm font-semibold rounded transition-all hover:opacity-90"
-                            style={{
-                              background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
-                              color: 'var(--color-bg-primary)',
-                            }}
-                          >
-                            Accept
-                          </button>
-                          <button
-                            onClick={() => handleInvitationResponse(inv.id, 'decline')}
-                            className="px-4 py-2 text-sm font-medium rounded border transition-all hover:opacity-80"
-                            style={{
-                              backgroundColor: 'var(--color-bg-secondary)',
-                              borderColor: 'var(--color-border)',
-                              color: 'var(--color-text-primary)',
-                            }}
-                          >
-                            Decline
-                          </button>
-                        </div>
                       </div>
                     </div>
                   ))}

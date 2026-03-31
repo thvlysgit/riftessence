@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import Image from 'next/image';
 import SEOHead from '../../components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAuthToken } from '../../utils/auth';
@@ -97,20 +98,36 @@ const formatRankDisplay = (rank: string | null, division: string | null, lp: num
   return division ? `${rank} ${division}` : rank;
 };
 
-// Role display with icons and colors
-const getRoleIcon = (role: string): string => {
-  const icons: Record<string, string> = {
-    TOP: '🛡️',
-    JGL: '🌲',
-    MID: '⚔️',
-    ADC: '🎯',
-    SUP: '💫',
-    SUBS: '🔄',
-    MANAGER: '📋',
-    COACH: '🎓',
-    OWNER: '👑',
-  };
-  return icons[role] || '👤';
+// Role display with LoL-style icons (SVGs)
+const getRoleIcon = (role: string, size: string = 'w-4 h-4'): React.ReactNode => {
+  const r = role.toUpperCase();
+  switch(r) {
+    case 'TOP':
+      return <svg className={size} viewBox="0 0 136 136" fill="currentColor"><path d="M16 16c32.06 0 64.12-.01 96.18.01-6.72 6.67-13.45 13.33-20.19 19.99H36v56c-6.66 6.73-13.33 13.46-19.99 20.18-.02-32.06 0-64.12-.01-96.18Z"/><path d="M104 44.02c5.32-5.33 10.65-10.64 15.99-15.94.02 30.64.01 61.28.01 91.92-30.64 0-61.28.01-91.93-.01 5.33-5.34 10.66-10.66 16-15.99 19.97-.01 39.95.01 59.93 0V44.02Z" opacity="0.75"/><path d="M56 56h28v28H56V56Z" opacity="0.75"/></svg>;
+    case 'JGL':
+    case 'JUNGLE':
+      return <svg className={size} viewBox="0 0 136 136" fill="currentColor"><path d="M72.13 57.86C78.7 41.1 90.04 26.94 99.94 12.1 93 29.47 84.31 46.87 84.04 65.97c-.73 4.81-2.83 9.31-4 14.03-2.08-7.57-4.91-14.9-7.91-22.14ZM36.21 12.35c13.06 20.19 26.67 40.61 33.61 63.87 4.77 15.49 5.42 32.94-1.8 47.8-5.58-6.1-11.08-12.29-16.71-18.34-4.97-4.72-10.26-9.1-15.32-13.71-1.55-11.73-2.97-23.87-8.72-34.42-2.75-5.24-6.71-9.72-11.19-13.55 9.67 4.75 19.18 10.41 26.23 18.72 4.37 4.98 7.46 10.94 9.69 17.15 1.15-10.29.58-20.79-2.05-30.81-3.31-12.68-8.99-24.55-13.74-36.71ZM105.84 53.83c4.13-4 8.96-7.19 14.04-9.84-4.4 3.88-8.4 8.32-11.14 13.55-5.75 10.56-7.18 22.71-8.74 34.45-5.32 5.35-10.68 10.65-15.98 16.01.15-4.37-.25-8.84 1.02-13.1 3.39-15.08 9.48-30.18 20.8-41.07Z"/></svg>;
+    case 'MID':
+    case 'MIDDLE':
+      return <svg className={size} viewBox="0 0 136 136" fill="currentColor"><path d="M16 16c22.67 0 45.33 0 67.99.01C78.62 21.34 73.28 26.69 67.88 32c-11.96 0-23.92-.01-35.88 0-.01 12 .01 24-.01 36-5.32 5.3-10.64 10.6-15.98 15.89C15.99 61.26 16 38.63 16 16zm87.95 51.9c5.32-5.37 10.69-10.68 16.04-16.02.02 22.71.01 45.41 0 68.12-22.65 0-45.31.01-67.97-.01 5.33-5.33 10.65-10.67 15.99-15.99 12-.01 23.99.01 35.99 0 .04-12.04-.05-24.07-.05-36.1z" opacity="0.75"/><path d="M100.02 16H120v19.99C92 64 64 92 35.99 120H16v-19.99C44 72 72 43.99 100.02 16z"/></svg>;
+    case 'ADC':
+    case 'BOT':
+    case 'BOTTOM':
+      return <Image src="/assets/BotLane.png" alt="Bot" width={16} height={16} className={size} style={{ filter: 'brightness(0) saturate(100%) invert(73%) sepia(16%) saturate(1018%) hue-rotate(8deg) brightness(91%) contrast(85%)' }} />;
+    case 'SUP':
+    case 'SUPPORT':
+      return <svg className={size} viewBox="0 0 136 136" fill="currentColor"><path d="M52.21 12.03c10.33-.1 20.66.06 30.99-.08 1.71 2.62 3.2 5.37 4.79 8.07C81.32 28 74.68 36.01 68 43.98 61.32 36 54.66 28 48.01 19.99c1.4-2.65 2.82-5.29 4.2-7.96ZM0 36.3c14.64-.68 29.33-.11 43.99-.3C48 40 52 44 56 48.01c-2.67 9.32-5.32 18.66-8.01 27.98-6.66-2.65-13.32-5.32-19.98-7.99 3.97-5.35 8.02-10.63 11.96-15.99-5.01-.08-10.15.4-15-1.14C15.58 48.12 7.75 42.05 0 36.34v-.04ZM92.02 36c14.66.05 29.32-.09 43.98.07v.03c-7.3 5.9-15.1 11.53-24.1 14.5-5.11 1.85-10.59 1.34-15.91 1.41 4.01 5.32 8 10.65 11.99 15.98-6.64 2.7-13.31 5.34-19.97 8-2.69-9.32-5.34-18.65-8.01-27.98C84.01 44 88 39.99 92.02 36ZM64.01 52.11c1.36 1.26 2.7 2.55 3.99 3.89 1.32-1.33 2.65-2.65 3.99-3.97 4.04 19.97 7.97 39.96 12.02 59.92-5.31 4.05-10.66 8.07-16.04 12.03-5.32-4.01-10.67-7.97-15.98-12.01 4.04-19.94 7.96-39.92 12.02-59.86Z"/></svg>;
+    case 'SUBS':
+      return <svg className={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>;
+    case 'MANAGER':
+      return <svg className={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><path d="M9 14l2 2 4-4"/></svg>;
+    case 'COACH':
+      return <svg className={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>;
+    case 'OWNER':
+      return <svg className={size} viewBox="0 0 24 24" fill="currentColor"><path d="M12 1l3.22 3.22h4.56v4.56L23 12l-3.22 3.22v4.56h-4.56L12 23l-3.22-3.22H4.22v-4.56L1 12l3.22-3.22V4.22h4.56L12 1z"/></svg>;
+    default:
+      return <svg className={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a8.38 8.38 0 0 1 13 0"/></svg>;
+  }
 };
 
 const getRoleColor = (role: string): string => {
@@ -138,6 +155,12 @@ const TeamDetailPage: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [joining, setJoining] = useState(false);
 
+  // Edit team modal
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', tag: '', description: '', region: '' });
+  const [editing, setEditing] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
   // Add to roster modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [addForm, setAddForm] = useState({ riotId: '', username: '', role: 'TOP' });
@@ -146,6 +169,7 @@ const TeamDetailPage: React.FC = () => {
   const [addError, setAddError] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const REGIONS = ['EUW', 'EUNE', 'NA', 'KR', 'JP', 'BR', 'LAN', 'LAS', 'OCE', 'TR', 'RU', 'PH', 'SG', 'TH', 'TW', 'VN', 'ME'];
 
   const fetchTeam = async () => {
     const token = getAuthToken();
@@ -178,6 +202,56 @@ const TeamDetailPage: React.FC = () => {
       fetchTeam();
     }
   }, [id]);
+
+  const openEditModal = () => {
+    if (team) {
+      setEditForm({
+        name: team.name,
+        tag: team.tag || '',
+        description: team.description || '',
+        region: team.region,
+      });
+      setEditError(null);
+      setShowEditModal(true);
+    }
+  };
+
+  const handleEditTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = getAuthToken();
+    if (!token || !id) return;
+
+    setEditing(true);
+    setEditError(null);
+
+    try {
+      const res = await fetch(`${apiUrl}/api/teams/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: editForm.name,
+          tag: editForm.tag || null,
+          description: editForm.description || null,
+          region: editForm.region,
+        }),
+      });
+
+      if (res.ok) {
+        setShowEditModal(false);
+        await fetchTeam();
+      } else {
+        const data = await res.json();
+        setEditError(data.error || 'Failed to update team');
+      }
+    } catch (err) {
+      setEditError('Failed to update team');
+    } finally {
+      setEditing(false);
+    }
+  };
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/teams/${id}`;
@@ -424,9 +498,10 @@ const TeamDetailPage: React.FC = () => {
                   <Link
                     href={`/profile/${team.ownerUsername}`}
                     className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium hover:opacity-80 transition-opacity"
-                    style={{ backgroundColor: 'rgba(255, 215, 0, 0.1)', color: '#FFD700', border: '1px solid rgba(255, 215, 0, 0.2)' }}
+                    style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}
                   >
-                    👑 {team.ownerUsername}
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#FFD700' }}><path d="M12 1l3.22 3.22h4.56v4.56L23 12l-3.22 3.22v4.56h-4.56L12 23l-3.22-3.22H4.22v-4.56L1 12l3.22-3.22V4.22h4.56L12 1z"/></svg>
+                    {team.ownerUsername}
                   </Link>
                   <span 
                     className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm"
@@ -449,6 +524,24 @@ const TeamDetailPage: React.FC = () => {
               
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                {/* Edit Team Button (owner only) */}
+                {team.isOwner && (
+                  <button
+                    onClick={openEditModal}
+                    className="px-4 py-2.5 font-medium rounded-lg transition-all hover:opacity-80 border flex items-center justify-center gap-2"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    Edit Team
+                  </button>
+                )}
                 {/* Copy Link Button */}
                 {team.canManageRoster && (
                   <button
@@ -575,10 +668,10 @@ const TeamDetailPage: React.FC = () => {
                           <div className="flex items-start gap-4 flex-1 min-w-0">
                             {/* Role Icon */}
                             <div 
-                              className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center text-xl"
-                              style={{ backgroundColor: `${roleColor}20`, border: `1px solid ${roleColor}40` }}
+                              className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center"
+                              style={{ backgroundColor: `${roleColor}20`, border: `1px solid ${roleColor}40`, color: roleColor }}
                             >
-                              {getRoleIcon(member.role)}
+                              {getRoleIcon(member.role, 'w-6 h-6')}
                             </div>
                             
                             {/* Member Details */}
@@ -593,14 +686,6 @@ const TeamDetailPage: React.FC = () => {
                                 >
                                   {member.username}
                                 </Link>
-                                {member.role === 'OWNER' && (
-                                  <span 
-                                    className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                                    style={{ backgroundColor: 'rgba(255, 215, 0, 0.15)', color: '#FFD700', border: '1px solid rgba(255, 215, 0, 0.3)' }}
-                                  >
-                                    👑 Owner
-                                  </span>
-                                )}
                               </div>
                               
                               {/* Riot Account */}
@@ -680,12 +765,12 @@ const TeamDetailPage: React.FC = () => {
                                 }}
                               >
                                 {ALL_ROLES.map((r) => (
-                                  <option key={r} value={r}>{getRoleIcon(r)} {r}</option>
+                                  <option key={r} value={r}>{r}</option>
                                 ))}
                               </select>
                             ) : (
                               <span 
-                                className="px-3 py-1.5 rounded-lg text-sm font-semibold"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold"
                                 style={{ backgroundColor: `${roleColor}20`, color: roleColor, border: `1px solid ${roleColor}40` }}
                               >
                                 {getRoleIcon(member.role)} {member.role}
@@ -759,9 +844,9 @@ const TeamDetailPage: React.FC = () => {
                         {/* Icon */}
                         <div 
                           className="w-10 h-10 rounded-lg flex items-center justify-center"
-                          style={{ backgroundColor: `${roleColor}20`, border: `1px solid ${roleColor}40` }}
+                          style={{ backgroundColor: `${roleColor}20`, border: `1px solid ${roleColor}40`, color: roleColor }}
                         >
-                          {getRoleIcon(spot.role)}
+                          {getRoleIcon(spot.role, 'w-5 h-5')}
                         </div>
                         
                         {/* Info */}
@@ -799,7 +884,7 @@ const TeamDetailPage: React.FC = () => {
                       
                       <div className="flex items-center gap-3">
                         <span 
-                          className="px-3 py-1.5 rounded-lg text-sm font-semibold"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold"
                           style={{ backgroundColor: `${roleColor}20`, color: roleColor, border: `1px solid ${roleColor}40` }}
                         >
                           {getRoleIcon(spot.role)} {spot.role}
@@ -1166,6 +1251,164 @@ const TeamDetailPage: React.FC = () => {
                 </div>
               </form>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Team Modal */}
+      {showEditModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)' }}
+          onClick={(e) => e.target === e.currentTarget && setShowEditModal(false)}
+        >
+          <div 
+            className="w-full max-w-lg rounded-xl border overflow-hidden"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              borderColor: 'var(--color-border)',
+            }}
+          >
+            <div 
+              className="px-6 py-4 border-b"
+              style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
+            >
+              <h3 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                Edit Team
+              </h3>
+              <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                Update your team's information
+              </p>
+            </div>
+            <form onSubmit={handleEditTeam} className="p-6 space-y-4">
+              {editError && (
+                <div 
+                  className="p-3 rounded-lg text-sm"
+                  style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+                >
+                  {editError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                  Team Name *
+                </label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full px-4 py-3 rounded-lg border text-sm transition-all focus:outline-none"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                  placeholder="Team name (2-50 characters)"
+                  minLength={2}
+                  maxLength={50}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                  Team Tag
+                </label>
+                <input
+                  type="text"
+                  value={editForm.tag}
+                  onChange={(e) => setEditForm({ ...editForm, tag: e.target.value.toUpperCase() })}
+                  className="w-full px-4 py-3 rounded-lg border text-sm transition-all focus:outline-none uppercase"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                  placeholder="TAG (2-5 characters)"
+                  minLength={2}
+                  maxLength={5}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                  Region *
+                </label>
+                <select
+                  value={editForm.region}
+                  onChange={(e) => setEditForm({ ...editForm, region: e.target.value })}
+                  className="w-full px-4 py-3 rounded-lg border text-sm transition-all focus:outline-none cursor-pointer"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                  required
+                >
+                  {REGIONS.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                  Description
+                </label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full px-4 py-3 rounded-lg border text-sm transition-all focus:outline-none resize-none"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                  placeholder="Tell others about your team..."
+                  rows={3}
+                  maxLength={500}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowEditModal(false); setEditError(null); }}
+                  className="flex-1 px-4 py-3 font-medium rounded-lg border transition-all hover:opacity-80"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editing || !editForm.name.trim() || !editForm.region}
+                  className="flex-1 px-4 py-3 font-semibold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{
+                    background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
+                    color: 'var(--color-bg-primary)',
+                  }}
+                >
+                  {editing ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M20 6L9 17l-5-5"/>
+                      </svg>
+                      Save Changes
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
