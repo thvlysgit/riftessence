@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useTheme } from '../contexts/ThemeContext';
-import { getAuthToken } from '../utils/auth';
+import { useTheme } from '../../web/contexts/ThemeContext';
+import { getAuthToken } from '../../web/utils/auth';
 
 interface UserTeam {
   id: string;

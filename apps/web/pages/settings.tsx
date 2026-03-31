@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme, ThemeContext } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { LoadingSpinner } from '../components/LoadingSpinner';
+import { LoadingSpinner } from '../../api/components/LoadingSpinner';
 import { getAuthHeader } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';

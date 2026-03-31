@@ -2,16 +2,16 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
-import SEOHead from '../components/SEOHead';
+import SEOHead from '../../api/components/SEOHead';
 import { useTheme } from '../contexts/ThemeContext';
 import { useChat } from '../contexts/ChatContext';
-import { LoadingSpinner } from '../components/LoadingSpinner';
-import { useGlobalUI } from '../components/GlobalUI';
+import { LoadingSpinner } from '../../api/components/LoadingSpinner';
+import { useGlobalUI } from '../../api/components/GlobalUI';
 import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../utils/auth';
 import { getChampionIconUrl } from '../utils/championData';
 import { sanitizeText } from '../utils/sanitize';
 import { getFriendlyErrorMessage, extractErrorMessage } from '../utils/errorMessages';
-import { AdSpot, useAds, getAdForPosition } from '../components/AdSpot';
+import { AdSpot, useAds, getAdForPosition } from '../../api/components/AdSpot';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 

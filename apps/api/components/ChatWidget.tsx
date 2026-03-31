@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useChat } from '../contexts/ChatContext';
-import { getAuthHeader } from '../utils/auth';
+import { useAuth } from '../../web/contexts/AuthContext';
+import { useChat } from '../../web/contexts/ChatContext';
+import { getAuthHeader } from '../../web/utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 

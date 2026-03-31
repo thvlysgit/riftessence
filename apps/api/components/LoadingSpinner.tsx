@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../../web/contexts/ThemeContext';
 
 export const LoadingSpinner: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
   const { theme } = useTheme();

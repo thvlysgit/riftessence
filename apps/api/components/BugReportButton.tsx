@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useGlobalUI } from './GlobalUI';
-import { useAuth } from '../contexts/AuthContext';
-import { useLanguage } from '../contexts/LanguageContext';
-import { getAuthHeader } from '../utils/auth';
+import { useAuth } from '../../web/contexts/AuthContext';
+import { useLanguage } from '../../web/contexts/LanguageContext';
+import { getAuthHeader } from '../../web/utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../../utils/auth';
-import { useGlobalUI } from '../../components/GlobalUI';
+import { useGlobalUI } from '../../../api/components/GlobalUI';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 

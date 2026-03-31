@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import SEOHead from '../components/SEOHead';
-import { LoadingSpinner } from '../components/LoadingSpinner';
-import { CreateTeamLftModal } from '../components/CreateTeamLftModal';
-import { CreatePlayerLftModal } from '../components/CreatePlayerLftModal';
-import { useGlobalUI } from '../components/GlobalUI';
+import SEOHead from '../../api/components/SEOHead';
+import { LoadingSpinner } from '../../api/components/LoadingSpinner';
+import { CreateTeamLftModal } from '../../api/components/CreateTeamLftModal';
+import { CreatePlayerLftModal } from '../../api/components/CreatePlayerLftModal';
+import { useGlobalUI } from '../../api/components/GlobalUI';
 import { useChat } from '../contexts/ChatContext';
 import { getAuthHeader, getAuthToken, getUserIdFromToken } from '../utils/auth';
-import NoAccess from '../components/NoAccess';
-import { AdSpot, useAds, getAdForPosition } from '../components/AdSpot';
+import NoAccess from '../../api/components/NoAccess';
+import { AdSpot, useAds, getAdForPosition } from '../../api/components/AdSpot';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import SEOHead from '../../components/SEOHead';
-import { LoadingSpinner } from '../../components/LoadingSpinner';
+import SEOHead from '../../../api/components/SEOHead';
+import { LoadingSpinner } from '../../../api/components/LoadingSpinner';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 

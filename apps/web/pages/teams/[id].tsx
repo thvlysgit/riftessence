@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Image from 'next/image';
-import SEOHead from '../../components/SEOHead';
+import SEOHead from '../../../api/components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAuthToken } from '../../utils/auth';
-import NoAccess from '../../components/NoAccess';
+import NoAccess from '../../../api/components/NoAccess';
 
 interface TeamMember {
   id: string;

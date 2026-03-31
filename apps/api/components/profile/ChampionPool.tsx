@@ -1,5 +1,5 @@
 import React from 'react';
-import { getChampionIconUrl } from '../../utils/championData';
+import { getChampionIconUrl } from '../../../web/utils/championData';
 
 interface ChampionPoolProps {
   championList: string[];

@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import SEOHead from '../../components/SEOHead';
+import SEOHead from '../../../api/components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAuthToken } from '../../utils/auth';
-import NoAccess from '../../components/NoAccess';
+import NoAccess from '../../../api/components/NoAccess';
+
+interface TeamMember {
+  userId: string;
+  username: string;
+  role: string;
+}
 
 interface Team {
   id: string;
   name: string;
   tag: string | null;
   canEditSchedule?: boolean;
+  members?: TeamMember[];
 }
 
 interface EventAttendance {

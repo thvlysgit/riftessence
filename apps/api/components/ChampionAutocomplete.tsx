@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { fetchChampions, getChampionIconUrl } from '../utils/championData';
+import { fetchChampions, getChampionIconUrl } from '../../web/utils/championData';
 import { LoadingSpinner } from './LoadingSpinner';
 
 interface ChampionAutocompleteProps {

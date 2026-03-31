@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useTheme } from '../contexts/ThemeContext';
-import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../../web/contexts/ThemeContext';
+import { useLanguage } from '../../web/contexts/LanguageContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
 const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'TR'];
 const ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
-const COACH_RANKS = ['EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'];
-const DIVISIONS = ['IV', 'III', 'II', 'I'];
 const AVAILABILITIES = [
   { value: 'ONCE_A_WEEK', label: 'Once a Week' },
   { value: 'TWICE_A_WEEK', label: 'Twice a Week' },
@@ -18,23 +16,19 @@ const AVAILABILITIES = [
   { value: 'EVERYDAY', label: 'Everyday' },
 ];
 const COMMON_LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Portuguese', 'Korean', 'Japanese', 'Chinese'];
-const SPECIALIZATION_OPTIONS = ['Wave Management', 'Vision Control', 'Macro', 'Teamfighting', 'Lane Control', 'Champion Mastery'];
 
-export interface CreateCoachingOfferModalProps {
+export interface CreateCoachingRequestModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: any) => void;
 }
 
-export const CreateCoachingOfferModal: React.FC<CreateCoachingOfferModalProps> = ({ open, onClose, onSubmit }) => {
+export const CreateCoachingRequestModal: React.FC<CreateCoachingRequestModalProps> = ({ open, onClose, onSubmit }) => {
   const { currentTheme } = useTheme();
   const { t } = useLanguage();
   
   const [region, setRegion] = useState('');
   const [roles, setRoles] = useState<string[]>([]);
-  const [coachRank, setCoachRank] = useState('');
-  const [coachDivision, setCoachDivision] = useState('');
-  const [specializations, setSpecializations] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
   const [availability, setAvailability] = useState('ONCE_A_WEEK');
   const [details, setDetails] = useState('');
@@ -74,21 +68,6 @@ export const CreateCoachingOfferModal: React.FC<CreateCoachingOfferModalProps> =
               setRegion('EUW');
             }
 
-            // Set coach rank from main account
-            if (data.riotAccounts && data.riotAccounts.length > 0) {
-              const mainAcc = data.riotAccounts.find((acc: any) => acc.isMain) || data.riotAccounts[0];
-              if (mainAcc.rank && ['EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(mainAcc.rank)) {
-                setCoachRank(mainAcc.rank);
-                if (mainAcc.division && !['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(mainAcc.rank)) {
-                  setCoachDivision(mainAcc.division);
-                }
-              } else {
-                setCoachRank('EMERALD');
-              }
-            } else {
-              setCoachRank('EMERALD');
-            }
-
             // Set role from preferredRole
             if (data.preferredRole) {
               setRoles([data.preferredRole]);
@@ -126,12 +105,6 @@ export const CreateCoachingOfferModal: React.FC<CreateCoachingOfferModalProps> =
     );
   };
 
-  const toggleSpecialization = (spec: string) => {
-    setSpecializations(prev => 
-      prev.includes(spec) ? prev.filter(s => s !== spec) : [...prev, spec]
-    );
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -144,10 +117,6 @@ export const CreateCoachingOfferModal: React.FC<CreateCoachingOfferModalProps> =
       setError('Please select at least one role');
       return;
     }
-    if (!coachRank) {
-      setError('Coach rank is required');
-      return;
-    }
     if (languages.length === 0) {
       setError('Please select at least one language');
       return;
@@ -156,8 +125,8 @@ export const CreateCoachingOfferModal: React.FC<CreateCoachingOfferModalProps> =
       setError('Availability is required');
       return;
     }
-    if (details.length > 1000) {
-      setError('Details must be 1000 characters or less');
+    if (details.length > 500) {
+      setError('Details must be 500 characters or less');
       return;
     }
     if (discordTag && discordTag.length > 50) {
@@ -169,9 +138,6 @@ export const CreateCoachingOfferModal: React.FC<CreateCoachingOfferModalProps> =
     onSubmit({
       region,
       roles,
-      coachRank,
-      coachDivision: (coachRank && !['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(coachRank)) ? coachDivision : null,
-      specializations,
       languages,
       availability,
       details: details.trim() || null,
@@ -190,8 +156,6 @@ export const CreateCoachingOfferModal: React.FC<CreateCoachingOfferModalProps> =
       </div>
     );
   }
-
-  const showDivision = coachRank && !['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(coachRank);
 
   // Theme-specific emoji for slider thumb
   const themeEmojis: Record<string, string> = {
@@ -284,7 +248,7 @@ export const CreateCoachingOfferModal: React.FC<CreateCoachingOfferModalProps> =
           onSubmit={handleSubmit}
         >
           <h3 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-            {t('coaching.offerCoaching')}
+            {t('coaching.seekCoaching')}
           </h3>
 
           {error && (
@@ -321,63 +285,8 @@ export const CreateCoachingOfferModal: React.FC<CreateCoachingOfferModalProps> =
               </select>
             </div>
 
-            {/* Coach Rank */}
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('coaching.coachRank')} *
-              </label>
-              <select
-                value={coachRank}
-                onChange={(e) => setCoachRank(e.target.value)}
-                className="w-full px-3 py-2 rounded border appearance-none"
-                style={{
-                  background: 'var(--color-bg-tertiary)',
-                  borderColor: 'var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23C8AA6E' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 0.75rem center',
-                  paddingRight: '2.5rem'
-                }}
-                required
-              >
-                <option value="">Select rank...</option>
-                {COACH_RANKS.map(r => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Division (conditional) */}
-            {showDivision && (
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  Division
-                </label>
-                <select
-                  value={coachDivision}
-                  onChange={(e) => setCoachDivision(e.target.value)}
-                  className="w-full px-3 py-2 rounded border appearance-none"
-                  style={{
-                    background: 'var(--color-bg-tertiary)',
-                    borderColor: 'var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23C8AA6E' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right 0.75rem center',
-                    paddingRight: '2.5rem'
-                  }}
-                >
-                  <option value="">Select division...</option>
-                  {DIVISIONS.map(d => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             {/* Availability */}
-            <div className={showDivision ? '' : 'md:col-span-2'}>
+            <div>
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
                 {t('coaching.availability')} *
               </label>
@@ -439,30 +348,6 @@ export const CreateCoachingOfferModal: React.FC<CreateCoachingOfferModalProps> =
               </div>
             </div>
 
-            {/* Specializations */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('coaching.specializations')}
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {SPECIALIZATION_OPTIONS.map(spec => (
-                  <button
-                    key={spec}
-                    type="button"
-                    onClick={() => toggleSpecialization(spec)}
-                    className="px-3 py-1 rounded text-sm font-medium transition-all"
-                    style={{
-                      background: specializations.includes(spec) ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
-                      color: specializations.includes(spec) ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
-                      border: `1px solid ${specializations.includes(spec) ? 'var(--color-accent-1)' : 'var(--color-border)'}`,
-                    }}
-                  >
-                    {spec}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Languages */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
@@ -490,19 +375,18 @@ export const CreateCoachingOfferModal: React.FC<CreateCoachingOfferModalProps> =
             {/* Details */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('coaching.details')} ({details.length}/1000)
+                {t('coaching.details')} ({details.length}/500)
               </label>
               <textarea
                 value={details}
                 onChange={(e) => setDetails(e.target.value)}
-                maxLength={1000}
-                rows={6}
+                maxLength={500}
+                rows={4}
                 className="w-full px-3 py-2 rounded border resize-none"
                 style={{
                   background: 'var(--color-bg-tertiary)',
                   borderColor: 'var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                  whiteSpace: 'pre-wrap'
+                  color: 'var(--color-text-primary)'
                 }}
                 placeholder={t('coaching.detailsPlaceholder')}
               />

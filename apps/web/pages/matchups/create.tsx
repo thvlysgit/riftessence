@@ -3,10 +3,10 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { useGlobalUI } from '../../components/GlobalUI';
-import { LoadingSpinner } from '../../components/LoadingSpinner';
-import { ChampionAutocomplete } from '../../components/ChampionAutocomplete';
-import { DifficultySlider } from '../../components/DifficultySlider';
+import { useGlobalUI } from '../../../api/components/GlobalUI';
+import { LoadingSpinner } from '../../../api/components/LoadingSpinner';
+import { ChampionAutocomplete } from '../../../api/components/ChampionAutocomplete';
+import { DifficultySlider } from '../../../api/components/DifficultySlider';
 import { getAuthHeader } from '../../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';

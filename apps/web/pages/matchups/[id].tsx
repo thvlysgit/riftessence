@@ -4,8 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { useGlobalUI } from '../../components/GlobalUI';
-import { LoadingSpinner } from '../../components/LoadingSpinner';
+import { useGlobalUI } from '../../../api/components/GlobalUI';
+import { LoadingSpinner } from '../../../api/components/LoadingSpinner';
 import { getChampionIconUrl } from '../../utils/championData';
 import { getAuthHeader } from '../../utils/auth';
 

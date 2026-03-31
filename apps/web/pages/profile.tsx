@@ -5,18 +5,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import Toast from '../components/Toast';
-import ConfirmModal from '../components/ConfirmModal';
+import Toast from '../../api/components/Toast';
+import ConfirmModal from '../../api/components/ConfirmModal';
 import { useRouter } from 'next/router';
-import { LoadingSpinner } from '../components/LoadingSpinner';
-import { FeedbackModal } from '../components/FeedbackModal';
-import { ReportModal } from '../components/ReportModal';
-import { useGlobalUI } from '../components/GlobalUI';
+import { LoadingSpinner } from '../../api/components/LoadingSpinner';
+import { FeedbackModal } from '../../api/components/FeedbackModal';
+import { ReportModal } from '../../api/components/ReportModal';
+import { useGlobalUI } from '../../api/components/GlobalUI';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useChat } from '../contexts/ChatContext';
 import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../utils/auth';
 import { getChampionIconUrl } from '../utils/championData';
-import NoAccess from '../components/NoAccess';
+import NoAccess from '../../api/components/NoAccess';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 

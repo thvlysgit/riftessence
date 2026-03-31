@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../contexts/AuthContext';
-import { LoadingSpinner } from '../components/LoadingSpinner';
-import { useGlobalUI } from '../components/GlobalUI';
+import { LoadingSpinner } from '../../api/components/LoadingSpinner';
+import { useGlobalUI } from '../../api/components/GlobalUI';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
