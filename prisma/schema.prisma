@@ -820,6 +820,7 @@ model Team {
   name        String
   tag         String?      // Short team tag (e.g., "TSM")
   description String?
+  iconUrl     String?      // Custom team icon URL
   region      Region
   
   // Owner (team creator)

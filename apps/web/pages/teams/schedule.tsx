@@ -589,6 +589,38 @@ const TeamSchedulePage: React.FC = () => {
                                     <p className="mb-2" style={{ color: 'var(--color-text-muted)' }}>
                                       {formatEventTime(event.scheduledAt)}{event.duration ? ` • ${event.duration}min` : ''}
                                     </p>
+                                    {/* Enemy Multi.gg Link for Scrim/Tournament */}
+                                    {(event.type === 'SCRIM' || event.type === 'TOURNAMENT') && event.enemyMultigg && (
+                                      <a
+                                        href={event.enemyMultigg.startsWith('http') ? event.enemyMultigg : `https://${event.enemyMultigg}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="flex items-center gap-1 mb-2 text-[11px] font-medium px-2 py-1 rounded transition-colors hover:opacity-80 pointer-events-auto"
+                                        style={{ 
+                                          backgroundColor: 'rgba(139, 92, 246, 0.15)', 
+                                          color: '#A78BFA',
+                                          border: '1px solid rgba(139, 92, 246, 0.3)'
+                                        }}
+                                      >
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                          <polyline points="15 3 21 3 21 9"/>
+                                          <line x1="10" y1="14" x2="21" y2="3"/>
+                                        </svg>
+                                        Enemy Multi.gg
+                                      </a>
+                                    )}
+                                    {(event.type === 'SCRIM' || event.type === 'TOURNAMENT') && !event.enemyMultigg && (
+                                      <p className="flex items-center gap-1 mb-2 text-[10px]" style={{ color: '#F59E0B' }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                          <line x1="12" y1="9" x2="12" y2="13"/>
+                                          <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                        </svg>
+                                        No enemy multi.gg set
+                                      </p>
+                                    )}
                                     <p className="text-[10px] mb-2" style={{ color: 'var(--color-text-muted)' }}>
                                       Click to toggle: {myAttendance || 'Not set'}
                                     </p>
@@ -775,6 +807,38 @@ const TeamSchedulePage: React.FC = () => {
                                       {new Date(event.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                       {event.duration && ` (${event.duration}min)`}
                                     </div>
+                                    {/* Enemy Multi.gg Link for Scrim/Tournament */}
+                                    {(event.type === 'SCRIM' || event.type === 'TOURNAMENT') && event.enemyMultigg && (
+                                      <a
+                                        href={event.enemyMultigg.startsWith('http') ? event.enemyMultigg : `https://${event.enemyMultigg}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="flex items-center gap-1 mb-1 text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors hover:opacity-80"
+                                        style={{ 
+                                          backgroundColor: 'rgba(139, 92, 246, 0.15)', 
+                                          color: '#A78BFA',
+                                          border: '1px solid rgba(139, 92, 246, 0.3)'
+                                        }}
+                                      >
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                          <polyline points="15 3 21 3 21 9"/>
+                                          <line x1="10" y1="14" x2="21" y2="3"/>
+                                        </svg>
+                                        Enemy Multi.gg
+                                      </a>
+                                    )}
+                                    {(event.type === 'SCRIM' || event.type === 'TOURNAMENT') && !event.enemyMultigg && (
+                                      <div className="flex items-center gap-1 mb-1 text-[9px]" style={{ color: '#F59E0B' }}>
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                          <line x1="12" y1="9" x2="12" y2="13"/>
+                                          <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                        </svg>
+                                        No enemy multi.gg
+                                      </div>
+                                    )}
                                     {event.attendances.length > 0 && (
                                       <div className="text-[10px] space-y-0.5 pt-1 border-t" style={{ borderColor: 'var(--color-border)' }}>
                                         {['PRESENT', 'UNSURE', 'ABSENT'].map(status => {

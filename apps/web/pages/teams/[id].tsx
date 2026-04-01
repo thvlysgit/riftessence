@@ -44,6 +44,7 @@ interface TeamDetails {
   name: string;
   tag: string | null;
   description: string | null;
+  iconUrl: string | null;
   region: string;
   ownerId: string;
   ownerUsername: string;
@@ -157,7 +158,7 @@ const TeamDetailPage: React.FC = () => {
 
   // Edit team modal
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', tag: '', description: '', region: '' });
+  const [editForm, setEditForm] = useState({ name: '', tag: '', description: '', region: '', iconUrl: '' });
   const [editing, setEditing] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -216,6 +217,7 @@ const TeamDetailPage: React.FC = () => {
         tag: team.tag || '',
         description: team.description || '',
         region: team.region,
+        iconUrl: team.iconUrl || '',
       });
       setEditError(null);
       setShowEditModal(true);
@@ -242,6 +244,7 @@ const TeamDetailPage: React.FC = () => {
           tag: editForm.tag || null,
           description: editForm.description || null,
           region: editForm.region,
+          iconUrl: editForm.iconUrl || null,
         }),
       });
 
@@ -502,59 +505,86 @@ const TeamDetailPage: React.FC = () => {
             </div>
             
             <div className="flex flex-wrap items-start justify-between gap-6">
-              <div className="flex-1 min-w-0">
-                {/* Team Name & Tag */}
-                <div className="flex items-center gap-3 flex-wrap mb-3">
-                  <h1 className="text-2xl sm:text-3xl font-extrabold" style={{ color: 'var(--color-accent-1)' }}>
-                    {team.name}
-                  </h1>
-                  {team.tag && (
+              <div className="flex gap-4 flex-1 min-w-0">
+                {/* Team Icon */}
+                {team.iconUrl ? (
+                  <img 
+                    src={team.iconUrl}
+                    alt={team.name}
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover flex-shrink-0"
+                    style={{
+                      border: '2px solid var(--color-accent-1)',
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div 
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl flex items-center justify-center font-bold text-xl sm:text-2xl flex-shrink-0"
+                    style={{
+                      background: 'linear-gradient(135deg, var(--color-accent-1)30 0%, var(--color-accent-1)10 100%)',
+                      color: 'var(--color-accent-1)',
+                      border: '2px solid var(--color-accent-1)',
+                    }}
+                  >
+                    {team.tag ? team.tag.substring(0, 2) : team.name.substring(0, 2).toUpperCase()}
+                  </div>
+                )}
+                
+                <div className="flex-1 min-w-0">
+                  {/* Team Name & Tag */}
+                  <div className="flex items-center gap-3 flex-wrap mb-3">
+                    <h1 className="text-2xl sm:text-3xl font-extrabold" style={{ color: 'var(--color-accent-1)' }}>
+                      {team.name}
+                    </h1>
+                    {team.tag && (
+                      <span 
+                        className="text-lg px-3 py-1 rounded-lg font-bold"
+                        style={{ 
+                          backgroundColor: 'var(--color-accent-primary-bg)', 
+                          color: 'var(--color-accent-1)',
+                          border: '1px solid var(--color-accent-1)',
+                          opacity: 0.9
+                        }}
+                      >
+                        [{team.tag}]
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Team Info Pills */}
+                  <div className="flex flex-wrap gap-2 mb-3">
                     <span 
-                      className="text-lg px-3 py-1 rounded-lg font-bold"
-                      style={{ 
-                        backgroundColor: 'var(--color-accent-primary-bg)', 
-                        color: 'var(--color-accent-1)',
-                        border: '1px solid var(--color-accent-1)',
-                        opacity: 0.9
-                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}
                     >
-                      [{team.tag}]
+                      🌍 {team.region}
                     </span>
-                  )}
-                </div>
-                
-                {/* Team Info Pills */}
-                <div className="flex flex-wrap gap-2 mb-3">
-                  <span 
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium"
-                    style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}
-                  >
-                    🌍 {team.region}
-                  </span>
-                  <span 
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium"
-                    style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}
-                  >
-                    👥 {team.members.length} member{team.members.length !== 1 ? 's' : ''}
-                  </span>
-                  <Link
-                    href={`/profile/${team.ownerUsername}`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium hover:opacity-80 transition-opacity"
-                    style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}
-                  >
-                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#FFD700' }}><path d="M12 1l3.22 3.22h4.56v4.56L23 12l-3.22 3.22v4.56h-4.56L12 23l-3.22-3.22H4.22v-4.56L1 12l3.22-3.22V4.22h4.56L12 1z"/></svg>
-                    {team.ownerUsername}
-                  </Link>
-                  <span 
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm"
-                    style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}
-                  >
-                    📅 Created {new Date(team.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-                
-                {/* Description */}
-                {team.description && (
+                    <span 
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}
+                    >
+                      👥 {team.members.length} member{team.members.length !== 1 ? 's' : ''}
+                    </span>
+                    <Link
+                      href={`/profile/${team.ownerUsername}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium hover:opacity-80 transition-opacity"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}
+                    >
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#FFD700' }}><path d="M12 1l3.22 3.22h4.56v4.56L23 12l-3.22 3.22v4.56h-4.56L12 23l-3.22-3.22H4.22v-4.56L1 12l3.22-3.22V4.22h4.56L12 1z"/></svg>
+                      {team.ownerUsername}
+                    </Link>
+                    <span 
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}
+                    >
+                      📅 Created {new Date(team.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  
+                  {/* Description */}
+                  {team.description && (
                   <p 
                     className="text-sm leading-relaxed max-w-2xl"
                     style={{ color: 'var(--color-text-secondary)' }}
@@ -562,6 +592,7 @@ const TeamDetailPage: React.FC = () => {
                     {team.description}
                   </p>
                 )}
+                </div>
               </div>
               
               {/* Action Buttons */}
@@ -1430,6 +1461,46 @@ const TeamDetailPage: React.FC = () => {
                   rows={3}
                   maxLength={500}
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                  Team Icon URL
+                </label>
+                <div className="flex gap-3 items-start">
+                  <div className="flex-1">
+                    <input
+                      type="url"
+                      value={editForm.iconUrl}
+                      onChange={(e) => setEditForm({ ...editForm, iconUrl: e.target.value })}
+                      className="w-full px-4 py-3 rounded-lg border text-sm transition-all focus:outline-none"
+                      style={{
+                        backgroundColor: 'var(--color-bg-tertiary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
+                      placeholder="https://example.com/team-icon.png"
+                    />
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                      Paste a URL to an image (e.g., from Imgur, Discord CDN, etc.)
+                    </p>
+                  </div>
+                  {editForm.iconUrl && (
+                    <div 
+                      className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border"
+                      style={{ borderColor: 'var(--color-border)' }}
+                    >
+                      <img 
+                        src={editForm.iconUrl}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23666" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex gap-3 pt-3">

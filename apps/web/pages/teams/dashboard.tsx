@@ -19,6 +19,7 @@ interface Team {
   name: string;
   tag: string | null;
   description: string | null;
+  iconUrl: string | null;
   region: string;
   ownerId: string;
   ownerUsername: string;
@@ -305,8 +306,24 @@ const TeamsDashboardPage: React.FC = () => {
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
                               {/* Team Avatar/Icon */}
+                              {team.iconUrl ? (
+                                <img 
+                                  src={team.iconUrl}
+                                  alt={team.name}
+                                  className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                                  style={{
+                                    border: `1px solid ${roleColor}40`,
+                                  }}
+                                  onError={(e) => {
+                                    // Fallback to initials if image fails to load
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    target.nextElementSibling?.classList.remove('hidden');
+                                  }}
+                                />
+                              ) : null}
                               <div 
-                                className="w-12 h-12 rounded-lg flex items-center justify-center font-bold text-lg flex-shrink-0"
+                                className={`w-12 h-12 rounded-lg flex items-center justify-center font-bold text-lg flex-shrink-0 ${team.iconUrl ? 'hidden' : ''}`}
                                 style={{
                                   background: `linear-gradient(135deg, ${roleColor}30 0%, ${roleColor}10 100%)`,
                                   color: roleColor,

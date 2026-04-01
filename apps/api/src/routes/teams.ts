@@ -116,6 +116,7 @@ export default async function teamsRoutes(fastify: any) {
         name: m.team.name,
         tag: m.team.tag,
         description: m.team.description,
+        iconUrl: m.team.iconUrl,
         region: m.team.region,
         ownerId: m.team.ownerId,
         ownerUsername: m.team.owner.username,
@@ -309,6 +310,7 @@ export default async function teamsRoutes(fastify: any) {
         name: team.name,
         tag: team.tag,
         description: team.description,
+        iconUrl: team.iconUrl,
         region: team.region,
         ownerId: team.ownerId,
         ownerUsername: team.owner.username,
@@ -371,7 +373,7 @@ export default async function teamsRoutes(fastify: any) {
       if (!userId) return;
 
       const { id } = request.params as any;
-      const { name, tag, description, region } = request.body as any;
+      const { name, tag, description, region, iconUrl } = request.body as any;
 
       if (!await isTeamOwner(userId, id)) {
         return reply.status(403).send({ error: 'Only team owner can update team' });
@@ -385,13 +387,19 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(400).send({ error: 'Team tag must be 2-5 characters' });
       }
 
+      // Validate iconUrl if provided
+      if (iconUrl && !iconUrl.match(/^https?:\/\/.+/)) {
+        return reply.status(400).send({ error: 'Icon URL must be a valid HTTP/HTTPS URL' });
+      }
+
       const updated = await prisma.team.update({
         where: { id },
         data: {
           ...(name && { name }),
           ...(tag !== undefined && { tag: tag || null }),
           ...(description !== undefined && { description: description || null }),
-          ...(region && { region })
+          ...(region && { region }),
+          ...(iconUrl !== undefined && { iconUrl: iconUrl || null })
         }
       });
 

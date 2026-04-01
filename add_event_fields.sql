@@ -1,6 +1,9 @@
 -- Add enemyMultigg field to TeamEvent for Scrim/Tournament events
 ALTER TABLE "TeamEvent" ADD COLUMN IF NOT EXISTS "enemyMultigg" TEXT;
 
+-- Add iconUrl field to Team for custom team icons
+ALTER TABLE "Team" ADD COLUMN IF NOT EXISTS "iconUrl" TEXT;
+
 -- Create TeamEventCoach junction table for VOD Review coach assignments
 CREATE TABLE IF NOT EXISTS "TeamEventCoach" (
     "id" TEXT NOT NULL,
