@@ -707,6 +707,43 @@ export default async function userRoutes(fastify: any) {
     }
   });
 
+  // Get user's top played champions (based on mastery)
+  fastify.get('/champion-mastery', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const user = await prisma.user.findUnique({ 
+        where: { id: userId }, 
+        include: { riotAccounts: true } 
+      });
+      if (!user) {
+        return reply.status(404).send({ error: 'User not found' });
+      }
+
+      // Find main account or first account
+      const mainAccount = user.riotAccounts.find((acc: any) => acc.isMain) || user.riotAccounts[0];
+      if (!mainAccount) {
+        return reply.send({ champions: [], error: 'No linked Riot account' });
+      }
+
+      // Fetch mastery data
+      const masteries = await riotClient.getTopChampionMasteries(
+        mainAccount.puuid, 
+        mainAccount.region, 
+        15 // Get top 15 champions
+      );
+
+      return reply.send({ 
+        champions: masteries.map(m => m.championName),
+        masteryData: masteries 
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.send({ champions: [], error: 'Failed to fetch mastery data' });
+    }
+  });
+
   // Refresh Riot stats (rank + winrate) for a user's linked accounts
   fastify.post('/refresh-riot-stats', async (request: any, reply: any) => {
     try {

@@ -160,13 +160,18 @@ export default function AuthenticatePage(): JSX.Element {
       .normalize('NFKC');
   }
 
-  async function handleLookup(e?: React.FormEvent) {
+  async function handleLookup(e?: React.FormEvent, isRefresh: boolean = false) {
     if (e) e.preventDefault();
     setError(null);
     setResult(null);
-    setCurrentIcon(null);
-    setOriginalIcon(null);
-    setSelectedIconId(''); // Reset selected icon on new lookup
+    
+    // Only reset icons on initial lookup, not on refresh
+    if (!isRefresh) {
+      setCurrentIcon(null);
+      setOriginalIcon(null);
+      setSelectedIconId('');
+    }
+    
     if (!summonerName.trim()) {
       setError('Riot ID is required');
       return;
@@ -190,14 +195,18 @@ export default function AuthenticatePage(): JSX.Element {
       } else {
         const icon = data.profileIconId ?? null;
         setCurrentIcon(icon);
-        setOriginalIcon(icon);
-        if (icon === null) {
-          setError('Could not determine profile icon from Riot response');
-        } else {
-          // Auto-select a random verification icon (excluding current icon)
-          const availableIcons = Array.from({ length: 29 }, (_, i) => i).filter(id => id !== icon);
-          const randomIcon = availableIcons[Math.floor(Math.random() * availableIcons.length)];
-          setSelectedIconId(String(randomIcon));
+        
+        // Only set originalIcon and generate random icon on initial lookup
+        if (!isRefresh) {
+          setOriginalIcon(icon);
+          if (icon === null) {
+            setError('Could not determine profile icon from Riot response');
+          } else {
+            // Auto-select a random verification icon (excluding current icon)
+            const availableIcons = Array.from({ length: 29 }, (_, i) => i).filter(id => id !== icon);
+            const randomIcon = availableIcons[Math.floor(Math.random() * availableIcons.length)];
+            setSelectedIconId(String(randomIcon));
+          }
         }
         setResult(data);
       }
@@ -505,7 +514,7 @@ export default function AuthenticatePage(): JSX.Element {
                         </div>
                       </div>
                       <button
-                        onClick={handleLookup}
+                        onClick={() => handleLookup(undefined, true)}
                         disabled={loadingLookup}
                         className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
                         style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)', color: 'var(--text-secondary)' }}
