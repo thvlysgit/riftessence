@@ -1702,87 +1702,221 @@ export default function ProfilePage() {
           
           {isEditMode ? (
             <div className="space-y-4">
-              <div>
-                <div className="mb-3">
+              {/* Selected tier indicator */}
+              <div className="rounded-xl p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
+                {/* Tier selection tabs */}
+                <div className="flex gap-1 p-1 rounded-lg mb-4" style={{ background: 'var(--bg-input)' }}>
+                  {(['S','A','B','C'] as const).map((tier) => {
+                    const tierColors = {
+                      S: { bg: '#FFD700', text: '#1a1a1a' },
+                      A: { bg: '#C0C0C0', text: '#1a1a1a' },
+                      B: { bg: '#CD7F32', text: '#1a1a1a' },
+                      C: { bg: '#808080', text: '#ffffff' },
+                    };
+                    const colors = tierColors[tier];
+                    const isSelected = championInput.startsWith(`[${tier}]`);
+                    return (
+                      <button
+                        key={tier}
+                        onClick={() => setChampionInput(`[${tier}] `)}
+                        className="flex-1 py-2 px-3 rounded-md text-sm font-bold transition-all"
+                        style={{
+                          background: isSelected ? colors.bg : 'transparent',
+                          color: isSelected ? colors.text : colors.bg,
+                          boxShadow: isSelected ? `0 2px 8px ${colors.bg}40` : 'none',
+                        }}
+                      >
+                        {tier} Tier
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Search input */}
+                <div className="relative mb-4">
                   <input
                     type="text"
-                    value={championInput}
-                    onChange={(e) => setChampionInput(e.target.value)}
-                    placeholder="Search champion to add to a tier..."
-                    className="w-full px-4 py-2 rounded-lg border-2 transition-colors"
+                    value={championInput.replace(/^\[[SABC]\]\s*/, '')}
+                    onChange={(e) => {
+                      const tier = championInput.match(/^\[([SABC])\]/)?.[1] || 'S';
+                      setChampionInput(`[${tier}] ${e.target.value}`);
+                    }}
+                    placeholder="Search champion..."
+                    className="w-full px-4 py-3 rounded-lg border-2 transition-colors pr-12"
                     style={{ background: 'var(--bg-input)', borderColor: 'var(--border-card)', color: 'var(--text-main)' }}
                   />
-                    {championInput.trim().length > 0 && (
-                    <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-2 max-h-44 overflow-auto pr-1">
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-lg">🔍</span>
+                </div>
+
+                {/* Search results */}
+                {championInput.replace(/^\[[SABC]\]\s*/, '').trim().length > 0 && (
+                  <div className="rounded-lg p-3 mb-4" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-card)' }}>
+                    <div className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
+                      Search Results
+                    </div>
+                    <div className="flex flex-wrap gap-2 max-h-32 overflow-auto">
                       {champions
-                        .filter((c) => normalize(c).includes(normalize(championInput)))
-                        .slice(0, 60)
-                        .map((c) => (
+                        .filter((c) => normalize(c).includes(normalize(championInput.replace(/^\[[SABC]\]\s*/, ''))))
+                        .filter((c) => !isInAnyTier(c))
+                        .slice(0, 20)
+                        .map((c) => {
+                          const selectedTier = (championInput.match(/^\[([SABC])\]/)?.[1] || 'S') as 'S'|'A'|'B'|'C';
+                          const tierColors = { S: '#FFD700', A: '#C0C0C0', B: '#CD7F32', C: '#808080' };
+                          return (
+                            <button
+                              key={c}
+                              onClick={() => {
+                                addToTier(selectedTier, c);
+                                setChampionInput(`[${selectedTier}] `);
+                              }}
+                              className="group flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all hover:scale-105"
+                              style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)' }}
+                            >
+                              <img 
+                                src={getChampionIconUrl(c)} 
+                                alt={c}
+                                className="w-8 h-8 rounded"
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                              <span style={{ color: 'var(--text-main)' }}>{c}</span>
+                              <span className="text-xs ml-auto" style={{ color: tierColors[selectedTier] }}>
+                                +{selectedTier}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      {champions
+                        .filter((c) => normalize(c).includes(normalize(championInput.replace(/^\[[SABC]\]\s*/, ''))))
+                        .filter((c) => !isInAnyTier(c))
+                        .length === 0 && (
+                        <span className="text-sm" style={{ color: 'var(--text-muted)' }}>No champions found</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick suggestions */}
+                <div className="pt-3" style={{ borderTop: '1px solid var(--border-card)' }}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-lg">✨</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                      Quick Add - Popular Champions
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {POPULAR_CHAMPIONS
+                      .filter((c) => !isInAnyTier(c) && isValidChampion(c))
+                      .slice(0, 12)
+                      .map((c) => {
+                        const selectedTier = (championInput.match(/^\[([SABC])\]/)?.[1] || 'S') as 'S'|'A'|'B'|'C';
+                        const tierColors = { S: '#FFD700', A: '#C0C0C0', B: '#CD7F32', C: '#808080' };
+                        return (
                           <button
                             key={c}
-                            onClick={() => setChampionInput(c)}
-                            className="px-2 py-1 text-xs rounded transition-colors text-left"
-                            style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }}
+                            onClick={() => addToTier(selectedTier, c)}
+                            className="group flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all hover:scale-105"
+                            style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)' }}
                           >
-                            {c}
+                            <img 
+                              src={getChampionIconUrl(c)} 
+                              alt={c}
+                              className="w-6 h-6 rounded"
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                            <span style={{ color: 'var(--text-secondary)' }}>{c}</span>
+                            <span 
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                              style={{ color: tierColors[selectedTier] }}
+                            >
+                              +{selectedTier}
+                            </span>
                           </button>
-                        ))}
-                    </div>
+                        );
+                      })}
+                    {POPULAR_CHAMPIONS.filter((c) => !isInAnyTier(c) && isValidChampion(c)).length === 0 && (
+                      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>All popular champions have been added!</span>
                     )}
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {(['S','A','B','C'] as const).map((tier) => {
-                      const tierColors = {
-                        S: { bg: '#ef4444', border: '#ef4444', text: '#ef4444' },
-                        A: { bg: '#C8AA6E', border: '#C8AA6E', text: '#C8AA6E' },
-                        B: { bg: '#3b82f6', border: '#3b82f6', text: '#3b82f6' },
-                        C: { bg: '#22c55e', border: '#22c55e', text: '#22c55e' },
-                      };
-                      const colors = tierColors[tier];
-                      return (
-                        <div key={tier} className="p-3 rounded-lg border" style={{ background: 'var(--bg-input)', borderColor: `${colors.border}50` }}>
-                          <div className="flex items-center justify-between mb-2">
-                            <h3 className="font-bold" style={{ color: colors.text }}>Tier {tier}</h3>
-                            <button
-                              onClick={() => {
-                                const match = findChampionByName(championInput);
-                                if (match && !isInAnyTier(match)) {
-                                  addToTier(tier, match);
-                                  setChampionInput('');
-                                }
-                              }}
-                              disabled={!isValidChampion(championInput) || (findChampionByName(championInput) ? isInAnyTier(findChampionByName(championInput) as string) : false)}
-                              className="px-2 py-1 text-xs rounded disabled:opacity-50"
-                              style={{ color: 'var(--btn-gradient-text)', backgroundColor: colors.bg }}
-                            >
-                              Add
-                            </button>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {championTierlist[tier].map((c) => (
-                              <div key={c} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: `${colors.bg}20`, borderWidth: '1px', borderStyle: 'solid', borderColor: colors.border, color: colors.text }}>
-                                <img 
-                                  src={getChampionIconUrl(c)} 
-                                  alt={c}
-                                  className="w-8 h-8"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                  }}
-                                />
-                                <span className="font-medium">{c}</span>
-                                <button onClick={() => removeFromTier(tier, c)} style={{ color: 'var(--accent-danger)' }}>✕</button>
-                              </div>
-                            ))}
-                            {championTierlist[tier].length === 0 && (
-                              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>No champions</p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
+              </div>
+
+              {/* Tier lists */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(['S','A','B','C'] as const).map((tier) => {
+                  const tierColors = {
+                    S: { bg: '#FFD700', border: '#FFD700', text: '#FFD700', gradient: 'linear-gradient(135deg, rgba(255,215,0,0.15) 0%, rgba(255,215,0,0.05) 100%)' },
+                    A: { bg: '#C0C0C0', border: '#C0C0C0', text: '#C0C0C0', gradient: 'linear-gradient(135deg, rgba(192,192,192,0.15) 0%, rgba(192,192,192,0.05) 100%)' },
+                    B: { bg: '#CD7F32', border: '#CD7F32', text: '#CD7F32', gradient: 'linear-gradient(135deg, rgba(205,127,50,0.15) 0%, rgba(205,127,50,0.05) 100%)' },
+                    C: { bg: '#808080', border: '#808080', text: '#808080', gradient: 'linear-gradient(135deg, rgba(128,128,128,0.15) 0%, rgba(128,128,128,0.05) 100%)' },
+                  };
+                  const colors = tierColors[tier];
+                  return (
+                    <div 
+                      key={tier} 
+                      className="rounded-xl overflow-hidden"
+                      style={{ 
+                        background: colors.gradient, 
+                        border: `1px solid ${colors.border}40`,
+                        boxShadow: championTierlist[tier].length > 0 ? `0 0 20px ${colors.bg}10` : 'none',
+                      }}
+                    >
+                      <div 
+                        className="flex items-center gap-3 px-4 py-2"
+                        style={{ borderBottom: `1px solid ${colors.border}30`, background: `${colors.bg}15` }}
+                      >
+                        <div 
+                          className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm"
+                          style={{ background: colors.bg, color: '#1a1a1a', boxShadow: `0 2px 8px ${colors.bg}50` }}
+                        >
+                          {tier}
+                        </div>
+                        <span className="font-semibold text-sm" style={{ color: colors.text }}>
+                          {tier} Tier
+                        </span>
+                        <span className="text-xs px-2 py-0.5 rounded-full ml-auto" style={{ background: `${colors.bg}20`, color: colors.text }}>
+                          {championTierlist[tier].length}
+                        </span>
+                      </div>
+                      <div className="p-3">
+                        <div className="flex flex-wrap gap-2">
+                          {championTierlist[tier].map((c) => (
+                            <div 
+                              key={c} 
+                              className="group relative flex items-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105" 
+                              style={{ 
+                                background: 'var(--bg-main)', 
+                                border: `1px solid ${colors.border}40`,
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              }}
+                            >
+                              <img 
+                                src={getChampionIconUrl(c)} 
+                                alt={c}
+                                className="w-8 h-8 rounded"
+                                style={{ border: `2px solid ${colors.border}60`, boxShadow: `0 0 8px ${colors.bg}30` }}
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                              <span className="font-medium text-sm" style={{ color: 'var(--text-main)' }}>{c}</span>
+                              <button 
+                                onClick={() => removeFromTier(tier, c)} 
+                                className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                style={{ background: 'var(--accent-danger)', color: 'white' }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                          {championTierlist[tier].length === 0 && (
+                            <span className="text-sm py-2 px-3 rounded-lg" style={{ color: 'var(--text-muted)', background: 'var(--bg-input)' }}>
+                              Click a champion above to add
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <div>

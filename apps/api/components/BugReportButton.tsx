@@ -14,6 +14,7 @@ export default function BugReportButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [bugDescription, setBugDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const { showToast } = useGlobalUI();
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -134,42 +135,104 @@ export default function BugReportButton() {
 
   return (
     <>
-      {/* Floating Button - Discreet but discoverable */}
-      <button
-        onClick={() => setIsOpen(true)}
-        style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '88px',
-          width: '48px',
-          height: '48px',
-          borderRadius: '50%',
-          background: 'var(--accent-primary-bg)',
-          border: '1px solid var(--accent-primary)',
-          color: 'var(--accent-primary)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '20px',
-          zIndex: 999,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-          transition: 'transform 0.2s, opacity 0.2s',
-          opacity: 0.7,
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.opacity = '1';
-          e.currentTarget.style.transform = 'scale(1.1)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.opacity = '0.7';
-          e.currentTarget.style.transform = 'scale(1)';
-        }}
-        title={t('bug.reportBug')}
-        aria-label={t('bug.reportBug')}
-      >
-        🐛
-      </button>
+      {/* Keyframe animations */}
+      <style>{`
+        @keyframes bugPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(200, 170, 110, 0.4), 0 2px 8px rgba(0,0,0,0.2); }
+          50% { box-shadow: 0 0 0 8px rgba(200, 170, 110, 0), 0 2px 12px rgba(0,0,0,0.3); }
+        }
+        @keyframes bugGlow {
+          0%, 100% { filter: drop-shadow(0 0 2px rgba(200, 170, 110, 0.6)); }
+          50% { filter: drop-shadow(0 0 8px rgba(200, 170, 110, 0.9)); }
+        }
+        @keyframes tooltipFade {
+          from { opacity: 0; transform: translateX(10px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
+      
+      {/* Floating Button with tooltip */}
+      <div style={{ position: 'fixed', bottom: '24px', right: '88px', zIndex: 999 }}>
+        {/* Tooltip */}
+        <div
+          style={{
+            position: 'absolute',
+            right: '56px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-main) 100%)',
+            border: '1px solid var(--accent-primary)',
+            borderRadius: '8px',
+            padding: '8px 14px',
+            whiteSpace: 'nowrap',
+            color: 'var(--accent-primary)',
+            fontSize: '13px',
+            fontWeight: 600,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.3), 0 0 20px rgba(200, 170, 110, 0.15)',
+            opacity: isHovered ? 1 : 0,
+            pointerEvents: 'none',
+            animation: isHovered ? 'tooltipFade 0.25s ease-out' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <span>🐛</span>
+          <span>{t('bug.reportBug')}</span>
+          {/* Arrow */}
+          <div
+            style={{
+              position: 'absolute',
+              right: '-6px',
+              top: '50%',
+              transform: 'translateY(-50%) rotate(45deg)',
+              width: '10px',
+              height: '10px',
+              background: 'var(--bg-elevated)',
+              borderRight: '1px solid var(--accent-primary)',
+              borderTop: '1px solid var(--accent-primary)',
+            }}
+          />
+        </div>
+
+        {/* Button */}
+        <button
+          onClick={() => setIsOpen(true)}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '50%',
+            background: isHovered 
+              ? 'linear-gradient(135deg, var(--accent-primary-bg) 0%, rgba(200, 170, 110, 0.2) 100%)'
+              : 'var(--accent-primary-bg)',
+            border: `2px solid ${isHovered ? 'var(--accent-primary)' : 'var(--accent-primary)'}`,
+            color: 'var(--accent-primary)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '22px',
+            boxShadow: isHovered 
+              ? '0 0 20px rgba(200, 170, 110, 0.5), 0 4px 16px rgba(0,0,0,0.3)'
+              : '0 2px 8px rgba(0,0,0,0.2)',
+            transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+            transform: isHovered ? 'scale(1.15)' : 'scale(1)',
+            opacity: isHovered ? 1 : 0.8,
+            animation: isHovered ? 'bugPulse 1.5s ease-in-out infinite' : 'none',
+          }}
+          aria-label={t('bug.reportBug')}
+        >
+          <span style={{ 
+            animation: isHovered ? 'bugGlow 1.5s ease-in-out infinite' : 'none',
+            transition: 'transform 0.3s ease',
+            transform: isHovered ? 'rotate(-15deg)' : 'rotate(0deg)',
+          }}>
+            🐛
+          </span>
+        </button>
+      </div>
 
       {/* Modal */}
       {isOpen && (

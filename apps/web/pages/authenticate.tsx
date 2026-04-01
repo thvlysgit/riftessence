@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import IconPicker from '../src/components/IconPicker';
 import { useAuth } from '../contexts/AuthContext';
 
 // Type definitions for the request and response payloads
@@ -167,6 +166,7 @@ export default function AuthenticatePage(): JSX.Element {
     setResult(null);
     setCurrentIcon(null);
     setOriginalIcon(null);
+    setSelectedIconId(''); // Reset selected icon on new lookup
     if (!summonerName.trim()) {
       setError('Riot ID is required');
       return;
@@ -193,6 +193,11 @@ export default function AuthenticatePage(): JSX.Element {
         setOriginalIcon(icon);
         if (icon === null) {
           setError('Could not determine profile icon from Riot response');
+        } else {
+          // Auto-select a random verification icon (excluding current icon)
+          const availableIcons = Array.from({ length: 29 }, (_, i) => i).filter(id => id !== icon);
+          const randomIcon = availableIcons[Math.floor(Math.random() * availableIcons.length)];
+          setSelectedIconId(String(randomIcon));
         }
         setResult(data);
       }
@@ -402,7 +407,7 @@ export default function AuthenticatePage(): JSX.Element {
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>Icon Verification Progress</span>
                   <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {!summonerName ? '0' : !currentIcon ? '1' : !selectedIconId ? '2' : '3'} / 3
+                    {!summonerName ? '0' : !currentIcon ? '1' : '2'} / 2
                   </span>
                 </div>
                 <div className="w-full rounded-full h-2" style={{ background: 'var(--bg-input)' }}>
@@ -410,25 +415,22 @@ export default function AuthenticatePage(): JSX.Element {
                     className="h-2 rounded-full transition-all duration-300"
                     style={{
                       background: 'var(--accent-primary)',
-                      width: !summonerName ? '0%' : !currentIcon ? '33%' : !selectedIconId ? '66%' : '100%',
+                      width: !summonerName ? '0%' : !currentIcon ? '50%' : '100%',
                     }}
                   />
                 </div>
                 <div className="flex justify-between text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                  <span>Enter ID</span>
-                  <span>Lookup</span>
-                  <span>Select Icon</span>
-                  <span>Verify</span>
+                  <span>Enter ID & Lookup</span>
+                  <span>Change Icon & Verify</span>
                 </div>
               </div>
 
-              {/* 3-step instructions */}
+              {/* 2-step instructions */}
               <div className="rounded-lg p-4 mb-6" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
                 <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--accent-primary)' }}>How icon verification works:</h2>
                 <ol className="space-y-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
                   <li className="flex items-start"><span className="font-bold mr-2" style={{ color: 'var(--accent-primary)' }}>1.</span> Enter your Riot ID and click Lookup</li>
-                  <li className="flex items-start"><span className="font-bold mr-2" style={{ color: 'var(--accent-primary)' }}>2.</span> Select a verification icon and change it in your League client</li>
-                  <li className="flex items-start"><span className="font-bold mr-2" style={{ color: 'var(--accent-primary)' }}>3.</span> Click Verify to confirm the change</li>
+                  <li className="flex items-start"><span className="font-bold mr-2" style={{ color: 'var(--accent-primary)' }}>2.</span> Change your profile icon in the League client to the one shown, then click Verify</li>
                 </ol>
               </div>
 
@@ -521,37 +523,47 @@ export default function AuthenticatePage(): JSX.Element {
                   </div>
 
                   <div className="space-y-4">
-                    <label className="block text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>Choose Verification Icon</label>
-                    <p className="text-xs -mt-2" style={{ color: 'var(--text-muted)' }}>Select an icon you own, then change it in your League client</p>
+                    <label className="block text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>Your Verification Icon</label>
+                    <p className="text-xs -mt-2" style={{ color: 'var(--text-muted)' }}>Change your League profile icon to this one to verify ownership</p>
 
-                    <div className="rounded-lg p-4" style={{ border: '2px solid var(--border-card)', background: 'var(--bg-main)' }}>
-                      <IconPicker
-                        selectedId={selectedIconId ? Number(selectedIconId) : null}
-                        onSelect={(id) => setSelectedIconId(String(id))}
-                        count={29}
-                        excludeIds={originalIcon !== null ? [originalIcon] : []}
-                      />
-                    </div>
-
-                    {originalIcon !== null && originalIcon >= 0 && originalIcon <= 29 && (
-                      <div className="rounded-lg p-3" style={{ background: 'var(--accent-danger-bg)', border: '1px solid var(--accent-danger)' }}>
-                        <p className="text-sm" style={{ color: 'var(--accent-danger)' }}>
-                          <span className="font-semibold">Icon {originalIcon} is excluded</span>
-                        </p>
-                        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                          This is your current icon - you cannot use it for verification to prevent impersonation
-                        </p>
-                      </div>
-                    )}
-
+                    {/* Display the randomly assigned verification icon prominently */}
                     {selectedIconId && (
-                      <div className="rounded-lg p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
-                        <p className="text-sm" style={{ color: 'var(--accent-primary)' }}>
-                          <span className="font-semibold">Selected icon ID:</span> {selectedIconId}
-                        </p>
-                        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                          Change your profile icon to this one in the League client, then verify below.
-                        </p>
+                      <div className="rounded-lg p-6" style={{ 
+                        border: '2px solid var(--accent-primary)', 
+                        background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--accent-primary-bg) 100%)',
+                        textAlign: 'center'
+                      }}>
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="relative">
+                            <img
+                              src={`https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${selectedIconId}.png`}
+                              alt={`Verification Icon ${selectedIconId}`}
+                              className="w-24 h-24 rounded-lg"
+                              style={{ 
+                                boxShadow: '0 0 20px rgba(200, 170, 110, 0.4), var(--shadow-lg)',
+                                border: '3px solid var(--accent-primary)'
+                              }}
+                            />
+                            <div 
+                              className="absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                              style={{ 
+                                background: 'var(--accent-primary)', 
+                                color: 'var(--bg-main)',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                              }}
+                            >
+                              {selectedIconId}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-lg font-semibold" style={{ color: 'var(--accent-primary)' }}>
+                              Change to Icon #{selectedIconId}
+                            </p>
+                            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                              Open your League client → Profile → Click your icon → Select this icon
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     )}
 
