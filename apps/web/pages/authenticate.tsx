@@ -29,7 +29,7 @@ export default function AuthenticatePage(): JSX.Element {
   const [region, setRegion] = useState('EUW');
 
   const [currentIcon, setCurrentIcon] = useState<number | null>(null);
-  const [originalIcon, setOriginalIcon] = useState<number | null>(null);
+  const [_originalIcon, setOriginalIcon] = useState<number | null>(null);
   const [selectedIconId, setSelectedIconId] = useState('');
 
   const [loadingLookup, setLoadingLookup] = useState(false);

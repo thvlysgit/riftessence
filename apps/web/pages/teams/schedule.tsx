@@ -506,7 +506,6 @@ const TeamSchedulePage: React.FC = () => {
                       }}
                     >
                       {teams.map((team) => (
-                      {teams.map((team) => (
                         <option key={team.id} value={team.id}>
                           {team.name} {team.tag ? `[${team.tag}]` : ''}
                         </option>

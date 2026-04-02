@@ -30,7 +30,7 @@ type Step = 'loading' | 'enter_riot_id' | 'verify_icon' | 'verifying_matches' | 
 export default function RateUserPage(): JSX.Element {
   const router = useRouter();
   const { username } = router.query;
-  const { t } = useLanguage();
+  const { t: _t } = useLanguage();
 
   // State
   const [step, setStep] = useState<Step>('loading');
