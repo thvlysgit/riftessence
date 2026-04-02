@@ -823,6 +823,11 @@ model Team {
   iconUrl     String?      // Custom team icon URL
   region      Region
   
+  // Discord integration
+  discordWebhookUrl     String?   // Discord webhook URL for team notifications
+  discordNotifyEvents   Boolean   @default(true)  // Notify on event create/update/delete
+  discordNotifyMembers  Boolean   @default(false) // Notify on member join/leave
+  
   // Owner (team creator)
   owner       User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId     String

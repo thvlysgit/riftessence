@@ -1,5 +1,13 @@
 import prisma from '../prisma';
 import { getPuuid } from '../riotClient';
+import {
+  sendTeamDiscordWebhook,
+  validateDiscordWebhook,
+  createTeamEventCreatedEmbed,
+  createTeamEventUpdatedEmbed,
+  createTeamEventDeletedEmbed,
+  createTeamMemberJoinedEmbed
+} from '../utils/discord-webhook';
 
 // Valid team roles
 const TEAM_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS', 'MANAGER', 'OWNER', 'COACH'] as const;
@@ -704,6 +712,17 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(403).send({ error: 'You have not been added to this team\'s roster' });
       }
 
+      // Get team info for Discord notification
+      const teamForNotification = await prisma.team.findUnique({
+        where: { id },
+        select: { name: true, tag: true, discordWebhookUrl: true, discordNotifyMembers: true }
+      });
+
+      const joiningUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { username: true }
+      });
+
       // Join team and remove pending spot
       await prisma.$transaction([
         prisma.teamMember.create({
@@ -715,6 +734,18 @@ export default async function teamsRoutes(fastify: any) {
         }),
         prisma.teamPendingSpot.delete({ where: { id: matchingSpot.id } })
       ]);
+
+      // Send Discord notification if configured
+      if (teamForNotification?.discordWebhookUrl && teamForNotification.discordNotifyMembers) {
+        sendTeamDiscordWebhook(teamForNotification.discordWebhookUrl, undefined, [
+          createTeamMemberJoinedEmbed({
+            teamName: teamForNotification.name,
+            teamTag: teamForNotification.tag,
+            username: joiningUser?.username || 'Unknown',
+            role: matchingSpot.role
+          })
+        ]).catch(err => fastify.log.error('Discord notification failed:', err));
+      }
 
       return reply.send({ success: true, role: matchingSpot.role });
     } catch (error: any) {
@@ -901,6 +932,12 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(400).send({ error: 'Invalid scheduledAt date' });
       }
 
+      // Get team info for Discord notification
+      const team = await prisma.team.findUnique({
+        where: { id },
+        select: { name: true, tag: true, discordWebhookUrl: true, discordNotifyEvents: true }
+      });
+
       const event = await prisma.teamEvent.create({
         data: {
           teamId: id,
@@ -922,6 +959,28 @@ export default async function teamsRoutes(fastify: any) {
             userId: coachId
           }))
         });
+      }
+
+      // Send Discord notification if configured
+      if (team?.discordWebhookUrl && team.discordNotifyEvents) {
+        const creator = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { username: true }
+        });
+        
+        sendTeamDiscordWebhook(team.discordWebhookUrl, '@everyone', [
+          createTeamEventCreatedEmbed({
+            teamName: team.name,
+            teamTag: team.tag,
+            eventTitle: title,
+            eventType: type,
+            scheduledAt: scheduledDate,
+            duration: duration ? parseInt(duration) : null,
+            description: description || null,
+            enemyLink: enemyMultigg || null,
+            createdBy: creator?.username || 'Unknown'
+          })
+        ]).catch(err => fastify.log.error('Discord notification failed:', err));
       }
 
       return reply.status(201).send({ success: true, event });
@@ -992,6 +1051,32 @@ export default async function teamsRoutes(fastify: any) {
         }
       }
 
+      // Send Discord notification if configured
+      const team = await prisma.team.findUnique({
+        where: { id },
+        select: { name: true, tag: true, discordWebhookUrl: true, discordNotifyEvents: true }
+      });
+      
+      if (team?.discordWebhookUrl && team.discordNotifyEvents) {
+        const updater = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { username: true }
+        });
+        
+        sendTeamDiscordWebhook(team.discordWebhookUrl, undefined, [
+          createTeamEventUpdatedEmbed({
+            teamName: team.name,
+            teamTag: team.tag,
+            eventTitle: updated.title,
+            eventType: updated.type,
+            scheduledAt: updated.scheduledAt,
+            duration: updated.duration,
+            description: updated.description,
+            updatedBy: updater?.username || 'Unknown'
+          })
+        ]).catch(err => fastify.log.error('Discord notification failed:', err));
+      }
+
       return reply.send({ success: true, event: updated });
     } catch (error: any) {
       fastify.log.error(error);
@@ -1016,7 +1101,32 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(404).send({ error: 'Event not found' });
       }
 
+      // Get team info for Discord notification before deleting
+      const team = await prisma.team.findUnique({
+        where: { id },
+        select: { name: true, tag: true, discordWebhookUrl: true, discordNotifyEvents: true }
+      });
+
       await prisma.teamEvent.delete({ where: { id: eventId } });
+
+      // Send Discord notification if configured
+      if (team?.discordWebhookUrl && team.discordNotifyEvents) {
+        const deleter = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { username: true }
+        });
+        
+        sendTeamDiscordWebhook(team.discordWebhookUrl, '@everyone', [
+          createTeamEventDeletedEmbed({
+            teamName: team.name,
+            teamTag: team.tag,
+            eventTitle: event.title,
+            eventType: event.type,
+            scheduledAt: event.scheduledAt,
+            deletedBy: deleter?.username || 'Unknown'
+          })
+        ]).catch(err => fastify.log.error('Discord notification failed:', err));
+      }
 
       return reply.send({ success: true });
     } catch (error: any) {
@@ -1067,6 +1177,217 @@ export default async function teamsRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to update attendance' });
+    }
+  });
+
+  // ==================== DISCORD INTEGRATION ====================
+
+  // GET /api/teams/:id/discord - Get Discord settings
+  fastify.get('/teams/:id/discord', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id } = request.params as any;
+
+      // Only team owner can view Discord settings
+      if (!await isTeamOwner(userId, id)) {
+        return reply.status(403).send({ error: 'Only team owner can view Discord settings' });
+      }
+
+      const team = await prisma.team.findUnique({
+        where: { id },
+        select: {
+          discordWebhookUrl: true,
+          discordNotifyEvents: true,
+          discordNotifyMembers: true,
+        }
+      });
+
+      if (!team) {
+        return reply.status(404).send({ error: 'Team not found' });
+      }
+
+      // Validate webhook if it exists
+      let webhookValid: boolean | undefined;
+      let channelName: string | undefined;
+      let guildName: string | undefined;
+      
+      if (team.discordWebhookUrl) {
+        try {
+          const validation = await validateDiscordWebhook(team.discordWebhookUrl);
+          webhookValid = validation.valid;
+          channelName = validation.channelName;
+          guildName = validation.guildName;
+        } catch {
+          webhookValid = false;
+        }
+      }
+
+      return reply.send({
+        webhookUrl: team.discordWebhookUrl,
+        notifyEvents: team.discordNotifyEvents,
+        notifyMembers: team.discordNotifyMembers,
+        webhookValid,
+        channelName,
+        guildName,
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to get Discord settings' });
+    }
+  });
+
+  // POST /api/teams/:id/discord - Set Discord webhook and settings (combined endpoint)
+  fastify.post('/teams/:id/discord', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id } = request.params as any;
+      const { webhookUrl, notifyEvents, notifyMembers } = request.body as any;
+
+      // Only team owner can configure Discord
+      if (!await isTeamOwner(userId, id)) {
+        return reply.status(403).send({ error: 'Only team owner can configure Discord' });
+      }
+
+      const updateData: any = {};
+      let channelName: string | undefined;
+      let guildName: string | undefined;
+      let webhookValid = false;
+
+      // If webhook URL provided, validate and save it
+      if (webhookUrl !== undefined) {
+        if (webhookUrl) {
+          const validation = await validateDiscordWebhook(webhookUrl);
+          if (!validation.valid) {
+            return reply.status(400).send({ error: 'Invalid Discord webhook URL. Please check the URL and try again.' });
+          }
+          updateData.discordWebhookUrl = webhookUrl;
+          channelName = validation.channelName;
+          guildName = validation.guildName;
+          webhookValid = true;
+        } else {
+          updateData.discordWebhookUrl = null;
+        }
+      }
+
+      // Update notification settings
+      if (typeof notifyEvents === 'boolean') updateData.discordNotifyEvents = notifyEvents;
+      if (typeof notifyMembers === 'boolean') updateData.discordNotifyMembers = notifyMembers;
+
+      const team = await prisma.team.update({
+        where: { id },
+        data: updateData,
+        select: {
+          name: true,
+          tag: true,
+          discordWebhookUrl: true,
+          discordNotifyEvents: true,
+          discordNotifyMembers: true,
+        }
+      });
+
+      return reply.send({
+        success: true,
+        webhookUrl: team.discordWebhookUrl,
+        notifyEvents: team.discordNotifyEvents,
+        notifyMembers: team.discordNotifyMembers,
+        webhookValid: team.discordWebhookUrl ? webhookValid : undefined,
+        channelName,
+        guildName,
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to save Discord settings' });
+    }
+  });
+
+  // DELETE /api/teams/:id/discord - Remove Discord webhook
+  fastify.delete('/teams/:id/discord', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id } = request.params as any;
+
+      // Only team owner can configure Discord
+      if (!await isTeamOwner(userId, id)) {
+        return reply.status(403).send({ error: 'Only team owner can configure Discord' });
+      }
+
+      await prisma.team.update({
+        where: { id },
+        data: {
+          discordWebhookUrl: null,
+          discordNotifyEvents: true,
+          discordNotifyMembers: false,
+        }
+      });
+
+      return reply.send({ success: true, message: 'Discord webhook removed' });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to remove Discord webhook' });
+    }
+  });
+
+  // POST /api/teams/:id/discord/test - Send test notification
+  fastify.post('/teams/:id/discord/test', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id } = request.params as any;
+
+      // Only team owner can test webhook
+      if (!await isTeamOwner(userId, id)) {
+        return reply.status(403).send({ error: 'Only team owner can test webhook' });
+      }
+
+      const team = await prisma.team.findUnique({
+        where: { id },
+        select: { name: true, tag: true, discordWebhookUrl: true }
+      });
+
+      if (!team?.discordWebhookUrl) {
+        return reply.status(400).send({ error: 'No Discord webhook configured' });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { username: true }
+      });
+
+      const success = await sendTeamDiscordWebhook(team.discordWebhookUrl, undefined, [{
+        title: '🧪 Test Notification',
+        description: `This is a test notification from **${team.name}**${team.tag ? ` [${team.tag}]` : ''}`,
+        color: 0xC8AA6E,
+        fields: [
+          {
+            name: 'Triggered By',
+            value: user?.username || 'Unknown',
+            inline: true,
+          },
+          {
+            name: 'Status',
+            value: '✅ Working correctly!',
+            inline: true,
+          }
+        ],
+        footer: { text: 'RiftEssence Team Notifications' },
+        timestamp: new Date().toISOString(),
+      }]);
+
+      if (success) {
+        return reply.send({ success: true, message: 'Test notification sent!' });
+      } else {
+        return reply.status(500).send({ error: 'Failed to send test notification' });
+      }
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to send test notification' });
     }
   });
 }
