@@ -59,11 +59,16 @@ const EVENT_GRADIENTS: Record<string, string> = {
 };
 
 const EVENT_ICONS: Record<string, React.ReactNode> = {
-  SCRIM: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
-  PRACTICE: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-  VOD_REVIEW: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>,
-  TOURNAMENT: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>,
-  TEAM_MEETING: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
+  // Crossed swords icon for Scrim (competitive battle)
+  SCRIM: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5" /><path d="M13 19l6-6" /><path d="M16 16l4 4" /><path d="M19 21l2-2" /><path d="M9.5 6.5L21 18v3h-3L6.5 9.5" /><path d="M5 8l4-4" /><path d="M2 5l2-2" /></svg>,
+  // Upward trend graph icon for Practice (improvement/growth)  
+  PRACTICE: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>,
+  // Video camera for VOD Review
+  VOD_REVIEW: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14" /><rect x="3" y="6" width="12" height="12" rx="2" /></svg>,
+  // Trophy/Cup icon for Tournament
+  TOURNAMENT: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 010-5H6" /><path d="M18 9h1.5a2.5 2.5 0 000-5H18" /><path d="M4 22h16" /><path d="M10 22V14a2 2 0 00-2-2H6V4h12v8h-2a2 2 0 00-2 2v8" /></svg>,
+  // People group for Team Meeting
+  TEAM_MEETING: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" /></svg>,
 };
 
 const EVENT_LABELS: Record<string, string> = {
@@ -107,8 +112,9 @@ const TeamSchedulePage: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<TeamEvent | null>(null);
   const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
   
-  // Create event modal
+  // Create/Edit event modal
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<TeamEvent | null>(null); // Track which event is being edited
   const [eventForm, setEventForm] = useState({
     title: '',
     type: 'PRACTICE' as TeamEvent['type'],
@@ -120,6 +126,10 @@ const TeamSchedulePage: React.FC = () => {
   });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Post-creation availability prompt
+  const [showAvailabilityPrompt, setShowAvailabilityPrompt] = useState(false);
+  const [newlyCreatedEvent, setNewlyCreatedEvent] = useState<TeamEvent | null>(null);
 
   // Get coaches from team members for VOD Review assignment
   const getTeamCoaches = (): { userId: string; username: string }[] => {
@@ -340,8 +350,13 @@ const TeamSchedulePage: React.FC = () => {
     setError(null);
 
     try {
-      const res = await fetch(`${apiUrl}/api/teams/${selectedTeamId}/events`, {
-        method: 'POST',
+      const isEditing = editingEvent !== null;
+      const url = isEditing 
+        ? `${apiUrl}/api/teams/${selectedTeamId}/events/${editingEvent.id}`
+        : `${apiUrl}/api/teams/${selectedTeamId}/events`;
+      
+      const res = await fetch(url, {
+        method: isEditing ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
@@ -361,16 +376,50 @@ const TeamSchedulePage: React.FC = () => {
 
       if (res.ok) {
         setShowCreateModal(false);
+        const wasEditing = editingEvent !== null;
+        setEditingEvent(null);
         setEventForm({ title: '', type: 'PRACTICE', description: '', scheduledAt: '', duration: '', enemyMultigg: '', assignedCoachIds: [] });
         await fetchEvents();
+        
+        // Show availability prompt for newly created events (not edits)
+        if (!wasEditing && selectedTeam?.members && selectedTeam.members.length > 1) {
+          setNewlyCreatedEvent(data);
+          setShowAvailabilityPrompt(true);
+        }
       } else {
-        setError(data.error || 'Failed to create event');
+        setError(data.error || `Failed to ${isEditing ? 'update' : 'create'} event`);
       }
     } catch (err) {
-      setError('Failed to create event');
+      setError(`Failed to ${editingEvent ? 'update' : 'create'} event`);
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleEditEvent = (event: TeamEvent) => {
+    // Populate form with event data
+    const eventDate = new Date(event.scheduledAt);
+    const localDateTime = eventDate.toISOString().slice(0, 16);
+    
+    setEventForm({
+      title: event.title,
+      type: event.type,
+      description: event.description || '',
+      scheduledAt: localDateTime,
+      duration: event.duration?.toString() || '',
+      enemyMultigg: event.enemyMultigg || '',
+      assignedCoachIds: event.assignedCoaches?.map(c => c.userId) || []
+    });
+    setEditingEvent(event);
+    setShowCreateModal(true);
+    setSelectedEvent(null); // Close details panel
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setEditingEvent(null);
+    setEventForm({ title: '', type: 'PRACTICE', description: '', scheduledAt: '', duration: '', enemyMultigg: '', assignedCoachIds: [] });
+    setError(null);
   };
 
   const handleDeleteEvent = async (eventId: string) => {
@@ -651,13 +700,16 @@ const TeamSchedulePage: React.FC = () => {
                   >
                     {/* Week Header */}
                     <div 
-                      className="grid grid-cols-8 border-b"
-                      style={{ borderColor: 'var(--color-border)' }}
+                      className="grid border-b"
+                      style={{ 
+                        borderColor: 'var(--color-border)',
+                        gridTemplateColumns: '80px repeat(7, 1fr)'  /* Explicit column sizing for Opera compatibility */
+                      }}
                     >
                       {/* Time column header */}
                       <div 
-                        className="p-3 border-r flex items-end justify-center"
-                        style={{ borderColor: 'var(--color-border)' }}
+                        className="p-3 border-r flex items-end justify-center flex-shrink-0"
+                        style={{ borderColor: 'var(--color-border)', minWidth: '80px' }}
                       >
                         <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
                           TIME
@@ -672,14 +724,15 @@ const TeamSchedulePage: React.FC = () => {
                         return (
                           <div
                             key={index}
-                            className="p-3 text-center border-r last:border-r-0 relative"
+                            className="p-3 text-center border-r last:border-r-0 relative overflow-hidden"
                             style={{
                               borderColor: 'var(--color-border)',
                               backgroundColor: isTodayDate ? 'rgba(200, 170, 109, 0.08)' : 'transparent',
+                              minWidth: 0,  /* Allow flex items to shrink properly in Opera */
                             }}
                           >
                             <p
-                              className="text-xs font-bold uppercase tracking-wider mb-1"
+                              className="text-xs font-bold uppercase tracking-wider mb-1 truncate"
                               style={{ color: isTodayDate ? 'var(--color-accent-1)' : 'var(--color-text-muted)' }}
                             >
                               {fullDayNames[index]}
@@ -707,9 +760,15 @@ const TeamSchedulePage: React.FC = () => {
                     </div>
 
                     {/* Week Body - Timeline View */}
-                    <div className="grid grid-cols-8 overflow-y-auto" style={{ height: 'calc(100% - 88px)' }}>
+                    <div 
+                      className="grid overflow-y-auto" 
+                      style={{ 
+                        height: 'calc(100% - 88px)',
+                        gridTemplateColumns: '80px repeat(7, 1fr)'  /* Match header columns for Opera compatibility */
+                      }}
+                    >
                       {/* Time Labels Column */}
-                      <div className="border-r relative" style={{ borderColor: 'var(--color-border)' }}>
+                      <div className="border-r relative flex-shrink-0" style={{ borderColor: 'var(--color-border)', minWidth: '80px' }}>
                         {TIME_SLOTS.map((hour) => (
                           <div 
                             key={hour}
@@ -731,10 +790,11 @@ const TeamSchedulePage: React.FC = () => {
                         return (
                           <div
                             key={dayIndex}
-                            className="border-r last:border-r-0 relative"
+                            className="border-r last:border-r-0 relative overflow-hidden"
                             style={{
                               borderColor: 'var(--color-border)',
                               backgroundColor: isTodayDate ? 'rgba(200, 170, 109, 0.03)' : 'transparent',
+                              minWidth: 0,  /* Allow flex items to shrink properly in Opera */
                             }}
                             onMouseEnter={() => setHoveredDate(date)}
                             onMouseLeave={() => setHoveredDate(null)}
@@ -827,17 +887,30 @@ const TeamSchedulePage: React.FC = () => {
                                     )}
                                   </div>
                                   
-                                  {/* Delete button on hover */}
+                                  {/* Edit & Delete buttons on hover */}
                                   {selectedTeam?.canEditSchedule && (
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
-                                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 w-5 h-5 rounded-full flex items-center justify-center transition-all"
-                                      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-                                    >
-                                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                      </svg>
-                                    </button>
+                                    <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleEditEvent(event); }}
+                                        className="w-5 h-5 rounded-full flex items-center justify-center"
+                                        style={{ backgroundColor: 'rgba(59, 130, 246, 0.8)' }}
+                                        title="Edit event"
+                                      >
+                                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                        </svg>
+                                      </button>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
+                                        className="w-5 h-5 rounded-full flex items-center justify-center"
+                                        style={{ backgroundColor: 'rgba(239, 68, 68, 0.8)' }}
+                                        title="Delete event"
+                                      >
+                                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    </div>
                                   )}
                                 </div>
                               );
@@ -1144,22 +1217,38 @@ const TeamSchedulePage: React.FC = () => {
                         )}
                       </div>
                       
-                      {/* Delete Button */}
+                      {/* Edit & Delete Buttons */}
                       {selectedTeam?.canEditSchedule && (
-                        <button
-                          onClick={() => { handleDeleteEvent(selectedEvent.id); setSelectedEvent(null); }}
-                          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:scale-[1.02]"
-                          style={{ 
-                            backgroundColor: 'rgba(239, 68, 68, 0.1)', 
-                            color: '#EF4444',
-                            border: '1px solid rgba(239, 68, 68, 0.2)'
-                          }}
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          Delete Event
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEditEvent(selectedEvent)}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:scale-[1.02]"
+                            style={{ 
+                              backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+                              color: '#3B82F6',
+                              border: '1px solid rgba(59, 130, 246, 0.2)'
+                            }}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => { handleDeleteEvent(selectedEvent.id); setSelectedEvent(null); }}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:scale-[1.02]"
+                            style={{ 
+                              backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                              color: '#EF4444',
+                              border: '1px solid rgba(239, 68, 68, 0.2)'
+                            }}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Delete
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1356,12 +1445,12 @@ const TeamSchedulePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Create Event Modal - Premium Style */}
+      {/* Create/Edit Event Modal - Premium Style */}
       {showCreateModal && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm" 
           style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}
-          onClick={() => setShowCreateModal(false)}
+          onClick={handleCloseModal}
         >
           <div
             className="w-full max-w-md border rounded-2xl overflow-hidden shadow-2xl"
@@ -1377,31 +1466,39 @@ const TeamSchedulePage: React.FC = () => {
               className="p-5 border-b flex items-center justify-between"
               style={{ 
                 borderColor: 'var(--color-border)',
-                background: 'linear-gradient(135deg, rgba(200, 170, 109, 0.1) 0%, rgba(200, 170, 109, 0.05) 100%)'
+                background: editingEvent 
+                  ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%)'
+                  : 'linear-gradient(135deg, rgba(200, 170, 109, 0.1) 0%, rgba(200, 170, 109, 0.05) 100%)'
               }}
             >
               <div className="flex items-center gap-3">
                 <div 
                   className="w-10 h-10 rounded-xl flex items-center justify-center"
                   style={{ 
-                    background: 'linear-gradient(135deg, var(--color-accent-1) 0%, var(--color-accent-2) 100%)'
+                    background: editingEvent 
+                      ? 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)'
+                      : 'linear-gradient(135deg, var(--color-accent-1) 0%, var(--color-accent-2) 100%)'
                   }}
                 >
-                  <svg className="w-5 h-5" style={{ color: 'var(--color-bg-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  <svg className="w-5 h-5" style={{ color: editingEvent ? '#fff' : 'var(--color-bg-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {editingEvent ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    )}
                   </svg>
                 </div>
                 <div>
                   <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                    New Event
+                    {editingEvent ? 'Edit Event' : 'New Event'}
                   </h2>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    Schedule a team activity
+                    {editingEvent ? 'Update event details' : 'Schedule a team activity'}
                   </p>
                 </div>
               </div>
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={handleCloseModal}
                 className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:bg-white/10"
                 style={{ color: 'var(--color-text-muted)' }}
               >
@@ -1620,7 +1717,7 @@ const TeamSchedulePage: React.FC = () => {
               <div className="flex gap-3 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={handleCloseModal}
                   className="flex-1 px-4 py-2.5 font-medium rounded-xl border transition-all hover:scale-[1.02]"
                   style={{
                     backgroundColor: 'var(--color-bg-tertiary)',
@@ -1635,9 +1732,13 @@ const TeamSchedulePage: React.FC = () => {
                   disabled={creating || !eventForm.title.trim() || !eventForm.scheduledAt}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 font-semibold rounded-xl transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
                   style={{
-                    background: 'linear-gradient(135deg, var(--color-accent-1) 0%, var(--color-accent-2) 100%)',
-                    color: 'var(--color-bg-primary)',
-                    boxShadow: '0 4px 15px rgba(200, 170, 109, 0.3)'
+                    background: editingEvent 
+                      ? 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)'
+                      : 'linear-gradient(135deg, var(--color-accent-1) 0%, var(--color-accent-2) 100%)',
+                    color: editingEvent ? '#fff' : 'var(--color-bg-primary)',
+                    boxShadow: editingEvent 
+                      ? '0 4px 15px rgba(59, 130, 246, 0.3)'
+                      : '0 4px 15px rgba(200, 170, 109, 0.3)'
                   }}
                 >
                   {creating ? (
@@ -1646,19 +1747,149 @@ const TeamSchedulePage: React.FC = () => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      Creating...
+                      {editingEvent ? 'Saving...' : 'Creating...'}
                     </>
                   ) : (
                     <>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        {editingEvent ? (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        ) : (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        )}
                       </svg>
-                      Create Event
+                      {editingEvent ? 'Save Changes' : 'Create Event'}
                     </>
                   )}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Availability Prompt Modal - Shown after creating a new event */}
+      {showAvailabilityPrompt && newlyCreatedEvent && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm" 
+          style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}
+          onClick={() => { setShowAvailabilityPrompt(false); setNewlyCreatedEvent(null); }}
+        >
+          <div
+            className="w-full max-w-md border rounded-2xl overflow-hidden shadow-2xl"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              borderColor: 'var(--color-border)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div 
+              className="p-5 border-b"
+              style={{ 
+                borderColor: 'var(--color-border)',
+                background: `linear-gradient(135deg, ${EVENT_COLORS[newlyCreatedEvent.type]}20 0%, ${EVENT_COLORS[newlyCreatedEvent.type]}10 100%)`
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div 
+                  className="w-12 h-12 rounded-xl flex items-center justify-center"
+                  style={{ background: EVENT_GRADIENTS[newlyCreatedEvent.type] }}
+                >
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                    Event Created!
+                  </h2>
+                  <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                    {newlyCreatedEvent.title}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 space-y-4">
+              {/* Event Details Summary */}
+              <div 
+                className="p-3 rounded-xl space-y-2"
+                style={{ backgroundColor: 'var(--color-bg-tertiary)' }}
+              >
+                <div className="flex items-center gap-2 text-sm">
+                  <svg className="w-4 h-4" style={{ color: 'var(--color-accent-1)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span style={{ color: 'var(--color-text-primary)' }}>
+                    {new Date(newlyCreatedEvent.scheduledAt).toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      month: 'short', 
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <span 
+                    className="w-4 h-4 flex items-center justify-center"
+                    style={{ color: EVENT_COLORS[newlyCreatedEvent.type] }}
+                  >
+                    {EVENT_ICONS[newlyCreatedEvent.type]}
+                  </span>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>
+                    {EVENT_LABELS[newlyCreatedEvent.type]}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                Set your availability so your team knows if you can attend.
+              </p>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { 
+                    setShowAvailabilityPrompt(false); 
+                    setNewlyCreatedEvent(null);
+                    // Find and select the newly created event to show in sidebar
+                    const newEvent = events.find(e => e.id === newlyCreatedEvent.id);
+                    if (newEvent) setSelectedEvent(newEvent);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all hover:scale-[1.02]"
+                  style={{
+                    background: 'linear-gradient(135deg, var(--color-accent-1) 0%, var(--color-accent-2) 100%)',
+                    color: 'var(--color-bg-primary)',
+                    boxShadow: '0 4px 15px rgba(200, 170, 109, 0.3)'
+                  }}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                  Set My Availability
+                </button>
+              </div>
+
+              {/* Skip link */}
+              <button
+                onClick={() => { setShowAvailabilityPrompt(false); setNewlyCreatedEvent(null); }}
+                className="w-full px-4 py-2 text-sm font-medium rounded-lg transition-all hover:bg-white/5"
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                I&apos;ll do this later
+              </button>
+
+              {/* Team notification hint */}
+              {selectedTeam?.members && selectedTeam.members.length > 1 && (
+                <p className="text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
+                  Your teammates will also be able to set their availability for this event.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
