@@ -687,4 +687,184 @@ export default async function discordFeedRoutes(fastify: any) {
       return reply.status(500).send({ error: 'Failed to mark DM as sent' });
     }
   });
+
+  // ============================================================
+  // Team Event Discord Notifications
+  // ============================================================
+
+  // GET /api/discord/team-events - Get pending team event notifications (bot only)
+  fastify.get('/discord/team-events', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const notifications = await prisma.teamEventNotification.findMany({
+        where: { processed: false },
+        orderBy: { createdAt: 'asc' },
+        take: 50,
+        include: {
+          team: {
+            select: {
+              id: true,
+              name: true,
+              tag: true,
+              discordWebhookUrl: true,
+              discordNotifyEvents: true,
+              members: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      username: true,
+                      discordAccount: {
+                        select: { discordId: true }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      const formatted = notifications.map(n => ({
+        id: n.id,
+        teamId: n.teamId,
+        teamName: n.team.name,
+        teamTag: n.team.tag,
+        webhookUrl: n.team.discordWebhookUrl,
+        notifyEnabled: n.team.discordNotifyEvents,
+        eventId: n.eventId,
+        eventTitle: n.eventTitle,
+        eventType: n.eventType,
+        scheduledAt: n.scheduledAt,
+        duration: n.duration,
+        description: n.description,
+        enemyLink: n.enemyLink,
+        notificationType: n.notificationType,
+        triggeredBy: n.triggeredBy,
+        createdAt: n.createdAt,
+        members: n.team.members.map(m => ({
+          id: m.user.id,
+          username: m.user.username,
+          role: m.role,
+          discordId: m.user.discordAccount?.discordId || null
+        }))
+      }));
+
+      return reply.send({ notifications: formatted });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch team event notifications' });
+    }
+  });
+
+  // PATCH /api/discord/team-events/:id/processed - Mark notification as processed (bot only)
+  fastify.patch('/discord/team-events/:id/processed', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { id } = request.params as { id: string };
+
+      await prisma.teamEventNotification.update({
+        where: { id },
+        data: { processed: true },
+      });
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to mark notification as processed' });
+    }
+  });
+
+  // POST /api/discord/team-events/:eventId/attendance - Update attendance via Discord button (bot only)
+  fastify.post('/discord/team-events/:eventId/attendance', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { eventId } = request.params as { eventId: string };
+      const { discordId, status } = request.body as { discordId: string; status: string };
+
+      if (!discordId || !status) {
+        return reply.status(400).send({ error: 'Missing discordId or status' });
+      }
+
+      // Find user by Discord ID
+      const discordAccount = await prisma.discordAccount.findUnique({
+        where: { discordId },
+        select: { userId: true }
+      });
+
+      if (!discordAccount) {
+        return reply.status(404).send({ error: 'User not linked to Discord' });
+      }
+
+      const userId = discordAccount.userId;
+
+      // Check if event exists
+      const event = await prisma.teamEvent.findUnique({
+        where: { id: eventId },
+        include: {
+          team: {
+            include: {
+              members: { where: { userId } }
+            }
+          }
+        }
+      });
+
+      if (!event) {
+        return reply.status(404).send({ error: 'Event not found' });
+      }
+
+      // Check if user is team member
+      if (event.team.members.length === 0) {
+        return reply.status(403).send({ error: 'Not a team member' });
+      }
+
+      const validStatuses = ['PRESENT', 'ABSENT', 'UNSURE'];
+      if (!validStatuses.includes(status)) {
+        return reply.status(400).send({ error: 'Invalid status' });
+      }
+
+      // Upsert attendance
+      const attendance = await prisma.teamEventAttendance.upsert({
+        where: { eventId_userId: { eventId, userId } },
+        update: { status: status as any },
+        create: {
+          eventId,
+          userId,
+          status: status as any
+        }
+      });
+
+      // Get username for response
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { username: true }
+      });
+
+      return reply.send({
+        success: true,
+        username: user?.username,
+        status: attendance.status
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to update attendance' });
+    }
+  });
+
+  // PATCH /api/discord/team-events/:eventId/message - Store Discord message ID for event (bot only)
+  fastify.patch('/discord/team-events/:eventId/message', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { eventId } = request.params as { eventId: string };
+      const { messageId } = request.body as { messageId: string };
+
+      await prisma.teamEvent.update({
+        where: { id: eventId },
+        data: { discordMessageId: messageId }
+      });
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to store message ID' });
+    }
+  });
 }

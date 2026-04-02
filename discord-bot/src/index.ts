@@ -833,6 +833,258 @@ async function sendChatDmNotification(dm: {
 }
 
 // ============================================================
+// Team Event Notifications
+// ============================================================
+
+const TEAM_EVENT_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_TEAM_EVENT_POLL_INTERVAL_MS || '15000', 10);
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  SCRIM: '⚔️ Scrim',
+  PRACTICE: '📈 Practice',
+  VOD_REVIEW: '🎥 VOD Review',
+  TOURNAMENT: '🏆 Tournament',
+  TEAM_MEETING: '👥 Team Meeting',
+};
+
+const EVENT_TYPE_COLORS: Record<string, number> = {
+  SCRIM: 0x22C55E,      // Green
+  PRACTICE: 0x3B82F6,   // Blue
+  VOD_REVIEW: 0xF59E0B, // Amber
+  TOURNAMENT: 0xEF4444, // Red
+  TEAM_MEETING: 0x8B5CF6, // Purple
+};
+
+async function pollTeamEventNotifications() {
+  try {
+    const result = await apiRequest('/api/discord/team-events');
+    if (!result.ok) {
+      console.error('❌ Failed to poll team event notifications:', result.data.error);
+      return;
+    }
+
+    const notifications = Array.isArray(result.data?.notifications) ? result.data.notifications : [];
+    if (notifications.length === 0) return;
+
+    console.log(`📅 Found ${notifications.length} pending team event notifications`);
+
+    for (const notification of notifications) {
+      await sendTeamEventNotification(notification);
+    }
+  } catch (error: any) {
+    console.error('❌ Error polling team event notifications:', error.message);
+  }
+}
+
+async function sendTeamEventNotification(notification: {
+  id: string;
+  teamId: string;
+  teamName: string;
+  teamTag: string | null;
+  webhookUrl: string | null;
+  notifyEnabled: boolean;
+  eventId: string;
+  eventTitle: string;
+  eventType: string;
+  scheduledAt: string;
+  duration: number | null;
+  description: string | null;
+  enemyLink: string | null;
+  notificationType: string;
+  triggeredBy: string;
+  members: Array<{ id: string; username: string; role: string; discordId: string | null }>;
+}) {
+  // Mark as processed first to prevent duplicates
+  const markResult = await apiRequest(`/api/discord/team-events/${notification.id}/processed`, 'PATCH');
+  if (!markResult.ok) {
+    console.error(`❌ Failed to mark team notification ${notification.id} as processed, skipping`);
+    return;
+  }
+
+  // Skip if no webhook configured or notifications disabled
+  if (!notification.webhookUrl || !notification.notifyEnabled) {
+    console.log(`⏭️ Skipping team notification ${notification.id} (no webhook or disabled)`);
+    return;
+  }
+
+  const scheduledDate = new Date(notification.scheduledAt);
+  const teamDisplay = notification.teamTag ? `[${notification.teamTag}] ${notification.teamName}` : notification.teamName;
+  const typeLabel = EVENT_TYPE_LABELS[notification.eventType] || notification.eventType;
+  const color = EVENT_TYPE_COLORS[notification.eventType] || 0xC8AA6E;
+
+  const embed = new EmbedBuilder()
+    .setTimestamp();
+
+  // Build fields
+  const fields = [];
+  fields.push({
+    name: '📅 When',
+    value: scheduledDate.toLocaleString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    }),
+    inline: true,
+  });
+
+  if (notification.duration) {
+    fields.push({
+      name: '⏱️ Duration',
+      value: `${notification.duration} minutes`,
+      inline: true,
+    });
+  }
+
+  if (notification.description) {
+    fields.push({
+      name: '📝 Description',
+      value: notification.description.substring(0, 200),
+      inline: false,
+    });
+  }
+
+  if (notification.enemyLink) {
+    const linkUrl = notification.enemyLink.startsWith('http') ? notification.enemyLink : `https://${notification.enemyLink}`;
+    fields.push({
+      name: '🎯 Enemy Team',
+      value: `[View Link](${linkUrl})`,
+      inline: false,
+    });
+  }
+
+  // Set embed properties based on notification type
+  let content = '@everyone';
+  
+  if (notification.notificationType === 'CREATED') {
+    embed.setTitle(`${typeLabel}: ${notification.eventTitle}`)
+      .setDescription(`New event scheduled for **${teamDisplay}**`)
+      .setColor(color);
+  } else if (notification.notificationType === 'UPDATED') {
+    embed.setTitle(`📝 Event Updated: ${notification.eventTitle}`)
+      .setDescription(`**${teamDisplay}** - ${typeLabel}`)
+      .setColor(0xF59E0B); // Amber for updates
+    content = ''; // Don't ping everyone for updates
+  } else if (notification.notificationType === 'DELETED') {
+    embed.setTitle(`🗑️ Event Cancelled: ${notification.eventTitle}`)
+      .setDescription(`**${teamDisplay}** - ${typeLabel}`)
+      .setColor(0xEF4444); // Red for deletions
+    fields.splice(0); // Clear fields
+    fields.push({
+      name: '📅 Was Scheduled For',
+      value: scheduledDate.toLocaleString('en-US', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      inline: true,
+    });
+  }
+
+  embed.addFields(fields);
+  embed.setFooter({ text: `${notification.notificationType === 'DELETED' ? 'Cancelled' : notification.notificationType === 'UPDATED' ? 'Updated' : 'Created'} by ${notification.triggeredBy} • ${teamDisplay}` });
+
+  // Create attendance buttons (only for created/updated events)
+  const components: any[] = [];
+  if (notification.notificationType !== 'DELETED') {
+    const row = new ActionRowBuilder<ButtonBuilder>()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`team_event_present_${notification.eventId}`)
+          .setLabel('✅ Present')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`team_event_absent_${notification.eventId}`)
+          .setLabel('❌ Absent')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`team_event_unsure_${notification.eventId}`)
+          .setLabel('❓ Unsure')
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setLabel('View on RiftEssence')
+          .setStyle(ButtonStyle.Link)
+          .setURL(`${APP_URL}/teams/${notification.teamId}`)
+      );
+    components.push(row);
+  }
+
+  try {
+    // Send to webhook
+    const response = await fetch(notification.webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: content || undefined,
+        embeds: [embed.toJSON()],
+        components: components.map(c => c.toJSON()),
+      }),
+    });
+
+    if (response.ok) {
+      console.log(`✅ Sent team event notification to ${notification.teamName} for "${notification.eventTitle}"`);
+    } else {
+      console.error(`❌ Failed to send team event notification: ${response.statusText}`);
+    }
+  } catch (error: any) {
+    console.error(`❌ Error sending team event notification:`, error.message);
+  }
+}
+
+// Handle team event attendance button clicks
+async function handleTeamEventButton(interaction: ButtonInteraction) {
+  const customId = interaction.customId;
+  if (!customId.startsWith('team_event_')) return false;
+
+  const parts = customId.split('_');
+  if (parts.length < 4) return false;
+
+  const status = parts[2].toUpperCase(); // present, absent, unsure
+  const eventId = parts.slice(3).join('_');
+
+  const discordId = interaction.user.id;
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    const result = await apiRequest(`/api/discord/team-events/${eventId}/attendance`, 'POST', {
+      discordId,
+      status: status === 'PRESENT' ? 'PRESENT' : status === 'ABSENT' ? 'ABSENT' : 'UNSURE',
+    });
+
+    if (!result.ok) {
+      const errorMsg = result.data.error || 'Failed to update attendance';
+      
+      if (errorMsg === 'User not linked to Discord') {
+        return interaction.editReply({
+          content: `❌ Your Discord account is not linked to RiftEssence. Please link it in your [settings](${APP_URL}/settings).`,
+        });
+      }
+      if (errorMsg === 'Not a team member') {
+        return interaction.editReply({
+          content: '❌ You are not a member of this team.',
+        });
+      }
+      
+      return interaction.editReply({ content: `❌ ${errorMsg}` });
+    }
+
+    const statusEmoji = status === 'PRESENT' ? '✅' : status === 'ABSENT' ? '❌' : '❓';
+    const statusText = status === 'PRESENT' ? 'Present' : status === 'ABSENT' ? 'Absent' : 'Unsure';
+    
+    return interaction.editReply({
+      content: `${statusEmoji} Your attendance has been updated to **${statusText}**!`,
+    });
+  } catch (error: any) {
+    console.error('❌ Error handling team event button:', error.message);
+    return interaction.editReply({ content: '❌ An error occurred. Please try again later.' });
+  }
+}
+
+// ============================================================
 // Bot Events
 // ============================================================
 
@@ -856,6 +1108,10 @@ client.once(Events.ClientReady, async (c) => {
   // Start polling for DM notifications
   console.log(`📨 Starting DM notification poll (interval: ${DM_POLL_INTERVAL_MS}ms)`);
   setInterval(pollDmQueue, DM_POLL_INTERVAL_MS);
+
+  // Start polling for team event notifications
+  console.log(`📅 Starting team event poll (interval: ${TEAM_EVENT_POLL_INTERVAL_MS}ms)`);
+  setInterval(pollTeamEventNotifications, TEAM_EVENT_POLL_INTERVAL_MS);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -870,8 +1126,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return;
   }
 
-  // Button interactions (setup flow)
+  // Button interactions (setup flow + team events)
   if (interaction.isButton()) {
+    // Team event attendance buttons are public (anyone can respond)
+    if (interaction.customId.startsWith('team_event_')) {
+      await handleTeamEventButton(interaction as ButtonInteraction);
+      return;
+    }
+    
     // Only allow administrators for setup buttons
     const member = interaction.member as any;
     if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {

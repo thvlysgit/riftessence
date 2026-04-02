@@ -836,6 +836,7 @@ model Team {
   members     TeamMember[]
   pendingSpots TeamPendingSpot[]
   events      TeamEvent[]
+  notifications TeamEventNotification[]
   
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -899,12 +900,17 @@ model TeamEvent {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   
+  // Discord notification tracking
+  discordMirrored     Boolean  @default(false)
+  discordMessageId    String?  // Discord message ID for button interactions
+  
   // Relations
   attendances TeamEventAttendance[]
   assignedCoaches TeamEventCoach[]  // For VOD Review events
   
   @@index([teamId, scheduledAt])
   @@index([createdBy])
+  @@index([teamId, discordMirrored])
 }
 
 // Junction table for assigning coaches to VOD Review events
@@ -933,4 +939,25 @@ model TeamEventAttendance {
   @@unique([eventId, userId])
   @@index([eventId])
   @@index([userId])
+}
+
+// Queue for team event Discord notifications (bot pulls from this)
+model TeamEventNotification {
+  id            String    @id @default(cuid())
+  team          Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId        String
+  eventId       String
+  eventTitle    String
+  eventType     TeamEventType
+  scheduledAt   DateTime
+  duration      Int?
+  description   String?
+  enemyLink     String?
+  notificationType String  // 'CREATED', 'UPDATED', 'DELETED'
+  triggeredBy   String    // username
+  createdAt     DateTime  @default(now())
+  processed     Boolean   @default(false)
+  
+  @@index([processed, createdAt])
+  @@index([teamId])
 }

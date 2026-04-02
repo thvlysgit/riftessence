@@ -3,9 +3,6 @@ import { getPuuid } from '../riotClient';
 import {
   sendTeamDiscordWebhook,
   validateDiscordWebhook,
-  createTeamEventCreatedEmbed,
-  createTeamEventUpdatedEmbed,
-  createTeamEventDeletedEmbed,
   createTeamMemberJoinedEmbed
 } from '../utils/discord-webhook';
 
@@ -961,26 +958,27 @@ export default async function teamsRoutes(fastify: any) {
         });
       }
 
-      // Send Discord notification if configured
+      // Queue Discord notification if configured (bot will send with buttons)
       if (team?.discordWebhookUrl && team.discordNotifyEvents) {
         const creator = await prisma.user.findUnique({
           where: { id: userId },
           select: { username: true }
         });
         
-        sendTeamDiscordWebhook(team.discordWebhookUrl, '@everyone', [
-          createTeamEventCreatedEmbed({
-            teamName: team.name,
-            teamTag: team.tag,
+        await prisma.teamEventNotification.create({
+          data: {
+            teamId: id,
+            eventId: event.id,
             eventTitle: title,
             eventType: type,
             scheduledAt: scheduledDate,
             duration: duration ? parseInt(duration) : null,
             description: description || null,
-            enemyLink: enemyMultigg || null,
-            createdBy: creator?.username || 'Unknown'
-          })
-        ]).catch(err => fastify.log.error('Discord notification failed:', err));
+            enemyLink: (type === 'SCRIM' || type === 'TOURNAMENT') ? (enemyMultigg || null) : null,
+            notificationType: 'CREATED',
+            triggeredBy: creator?.username || 'Unknown'
+          }
+        });
       }
 
       return reply.status(201).send({ success: true, event });
@@ -1051,7 +1049,7 @@ export default async function teamsRoutes(fastify: any) {
         }
       }
 
-      // Send Discord notification if configured
+      // Queue Discord notification if configured
       const team = await prisma.team.findUnique({
         where: { id },
         select: { name: true, tag: true, discordWebhookUrl: true, discordNotifyEvents: true }
@@ -1063,18 +1061,20 @@ export default async function teamsRoutes(fastify: any) {
           select: { username: true }
         });
         
-        sendTeamDiscordWebhook(team.discordWebhookUrl, undefined, [
-          createTeamEventUpdatedEmbed({
-            teamName: team.name,
-            teamTag: team.tag,
+        await prisma.teamEventNotification.create({
+          data: {
+            teamId: id,
+            eventId: updated.id,
             eventTitle: updated.title,
             eventType: updated.type,
             scheduledAt: updated.scheduledAt,
             duration: updated.duration,
             description: updated.description,
-            updatedBy: updater?.username || 'Unknown'
-          })
-        ]).catch(err => fastify.log.error('Discord notification failed:', err));
+            enemyLink: updated.enemyMultigg,
+            notificationType: 'UPDATED',
+            triggeredBy: updater?.username || 'Unknown'
+          }
+        });
       }
 
       return reply.send({ success: true, event: updated });
@@ -1107,26 +1107,30 @@ export default async function teamsRoutes(fastify: any) {
         select: { name: true, tag: true, discordWebhookUrl: true, discordNotifyEvents: true }
       });
 
-      await prisma.teamEvent.delete({ where: { id: eventId } });
-
-      // Send Discord notification if configured
+      // Queue Discord notification if configured (before deletion)
       if (team?.discordWebhookUrl && team.discordNotifyEvents) {
         const deleter = await prisma.user.findUnique({
           where: { id: userId },
           select: { username: true }
         });
         
-        sendTeamDiscordWebhook(team.discordWebhookUrl, '@everyone', [
-          createTeamEventDeletedEmbed({
-            teamName: team.name,
-            teamTag: team.tag,
+        await prisma.teamEventNotification.create({
+          data: {
+            teamId: id,
+            eventId: eventId, // Keep reference even after deletion
             eventTitle: event.title,
             eventType: event.type,
             scheduledAt: event.scheduledAt,
-            deletedBy: deleter?.username || 'Unknown'
-          })
-        ]).catch(err => fastify.log.error('Discord notification failed:', err));
+            duration: event.duration,
+            description: event.description,
+            enemyLink: event.enemyMultigg,
+            notificationType: 'DELETED',
+            triggeredBy: deleter?.username || 'Unknown'
+          }
+        });
       }
+
+      await prisma.teamEvent.delete({ where: { id: eventId } });
 
       return reply.send({ success: true });
     } catch (error: any) {
