@@ -386,14 +386,11 @@ const DiscordSettingsPage: React.FC = () => {
                       value={webhookUrl}
                       onChange={e => setWebhookUrl(e.target.value)}
                       placeholder="https://discord.com/api/webhooks/..."
-                      className="w-full px-4 py-3 rounded-lg border text-sm transition-all focus:ring-2 focus:ring-offset-2"
+                      className="w-full px-4 py-3 rounded-lg border text-sm transition-all focus:ring-2 focus:ring-offset-2 focus:ring-[#5865F2]"
                       style={{
                         backgroundColor: 'var(--color-bg-tertiary)',
                         borderColor: 'var(--color-border)',
                         color: 'var(--color-text-primary)',
-                        outlineColor: '#5865F2',
-                        ringColor: '#5865F2',
-                        ringOffsetColor: 'var(--color-bg-secondary)'
                       }}
                     />
                     {settings?.webhookValid === true && settings?.channelName && (
