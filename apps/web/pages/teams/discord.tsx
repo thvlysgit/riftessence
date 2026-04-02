@@ -24,7 +24,7 @@ interface DiscordSettings {
 }
 
 const DiscordSettingsPage: React.FC = () => {
-  const router = useRouter();
+  const _router = useRouter();
   const { user } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -318,13 +318,11 @@ const DiscordSettingsPage: React.FC = () => {
                     key={team.id}
                     onClick={() => setSelectedTeamId(team.id)}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      selectedTeamId === team.id ? 'ring-2 ring-offset-2' : 'hover:opacity-80'
+                      selectedTeamId === team.id ? 'ring-2 ring-offset-2 ring-[#5865F2]' : 'hover:opacity-80'
                     }`}
                     style={{
                       backgroundColor: selectedTeamId === team.id ? '#5865F2' : 'var(--color-bg-tertiary)',
                       color: selectedTeamId === team.id ? '#fff' : 'var(--color-text-primary)',
-                      ringColor: '#5865F2',
-                      ringOffsetColor: 'var(--color-bg-secondary)'
                     }}
                   >
                     {team.tag ? `[${team.tag}] ` : ''}{team.name}
