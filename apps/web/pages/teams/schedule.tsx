@@ -59,8 +59,8 @@ const EVENT_GRADIENTS: Record<string, string> = {
 };
 
 const EVENT_ICONS: Record<string, React.ReactNode> = {
-  // Crossed swords icon for Scrim (competitive battle)
-  SCRIM: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5" /><path d="M13 19l6-6" /><path d="M16 16l4 4" /><path d="M19 21l2-2" /><path d="M9.5 6.5L21 18v3h-3L6.5 9.5" /><path d="M5 8l4-4" /><path d="M2 5l2-2" /></svg>,
+  // Clean sword icon for Scrim (competitive battle)
+  SCRIM: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M15 3l6 6-10 10-6-6L15 3z" /><path d="M5 13l6 6" /><path d="M3 21l2-2" /><path d="M21 3l-6 6" /></svg>,
   // Upward trend graph icon for Practice (improvement/growth)  
   PRACTICE: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>,
   // Video camera for VOD Review
@@ -278,29 +278,41 @@ const TeamSchedulePage: React.FC = () => {
 
       if (res.ok) {
         const updatedAttendance = await res.json();
-        // Update local state
-        setEvents(prevEvents => prevEvents.map(event => {
-          if (event.id !== eventId) return event;
-          
-          const existingIdx = event.attendances.findIndex(a => a.userId === user?.id);
-          if (existingIdx >= 0) {
-            const newAttendances = [...event.attendances];
-            newAttendances[existingIdx] = {
-              ...newAttendances[existingIdx],
-              status: updatedAttendance.status
-            };
-            return { ...event, attendances: newAttendances };
-          } else {
-            return {
-              ...event,
-              attendances: [...event.attendances, {
-                userId: user?.id || '',
-                username: user?.username || '',
+        // Update local events state
+        setEvents(prevEvents => {
+          const newEvents = prevEvents.map(event => {
+            if (event.id !== eventId) return event;
+            
+            const existingIdx = event.attendances.findIndex(a => a.userId === user?.id);
+            if (existingIdx >= 0) {
+              const newAttendances = [...event.attendances];
+              newAttendances[existingIdx] = {
+                ...newAttendances[existingIdx],
                 status: updatedAttendance.status
-              }]
-            };
+              };
+              return { ...event, attendances: newAttendances };
+            } else {
+              return {
+                ...event,
+                attendances: [...event.attendances, {
+                  userId: user?.id || '',
+                  username: user?.username || '',
+                  status: updatedAttendance.status
+                }]
+              };
+            }
+          });
+          
+          // Also update selectedEvent if it's the same event
+          if (selectedEvent?.id === eventId) {
+            const updatedEvent = newEvents.find(e => e.id === eventId);
+            if (updatedEvent) {
+              setSelectedEvent(updatedEvent);
+            }
           }
-        }));
+          
+          return newEvents;
+        });
       }
     } catch (err) {
       console.error('Failed to toggle attendance:', err);
@@ -1111,7 +1123,7 @@ const TeamSchedulePage: React.FC = () => {
                         </p>
                       )}
                       
-                      {/* Enemy Multi.gg Link */}
+                      {/* Enemy Team Link */}
                       {(selectedEvent.type === 'SCRIM' || selectedEvent.type === 'TOURNAMENT') && (
                         <div>
                           {selectedEvent.enemyMultigg ? (
@@ -1119,17 +1131,17 @@ const TeamSchedulePage: React.FC = () => {
                               href={selectedEvent.enemyMultigg.startsWith('http') ? selectedEvent.enemyMultigg : `https://${selectedEvent.enemyMultigg}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:scale-[1.02]"
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:scale-[1.02] break-all"
                               style={{ 
                                 backgroundColor: 'rgba(139, 92, 246, 0.15)', 
                                 color: '#A78BFA',
                                 border: '1px solid rgba(139, 92, 246, 0.3)'
                               }}
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                               </svg>
-                              View Enemy on Multi.gg
+                              <span className="truncate">{selectedEvent.enemyMultigg.replace(/^https?:\/\//, '')}</span>
                             </a>
                           ) : (
                             <div 
@@ -1143,7 +1155,7 @@ const TeamSchedulePage: React.FC = () => {
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                               </svg>
-                              No enemy multi.gg set
+                              No enemy link set
                             </div>
                           )}
                         </div>
@@ -1155,16 +1167,23 @@ const TeamSchedulePage: React.FC = () => {
                           <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                             Attendance
                           </h4>
-                          <button
-                            onClick={() => handleToggleAttendance(selectedEvent.id)}
-                            className="text-xs font-medium px-2 py-1 rounded-lg transition-all hover:scale-105"
-                            style={{
-                              backgroundColor: 'var(--color-accent-1)',
-                              color: 'var(--color-bg-primary)'
-                            }}
-                          >
-                            Toggle My Status
-                          </button>
+                          {(() => {
+                            const myStatus = getMyAttendance(selectedEvent);
+                            const needsAttention = !myStatus;
+                            return (
+                              <button
+                                onClick={() => handleToggleAttendance(selectedEvent.id)}
+                                className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-all hover:scale-105 ${needsAttention ? 'animate-pulse' : ''}`}
+                                style={{
+                                  backgroundColor: needsAttention ? 'var(--color-accent-1)' : myStatus ? ATTENDANCE_COLORS[myStatus] : 'var(--color-accent-1)',
+                                  color: '#fff',
+                                  boxShadow: needsAttention ? '0 0 12px rgba(200, 170, 109, 0.5)' : 'none'
+                                }}
+                              >
+                                {needsAttention ? '⚡ Set Status' : 'Change Status'}
+                              </button>
+                            );
+                          })()}
                         </div>
                         
                         {/* Attendance Counts */}
@@ -1634,17 +1653,17 @@ const TeamSchedulePage: React.FC = () => {
                 />
               </div>
 
-              {/* Enemy Multi.gg for Scrim/Tournament */}
+              {/* Enemy Team Link for Scrim/Tournament */}
               {(eventForm.type === 'SCRIM' || eventForm.type === 'TOURNAMENT') && (
                 <div 
                   className="p-3 rounded-xl"
                   style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)' }}
                 >
                   <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#A78BFA' }}>
-                    Enemy Team Multi.gg <span className="font-normal">(recommended)</span>
+                    Enemy Team Link <span className="font-normal">(optional)</span>
                   </label>
                   <input
-                    type="url"
+                    type="text"
                     value={eventForm.enemyMultigg}
                     onChange={(e) => setEventForm({ ...eventForm, enemyMultigg: e.target.value })}
                     className="w-full px-4 py-2.5 rounded-xl border transition-all focus:outline-none"
@@ -1653,10 +1672,10 @@ const TeamSchedulePage: React.FC = () => {
                       borderColor: 'rgba(139, 92, 246, 0.3)',
                       color: 'var(--color-text-primary)',
                     }}
-                    placeholder="https://multi.gg/..."
+                    placeholder="https://example.com/team or multi.gg link"
                   />
                   <p className="text-[10px] mt-1.5" style={{ color: 'rgba(167, 139, 250, 0.7)' }}>
-                    Scout the enemy team before the match
+                    Any link to scout or identify the enemy team
                   </p>
                 </div>
               )}

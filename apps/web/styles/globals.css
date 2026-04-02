@@ -79,6 +79,7 @@ body {
 }
 
 /* Custom scrollbar styling - themed */
+/* WebKit browsers (Chrome, Safari, Edge, Opera) */
 .scrollbar-thin::-webkit-scrollbar {
   width: 8px;
 }
@@ -95,6 +96,37 @@ body {
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: var(--color-accent-2);
+}
+
+/* Global scrollbar styling for all scrollable elements */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+  border-radius: 5px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--color-accent-1), var(--color-accent-2));
+  border-radius: 5px;
+  border: 2px solid var(--color-bg-secondary);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--color-accent-3), var(--color-accent-1));
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--color-bg-secondary);
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent-1) var(--color-bg-secondary);
 }
 
 /* Utility classes for themed components */
