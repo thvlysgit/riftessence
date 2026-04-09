@@ -1,8 +1,8 @@
 -- Add Discord DM notifications opt-in field to User
-ALTER TABLE "User" ADD COLUMN "discordDmNotifications" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "discordDmNotifications" BOOLEAN NOT NULL DEFAULT false;
 
 -- Create DiscordDmQueue table for queuing DM notifications to be sent by the bot
-CREATE TABLE "DiscordDmQueue" (
+CREATE TABLE IF NOT EXISTS "DiscordDmQueue" (
     "id" TEXT NOT NULL,
     "recipientDiscordId" TEXT NOT NULL,
     "senderUsername" TEXT NOT NULL,
@@ -15,5 +15,5 @@ CREATE TABLE "DiscordDmQueue" (
 );
 
 -- Indexes for efficient polling by the Discord bot
-CREATE INDEX "DiscordDmQueue_sent_createdAt_idx" ON "DiscordDmQueue"("sent", "createdAt");
-CREATE INDEX "DiscordDmQueue_recipientDiscordId_sent_idx" ON "DiscordDmQueue"("recipientDiscordId", "sent");
+CREATE INDEX IF NOT EXISTS "DiscordDmQueue_sent_createdAt_idx" ON "DiscordDmQueue"("sent", "createdAt");
+CREATE INDEX IF NOT EXISTS "DiscordDmQueue_recipientDiscordId_sent_idx" ON "DiscordDmQueue"("recipientDiscordId", "sent");
