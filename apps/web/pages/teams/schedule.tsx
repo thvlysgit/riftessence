@@ -38,6 +38,7 @@ interface TeamEvent {
   scheduledAt: string;
   duration: number | null;
   enemyMultigg: string | null;
+  concernedMemberIds: string[];
   attendances: EventAttendance[];
   assignedCoaches: AssignedCoach[];
 }
@@ -122,7 +123,8 @@ const TeamSchedulePage: React.FC = () => {
     scheduledAt: '',
     duration: '',
     enemyMultigg: '',
-    assignedCoachIds: [] as string[]
+    assignedCoachIds: [] as string[],
+    concernedMemberIds: [] as string[]
   });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -380,7 +382,8 @@ const TeamSchedulePage: React.FC = () => {
           scheduledAt: eventForm.scheduledAt,
           duration: eventForm.duration ? parseInt(eventForm.duration) : null,
           enemyMultigg: (eventForm.type === 'SCRIM' || eventForm.type === 'TOURNAMENT') ? (eventForm.enemyMultigg.trim() || null) : null,
-          assignedCoachIds: eventForm.type === 'VOD_REVIEW' ? eventForm.assignedCoachIds : []
+          assignedCoachIds: eventForm.type === 'VOD_REVIEW' ? eventForm.assignedCoachIds : [],
+          concernedMemberIds: eventForm.concernedMemberIds
         })
       });
 
@@ -390,12 +393,12 @@ const TeamSchedulePage: React.FC = () => {
         setShowCreateModal(false);
         const wasEditing = editingEvent !== null;
         setEditingEvent(null);
-        setEventForm({ title: '', type: 'PRACTICE', description: '', scheduledAt: '', duration: '', enemyMultigg: '', assignedCoachIds: [] });
+        setEventForm({ title: '', type: 'PRACTICE', description: '', scheduledAt: '', duration: '', enemyMultigg: '', assignedCoachIds: [], concernedMemberIds: [] });
         await fetchEvents();
         
         // Show availability prompt for newly created events (not edits)
         if (!wasEditing && selectedTeam?.members && selectedTeam.members.length > 1) {
-          setNewlyCreatedEvent(data);
+          setNewlyCreatedEvent(data.event || data);
           setShowAvailabilityPrompt(true);
         }
       } else {
@@ -420,7 +423,8 @@ const TeamSchedulePage: React.FC = () => {
       scheduledAt: localDateTime,
       duration: event.duration?.toString() || '',
       enemyMultigg: event.enemyMultigg || '',
-      assignedCoachIds: event.assignedCoaches?.map(c => c.userId) || []
+      assignedCoachIds: event.assignedCoaches?.map(c => c.userId) || [],
+      concernedMemberIds: event.concernedMemberIds || []
     });
     setEditingEvent(event);
     setShowCreateModal(true);
@@ -430,7 +434,7 @@ const TeamSchedulePage: React.FC = () => {
   const handleCloseModal = () => {
     setShowCreateModal(false);
     setEditingEvent(null);
-    setEventForm({ title: '', type: 'PRACTICE', description: '', scheduledAt: '', duration: '', enemyMultigg: '', assignedCoachIds: [] });
+    setEventForm({ title: '', type: 'PRACTICE', description: '', scheduledAt: '', duration: '', enemyMultigg: '', assignedCoachIds: [], concernedMemberIds: [] });
     setError(null);
   };
 
@@ -1731,6 +1735,91 @@ const TeamSchedulePage: React.FC = () => {
                   )}
                 </div>
               )}
+
+              {/* Audience targeting */}
+              <div
+                className="p-3 rounded-xl"
+                style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)' }}
+              >
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#3B82F6' }}>
+                  Concerned Members
+                </label>
+                <p className="text-[11px] mb-3" style={{ color: 'var(--color-text-muted)' }}>
+                  Only concerned members see this event in schedule and receive event notifications. Default is everyone in the team.
+                </p>
+
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setEventForm({ ...eventForm, concernedMemberIds: [] })}
+                    className="px-3 py-2 rounded-lg text-xs font-semibold transition-all"
+                    style={{
+                      backgroundColor: eventForm.concernedMemberIds.length === 0 ? 'rgba(59, 130, 246, 0.2)' : 'var(--color-bg-tertiary)',
+                      color: eventForm.concernedMemberIds.length === 0 ? '#3B82F6' : 'var(--color-text-secondary)',
+                      border: `1px solid ${eventForm.concernedMemberIds.length === 0 ? 'rgba(59, 130, 246, 0.35)' : 'var(--color-border)'}`,
+                    }}
+                  >
+                    Everyone
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (eventForm.concernedMemberIds.length > 0) return;
+                      const teamMemberIds = selectedTeam?.members?.map((member) => member.userId) || [];
+                      setEventForm({ ...eventForm, concernedMemberIds: teamMemberIds });
+                    }}
+                    className="px-3 py-2 rounded-lg text-xs font-semibold transition-all"
+                    style={{
+                      backgroundColor: eventForm.concernedMemberIds.length > 0 ? 'rgba(59, 130, 246, 0.2)' : 'var(--color-bg-tertiary)',
+                      color: eventForm.concernedMemberIds.length > 0 ? '#3B82F6' : 'var(--color-text-secondary)',
+                      border: `1px solid ${eventForm.concernedMemberIds.length > 0 ? 'rgba(59, 130, 246, 0.35)' : 'var(--color-border)'}`,
+                    }}
+                  >
+                    Specific Members
+                  </button>
+                </div>
+
+                {eventForm.concernedMemberIds.length > 0 && (
+                  <div className="max-h-40 overflow-y-auto space-y-2 pr-1">
+                    {(selectedTeam?.members || []).map((member) => {
+                      const checked = eventForm.concernedMemberIds.includes(member.userId);
+                      return (
+                        <label
+                          key={member.userId}
+                          className="flex items-center gap-3 p-2 rounded-lg cursor-pointer"
+                          style={{
+                            backgroundColor: checked ? 'rgba(59, 130, 246, 0.16)' : 'var(--color-bg-tertiary)',
+                            border: `1px solid ${checked ? 'rgba(59, 130, 246, 0.3)' : 'var(--color-border)'}`,
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEventForm({
+                                  ...eventForm,
+                                  concernedMemberIds: [...eventForm.concernedMemberIds, member.userId],
+                                });
+                              } else {
+                                const nextIds = eventForm.concernedMemberIds.filter((id) => id !== member.userId);
+                                setEventForm({ ...eventForm, concernedMemberIds: nextIds });
+                              }
+                            }}
+                            className="w-4 h-4 accent-blue-500"
+                          />
+                          <span className="flex-1 text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                            {member.username}
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#3B82F6' }}>
+                            {member.role}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {/* Form Actions */}
               <div className="flex gap-3 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>

@@ -827,6 +827,9 @@ model Team {
   discordWebhookUrl     String?   // Discord webhook URL for team notifications
   discordNotifyEvents   Boolean   @default(true)  // Notify on event create/update/delete
   discordNotifyMembers  Boolean   @default(false) // Notify on member join/leave
+  discordMentionMode    String    @default("EVERYONE") // EVERYONE | ROLE | TEAM_ROLE_MAP
+  discordMentionRoleId  String?   // Specific Discord role ID when mention mode is ROLE
+  discordRoleMentions   Json?     // Map of TeamRole -> Discord role ID when mode is TEAM_ROLE_MAP
   
   // Owner (team creator)
   owner       User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
@@ -892,6 +895,7 @@ model TeamEvent {
   description String?
   scheduledAt DateTime      // When the event is scheduled
   duration    Int?          // Duration in minutes
+  concernedMemberIds String[] @default([]) // Empty means everyone in the team is concerned
   
   // Scrim/Tournament specific - opponent's multi.gg link
   enemyMultigg String?
@@ -953,6 +957,7 @@ model TeamEventNotification {
   duration      Int?
   description   String?
   enemyLink     String?
+  concernedMemberIds String[] @default([])
   notificationType String  // 'CREATED', 'UPDATED', 'DELETED'
   triggeredBy   String    // username
   createdAt     DateTime  @default(now())

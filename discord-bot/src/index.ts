@@ -868,8 +868,12 @@ type TeamEventNotification = {
   duration: number | null;
   description: string | null;
   enemyLink: string | null;
+  concernedMemberIds: string[];
   notificationType: string;
   triggeredBy: string;
+  mentionMode: 'EVERYONE' | 'ROLE' | 'TEAM_ROLE_MAP' | string;
+  mentionRoleId: string | null;
+  roleMentions: Record<string, string>;
   members: Array<{ id: string; username: string; role: string; discordId: string | null; dmEnabled?: boolean }>;
 };
 
@@ -921,7 +925,6 @@ function buildTeamEventEmbed(notification: TeamEventNotification, teamDisplay: s
     });
   }
 
-  let content = '@everyone';
   if (notification.notificationType === 'CREATED') {
     embed
       .setTitle(`${typeLabel}: ${notification.eventTitle}`)
@@ -932,7 +935,6 @@ function buildTeamEventEmbed(notification: TeamEventNotification, teamDisplay: s
       .setTitle(`📝 Event Updated: ${notification.eventTitle}`)
       .setDescription(`**${teamDisplay}** - ${typeLabel}`)
       .setColor(0xF59E0B);
-    content = '';
   } else if (notification.notificationType === 'DELETED') {
     embed
       .setTitle(`🗑️ Event Cancelled: ${notification.eventTitle}`)
@@ -957,7 +959,60 @@ function buildTeamEventEmbed(notification: TeamEventNotification, teamDisplay: s
     text: `${notification.notificationType === 'DELETED' ? 'Cancelled' : notification.notificationType === 'UPDATED' ? 'Updated' : 'Created'} by ${notification.triggeredBy} • ${teamDisplay}`,
   });
 
-  return { embed, content };
+  return embed;
+}
+
+function normalizeRoleId(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const mentionMatch = trimmed.match(/^<@&(\d+)>$/);
+  const roleId = mentionMatch ? mentionMatch[1] : trimmed;
+  return /^\d{6,30}$/.test(roleId) ? roleId : null;
+}
+
+function getConcernedMembers(notification: TeamEventNotification) {
+  const explicitConcerned = Array.isArray(notification.concernedMemberIds)
+    ? notification.concernedMemberIds.filter((id) => typeof id === 'string' && id.length > 0)
+    : [];
+
+  if (explicitConcerned.length === 0) {
+    return notification.members;
+  }
+
+  const idSet = new Set(explicitConcerned);
+  return notification.members.filter((member) => idSet.has(member.id));
+}
+
+function buildMentionContent(
+  notification: TeamEventNotification,
+  concernedMembers: Array<{ id: string; username: string; role: string; discordId: string | null; dmEnabled?: boolean }>
+): string {
+  const mode = (notification.mentionMode || 'EVERYONE').toUpperCase();
+
+  if (mode === 'ROLE') {
+    const roleId = normalizeRoleId(notification.mentionRoleId);
+    return roleId ? `<@&${roleId}>` : '';
+  }
+
+  if (mode === 'TEAM_ROLE_MAP') {
+    const map = notification.roleMentions && typeof notification.roleMentions === 'object'
+      ? notification.roleMentions
+      : {};
+    const roleMentions = new Set<string>();
+
+    for (const member of concernedMembers) {
+      const mappedRoleId = normalizeRoleId(map[member.role]);
+      if (mappedRoleId) {
+        roleMentions.add(`<@&${mappedRoleId}>`);
+      }
+    }
+
+    return Array.from(roleMentions).join(' ');
+  }
+
+  // Default behavior: ping everyone in the configured channel
+  return '@everyone';
 }
 
 function buildTeamEventComponents(notification: TeamEventNotification): ActionRowBuilder<ButtonBuilder>[] {
@@ -1118,13 +1173,19 @@ async function sendTeamEventNotification(notification: TeamEventNotification) {
   }
 
   const teamDisplay = notification.teamTag ? `[${notification.teamTag}] ${notification.teamName}` : notification.teamName;
-  const { embed, content } = buildTeamEventEmbed(notification, teamDisplay);
+  const embed = buildTeamEventEmbed(notification, teamDisplay);
   const components = buildTeamEventComponents(notification);
+  const concernedMembers = getConcernedMembers(notification);
+  const mentionContent = buildMentionContent(notification, concernedMembers);
+
+  if (notification.concernedMemberIds?.length > 0 && concernedMembers.length === 0) {
+    console.warn(`⚠️ Team event ${notification.eventId} has explicit concernedMemberIds but no matching active members`);
+  }
 
   let channelSent = false;
   let channelMessageId: string | undefined;
   if (notification.webhookUrl) {
-    const channelResult = await sendTeamEventChannelNotification(notification, content, embed, components);
+    const channelResult = await sendTeamEventChannelNotification(notification, mentionContent, embed, components);
     channelSent = channelResult.sent;
     channelMessageId = channelResult.messageId;
   } else {
@@ -1138,7 +1199,7 @@ async function sendTeamEventNotification(notification: TeamEventNotification) {
     }
   }
 
-  const dmTargets = notification.members.filter((member) => Boolean(member.discordId && member.dmEnabled));
+  const dmTargets = concernedMembers.filter((member) => Boolean(member.discordId && member.dmEnabled));
   let dmSentCount = 0;
 
   for (const member of dmTargets) {
@@ -1149,7 +1210,7 @@ async function sendTeamEventNotification(notification: TeamEventNotification) {
   }
 
   if (dmTargets.length === 0) {
-    console.log(`ℹ️ No eligible DM recipients for team ${notification.teamName} (linked + opted-in)`);
+    console.log(`ℹ️ No eligible DM recipients for team ${notification.teamName} (concerned + linked + opted-in)`);
   }
 
   if (!channelSent && dmSentCount === 0) {
@@ -1199,6 +1260,11 @@ async function handleTeamEventButton(interaction: ButtonInteraction) {
       if (errorMsg === 'Not a team member') {
         return interaction.editReply({
           content: '❌ You are not a member of this team.',
+        });
+      }
+      if (errorMsg === 'Not concerned by this event') {
+        return interaction.editReply({
+          content: '❌ You are not targeted by this event notification.',
         });
       }
       

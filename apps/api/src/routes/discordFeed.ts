@@ -707,6 +707,9 @@ export default async function discordFeedRoutes(fastify: any) {
               tag: true,
               discordWebhookUrl: true,
               discordNotifyEvents: true,
+              discordMentionMode: true,
+              discordMentionRoleId: true,
+              discordRoleMentions: true,
               members: {
                 include: {
                   user: {
@@ -742,6 +745,12 @@ export default async function discordFeedRoutes(fastify: any) {
         enemyLink: n.enemyLink,
         notificationType: n.notificationType,
         triggeredBy: n.triggeredBy,
+        concernedMemberIds: Array.isArray(n.concernedMemberIds) ? n.concernedMemberIds : [],
+        mentionMode: n.team.discordMentionMode || 'EVERYONE',
+        mentionRoleId: n.team.discordMentionRoleId || null,
+        roleMentions: (n.team.discordRoleMentions && typeof n.team.discordRoleMentions === 'object' && !Array.isArray(n.team.discordRoleMentions))
+          ? n.team.discordRoleMentions
+          : {},
         createdAt: n.createdAt,
         members: n.team.members.map((m: any) => ({
           id: m.user.id,
@@ -820,6 +829,11 @@ export default async function discordFeedRoutes(fastify: any) {
       if (event.team.members.length === 0) {
         fastify.log.warn({ eventId, discordId, userId }, 'Discord attendance update rejected: non-member attempted response');
         return reply.status(403).send({ error: 'Not a team member' });
+      }
+
+      if (event.concernedMemberIds?.length > 0 && !event.concernedMemberIds.includes(userId)) {
+        fastify.log.warn({ eventId, discordId, userId }, 'Discord attendance update rejected: user not concerned by event');
+        return reply.status(403).send({ error: 'Not concerned by this event' });
       }
 
       const validStatuses = ['PRESENT', 'ABSENT', 'UNSURE'];

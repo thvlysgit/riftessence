@@ -10,11 +10,79 @@ import {
 const TEAM_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS', 'MANAGER', 'OWNER', 'COACH'] as const;
 const PLAYER_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS'] as const;
 const STAFF_ROLES = ['MANAGER', 'COACH'] as const;
+const TEAM_EVENT_TYPES = ['SCRIM', 'PRACTICE', 'VOD_REVIEW', 'TOURNAMENT', 'TEAM_MEETING'] as const;
+const DISCORD_MENTION_MODES = ['EVERYONE', 'ROLE', 'TEAM_ROLE_MAP'] as const;
 
 export default async function teamsRoutes(fastify: any) {
   const isSchemaOutOfDateError = (error: any) => {
     const code = error?.code;
     return code === 'P2021' || code === 'P2022';
+  };
+
+  const buildConcernedEventFilter = (userId: string) => ({
+    OR: [
+      { concernedMemberIds: { isEmpty: true } },
+      { concernedMemberIds: { has: userId } },
+    ],
+  });
+
+  const normalizeDiscordRoleId = (raw: any): string | null => {
+    if (typeof raw !== 'string') return null;
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    const mentionMatch = trimmed.match(/^<@&(\d+)>$/);
+    const roleId = mentionMatch ? mentionMatch[1] : trimmed;
+    return /^\d{6,30}$/.test(roleId) ? roleId : null;
+  };
+
+  const sanitizeRoleMentionMap = (raw: any) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return {} as Record<string, string>;
+    }
+
+    const result: Record<string, string> = {};
+    for (const role of TEAM_ROLES) {
+      const normalized = normalizeDiscordRoleId((raw as Record<string, any>)[role]);
+      if (normalized) {
+        result[role] = normalized;
+      }
+    }
+    return result;
+  };
+
+  const normalizeConcernedMemberIds = async (teamId: string, raw: any): Promise<{ value: string[]; error: string | null }> => {
+    if (raw === undefined || raw === null) {
+      return { value: [], error: null };
+    }
+
+    if (!Array.isArray(raw)) {
+      return { value: [], error: 'concernedMemberIds must be an array of user IDs' };
+    }
+
+    const uniqueMemberIds = Array.from(new Set(
+      raw
+        .filter((entry: any) => typeof entry === 'string')
+        .map((entry: string) => entry.trim())
+        .filter((entry: string) => entry.length > 0)
+    ));
+
+    if (uniqueMemberIds.length === 0) {
+      return { value: [], error: null };
+    }
+
+    const members = await prisma.teamMember.findMany({
+      where: {
+        teamId,
+        userId: { in: uniqueMemberIds },
+      },
+      select: { userId: true },
+    });
+
+    if (members.length !== uniqueMemberIds.length) {
+      return { value: [], error: 'Some selected concerned members are not part of this team' };
+    }
+
+    return { value: uniqueMemberIds, error: null };
   };
 
   // Helper to extract userId from JWT
@@ -113,7 +181,10 @@ export default async function teamsRoutes(fastify: any) {
                 select: { members: true, events: true, pendingSpots: true }
               },
               events: {
-                where: { scheduledAt: { gte: new Date() } },
+                where: {
+                  scheduledAt: { gte: new Date() },
+                  ...buildConcernedEventFilter(userId),
+                },
                 select: { id: true }
               }
             }
@@ -275,7 +346,10 @@ export default async function teamsRoutes(fastify: any) {
             orderBy: { addedAt: 'asc' }
           },
           events: {
-            where: { scheduledAt: { gte: new Date() } },
+            where: {
+              scheduledAt: { gte: new Date() },
+              ...buildConcernedEventFilter(userId),
+            },
             orderBy: { scheduledAt: 'asc' },
             take: 10,
             include: {
@@ -374,6 +448,7 @@ export default async function teamsRoutes(fastify: any) {
           description: e.description,
           scheduledAt: e.scheduledAt,
           duration: e.duration,
+          concernedMemberIds: e.concernedMemberIds || [],
           attendances: e.attendances.map((a: any) => ({
             userId: a.userId,
             status: a.status
@@ -874,6 +949,7 @@ export default async function teamsRoutes(fastify: any) {
       if (!past) {
         where.scheduledAt = { gte: new Date() };
       }
+      Object.assign(where, buildConcernedEventFilter(userId));
 
       const events = await prisma.teamEvent.findMany({
         where,
@@ -901,6 +977,7 @@ export default async function teamsRoutes(fastify: any) {
         scheduledAt: e.scheduledAt,
         duration: e.duration,
         enemyMultigg: e.enemyMultigg,
+        concernedMemberIds: e.concernedMemberIds || [],
         createdBy: e.createdBy,
         createdAt: e.createdAt,
         attendances: e.attendances.map((a: any) => ({
@@ -926,7 +1003,7 @@ export default async function teamsRoutes(fastify: any) {
       if (!userId) return;
 
       const { id } = request.params as any;
-      const { title, type, description, scheduledAt, duration, enemyMultigg, assignedCoachIds } = request.body as any;
+      const { title, type, description, scheduledAt, duration, enemyMultigg, assignedCoachIds, concernedMemberIds } = request.body as any;
 
       if (!await canEditSchedule(userId, id)) {
         return reply.status(403).send({ error: 'Only owner, manager, or coach can create events' });
@@ -936,14 +1013,18 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(400).send({ error: 'Title, type, and scheduledAt are required' });
       }
 
-      const validTypes = ['SCRIM', 'PRACTICE', 'VOD_REVIEW', 'TOURNAMENT', 'TEAM_MEETING'];
-      if (!validTypes.includes(type)) {
-        return reply.status(400).send({ error: `Type must be one of: ${validTypes.join(', ')}` });
+      if (!TEAM_EVENT_TYPES.includes(type)) {
+        return reply.status(400).send({ error: `Type must be one of: ${TEAM_EVENT_TYPES.join(', ')}` });
       }
 
       const scheduledDate = new Date(scheduledAt);
       if (isNaN(scheduledDate.getTime())) {
         return reply.status(400).send({ error: 'Invalid scheduledAt date' });
+      }
+
+      const normalizedConcerned = await normalizeConcernedMemberIds(id, concernedMemberIds);
+      if (normalizedConcerned.error) {
+        return reply.status(400).send({ error: normalizedConcerned.error });
       }
 
       // Get team info for Discord notification
@@ -961,6 +1042,7 @@ export default async function teamsRoutes(fastify: any) {
           scheduledAt: scheduledDate,
           duration: duration ? parseInt(duration) : null,
           enemyMultigg: (type === 'SCRIM' || type === 'TOURNAMENT') ? (enemyMultigg || null) : null,
+          concernedMemberIds: normalizedConcerned.value,
           createdBy: userId
         }
       });
@@ -992,6 +1074,7 @@ export default async function teamsRoutes(fastify: any) {
             duration: duration ? parseInt(duration) : null,
             description: description || null,
             enemyLink: (type === 'SCRIM' || type === 'TOURNAMENT') ? (enemyMultigg || null) : null,
+            concernedMemberIds: normalizedConcerned.value,
             notificationType: 'CREATED',
             triggeredBy: creator?.username || 'Unknown'
           }
@@ -1012,7 +1095,7 @@ export default async function teamsRoutes(fastify: any) {
       if (!userId) return;
 
       const { id, eventId } = request.params as any;
-      const { title, type, description, scheduledAt, duration, enemyMultigg, assignedCoachIds } = request.body as any;
+      const { title, type, description, scheduledAt, duration, enemyMultigg, assignedCoachIds, concernedMemberIds } = request.body as any;
 
       if (!await canEditSchedule(userId, id)) {
         return reply.status(403).send({ error: 'Only owner, manager, or coach can update events' });
@@ -1023,9 +1106,12 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(404).send({ error: 'Event not found' });
       }
 
-      const validTypes = ['SCRIM', 'PRACTICE', 'VOD_REVIEW', 'TOURNAMENT', 'TEAM_MEETING'];
-      if (type && !validTypes.includes(type)) {
-        return reply.status(400).send({ error: `Type must be one of: ${validTypes.join(', ')}` });
+      if (event.concernedMemberIds?.length > 0 && !event.concernedMemberIds.includes(userId)) {
+        return reply.status(403).send({ error: 'You are not concerned by this event' });
+      }
+
+      if (type && !TEAM_EVENT_TYPES.includes(type)) {
+        return reply.status(400).send({ error: `Type must be one of: ${TEAM_EVENT_TYPES.join(', ')}` });
       }
 
       let scheduledDate;
@@ -1034,6 +1120,15 @@ export default async function teamsRoutes(fastify: any) {
         if (isNaN(scheduledDate.getTime())) {
           return reply.status(400).send({ error: 'Invalid scheduledAt date' });
         }
+      }
+
+      let normalizedConcernedMemberIds: string[] | undefined = undefined;
+      if (concernedMemberIds !== undefined) {
+        const normalizedConcerned = await normalizeConcernedMemberIds(id, concernedMemberIds);
+        if (normalizedConcerned.error) {
+          return reply.status(400).send({ error: normalizedConcerned.error });
+        }
+        normalizedConcernedMemberIds = normalizedConcerned.value;
       }
 
       const eventType = type || event.type;
@@ -1046,7 +1141,8 @@ export default async function teamsRoutes(fastify: any) {
           ...(description !== undefined && { description: description || null }),
           ...(scheduledDate && { scheduledAt: scheduledDate }),
           ...(duration !== undefined && { duration: duration ? parseInt(duration) : null }),
-          ...(enemyMultigg !== undefined && (eventType === 'SCRIM' || eventType === 'TOURNAMENT') && { enemyMultigg: enemyMultigg || null })
+          ...(enemyMultigg !== undefined && (eventType === 'SCRIM' || eventType === 'TOURNAMENT') && { enemyMultigg: enemyMultigg || null }),
+          ...(normalizedConcernedMemberIds !== undefined && { concernedMemberIds: normalizedConcernedMemberIds })
         }
       });
 
@@ -1088,6 +1184,7 @@ export default async function teamsRoutes(fastify: any) {
             duration: updated.duration,
             description: updated.description,
             enemyLink: updated.enemyMultigg,
+            concernedMemberIds: updated.concernedMemberIds || [],
             notificationType: 'UPDATED',
             triggeredBy: updater?.username || 'Unknown'
           }
@@ -1141,6 +1238,7 @@ export default async function teamsRoutes(fastify: any) {
             duration: event.duration,
             description: event.description,
             enemyLink: event.enemyMultigg,
+            concernedMemberIds: event.concernedMemberIds || [],
             notificationType: 'DELETED',
             triggeredBy: deleter?.username || 'Unknown'
           }
@@ -1222,6 +1320,9 @@ export default async function teamsRoutes(fastify: any) {
           discordWebhookUrl: true,
           discordNotifyEvents: true,
           discordNotifyMembers: true,
+          discordMentionMode: true,
+          discordMentionRoleId: true,
+          discordRoleMentions: true,
         }
       });
 
@@ -1249,6 +1350,11 @@ export default async function teamsRoutes(fastify: any) {
         webhookUrl: team.discordWebhookUrl,
         notifyEvents: team.discordNotifyEvents,
         notifyMembers: team.discordNotifyMembers,
+        mentionMode: team.discordMentionMode || 'EVERYONE',
+        mentionRoleId: team.discordMentionRoleId || null,
+        roleMentions: (team.discordRoleMentions && typeof team.discordRoleMentions === 'object' && !Array.isArray(team.discordRoleMentions))
+          ? team.discordRoleMentions
+          : {},
         webhookValid,
         channelName,
         guildName,
@@ -1266,7 +1372,7 @@ export default async function teamsRoutes(fastify: any) {
       if (!userId) return;
 
       const { id } = request.params as any;
-      const { webhookUrl, notifyEvents, notifyMembers } = request.body as any;
+      const { webhookUrl, notifyEvents, notifyMembers, mentionMode, mentionRoleId, roleMentions } = request.body as any;
 
       // Only team owner can configure Discord
       if (!await isTeamOwner(userId, id)) {
@@ -1298,6 +1404,28 @@ export default async function teamsRoutes(fastify: any) {
       if (typeof notifyEvents === 'boolean') updateData.discordNotifyEvents = notifyEvents;
       if (typeof notifyMembers === 'boolean') updateData.discordNotifyMembers = notifyMembers;
 
+      if (mentionMode !== undefined) {
+        if (!DISCORD_MENTION_MODES.includes(mentionMode)) {
+          return reply.status(400).send({ error: `mentionMode must be one of: ${DISCORD_MENTION_MODES.join(', ')}` });
+        }
+        updateData.discordMentionMode = mentionMode;
+        if (mentionMode !== 'ROLE') {
+          updateData.discordMentionRoleId = null;
+        }
+      }
+
+      if (mentionRoleId !== undefined) {
+        const normalizedRoleId = normalizeDiscordRoleId(mentionRoleId);
+        if (mentionRoleId && !normalizedRoleId) {
+          return reply.status(400).send({ error: 'Invalid Discord role ID. Use a numeric role ID or <@&roleId> mention.' });
+        }
+        updateData.discordMentionRoleId = normalizedRoleId;
+      }
+
+      if (roleMentions !== undefined) {
+        updateData.discordRoleMentions = sanitizeRoleMentionMap(roleMentions);
+      }
+
       const team = await prisma.team.update({
         where: { id },
         data: updateData,
@@ -1307,6 +1435,9 @@ export default async function teamsRoutes(fastify: any) {
           discordWebhookUrl: true,
           discordNotifyEvents: true,
           discordNotifyMembers: true,
+          discordMentionMode: true,
+          discordMentionRoleId: true,
+          discordRoleMentions: true,
         }
       });
 
@@ -1315,6 +1446,11 @@ export default async function teamsRoutes(fastify: any) {
         webhookUrl: team.discordWebhookUrl,
         notifyEvents: team.discordNotifyEvents,
         notifyMembers: team.discordNotifyMembers,
+        mentionMode: team.discordMentionMode || 'EVERYONE',
+        mentionRoleId: team.discordMentionRoleId || null,
+        roleMentions: (team.discordRoleMentions && typeof team.discordRoleMentions === 'object' && !Array.isArray(team.discordRoleMentions))
+          ? team.discordRoleMentions
+          : {},
         webhookValid: team.discordWebhookUrl ? webhookValid : undefined,
         channelName,
         guildName,

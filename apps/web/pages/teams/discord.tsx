@@ -6,6 +6,29 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getAuthToken } from '../../utils/auth';
 import NoAccess from '../../../api/components/NoAccess';
 
+type MentionMode = 'EVERYONE' | 'ROLE' | 'TEAM_ROLE_MAP';
+
+const DISCORD_BOT_INVITE_URL = 'https://discord.com/oauth2/authorize?client_id=1363678859471491312&scope=bot%20applications.commands&permissions=2147863617';
+const TEAM_ROLE_OPTIONS = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS', 'MANAGER', 'COACH'] as const;
+const TEAM_ROLE_LABELS: Record<(typeof TEAM_ROLE_OPTIONS)[number], string> = {
+  TOP: 'Top Lane',
+  JGL: 'Jungle',
+  MID: 'Mid Lane',
+  ADC: 'ADC',
+  SUP: 'Support',
+  SUBS: 'Substitutes',
+  MANAGER: 'Manager',
+  COACH: 'Coach',
+};
+
+const normalizeDiscordRoleId = (raw: string): string | null => {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const mentionMatch = trimmed.match(/^<@&(\d+)>$/);
+  const roleId = mentionMatch ? mentionMatch[1] : trimmed;
+  return /^\d{6,30}$/.test(roleId) ? roleId : null;
+};
+
 interface Team {
   id: string;
   name: string;
@@ -18,6 +41,9 @@ interface DiscordSettings {
   webhookUrl: string | null;
   notifyEvents: boolean;
   notifyMembers: boolean;
+  mentionMode: MentionMode;
+  mentionRoleId: string | null;
+  roleMentions: Record<string, string>;
   webhookValid?: boolean;
   channelName?: string;
   guildName?: string;
@@ -39,6 +65,11 @@ const DiscordSettingsPage: React.FC = () => {
   const [webhookUrl, setWebhookUrl] = useState('');
   const [notifyEvents, setNotifyEvents] = useState(true);
   const [notifyMembers, setNotifyMembers] = useState(false);
+  const [mentionMode, setMentionMode] = useState<MentionMode>('EVERYONE');
+  const [mentionRoleId, setMentionRoleId] = useState('');
+  const [roleMentions, setRoleMentions] = useState<Record<string, string>>({});
+  const [discordDmEnabled, setDiscordDmEnabled] = useState(false);
+  const [discordUsername, setDiscordUsername] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -46,20 +77,35 @@ const DiscordSettingsPage: React.FC = () => {
   useEffect(() => {
     const fetchTeams = async () => {
       const token = getAuthToken();
-      if (!token) return;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       
       try {
-        const res = await fetch(`${apiUrl}/api/teams`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
+        const [teamsRes, profileRes] = await Promise.all([
+          fetch(`${apiUrl}/api/teams`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch(`${apiUrl}/api/user/profile`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        ]);
+
+        if (teamsRes.ok) {
+          const data = await teamsRes.json();
           // Only show teams user owns (can manage Discord settings)
           const ownedTeams = data.filter((t: Team) => t.isOwner);
           setTeams(ownedTeams);
           if (ownedTeams.length === 1) {
             setSelectedTeamId(ownedTeams[0].id);
           }
+        }
+
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          setDiscordDmEnabled(profile.discordDmNotifications ?? false);
+          setDiscordUsername(profile.discordUsername || null);
         }
       } catch (err) {
         console.error('Failed to fetch teams:', err);
@@ -88,10 +134,21 @@ const DiscordSettingsPage: React.FC = () => {
         });
         if (res.ok) {
           const data = await res.json();
+          const fetchedMentionMode: MentionMode = data.mentionMode === 'ROLE' || data.mentionMode === 'TEAM_ROLE_MAP'
+            ? data.mentionMode
+            : 'EVERYONE';
+
           setSettings(data);
           setWebhookUrl(data.webhookUrl || '');
           setNotifyEvents(data.notifyEvents ?? true);
           setNotifyMembers(data.notifyMembers ?? false);
+          setMentionMode(fetchedMentionMode);
+          setMentionRoleId(data.mentionRoleId || '');
+          setRoleMentions(
+            data.roleMentions && typeof data.roleMentions === 'object' && !Array.isArray(data.roleMentions)
+              ? data.roleMentions
+              : {}
+          );
         }
       } catch (err) {
         console.error('Failed to fetch Discord settings:', err);
@@ -110,6 +167,35 @@ const DiscordSettingsPage: React.FC = () => {
     setSaving(true);
     setError(null);
     setSuccess(null);
+
+    const normalizedMentionRoleId = normalizeDiscordRoleId(mentionRoleId);
+    if (mentionMode === 'ROLE' && mentionRoleId.trim() && !normalizedMentionRoleId) {
+      setError('Invalid Discord role ID for mention strategy. Use a numeric role ID or <@&roleId>.');
+      setSaving(false);
+      return;
+    }
+
+    const sanitizedRoleMentions: Record<string, string> = {};
+    if (mentionMode === 'TEAM_ROLE_MAP') {
+      const invalidRoles: string[] = [];
+      for (const role of TEAM_ROLE_OPTIONS) {
+        const rawValue = roleMentions[role] || '';
+        if (!rawValue.trim()) continue;
+
+        const normalized = normalizeDiscordRoleId(rawValue);
+        if (!normalized) {
+          invalidRoles.push(TEAM_ROLE_LABELS[role]);
+          continue;
+        }
+        sanitizedRoleMentions[role] = normalized;
+      }
+
+      if (invalidRoles.length > 0) {
+        setError(`Invalid Discord role IDs for: ${invalidRoles.join(', ')}`);
+        setSaving(false);
+        return;
+      }
+    }
     
     try {
       const res = await fetch(`${apiUrl}/api/teams/${selectedTeamId}/discord`, {
@@ -121,7 +207,10 @@ const DiscordSettingsPage: React.FC = () => {
         body: JSON.stringify({
           webhookUrl: webhookUrl.trim() || null,
           notifyEvents,
-          notifyMembers
+          notifyMembers,
+          mentionMode,
+          mentionRoleId: mentionMode === 'ROLE' ? (normalizedMentionRoleId || null) : null,
+          roleMentions: mentionMode === 'TEAM_ROLE_MAP' ? sanitizedRoleMentions : {},
         })
       });
       
@@ -133,6 +222,13 @@ const DiscordSettingsPage: React.FC = () => {
       }
       
       setSettings(data);
+      setMentionMode(data.mentionMode === 'ROLE' || data.mentionMode === 'TEAM_ROLE_MAP' ? data.mentionMode : 'EVERYONE');
+      setMentionRoleId(data.mentionRoleId || '');
+      setRoleMentions(
+        data.roleMentions && typeof data.roleMentions === 'object' && !Array.isArray(data.roleMentions)
+          ? data.roleMentions
+          : {}
+      );
       setSuccess('Discord settings saved successfully!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -272,6 +368,22 @@ const DiscordSettingsPage: React.FC = () => {
   }
 
   const selectedTeam = teams.find(t => t.id === selectedTeamId);
+  const isDiscordLinked = Boolean(user?.discordLinked || discordUsername);
+  const roleMapMentions = TEAM_ROLE_OPTIONS
+    .map((role) => {
+      const normalized = normalizeDiscordRoleId(roleMentions[role] || '');
+      return normalized ? `<@&${normalized}>` : null;
+    })
+    .filter((value): value is string => Boolean(value));
+
+  const previewMentions = mentionMode === 'EVERYONE'
+    ? ['@everyone']
+    : mentionMode === 'ROLE'
+      ? (() => {
+          const normalized = normalizeDiscordRoleId(mentionRoleId);
+          return normalized ? [`<@&${normalized}>`] : ['@role'];
+        })()
+      : roleMapMentions;
 
   return (
     <>
@@ -356,6 +468,57 @@ const DiscordSettingsPage: React.FC = () => {
                 </div>
               )}
 
+              {/* Delivery behavior */}
+              <div className="border rounded-xl p-5" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+                <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
+                  How Team Discord Delivery Works
+                </h2>
+                <ul className="text-sm space-y-2 mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+                  <li>• Channel updates are sent through your webhook, so notifications still go out even if the bot cannot directly post to the channel.</li>
+                  <li>• The bot still powers interactions and processing (attendance updates, slash commands, DM fanout), so inviting it is strongly recommended.</li>
+                  <li>• If event audience targeting is used, only concerned members receive DMs and can act on attendance buttons for that event.</li>
+                </ul>
+                <a
+                  href={DISCORD_BOT_INVITE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
+                  style={{ backgroundColor: '#5865F2', color: '#fff' }}
+                >
+                  Invite RiftEssence Bot
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3h7m0 0v7m0-7L10 14" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5h5M5 5v14h14v-5" />
+                  </svg>
+                </a>
+              </div>
+
+              {/* DM discoverability */}
+              <div className="border rounded-xl p-5" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+                <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                  Discord DM Opt-In (Per Member)
+                </h2>
+                <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+                  Team members only receive Discord DMs when they link their Discord account and enable DM notifications in personal settings.
+                </p>
+                <div className="rounded-lg p-3 mb-3" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
+                  <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                    Your status: {isDiscordLinked ? (discordDmEnabled ? 'Linked and DM notifications enabled' : 'Linked, but DM notifications disabled') : 'Discord not linked'}
+                    {isDiscordLinked && discordUsername ? ` (${discordUsername})` : ''}
+                  </p>
+                </div>
+                <Link
+                  href="/settings"
+                  className="inline-flex items-center gap-2 text-sm font-semibold"
+                  style={{ color: '#5865F2' }}
+                >
+                  {isDiscordLinked ? 'Manage DM Notifications in Settings' : 'Link Discord in Settings'}
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+
               {/* Webhook Configuration */}
               <div className="border rounded-xl p-6" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
                 <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
@@ -365,7 +528,7 @@ const DiscordSettingsPage: React.FC = () => {
                 {/* Instructions */}
                 <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
                   <h3 className="text-sm font-medium mb-2" style={{ color: '#5865F2' }}>
-                    How to set up a Discord Webhook:
+                    Set up your channel webhook:
                   </h3>
                   <ol className="text-sm space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
                     <li>1. Open Discord and go to your server settings</li>
@@ -373,6 +536,9 @@ const DiscordSettingsPage: React.FC = () => {
                     <li>3. Click <strong>New Webhook</strong> and select the channel</li>
                     <li>4. Copy the webhook URL and paste it below</li>
                   </ol>
+                  <p className="text-xs mt-3" style={{ color: 'var(--color-text-muted)' }}>
+                    Tip: keep the bot invited too for attendance processing and DM fanout reliability.
+                  </p>
                 </div>
 
                 {/* Webhook URL Input */}
@@ -464,6 +630,134 @@ const DiscordSettingsPage: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Mention strategy */}
+                  <div className="pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                    <h3 className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                      Mention Strategy
+                    </h3>
+                    <p className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+                      Choose how channel notifications ping people. Event audience targeting is still controlled per event in Team Schedule.
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => setMentionMode('EVERYONE')}
+                        className="p-3 rounded-lg text-left border transition-all"
+                        style={{
+                          backgroundColor: mentionMode === 'EVERYONE' ? 'rgba(88, 101, 242, 0.15)' : 'var(--color-bg-tertiary)',
+                          borderColor: mentionMode === 'EVERYONE' ? 'rgba(88, 101, 242, 0.4)' : 'var(--color-border)',
+                        }}
+                      >
+                        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>@everyone</p>
+                        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>Always ping everyone in the channel</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setMentionMode('ROLE')}
+                        className="p-3 rounded-lg text-left border transition-all"
+                        style={{
+                          backgroundColor: mentionMode === 'ROLE' ? 'rgba(88, 101, 242, 0.15)' : 'var(--color-bg-tertiary)',
+                          borderColor: mentionMode === 'ROLE' ? 'rgba(88, 101, 242, 0.4)' : 'var(--color-border)',
+                        }}
+                      >
+                        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Single Discord Role</p>
+                        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>Ping one fixed Discord role</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setMentionMode('TEAM_ROLE_MAP')}
+                        className="p-3 rounded-lg text-left border transition-all"
+                        style={{
+                          backgroundColor: mentionMode === 'TEAM_ROLE_MAP' ? 'rgba(88, 101, 242, 0.15)' : 'var(--color-bg-tertiary)',
+                          borderColor: mentionMode === 'TEAM_ROLE_MAP' ? 'rgba(88, 101, 242, 0.4)' : 'var(--color-border)',
+                        }}
+                      >
+                        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Team Role Mapping</p>
+                        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>Map team roles to Discord role IDs</p>
+                      </button>
+                    </div>
+
+                    {mentionMode === 'ROLE' && (
+                      <div>
+                        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                          Discord Role ID
+                        </label>
+                        <input
+                          type="text"
+                          value={mentionRoleId}
+                          onChange={(e) => setMentionRoleId(e.target.value)}
+                          placeholder="123456789012345678 or <@&123456789012345678>"
+                          className="w-full px-4 py-3 rounded-lg border text-sm"
+                          style={{
+                            backgroundColor: 'var(--color-bg-tertiary)',
+                            borderColor: 'var(--color-border)',
+                            color: 'var(--color-text-primary)',
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {mentionMode === 'TEAM_ROLE_MAP' && (
+                      <div>
+                        <p className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                          Configure only the roles you want pinged. Leave others empty.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {TEAM_ROLE_OPTIONS.map((role) => (
+                            <div key={role}>
+                              <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#5865F2' }}>
+                                {TEAM_ROLE_LABELS[role]}
+                              </label>
+                              <input
+                                type="text"
+                                value={roleMentions[role] || ''}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setRoleMentions((prev) => {
+                                    const next = { ...prev };
+                                    if (value.trim()) {
+                                      next[role] = value;
+                                    } else {
+                                      delete next[role];
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                placeholder="Discord role ID"
+                                className="w-full px-3 py-2 rounded-lg border text-sm"
+                                style={{
+                                  backgroundColor: 'var(--color-bg-tertiary)',
+                                  borderColor: 'var(--color-border)',
+                                  color: 'var(--color-text-primary)',
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
+                      <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Mention preview:</p>
+                      {mentionMode === 'TEAM_ROLE_MAP' && previewMentions.length === 0 ? (
+                        <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                          No mapped roles yet (messages will be sent without role ping until you add role IDs).
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {previewMentions.map((mention, index) => (
+                            <span key={`${mention}-${index}`} className="text-sm px-2 py-1 rounded" style={{ backgroundColor: 'rgba(88, 101, 242, 0.25)', color: '#dee0fc' }}>
+                              {mention}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Action Buttons */}
                   <div className="flex flex-wrap gap-3 pt-4">
                     <button
@@ -548,8 +842,21 @@ const DiscordSettingsPage: React.FC = () => {
                       </div>
                       
                       {/* Mention */}
-                      <div className="mb-2">
-                        <span className="text-sm px-1 py-0.5 rounded" style={{ backgroundColor: 'rgba(88, 101, 242, 0.3)', color: '#dee0fc' }}>@everyone</span>
+                      <div className="mb-2 flex flex-wrap gap-2">
+                        {previewMentions.length > 0 ? previewMentions.slice(0, 4).map((mention, index) => (
+                          <span key={`${mention}-${index}`} className="text-sm px-1 py-0.5 rounded" style={{ backgroundColor: 'rgba(88, 101, 242, 0.3)', color: '#dee0fc' }}>
+                            {mention}
+                          </span>
+                        )) : (
+                          <span className="text-sm px-1 py-0.5 rounded" style={{ backgroundColor: 'rgba(148, 163, 184, 0.2)', color: '#cbd5e1' }}>
+                            (no ping)
+                          </span>
+                        )}
+                        {previewMentions.length > 4 && (
+                          <span className="text-sm px-1 py-0.5 rounded" style={{ backgroundColor: 'rgba(148, 163, 184, 0.2)', color: '#cbd5e1' }}>
+                            +{previewMentions.length - 4} more
+                          </span>
+                        )}
                       </div>
                       
                       {/* Embed */}
