@@ -725,7 +725,7 @@ export default async function discordFeedRoutes(fastify: any) {
         }
       });
 
-      const formatted = notifications.map(n => ({
+      const formatted = notifications.map((n: any) => ({
         id: n.id,
         teamId: n.teamId,
         teamName: n.team.name,
@@ -742,7 +742,7 @@ export default async function discordFeedRoutes(fastify: any) {
         notificationType: n.notificationType,
         triggeredBy: n.triggeredBy,
         createdAt: n.createdAt,
-        members: n.team.members.map(m => ({
+        members: n.team.members.map((m: any) => ({
           id: m.user.id,
           username: m.user.username,
           role: m.role,

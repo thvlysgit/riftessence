@@ -443,7 +443,7 @@ export default async function teamsRoutes(fastify: any) {
       }
 
       // Use transaction to update both team owner and member roles
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: any) => {
         // Update team owner
         await tx.team.update({
           where: { id },
