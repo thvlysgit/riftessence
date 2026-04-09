@@ -83,7 +83,8 @@ export default function OnboardingWizard() {
       // Step 0: Link Riot Account
       if (!hasRiotAccount) {
         // User needs to link account - navigate to authenticate page
-        router.push('/authenticate?returnUrl=/feed');
+        const onboardingReturnUrl = '/profile?onboarding=champion-pool';
+        router.push(`/authenticate?returnUrl=${encodeURIComponent(onboardingReturnUrl)}`);
         return;
       }
       // User already has riot account - advance to next step
@@ -128,8 +129,8 @@ export default function OnboardingWizard() {
       });
 
       await refreshUser();
-      showToast('Welcome to RiftEssence! 🎉', 'success');
-      router.push('/create');
+      showToast('Welcome to RiftEssence! Let\'s set your champion pool. 🎉', 'success');
+      router.push('/profile?onboarding=champion-pool');
     } catch (err) {
       showToast('Failed to save preferences', 'error');
     } finally {
@@ -158,7 +159,7 @@ export default function OnboardingWizard() {
                 Link Your Riot Account
               </h2>
               <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                Connect your League of Legends account to get started and unlock all features
+                Connect your League account to unlock ranked data, champion stats, and better recommendations
               </p>
             </div>
 
@@ -172,7 +173,7 @@ export default function OnboardingWizard() {
                   Riot Account Connected!
                 </p>
                 <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  Let's personalize your profile
+                  Great. Next we will personalize your profile and champion pool.
                 </p>
               </div>
             ) : (
@@ -183,7 +184,7 @@ export default function OnboardingWizard() {
                 }}>
                   <span style={{ color: 'var(--color-accent-1)' }}>1.</span>
                   <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    Change your summoner icon in the League client
+                    Click <strong>Link Account</strong> to open Riot authentication (recommended)
                   </p>
                 </div>
                 <div className="flex items-start gap-3 p-3 rounded border" style={{ 
@@ -192,7 +193,7 @@ export default function OnboardingWizard() {
                 }}>
                   <span style={{ color: 'var(--color-accent-1)' }}>2.</span>
                   <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    Enter your summoner name and verify
+                    If you use icon fallback: change icon, wait for Riot sync, then refresh before verifying
                   </p>
                 </div>
                 <div className="flex items-start gap-3 p-3 rounded border" style={{ 
@@ -201,7 +202,7 @@ export default function OnboardingWizard() {
                 }}>
                   <span style={{ color: 'var(--color-accent-1)' }}>3.</span>
                   <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    Come back here to continue onboarding
+                    Return here to finish setup and configure your champion pool
                   </p>
                 </div>
               </div>
@@ -327,12 +328,12 @@ export default function OnboardingWizard() {
         return (
           <div className="space-y-4">
             <div className="text-center mb-6">
-              <div className="text-6xl mb-4">🎨</div>
+              <div className="text-6xl mb-4">⭐</div>
               <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                Choose Your Theme
+                Final Step: Set Your Vibe
               </h2>
               <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                Personalize your experience with a theme that suits your style
+                Pick your theme now. After finishing, we will open your profile editor so you can build your champion pool.
               </p>
             </div>
 
@@ -450,7 +451,7 @@ export default function OnboardingWizard() {
               color: 'var(--color-bg-primary)',
             }}
           >
-            {saving ? 'Saving...' : currentStep === 3 ? 'Finish & Create Post' : currentStep === 0 && !hasRiotAccount ? 'Link Account' : 'Next'}
+            {saving ? 'Saving...' : currentStep === 3 ? 'Finish & Set Champion Pool' : currentStep === 0 && !hasRiotAccount ? 'Link Account' : 'Next'}
           </button>
         </div>
       </div>

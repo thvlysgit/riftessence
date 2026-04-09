@@ -2,7 +2,7 @@
 // Built with Next.js, TypeScript, and Tailwind CSS
 // Styled to match the Riot "Summoner Hub" dark theme
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import Toast from '../../api/components/Toast';
@@ -512,6 +512,8 @@ export default function ProfilePage() {
   const [toast, setToast] = useState<{ open: boolean; message: string; type?: 'success'|'error'|'info' }>({ open: false, message: '', type: 'info' });
   const [confirmState, setConfirmState] = useState<{ open: boolean; feedbackId: string | null }>({ open: false, feedbackId: null });
   const [badgeConfigs, setBadgeConfigs] = useState<Record<string, BadgeConfig>>({});
+  const championPoolSectionRef = useRef<HTMLDivElement | null>(null);
+  const hasHandledChampionPoolOnboarding = useRef(false);
   const { showToast, confirm } = useGlobalUI();
   const isAdmin = useMemo(() => currentUserBadges.some(b => b.key === 'admin'), [currentUserBadges]);
 
@@ -699,6 +701,24 @@ export default function ProfilePage() {
       window.location.reload();
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !user || isViewingOther || hasHandledChampionPoolOnboarding.current) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('onboarding') !== 'champion-pool') return;
+
+    hasHandledChampionPoolOnboarding.current = true;
+    setIsEditMode(true);
+    showToast('Set your champion pool, then click Save Changes to finish setup.', 'info');
+
+    const scrollTimeout = window.setTimeout(() => {
+      championPoolSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+
+    window.history.replaceState({}, '', '/profile');
+    return () => window.clearTimeout(scrollTimeout);
+  }, [user, isViewingOther, showToast]);
 
   // Check if viewing user is blocked
   useEffect(() => {
@@ -1717,7 +1737,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Champions Section */}
-        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
+        <div ref={championPoolSectionRef} id="champion-pool-section" className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--accent-primary)' }}>
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
