@@ -31,6 +31,29 @@ function calculateRankScore(rank: string | null, division: string | null, lp: nu
 }
 
 export default async function userRoutes(fastify: any) {
+  const ensureSingleMainAccount = async (db: any, userId: string) => {
+    const accounts = await db.riotAccount.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, isMain: true },
+    });
+
+    if (accounts.length === 0) return;
+
+    const mains = accounts.filter((acc: any) => acc.isMain);
+    if (mains.length === 1) return;
+
+    await db.riotAccount.updateMany({
+      where: { userId },
+      data: { isMain: false },
+    });
+
+    await db.riotAccount.update({
+      where: { id: accounts[0].id },
+      data: { isMain: true },
+    });
+  };
+
   // Verify Riot account and create/link user
   fastify.post('/verify-riot', async (request: any, reply: any) => {
     try {
@@ -115,11 +138,23 @@ export default async function userRoutes(fastify: any) {
       // Success! Clear rate limit counter
       await cacheSet(rateLimitKey, 0, 1);
 
-      // Find Riot account by summonerName + region (might be unlinked)
-      let riotAccount = await prisma.riotAccount.findFirst({
-        where: { summonerName, region: region as any },
+      // Resolve account by stable Riot identity first, then fall back to legacy summonerName+region lookup.
+      let riotAccount = await prisma.riotAccount.findUnique({
+        where: {
+          puuid_region: {
+            puuid: puuidValue,
+            region: region as any,
+          },
+        },
         include: { user: true },
       });
+
+      if (!riotAccount) {
+        riotAccount = await prisma.riotAccount.findFirst({
+          where: { summonerName, region: region as any },
+          include: { user: true },
+        });
+      }
 
       let user;
       if (riotAccount && riotAccount.user && !userId) {
@@ -128,7 +163,14 @@ export default async function userRoutes(fastify: any) {
         user = riotAccount.user;
         await prisma.riotAccount.update({
           where: { id: riotAccount.id },
-          data: { verified: true, verificationIconId, puuid: puuidValue },
+          data: {
+            verified: true,
+            verificationIconId,
+            puuid: puuidValue,
+            summonerName,
+            gameName,
+            tagLine,
+          },
         });
       } else if (userId) {
         // User is adding another account to their existing profile
@@ -143,26 +185,53 @@ export default async function userRoutes(fastify: any) {
         });
         const shouldBeMain = existingAccountsCount === 0;
         
-        // Link riot account to existing user (prevent transfers if already linked)
+        // Link riot account to existing user
         if (riotAccount) {
-          // Account exists - check if it's already linked to a different user
-          if (riotAccount.userId && riotAccount.userId !== userId) {
-            return reply.status(400).send({ 
-              error: 'This Riot account is already linked to another user. Please unlink it first.' 
-            });
+          const previousOwnerUserId = riotAccount.userId && riotAccount.userId !== userId
+            ? riotAccount.userId
+            : null;
+
+          const updateData: any = {
+            userId,
+            verified: true,
+            verificationIconId,
+            puuid: puuidValue,
+            summonerName,
+            gameName,
+            tagLine,
+          };
+
+          // If the account is unlinked or moved from another user, assign main only when needed.
+          if (!riotAccount.userId || previousOwnerUserId) {
+            updateData.isMain = shouldBeMain;
           }
-          
-          // Account exists and either unlinked or already linked to this user - update it
-          await prisma.riotAccount.update({
-            where: { id: riotAccount.id },
-            data: { userId, verified: true, verificationIconId, puuid: puuidValue, isMain: shouldBeMain },
-          });
+
+          if (previousOwnerUserId) {
+            await prisma.$transaction(async (tx: any) => {
+              await tx.riotAccount.update({
+                where: { id: riotAccount.id },
+                data: updateData,
+              });
+
+              await ensureSingleMainAccount(tx, userId);
+              await ensureSingleMainAccount(tx, previousOwnerUserId);
+            });
+          } else {
+            await prisma.riotAccount.update({
+              where: { id: riotAccount.id },
+              data: updateData,
+            });
+
+            await ensureSingleMainAccount(prisma, userId);
+          }
         } else {
           // Create new riot account linked to user
           await prisma.riotAccount.create({
             data: {
               puuid: puuidValue,
               summonerName,
+              gameName,
+              tagLine,
               region: region as any,
               verified: true,
               verificationIconId,
@@ -170,8 +239,36 @@ export default async function userRoutes(fastify: any) {
               isMain: shouldBeMain,
             },
           });
+
+          await ensureSingleMainAccount(prisma, userId);
         }
         user = existingUser;
+      } else if (riotAccount && !riotAccount.userId) {
+        // Legacy/unlinked Riot account exists: create user and attach this account instead of recreating it.
+        const username = `${summonerName.replace(/[^a-zA-Z0-9]/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
+
+        user = await prisma.user.create({
+          data: {
+            username,
+            region: region as any,
+          },
+        });
+
+        await prisma.riotAccount.update({
+          where: { id: riotAccount.id },
+          data: {
+            userId: user.id,
+            verified: true,
+            verificationIconId,
+            puuid: puuidValue,
+            summonerName,
+            gameName,
+            tagLine,
+            isMain: true,
+          },
+        });
+
+        await ensureSingleMainAccount(prisma, user.id);
       } else {
         // New user - create account
         const username = `${summonerName.replace(/[^a-zA-Z0-9]/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
@@ -184,6 +281,8 @@ export default async function userRoutes(fastify: any) {
               create: {
                 puuid: puuidValue,
                 summonerName,
+                gameName,
+                tagLine,
                 region: region as any,
                 verified: true,
                 verificationIconId,
@@ -208,7 +307,12 @@ export default async function userRoutes(fastify: any) {
         message: 'Verification successful! You can now access your profile.',
       });
     } catch (error: any) {
-      fastify.log.error(error);
+      fastify.log.error({
+        message: error?.message,
+        code: error?.code,
+        meta: error?.meta,
+        stack: error?.stack,
+      }, 'Riot verification failed');
       return reply.status(500).send({ error: 'Failed to verify Riot account' });
     }
   });
@@ -888,6 +992,9 @@ export default async function userRoutes(fastify: any) {
   // Set main Riot account
   fastify.patch('/riot-accounts/:id/set-main', async (request: any, reply: any) => {
     try {
+      const requesterId = await getUserIdFromRequest(request, reply);
+      if (!requesterId) return;
+
       const { id } = request.params as { id: string };
 
       // Find the account to verify it exists
@@ -902,6 +1009,10 @@ export default async function userRoutes(fastify: any) {
 
       if (!account.userId) {
         return reply.status(400).send({ error: 'Account is not linked to a user' });
+      }
+
+      if (account.userId !== requesterId) {
+        return reply.status(403).send({ error: 'You can only manage your own Riot accounts' });
       }
 
       // Set all other accounts for this user to isMain=false
@@ -926,6 +1037,9 @@ export default async function userRoutes(fastify: any) {
   // Toggle hidden status of Riot account
   fastify.patch('/riot-accounts/:id/toggle-hidden', async (request: any, reply: any) => {
     try {
+      const requesterId = await getUserIdFromRequest(request, reply);
+      if (!requesterId) return;
+
       const { id } = request.params as { id: string };
       const { hidden } = request.body as { hidden: boolean };
 
@@ -941,6 +1055,10 @@ export default async function userRoutes(fastify: any) {
 
       if (!account.userId) {
         return reply.status(400).send({ error: 'Account is not linked to a user' });
+      }
+
+      if (account.userId !== requesterId) {
+        return reply.status(403).send({ error: 'You can only manage your own Riot accounts' });
       }
 
       // Update the hidden status
@@ -959,6 +1077,9 @@ export default async function userRoutes(fastify: any) {
   // Remove Riot account
   fastify.delete('/riot-accounts/:id', async (request: any, reply: any) => {
     try {
+      const requesterId = await getUserIdFromRequest(request, reply);
+      if (!requesterId) return;
+
       const { id } = request.params as { id: string };
 
       const account = await prisma.riotAccount.findUnique({
@@ -968,6 +1089,10 @@ export default async function userRoutes(fastify: any) {
 
       if (!account) {
         return reply.status(404).send({ error: 'Riot account not found' });
+      }
+
+      if (!account.userId || account.userId !== requesterId) {
+        return reply.status(403).send({ error: 'You can only remove your own Riot accounts' });
       }
 
       // Check if this is the last account for the user
@@ -998,9 +1123,9 @@ export default async function userRoutes(fastify: any) {
         }
       }
 
-      await prisma.riotAccount.delete({
-        where: { id },
-      });
+      await prisma.riotAccount.delete({ where: { id } });
+
+      await ensureSingleMainAccount(prisma, requesterId);
 
       return reply.send({ success: true, message: 'Riot account removed' });
     } catch (error: any) {

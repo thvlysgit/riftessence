@@ -782,8 +782,23 @@ async function build() {
         return reply.code(403).send({ error: 'Cannot delete admin users' });
       }
 
-      // Delete user and all related data (cascade handled by Prisma)
-      await prisma.user.delete({ where: { id: targetUserId } });
+      // Gracefully detach Riot accounts before deleting the user so they can be reclaimed later.
+      await prisma.$transaction(async (tx: any) => {
+        await tx.riotAccount.updateMany({
+          where: { userId: targetUserId },
+          data: {
+            userId: null,
+            isMain: false,
+            verified: false,
+            rsoLinked: false,
+            rsoAccessToken: null,
+            rsoRefreshToken: null,
+            rsoTokenExpiresAt: null,
+          },
+        });
+
+        await tx.user.delete({ where: { id: targetUserId } });
+      });
 
       // Log the action
       await logAdminAction({
