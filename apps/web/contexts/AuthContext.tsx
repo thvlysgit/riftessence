@@ -15,6 +15,7 @@ interface User {
   onboardingCompleted?: boolean;
   profileIconId?: number;
   discordLinked?: boolean;
+  discordUsername?: string | null;
 }
 
 interface AuthContextType {
@@ -67,7 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               riotAccountsCount: data.riotAccounts?.length || 0,
               onboardingCompleted: data.onboardingCompleted || false,
               profileIconId: data.profileIconId,
-              discordLinked: !!data.discordAccount,
+              discordLinked: Boolean(data.discordLinked ?? data.discordAccount),
+              discordUsername: data.discordUsername || null,
             });
           } else {
             // Invalid token, clear it
@@ -130,6 +132,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           riotAccountsCount: data.riotAccountsCount || 0,
           onboardingCompleted: data.onboardingCompleted || false,
           profileIconId: data.profileIconId,
+          discordLinked: Boolean(data.discordLinked ?? data.discordAccount),
+          discordUsername: data.discordUsername || null,
         });
         return { success: true };
       } else {
@@ -169,6 +173,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           riotAccountsCount: 0,
           onboardingCompleted: false,
           profileIconId: undefined,
+          discordLinked: false,
+          discordUsername: null,
         });
         return { success: true };
       } else {
@@ -209,6 +215,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           riotAccountsCount: data.riotAccounts?.length || 0,
           onboardingCompleted: data.onboardingCompleted || false,
           profileIconId: data.profileIconId,
+          discordLinked: Boolean(data.discordLinked ?? data.discordAccount),
+          discordUsername: data.discordUsername || null,
         });
       }
     } catch (err) {

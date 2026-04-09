@@ -21,6 +21,8 @@ export default function SettingsPage() {
   const [discordDmEnabled, setDiscordDmEnabled] = useState(false);
   const [dmToggleLoading, setDmToggleLoading] = useState(false);
   const [dmMessage, setDmMessage] = useState('');
+  const [discordLinked, setDiscordLinked] = useState(Boolean(user?.discordLinked));
+  const [discordUsername, setDiscordUsername] = useState<string | null>(user?.discordUsername || null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -31,6 +33,10 @@ export default function SettingsPage() {
   // Load Discord DM notification preference
   useEffect(() => {
     if (!user) return;
+
+    setDiscordLinked(Boolean(user.discordLinked));
+    setDiscordUsername(user.discordUsername || null);
+
     const fetchDmState = async () => {
       try {
         const headers = getAuthHeader();
@@ -39,6 +45,8 @@ export default function SettingsPage() {
         if (res.ok) {
           const data = await res.json();
           setDiscordDmEnabled(data.discordDmNotifications || false);
+          setDiscordLinked(Boolean(data.discordLinked ?? data.discordAccount));
+          setDiscordUsername(data.discordUsername || null);
         }
       } catch (err) {
         // ignore
@@ -96,6 +104,11 @@ export default function SettingsPage() {
   };
 
   const handleToggleDiscordDm = async (enabled: boolean) => {
+    if (!discordLinked) {
+      setDmMessage('Link your Discord account in Profile before enabling DM notifications.');
+      return;
+    }
+
     setDmToggleLoading(true);
     setDmMessage('');
     try {
@@ -271,64 +284,80 @@ export default function SettingsPage() {
         </div>
 
         {/* Discord DM Notifications */}
-        {user.discordLinked && (
-          <div className="border rounded-xl p-6 mb-6" style={{
-            backgroundColor: 'var(--color-bg-secondary)',
-            borderColor: 'var(--color-border)',
-            borderRadius: 'var(--border-radius)'
-          }}>
-            <div className="flex items-center gap-3 mb-4">
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="#5865F2">
-                <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286z"/>
-              </svg>
-              <h2 className="text-xl font-bold" style={{ color: 'var(--color-accent-1)' }}>Discord DM Notifications</h2>
-            </div>
-            <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
-                Receive your in-app chat previews and team event notifications as Discord DMs.
-                The RiftEssence bot will send these updates directly on Discord when your account is linked.
-            </p>
-            <p className="text-xs mb-4" style={{ color: 'var(--color-text-muted)' }}>
-              Note: Make sure you have DMs enabled from server members or have a mutual server with the RiftEssence bot.
-              You can disable this at any time. By enabling, you consent to your message content being relayed to Discord.
-              See our <a href="/privacy" className="underline" style={{ color: 'var(--color-accent-1)' }}>Privacy Policy</a> for details.
-            </p>
-
-            {dmMessage && (
-              <div className="px-4 py-3 rounded-lg text-sm mb-4" style={{
-                backgroundColor: discordDmEnabled ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                color: discordDmEnabled ? 'var(--color-success)' : 'var(--color-error)',
-                border: '1px solid',
-                borderColor: discordDmEnabled ? 'var(--color-success)' : 'var(--color-error)',
-              }}>
-                {dmMessage}
-              </div>
-            )}
-
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => handleToggleDiscordDm(!discordDmEnabled)}
-                disabled={dmToggleLoading}
-                className="relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50"
-                style={{
-                  backgroundColor: discordDmEnabled ? '#5865F2' : 'var(--color-bg-tertiary)',
-                  border: '2px solid',
-                  borderColor: discordDmEnabled ? '#5865F2' : 'var(--color-border)',
-                }}
-              >
-                <span
-                  className="inline-block h-5 w-5 transform rounded-full transition-transform"
-                  style={{
-                    backgroundColor: discordDmEnabled ? '#fff' : 'var(--color-text-muted)',
-                    transform: discordDmEnabled ? 'translateX(22px)' : 'translateX(2px)',
-                  }}
-                />
-              </button>
-              <span className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                {discordDmEnabled ? 'Enabled' : 'Disabled'}
-              </span>
-            </div>
+        <div className="border rounded-xl p-6 mb-6" style={{
+          backgroundColor: 'var(--color-bg-secondary)',
+          borderColor: 'var(--color-border)',
+          borderRadius: 'var(--border-radius)'
+        }}>
+          <div className="flex items-center gap-3 mb-4">
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="#5865F2">
+              <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286z"/>
+            </svg>
+            <h2 className="text-xl font-bold" style={{ color: 'var(--color-accent-1)' }}>Discord DM Notifications</h2>
           </div>
-        )}
+
+          {discordLinked ? (
+            <>
+              <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
+                  Receive your in-app chat previews and team event notifications as Discord DMs.
+                  The RiftEssence bot will send these updates directly on Discord when your account is linked{discordUsername ? ` as ${discordUsername}` : ''}.
+              </p>
+              <p className="text-xs mb-4" style={{ color: 'var(--color-text-muted)' }}>
+                Note: Make sure you have DMs enabled from server members or have a mutual server with the RiftEssence bot.
+                You can disable this at any time. By enabling, you consent to your message content being relayed to Discord.
+                See our <a href="/privacy" className="underline" style={{ color: 'var(--color-accent-1)' }}>Privacy Policy</a> for details.
+              </p>
+
+              {dmMessage && (
+                <div className="px-4 py-3 rounded-lg text-sm mb-4" style={{
+                  backgroundColor: discordDmEnabled ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                  color: discordDmEnabled ? 'var(--color-success)' : 'var(--color-error)',
+                  border: '1px solid',
+                  borderColor: discordDmEnabled ? 'var(--color-success)' : 'var(--color-error)',
+                }}>
+                  {dmMessage}
+                </div>
+              )}
+
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => handleToggleDiscordDm(!discordDmEnabled)}
+                  disabled={dmToggleLoading}
+                  className="relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50"
+                  style={{
+                    backgroundColor: discordDmEnabled ? '#5865F2' : 'var(--color-bg-tertiary)',
+                    border: '2px solid',
+                    borderColor: discordDmEnabled ? '#5865F2' : 'var(--color-border)',
+                  }}
+                >
+                  <span
+                    className="inline-block h-5 w-5 transform rounded-full transition-transform"
+                    style={{
+                      backgroundColor: discordDmEnabled ? '#fff' : 'var(--color-text-muted)',
+                      transform: discordDmEnabled ? 'translateX(22px)' : 'translateX(2px)',
+                    }}
+                  />
+                </button>
+                <span className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                  {discordDmEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
+                Link your Discord account first, then you can opt in to DM notifications for chat previews and team events.
+              </p>
+              <a
+                href="/profile"
+                className="inline-block px-4 py-2 font-semibold rounded-lg text-sm transition-colors"
+                style={{ backgroundColor: '#5865F2', color: '#fff' }}
+              >
+                Link Discord In Profile
+              </a>
+            </>
+          )}
+        </div>
 
         {/* Set/Change Password */}
         <div className="border rounded-xl p-6 mb-6" style={{ 
