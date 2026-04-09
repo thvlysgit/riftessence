@@ -84,6 +84,12 @@ CREATE TABLE IF NOT EXISTS "TeamEvent" (
   CONSTRAINT "TeamEvent_pkey" PRIMARY KEY ("id")
 );
 
+-- Existing deployments may already have TeamEvent without later Discord fields.
+-- Ensure required columns exist before index creation below.
+ALTER TABLE "TeamEvent"
+  ADD COLUMN IF NOT EXISTS "discordMirrored" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "discordMessageId" TEXT;
+
 -- Event coaches table
 CREATE TABLE IF NOT EXISTS "TeamEventCoach" (
   "id" TEXT NOT NULL,
