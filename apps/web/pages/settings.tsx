@@ -111,7 +111,7 @@ export default function SettingsPage() {
       if (res.ok) {
         setDiscordDmEnabled(enabled);
         setDmMessage(enabled
-          ? 'Discord DM notifications enabled! You will receive chat messages in your Discord DMs.'
+          ? 'Discord DM notifications enabled! You will receive chat previews and team event notifications in your Discord DMs.'
           : 'Discord DM notifications disabled.'
         );
       } else {
@@ -284,8 +284,8 @@ export default function SettingsPage() {
               <h2 className="text-xl font-bold" style={{ color: 'var(--color-accent-1)' }}>Discord DM Notifications</h2>
             </div>
             <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
-              Receive your in-app chat messages as Discord DMs so you never miss a message from a duo partner.
-              The RiftEssence bot will send you a preview of each message directly on Discord.
+                Receive your in-app chat previews and team event notifications as Discord DMs.
+                The RiftEssence bot will send these updates directly on Discord when your account is linked.
             </p>
             <p className="text-xs mb-4" style={{ color: 'var(--color-text-muted)' }}>
               Note: Make sure you have DMs enabled from server members or have a mutual server with the RiftEssence bot.

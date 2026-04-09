@@ -854,28 +854,7 @@ const EVENT_TYPE_COLORS: Record<string, number> = {
   TEAM_MEETING: 0x8B5CF6, // Purple
 };
 
-async function pollTeamEventNotifications() {
-  try {
-    const result = await apiRequest('/api/discord/team-events');
-    if (!result.ok) {
-      console.error('❌ Failed to poll team event notifications:', result.data.error);
-      return;
-    }
-
-    const notifications = Array.isArray(result.data?.notifications) ? result.data.notifications : [];
-    if (notifications.length === 0) return;
-
-    console.log(`📅 Found ${notifications.length} pending team event notifications`);
-
-    for (const notification of notifications) {
-      await sendTeamEventNotification(notification);
-    }
-  } catch (error: any) {
-    console.error('❌ Error polling team event notifications:', error.message);
-  }
-}
-
-async function sendTeamEventNotification(notification: {
+type TeamEventNotification = {
   id: string;
   teamId: string;
   teamName: string;
@@ -891,31 +870,19 @@ async function sendTeamEventNotification(notification: {
   enemyLink: string | null;
   notificationType: string;
   triggeredBy: string;
-  members: Array<{ id: string; username: string; role: string; discordId: string | null }>;
-}) {
-  // Mark as processed first to prevent duplicates
-  const markResult = await apiRequest(`/api/discord/team-events/${notification.id}/processed`, 'PATCH');
-  if (!markResult.ok) {
-    console.error(`❌ Failed to mark team notification ${notification.id} as processed, skipping`);
-    return;
-  }
+  members: Array<{ id: string; username: string; role: string; discordId: string | null; dmEnabled?: boolean }>;
+};
 
-  // Skip if no webhook configured or notifications disabled
-  if (!notification.webhookUrl || !notification.notifyEnabled) {
-    console.log(`⏭️ Skipping team notification ${notification.id} (no webhook or disabled)`);
-    return;
-  }
+const TEAM_EVENT_WEBHOOK_REGEX = /discord(?:app)?\.com\/api\/webhooks\/([^/]+)\/([^/?]+)/i;
 
+function buildTeamEventEmbed(notification: TeamEventNotification, teamDisplay: string) {
   const scheduledDate = new Date(notification.scheduledAt);
-  const teamDisplay = notification.teamTag ? `[${notification.teamTag}] ${notification.teamName}` : notification.teamName;
   const typeLabel = EVENT_TYPE_LABELS[notification.eventType] || notification.eventType;
   const color = EVENT_TYPE_COLORS[notification.eventType] || 0xC8AA6E;
 
-  const embed = new EmbedBuilder()
-    .setTimestamp();
+  const embed = new EmbedBuilder().setTimestamp();
 
-  // Build fields
-  const fields = [];
+  const fields: Array<{ name: string; value: string; inline: boolean }> = [];
   fields.push({
     name: '📅 When',
     value: scheduledDate.toLocaleString('en-US', {
@@ -954,23 +921,24 @@ async function sendTeamEventNotification(notification: {
     });
   }
 
-  // Set embed properties based on notification type
   let content = '@everyone';
-  
   if (notification.notificationType === 'CREATED') {
-    embed.setTitle(`${typeLabel}: ${notification.eventTitle}`)
+    embed
+      .setTitle(`${typeLabel}: ${notification.eventTitle}`)
       .setDescription(`New event scheduled for **${teamDisplay}**`)
       .setColor(color);
   } else if (notification.notificationType === 'UPDATED') {
-    embed.setTitle(`📝 Event Updated: ${notification.eventTitle}`)
+    embed
+      .setTitle(`📝 Event Updated: ${notification.eventTitle}`)
       .setDescription(`**${teamDisplay}** - ${typeLabel}`)
-      .setColor(0xF59E0B); // Amber for updates
-    content = ''; // Don't ping everyone for updates
+      .setColor(0xF59E0B);
+    content = '';
   } else if (notification.notificationType === 'DELETED') {
-    embed.setTitle(`🗑️ Event Cancelled: ${notification.eventTitle}`)
+    embed
+      .setTitle(`🗑️ Event Cancelled: ${notification.eventTitle}`)
       .setDescription(`**${teamDisplay}** - ${typeLabel}`)
-      .setColor(0xEF4444); // Red for deletions
-    fields.splice(0); // Clear fields
+      .setColor(0xEF4444);
+    fields.splice(0);
     fields.push({
       name: '📅 Was Scheduled For',
       value: scheduledDate.toLocaleString('en-US', {
@@ -985,53 +953,218 @@ async function sendTeamEventNotification(notification: {
   }
 
   embed.addFields(fields);
-  embed.setFooter({ text: `${notification.notificationType === 'DELETED' ? 'Cancelled' : notification.notificationType === 'UPDATED' ? 'Updated' : 'Created'} by ${notification.triggeredBy} • ${teamDisplay}` });
+  embed.setFooter({
+    text: `${notification.notificationType === 'DELETED' ? 'Cancelled' : notification.notificationType === 'UPDATED' ? 'Updated' : 'Created'} by ${notification.triggeredBy} • ${teamDisplay}`,
+  });
 
-  // Create attendance buttons (only for created/updated events)
-  const components: any[] = [];
-  if (notification.notificationType !== 'DELETED') {
-    const row = new ActionRowBuilder<ButtonBuilder>()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`team_event_present_${notification.eventId}`)
-          .setLabel('✅ Present')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`team_event_absent_${notification.eventId}`)
-          .setLabel('❌ Absent')
-          .setStyle(ButtonStyle.Danger),
-        new ButtonBuilder()
-          .setCustomId(`team_event_unsure_${notification.eventId}`)
-          .setLabel('❓ Unsure')
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setLabel('View on RiftEssence')
-          .setStyle(ButtonStyle.Link)
-          .setURL(`${APP_URL}/teams/${notification.teamId}`)
-      );
-    components.push(row);
+  return { embed, content };
+}
+
+function buildTeamEventComponents(notification: TeamEventNotification): ActionRowBuilder<ButtonBuilder>[] {
+  if (notification.notificationType === 'DELETED') {
+    return [];
+  }
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`team_event_present_${notification.eventId}`)
+      .setLabel('✅ Present')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`team_event_absent_${notification.eventId}`)
+      .setLabel('❌ Absent')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId(`team_event_unsure_${notification.eventId}`)
+      .setLabel('❓ Unsure')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setLabel('View on RiftEssence')
+      .setStyle(ButtonStyle.Link)
+      .setURL(`${APP_URL}/teams/${notification.teamId}`)
+  );
+
+  return [row];
+}
+
+async function sendTeamEventChannelNotification(
+  notification: TeamEventNotification,
+  content: string,
+  embed: EmbedBuilder,
+  components: ActionRowBuilder<ButtonBuilder>[]
+): Promise<{ sent: boolean; messageId?: string }> {
+  if (!notification.webhookUrl) {
+    return { sent: false };
+  }
+
+  const parsedWebhook = notification.webhookUrl.match(TEAM_EVENT_WEBHOOK_REGEX);
+  if (parsedWebhook) {
+    const webhookId = parsedWebhook[1];
+    const webhookToken = parsedWebhook[2];
+
+    try {
+      const webhook = await client.fetchWebhook(webhookId, webhookToken);
+      if (webhook.channelId) {
+        const channel = await client.channels.fetch(webhook.channelId);
+        if (channel && channel.isTextBased()) {
+          const message = await (channel as TextChannel).send({
+            content: content || undefined,
+            embeds: [embed],
+            components,
+          });
+          console.log(`✅ Sent team event notification to channel ${webhook.channelId} for "${notification.eventTitle}"`);
+          return { sent: true, messageId: message.id };
+        }
+      }
+      console.warn(`⚠️ Could not resolve text channel from webhook for team ${notification.teamName}, falling back to raw webhook send`);
+    } catch (error: any) {
+      console.warn(`⚠️ Bot channel send failed for team ${notification.teamName}, falling back to webhook send: ${error.message}`);
+    }
   }
 
   try {
-    // Send to webhook
-    const response = await fetch(notification.webhookUrl, {
+    const webhookUrlWithWait = notification.webhookUrl.includes('?')
+      ? `${notification.webhookUrl}&wait=true`
+      : `${notification.webhookUrl}?wait=true`;
+
+    const response = await fetch(webhookUrlWithWait, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         content: content || undefined,
         embeds: [embed.toJSON()],
-        components: components.map(c => c.toJSON()),
+        components: components.map((c) => c.toJSON()),
       }),
     });
 
-    if (response.ok) {
-      console.log(`✅ Sent team event notification to ${notification.teamName} for "${notification.eventTitle}"`);
-    } else {
-      console.error(`❌ Failed to send team event notification: ${response.statusText}`);
+    if (!response.ok) {
+      const text = await response.text().catch(() => 'No response body');
+      console.error(`❌ Failed team event webhook send (${response.status}): ${text}`);
+      return { sent: false };
+    }
+
+    const body: any = await response.json().catch(() => null);
+    console.log(`✅ Sent team event notification via webhook for "${notification.eventTitle}"`);
+    return { sent: true, messageId: body?.id };
+  } catch (error: any) {
+    console.error(`❌ Error sending team event notification via webhook: ${error.message}`);
+    return { sent: false };
+  }
+}
+
+async function sendTeamEventDmNotification(
+  member: { id: string; username: string; role: string; discordId: string | null; dmEnabled?: boolean },
+  notification: TeamEventNotification,
+  embed: EmbedBuilder,
+  components: ActionRowBuilder<ButtonBuilder>[]
+): Promise<boolean> {
+  if (!member.discordId || !member.dmEnabled) {
+    return false;
+  }
+
+  try {
+    const user = await client.users.fetch(member.discordId);
+    if (!user) {
+      console.warn(`⚠️ Could not fetch Discord user ${member.discordId} for team event DM`);
+      return false;
+    }
+
+    await user.send({
+      embeds: [embed],
+      components,
+    });
+
+    console.log(`✅ Sent team event DM to ${member.username} (${member.discordId}) for "${notification.eventTitle}"`);
+    return true;
+  } catch (error: any) {
+    if (error.code === 50007) {
+      console.warn(`⚠️ Cannot DM ${member.username} (${member.discordId}) - DMs disabled or no mutual server`);
+      return false;
+    }
+    console.error(`❌ Failed team event DM to ${member.username} (${member.discordId}): ${error.message}`);
+    return false;
+  }
+}
+
+async function pollTeamEventNotifications() {
+  try {
+    const result = await apiRequest('/api/discord/team-events');
+    if (!result.ok) {
+      console.error('❌ Failed to poll team event notifications:', result.data.error);
+      return;
+    }
+
+    const notifications = Array.isArray(result.data?.notifications) ? result.data.notifications : [];
+    if (notifications.length === 0) return;
+
+    console.log(`📅 Found ${notifications.length} pending team event notifications`);
+
+    for (const notification of notifications) {
+      await sendTeamEventNotification(notification);
     }
   } catch (error: any) {
-    console.error(`❌ Error sending team event notification:`, error.message);
+    console.error('❌ Error polling team event notifications:', error.message);
   }
+}
+
+async function sendTeamEventNotification(notification: TeamEventNotification) {
+  if (!notification.notifyEnabled) {
+    const markSkipped = await apiRequest(`/api/discord/team-events/${notification.id}/processed`, 'PATCH');
+    if (!markSkipped.ok) {
+      console.error(`❌ Failed to mark skipped team notification ${notification.id} as processed`);
+    }
+    console.log(`⏭️ Skipping team notification ${notification.id} (notifications disabled)`);
+    return;
+  }
+
+  const teamDisplay = notification.teamTag ? `[${notification.teamTag}] ${notification.teamName}` : notification.teamName;
+  const { embed, content } = buildTeamEventEmbed(notification, teamDisplay);
+  const components = buildTeamEventComponents(notification);
+
+  let channelSent = false;
+  let channelMessageId: string | undefined;
+  if (notification.webhookUrl) {
+    const channelResult = await sendTeamEventChannelNotification(notification, content, embed, components);
+    channelSent = channelResult.sent;
+    channelMessageId = channelResult.messageId;
+  } else {
+    console.log(`ℹ️ Team ${notification.teamName} has no channel webhook configured; DM-only delivery path will be used`);
+  }
+
+  if (channelMessageId && notification.notificationType !== 'DELETED') {
+    const storeResult = await apiRequest(`/api/discord/team-events/${notification.eventId}/message`, 'PATCH', { messageId: channelMessageId });
+    if (!storeResult.ok) {
+      console.warn(`⚠️ Could not persist Discord message ID ${channelMessageId} for event ${notification.eventId}`);
+    }
+  }
+
+  const dmTargets = notification.members.filter((member) => Boolean(member.discordId && member.dmEnabled));
+  let dmSentCount = 0;
+
+  for (const member of dmTargets) {
+    const sent = await sendTeamEventDmNotification(member, notification, embed, components);
+    if (sent) {
+      dmSentCount += 1;
+    }
+  }
+
+  if (dmTargets.length === 0) {
+    console.log(`ℹ️ No eligible DM recipients for team ${notification.teamName} (linked + opted-in)`);
+  }
+
+  if (!channelSent && dmSentCount === 0) {
+    console.warn(`⚠️ Team event notification ${notification.id} had no successful deliveries`);
+  }
+
+  const markResult = await apiRequest(`/api/discord/team-events/${notification.id}/processed`, 'PATCH');
+  if (!markResult.ok) {
+    console.error(`❌ Failed to mark team notification ${notification.id} as processed after delivery attempts`);
+    return;
+  }
+
+  console.log(
+    `✅ Processed team notification ${notification.id} (channelSent=${channelSent}, dmSent=${dmSentCount}/${dmTargets.length})`
+  );
 }
 
 // Handle team event attendance button clicks
@@ -1047,7 +1180,7 @@ async function handleTeamEventButton(interaction: ButtonInteraction) {
 
   const discordId = interaction.user.id;
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ ephemeral: interaction.inGuild() });
 
   try {
     const result = await apiRequest(`/api/discord/team-events/${eventId}/attendance`, 'POST', {

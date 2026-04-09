@@ -976,7 +976,7 @@ export default async function teamsRoutes(fastify: any) {
       }
 
       // Queue Discord notification if configured (bot will send with buttons)
-      if (team?.discordWebhookUrl && team.discordNotifyEvents) {
+      if (team?.discordNotifyEvents) {
         const creator = await prisma.user.findUnique({
           where: { id: userId },
           select: { username: true }
@@ -1072,7 +1072,7 @@ export default async function teamsRoutes(fastify: any) {
         select: { name: true, tag: true, discordWebhookUrl: true, discordNotifyEvents: true }
       });
       
-      if (team?.discordWebhookUrl && team.discordNotifyEvents) {
+      if (team?.discordNotifyEvents) {
         const updater = await prisma.user.findUnique({
           where: { id: userId },
           select: { username: true }
@@ -1125,7 +1125,7 @@ export default async function teamsRoutes(fastify: any) {
       });
 
       // Queue Discord notification if configured (before deletion)
-      if (team?.discordWebhookUrl && team.discordNotifyEvents) {
+      if (team?.discordNotifyEvents) {
         const deleter = await prisma.user.findUnique({
           where: { id: userId },
           select: { username: true }

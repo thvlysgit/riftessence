@@ -713,6 +713,7 @@ export default async function discordFeedRoutes(fastify: any) {
                     select: {
                       id: true,
                       username: true,
+                      discordDmNotifications: true,
                       discordAccount: {
                         select: { discordId: true }
                       }
@@ -746,7 +747,8 @@ export default async function discordFeedRoutes(fastify: any) {
           id: m.user.id,
           username: m.user.username,
           role: m.role,
-          discordId: m.user.discordAccount?.discordId || null
+          discordId: m.user.discordAccount?.discordId || null,
+          dmEnabled: Boolean(m.user.discordDmNotifications && m.user.discordAccount?.discordId)
         }))
       }));
 
@@ -791,6 +793,7 @@ export default async function discordFeedRoutes(fastify: any) {
       });
 
       if (!discordAccount) {
+        fastify.log.warn({ discordId, eventId }, 'Discord attendance update rejected: user not linked');
         return reply.status(404).send({ error: 'User not linked to Discord' });
       }
 
@@ -809,16 +812,19 @@ export default async function discordFeedRoutes(fastify: any) {
       });
 
       if (!event) {
+        fastify.log.warn({ eventId, discordId }, 'Discord attendance update rejected: event not found');
         return reply.status(404).send({ error: 'Event not found' });
       }
 
       // Check if user is team member
       if (event.team.members.length === 0) {
+        fastify.log.warn({ eventId, discordId, userId }, 'Discord attendance update rejected: non-member attempted response');
         return reply.status(403).send({ error: 'Not a team member' });
       }
 
       const validStatuses = ['PRESENT', 'ABSENT', 'UNSURE'];
       if (!validStatuses.includes(status)) {
+        fastify.log.warn({ eventId, discordId, status }, 'Discord attendance update rejected: invalid status');
         return reply.status(400).send({ error: 'Invalid status' });
       }
 
