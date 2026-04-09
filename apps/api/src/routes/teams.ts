@@ -12,6 +12,11 @@ const PLAYER_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS'] as const;
 const STAFF_ROLES = ['MANAGER', 'COACH'] as const;
 
 export default async function teamsRoutes(fastify: any) {
+  const isSchemaOutOfDateError = (error: any) => {
+    const code = error?.code;
+    return code === 'P2021' || code === 'P2022';
+  };
+
   // Helper to extract userId from JWT
   const getUserIdFromRequest = async (request: any, reply: any): Promise<string | null> => {
     const authHeader = request.headers['authorization'];
@@ -145,6 +150,12 @@ export default async function teamsRoutes(fastify: any) {
       return reply.send(teams);
     } catch (error: any) {
       fastify.log.error(error);
+      if (isSchemaOutOfDateError(error)) {
+        return reply.status(503).send({
+          error: 'Teams schema is not up to date. Run database schema sync (prisma db push or migrations) and retry.',
+          code: 'TEAM_SCHEMA_OUTDATED',
+        });
+      }
       return reply.status(500).send({ error: 'Failed to fetch teams' });
     }
   });
@@ -221,6 +232,12 @@ export default async function teamsRoutes(fastify: any) {
       });
     } catch (error: any) {
       fastify.log.error(error);
+      if (isSchemaOutOfDateError(error)) {
+        return reply.status(503).send({
+          error: 'Teams schema is not up to date. Run database schema sync (prisma db push or migrations) and retry.',
+          code: 'TEAM_SCHEMA_OUTDATED',
+        });
+      }
       return reply.status(500).send({ error: 'Failed to create team' });
     }
   });

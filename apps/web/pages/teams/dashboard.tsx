@@ -62,9 +62,16 @@ const TeamsDashboardPage: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setTeams(data);
+        setError(null);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setTeams([]);
+        setError(data.error || 'Failed to fetch teams');
       }
     } catch (err) {
       console.error('Failed to fetch teams:', err);
+      setTeams([]);
+      setError('Failed to fetch teams');
     }
   };
 
@@ -230,6 +237,11 @@ const TeamsDashboardPage: React.FC = () => {
             <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
               My Teams {teams.length > 0 && <span className="text-sm font-normal" style={{ color: 'var(--color-text-muted)' }}>({teams.length})</span>}
             </h2>
+            {error && !showCreateModal && (
+              <div className="mb-4 p-3 rounded text-sm" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444' }}>
+                {error}
+              </div>
+            )}
             {loading ? (
               <div className="text-center py-12">
                 <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full mx-auto mb-4" style={{ borderColor: 'var(--color-accent-1)', borderTopColor: 'transparent' }} />

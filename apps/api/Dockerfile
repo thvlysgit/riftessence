@@ -40,5 +40,5 @@ WORKDIR /app/apps/api
 
 EXPOSE 3333
 
-# run the compiled JS for a stable runtime
-CMD ["node", "dist/index.js"]
+# apply pending schema migrations, then run the compiled API
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy --schema=/app/prisma/schema.prisma && node dist/index.js"]

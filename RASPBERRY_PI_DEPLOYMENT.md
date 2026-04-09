@@ -58,6 +58,29 @@ Your existing `docker-compose.yml` already works! Just start it:
 docker compose up -d
 ```
 
+### 4.1 Required DB migration step after pull/update
+
+When you deploy new code, always apply Prisma migrations before (or during) API start. The API image now runs `prisma migrate deploy` on container boot, but for already-running environments you should run this once manually after pulling:
+
+```bash
+# From the repo root on the Pi
+docker compose up -d --build api
+docker compose exec api pnpm exec prisma migrate deploy --schema=/app/prisma/schema.prisma
+```
+
+If the API container is crashing and `docker compose exec` fails, run the migration in a one-off container:
+
+```bash
+docker compose run --rm api pnpm exec prisma migrate deploy --schema=/app/prisma/schema.prisma
+docker compose up -d api
+```
+
+Quick verification for the Teams feature:
+
+```bash
+docker compose exec db psql -U postgres -d riftessence -c "\dt \"Team*\""
+```
+
 ### 5. Setup Cloudflare Tunnel (Recommended)
 
 **Why?** No port forwarding, free SSL, DDoS protection!
