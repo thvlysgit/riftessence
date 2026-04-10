@@ -1483,7 +1483,7 @@ export default function Feed() {
 
                 {/* Admin delete */}
                 {currentUserId && post.isAdmin && (
-                  <AdminDelete postId={post.id} currentUserId={currentUserId} />
+                  <AdminDelete postId={post.id} />
                 )}
               </div>
                 </React.Fragment>
@@ -1515,13 +1515,16 @@ export default function Feed() {
   );
 }
 
-function AdminDelete({ postId, currentUserId }: { postId: string; currentUserId: string }) {
+function AdminDelete({ postId }: { postId: string }) {
   const { showToast, confirm } = useGlobalUI();
   const handleDelete = async () => {
     const ok = await confirm({ title: 'Delete Post', message: 'Are you sure you want to delete this post? This action cannot be undone.', confirmText: 'Delete' });
     if (!ok) return;
     try {
-      const res = await fetch(`${API_URL}/api/posts/${postId}?userId=${encodeURIComponent(currentUserId)}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/api/posts/${postId}`, {
+        method: 'DELETE',
+        headers: getAuthHeader(),
+      });
       if (!res.ok) throw new Error('Failed to delete post');
       showToast('Post deleted', 'success');
       location.reload();

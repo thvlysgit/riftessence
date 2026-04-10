@@ -325,6 +325,7 @@ export default async function userRoutes(fastify: any) {
       const shouldIncludeHidden = includeHidden === 'true';
 
       let user;
+      let authenticatedUserId: string | null = null;
       let targetUserId = userId;
       
       // If no userId or username provided, try to get from JWT token
@@ -334,6 +335,7 @@ export default async function userRoutes(fastify: any) {
           const token = authHeader.substring(7);
           try {
             const decoded = request.server.jwt.verify(token) as { userId: string };
+            authenticatedUserId = decoded.userId;
             targetUserId = decoded.userId;
           } catch (err) {
             // Invalid token, will fall through to default behavior
@@ -403,6 +405,42 @@ export default async function userRoutes(fastify: any) {
             communityMemberships: { include: { community: true } },
           },
         });
+      }
+
+      if (authenticatedUserId && user.id === authenticatedUserId && !user.password) {
+        try {
+          const now = new Date();
+          const startOfUtcDay = new Date(Date.UTC(
+            now.getUTCFullYear(),
+            now.getUTCMonth(),
+            now.getUTCDate(),
+            0,
+            0,
+            0,
+            0
+          ));
+
+          const existingReminder = await prisma.notification.findFirst({
+            where: {
+              userId: user.id,
+              type: 'PASSWORD_SETUP_REMINDER',
+              createdAt: { gte: startOfUtcDay },
+            },
+            select: { id: true },
+          });
+
+          if (!existingReminder) {
+            await prisma.notification.create({
+              data: {
+                userId: user.id,
+                type: 'PASSWORD_SETUP_REMINDER',
+                message: 'Set a password to log back in quickly with username + password only. No email is required, and you can skip the Riot authentication flow next time.',
+              },
+            });
+          }
+        } catch (reminderError: any) {
+          fastify.log.warn({ err: reminderError, userId: user.id }, 'Could not create daily password setup reminder notification');
+        }
       }
 
       // Filter hidden accounts if not requested to include them

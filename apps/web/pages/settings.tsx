@@ -7,6 +7,8 @@ import { LoadingSpinner } from '../../api/components/LoadingSpinner';
 import { getAuthHeader } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+const DISCORD_BOT_INVITE_URL = 'https://discord.com/oauth2/authorize?client_id=1363678859471491312&scope=bot%20applications.commands&permissions=2147863617';
+const DISCORD_DM_HELP_URL = 'https://support.discord.com/hc/en-us/articles/217916488-Blocking-Privacy-Settings-';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -303,10 +305,32 @@ export default function SettingsPage() {
                   The RiftEssence bot will send these updates directly on Discord when your account is linked{discordUsername ? ` as ${discordUsername}` : ''}.
               </p>
               <p className="text-xs mb-4" style={{ color: 'var(--color-text-muted)' }}>
-                Note: Make sure you have DMs enabled from server members or have a mutual server with the RiftEssence bot.
+                Important: this toggle only enables DM forwarding from RiftEssence.
+                Discord must also allow the bot to DM you (mutual server + server privacy setting "Allow direct messages from server members").
                 You can disable this at any time. By enabling, you consent to your message content being relayed to Discord.
                 See our <a href="/privacy" className="underline" style={{ color: 'var(--color-accent-1)' }}>Privacy Policy</a> for details.
               </p>
+
+              <div className="flex flex-wrap gap-2 mb-4">
+                <a
+                  href={DISCORD_BOT_INVITE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center px-3 py-2 rounded-lg text-xs font-semibold transition-all"
+                  style={{ backgroundColor: '#5865F2', color: '#fff' }}
+                >
+                  Invite RiftEssence Bot
+                </a>
+                <a
+                  href={DISCORD_DM_HELP_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center px-3 py-2 rounded-lg text-xs font-semibold transition-all"
+                  style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
+                >
+                  How To Enable Discord DMs
+                </a>
+              </div>
 
               {dmMessage && (
                 <div className="px-4 py-3 rounded-lg text-sm mb-4" style={{
@@ -348,6 +372,26 @@ export default function SettingsPage() {
               <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
                 Link your Discord account first, then you can opt in to DM notifications for chat previews and team events.
               </p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <a
+                  href={DISCORD_BOT_INVITE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center px-3 py-2 rounded-lg text-xs font-semibold transition-all"
+                  style={{ backgroundColor: '#5865F2', color: '#fff' }}
+                >
+                  Invite RiftEssence Bot
+                </a>
+                <a
+                  href={DISCORD_DM_HELP_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center px-3 py-2 rounded-lg text-xs font-semibold transition-all"
+                  style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
+                >
+                  How To Enable Discord DMs
+                </a>
+              </div>
               <a
                 href="/profile"
                 className="inline-block px-4 py-2 font-semibold rounded-lg text-sm transition-colors"

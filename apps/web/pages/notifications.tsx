@@ -7,7 +7,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
 type Notification = {
   id: string;
-  type: 'CONTACT_REQUEST' | 'FEEDBACK_RECEIVED' | 'REPORT_RECEIVED' | 'REPORT_ACCEPTED' | 'REPORT_REJECTED' | 'ADMIN_TEST';
+  type: 'CONTACT_REQUEST' | 'FEEDBACK_RECEIVED' | 'REPORT_RECEIVED' | 'REPORT_ACCEPTED' | 'REPORT_REJECTED' | 'PASSWORD_SETUP_REMINDER' | 'ADMIN_TEST';
   fromUserId?: string;
   postId?: string;
   feedbackId?: string;
@@ -25,6 +25,7 @@ const NOTIFICATION_CONFIG: Record<Notification['type'], { icon: string; color: s
   REPORT_RECEIVED: { icon: '⚠️', color: 'var(--accent-danger)', title: 'Report Received' },
   REPORT_ACCEPTED: { icon: '✅', color: 'var(--accent-danger)', title: 'Report Accepted' },
   REPORT_REJECTED: { icon: '❌', color: 'var(--accent-success)', title: 'Report Rejected' },
+  PASSWORD_SETUP_REMINDER: { icon: '🔐', color: 'var(--accent-info)', title: 'Set Password Reminder' },
   ADMIN_TEST: { icon: '🔔', color: 'var(--accent-info)', title: 'Admin Test' },
 };
 
