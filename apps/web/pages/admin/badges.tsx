@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../../utils/auth';
 import { BadgeIcon, BADGE_ICON_OPTIONS, getBadgeIconDisplayLabel } from '../../utils/badgeIcons';
+import LivingBadge from '../../src/components/LivingBadge';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -505,16 +506,20 @@ export default function BadgeManagementPage() {
                 >
                   {/* Badge Preview */}
                   <div className="flex items-start gap-4 mb-4">
-                    <div
-                      className="w-12 h-12 rounded-xl border-2 flex items-center justify-center text-2xl"
-                      style={{
-                        background: badge.bgColor,
-                        borderColor: badge.borderColor,
-                        color: badge.textColor,
-                      }}
-                    >
-                      <BadgeIcon icon={badge.icon} className="w-7 h-7" color={badge.textColor} />
-                    </div>
+                    <LivingBadge
+                      badgeKey={badge.key}
+                      icon={badge.icon}
+                      bgColor={badge.bgColor}
+                      borderColor={badge.borderColor}
+                      textColor={badge.textColor}
+                      hoverBg={badge.hoverBg}
+                      label={badge.name}
+                      description={badge.description || undefined}
+                      className="w-12 h-12"
+                      iconClassName="w-7 h-7"
+                      showTooltip={false}
+                      interactive={false}
+                    />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-lg truncate" style={{ color: 'var(--color-text-primary)' }}>
                         {badge.name}
@@ -1050,17 +1055,20 @@ export default function BadgeManagementPage() {
                   Preview
                 </label>
                 <div className="p-6 rounded-lg flex justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
-                  <div
-                    className="inline-flex items-center justify-center w-12 h-12 rounded-xl border-2 text-2xl"
-                    style={{
-                      background: badgeForm.bgColor,
-                      borderColor: badgeForm.borderColor,
-                      color: badgeForm.textColor,
-                      boxShadow: `0 2px 10px 0 ${badgeForm.borderColor}33`
-                    }}
-                  >
-                    <BadgeIcon icon={badgeForm.icon} className="w-7 h-7" color={badgeForm.textColor} />
-                  </div>
+                  <LivingBadge
+                    badgeKey={badgeForm.key || badgeForm.name || badgeForm.icon}
+                    icon={badgeForm.icon}
+                    bgColor={badgeForm.bgColor}
+                    borderColor={badgeForm.borderColor}
+                    textColor={badgeForm.textColor}
+                    hoverBg={badgeForm.hoverBg}
+                    label={badgeForm.name || 'Badge Preview'}
+                    description={badgeForm.description || undefined}
+                    className="w-12 h-12"
+                    iconClassName="w-7 h-7"
+                    showTooltip={false}
+                    interactive={false}
+                  />
                 </div>
               </div>
             </div>

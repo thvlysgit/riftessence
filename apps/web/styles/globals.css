@@ -272,3 +272,180 @@ input[type="checkbox"]:checked::after {
   height: 1.25rem;
 }
 
+/* Living badge visuals: dynamic shapes, depth, and motion */
+.living-badge {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1), filter 280ms ease;
+  will-change: transform, filter;
+}
+
+.living-badge:hover {
+  transform: translateY(-3px) scale(1.06) rotate(var(--badge-tilt, 0deg));
+  filter: saturate(1.12) brightness(1.05);
+}
+
+.living-badge-aura,
+.living-badge-sheen,
+.living-badge-hover-layer {
+  position: absolute;
+  pointer-events: none;
+}
+
+.living-badge-aura {
+  inset: -40%;
+  z-index: 0;
+  background: radial-gradient(circle at 50% 50%, var(--badge-border-color, #60A5FA) 0%, transparent 62%);
+  filter: blur(12px);
+  opacity: var(--badge-aura-opacity, 0.32);
+  animation: badgeAuraPulse 3.6s ease-in-out infinite;
+}
+
+.living-badge-sheen {
+  inset: -55% -90%;
+  z-index: 1;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.35) 50%, transparent 60%);
+  transform: translateX(-56%) rotate(10deg);
+  opacity: 0.56;
+  animation: badgeSheen var(--badge-shimmer-duration, 4.6s) ease-in-out infinite;
+  animation-delay: var(--badge-shimmer-delay, 0s);
+}
+
+.living-badge-hover-layer {
+  inset: 0;
+  z-index: 2;
+  background: var(--badge-hover-bg, rgba(255, 255, 255, 0.14));
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.living-badge:hover .living-badge-hover-layer {
+  opacity: 1;
+}
+
+.living-badge-icon {
+  z-index: 3;
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.living-badge:hover .living-badge-icon {
+  transform: translateY(-1px) scale(1.08);
+}
+
+.living-badge-shape-squircle,
+.living-badge-shape-squircle .living-badge-hover-layer {
+  border-radius: 0.95rem;
+}
+
+.living-badge-shape-hex {
+  border-radius: 0.4rem;
+  clip-path: polygon(24% 4%, 76% 4%, 96% 50%, 76% 96%, 24% 96%, 4% 50%);
+}
+
+.living-badge-shape-shield {
+  border-radius: 0.4rem;
+  clip-path: polygon(50% 2%, 92% 14%, 99% 48%, 74% 94%, 26% 94%, 1% 48%, 8% 14%);
+}
+
+.living-badge-shape-ticket {
+  border-radius: 0.85rem;
+  clip-path: polygon(0 20%, 10% 16%, 18% 0, 82% 0, 90% 16%, 100% 20%, 100% 80%, 90% 84%, 82% 100%, 18% 100%, 10% 84%, 0 80%);
+}
+
+.living-badge-shape-diamond {
+  border-radius: 0.35rem;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.living-badge-motion-float .living-badge-icon {
+  animation: badgeIconFloat 3.8s ease-in-out infinite;
+}
+
+.living-badge-motion-pulse .living-badge-aura {
+  animation-duration: 2.5s;
+}
+
+.living-badge-motion-drift .living-badge-sheen {
+  animation-name: badgeSheenDrift;
+  animation-duration: calc(var(--badge-shimmer-duration, 4.6s) + 1.2s);
+}
+
+.living-badge-motion-orbit .living-badge-icon {
+  animation: badgeIconOrbit 4.1s ease-in-out infinite;
+}
+
+@keyframes badgeAuraPulse {
+  0%,
+  100% {
+    transform: scale(0.72);
+    opacity: calc(var(--badge-aura-opacity, 0.32) - 0.12);
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: calc(var(--badge-aura-opacity, 0.32) + 0.1);
+  }
+}
+
+@keyframes badgeSheen {
+  0%,
+  100% {
+    transform: translateX(-56%) rotate(10deg);
+  }
+  55% {
+    transform: translateX(76%) rotate(10deg);
+  }
+}
+
+@keyframes badgeSheenDrift {
+  0%,
+  100% {
+    transform: translateX(-62%) rotate(6deg);
+  }
+  50% {
+    transform: translateX(70%) rotate(14deg);
+  }
+}
+
+@keyframes badgeIconFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+@keyframes badgeIconOrbit {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(1px, -1px) rotate(3deg);
+  }
+  50% {
+    transform: translate(0, -2px) rotate(0deg);
+  }
+  75% {
+    transform: translate(-1px, -1px) rotate(-3deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .living-badge,
+  .living-badge-icon,
+  .living-badge-aura,
+  .living-badge-sheen {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .living-badge:hover {
+    transform: none;
+    filter: none;
+  }
+}
+

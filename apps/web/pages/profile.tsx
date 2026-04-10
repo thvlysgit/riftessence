@@ -16,7 +16,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useChat } from '../contexts/ChatContext';
 import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../utils/auth';
 import { getChampionIconUrl } from '../utils/championData';
-import { BadgeIcon } from '../utils/badgeIcons';
+import LivingBadge from '../src/components/LivingBadge';
 import NoAccess from '../../api/components/NoAccess';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -1440,46 +1440,20 @@ export default function ProfilePage() {
                     const description = translatedDesc === tKey ? (config.description || badgeDisplayName) : translatedDesc;
 
                     return (
-                      <div
+                      <LivingBadge
                         key={typeof badge === 'string' ? badge : badge.id}
-                        className="group relative inline-flex items-center justify-center w-9 h-9 md:w-10 md:h-10 rounded-xl border-2 cursor-help select-none transform transition-transform duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.05]"
-                        style={{
-                          background: config.bgColor,
-                          borderColor: config.borderColor,
-                          boxShadow: `0 2px 10px 0 ${config.borderColor}33`
-                        }}
-                        title={badgeDisplayName}
-                      >
-                        {/* Hover overlay to deepen color */}
-                        <div
-                          className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                          style={{ background: config.hoverBg }}
-                        />
-
-                        {/* Icon */}
-                        <div className="relative">
-                          <BadgeIcon icon={config.icon} className="w-5 h-5 md:w-6 md:h-6" color={config.textColor} />
-                        </div>
-
-                        {/* Tooltip */}
-                        <div
-                          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 group-hover:translate-y-0 -translate-y-1 transition-all duration-200 whitespace-nowrap z-20 shadow-xl backdrop-blur-sm"
-                          style={{ background: 'var(--bg-tooltip)', border: '1px solid var(--accent-primary)' }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <BadgeIcon icon={config.icon} className="w-4 h-4" color={config.textColor} />
-                            <p className="text-xs font-semibold" style={{ color: config.textColor }}>{badgeDisplayName}</p>
-                          </div>
-                          {description && (
-                            <p className="text-[10px] mt-1 leading-snug" style={{ color: 'var(--text-secondary)' }}>{description}</p>
-                          )}
-                          {/* Tooltip arrow */}
-                          <div
-                            className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 rotate-45"
-                            style={{ background: 'var(--bg-tooltip)', borderLeft: '1px solid var(--accent-primary)', borderBottom: '1px solid var(--accent-primary)' }}
-                          />
-                        </div>
-                      </div>
+                        badgeKey={badgeLookupKey}
+                        icon={config.icon}
+                        bgColor={config.bgColor}
+                        borderColor={config.borderColor}
+                        textColor={config.textColor}
+                        hoverBg={config.hoverBg}
+                        label={badgeDisplayName}
+                        description={description}
+                        className="w-9 h-9 md:w-10 md:h-10"
+                        iconClassName="w-5 h-5 md:w-6 md:h-6"
+                        tooltipIconClassName="w-4 h-4"
+                      />
                     );
                   })}
                 </div>
