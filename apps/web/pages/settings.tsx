@@ -7,7 +7,7 @@ import { LoadingSpinner } from '../../api/components/LoadingSpinner';
 import { getAuthHeader } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-const DISCORD_BOT_INVITE_URL = 'https://discord.com/oauth2/authorize?client_id=1363678859471491312&scope=bot%20applications.commands&permissions=2147863617';
+const DISCORD_USER_APP_INSTALL_URL = 'https://discord.com/oauth2/authorize?client_id=1363678859471491312&integration_type=1&scope=applications.commands';
 const DISCORD_DM_HELP_URL = 'https://support.discord.com/hc/en-us/articles/217916488-Blocking-Privacy-Settings-';
 
 export default function SettingsPage() {
@@ -313,13 +313,13 @@ export default function SettingsPage() {
 
               <div className="flex flex-wrap gap-2 mb-4">
                 <a
-                  href={DISCORD_BOT_INVITE_URL}
+                  href={DISCORD_USER_APP_INSTALL_URL}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center px-3 py-2 rounded-lg text-xs font-semibold transition-all"
                   style={{ backgroundColor: '#5865F2', color: '#fff' }}
                 >
-                  Invite RiftEssence Bot
+                  Add RiftEssence To Discord Apps
                 </a>
                 <a
                   href={DISCORD_DM_HELP_URL}
@@ -374,13 +374,13 @@ export default function SettingsPage() {
               </p>
               <div className="flex flex-wrap gap-2 mb-4">
                 <a
-                  href={DISCORD_BOT_INVITE_URL}
+                  href={DISCORD_USER_APP_INSTALL_URL}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center px-3 py-2 rounded-lg text-xs font-semibold transition-all"
                   style={{ backgroundColor: '#5865F2', color: '#fff' }}
                 >
-                  Invite RiftEssence Bot
+                  Add RiftEssence To Discord Apps
                 </a>
                 <a
                   href={DISCORD_DM_HELP_URL}

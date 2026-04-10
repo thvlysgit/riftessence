@@ -57,7 +57,7 @@ export default async function badgeRoutes(fastify: FastifyInstance) {
           key,
           name,
           description: description || null,
-          icon: icon || '🏆',
+          icon: icon || 'trophy',
           bgColor: bgColor || 'rgba(96, 165, 250, 0.20)',
           borderColor: borderColor || '#60A5FA',
           textColor: textColor || '#93C5FD',

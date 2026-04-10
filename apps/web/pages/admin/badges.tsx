@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../../utils/auth';
+import { BadgeIcon, BADGE_ICON_OPTIONS, getBadgeIconDisplayLabel } from '../../utils/badgeIcons';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -36,7 +37,41 @@ type SearchResult = {
   profileIconId: number | null;
 };
 
-const COMMON_EMOJIS = ['🏆', '🛡️', '⚡', '👑', '🌟', '💎', '🔥', '⭐', '✨', '🎯', '🎖️', '🥇', '🥈', '🥉', '🏅', '💪', '🚀', '💫'];
+const clampRgb = (value: number) => Math.max(0, Math.min(255, value));
+
+const colorToHex = (value: string, fallback = '#60A5FA'): string => {
+  const trimmed = (value || '').trim();
+  if (!trimmed) return fallback;
+
+  const hexMatch = trimmed.match(/^#([\da-fA-F]{3}|[\da-fA-F]{6})$/);
+  if (hexMatch) {
+    const hex = hexMatch[1];
+    if (hex.length === 3) {
+      return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`.toUpperCase();
+    }
+    return `#${hex}`.toUpperCase();
+  }
+
+  const rgbMatch = trimmed.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*[\d.]+\s*)?\)$/i);
+  if (rgbMatch) {
+    const r = clampRgb(Number(rgbMatch[1]));
+    const g = clampRgb(Number(rgbMatch[2]));
+    const b = clampRgb(Number(rgbMatch[3]));
+    const toHex = (n: number) => n.toString(16).padStart(2, '0').toUpperCase();
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+
+  return fallback;
+};
+
+const rgbaFromHex = (hex: string, alpha: number): string => {
+  const normalized = colorToHex(hex);
+  const value = normalized.slice(1);
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)})`;
+};
 
 export default function BadgeManagementPage() {
   const router = useRouter();
@@ -53,7 +88,7 @@ export default function BadgeManagementPage() {
     key: '',
     name: '',
     description: '',
-    icon: '🏆',
+    icon: 'trophy',
     bgColor: 'rgba(96, 165, 250, 0.20)',
     borderColor: '#60A5FA',
     textColor: '#93C5FD',
@@ -182,7 +217,7 @@ export default function BadgeManagementPage() {
         key: '',
         name: '',
         description: '',
-       icon: '🏆',
+        icon: 'trophy',
         bgColor: 'rgba(96, 165, 250, 0.20)',
         borderColor: '#60A5FA',
         textColor: '#93C5FD',
@@ -199,7 +234,7 @@ export default function BadgeManagementPage() {
       key: '',
       name: '',
       description: '',
-      icon: '🏆',
+      icon: 'trophy',
       bgColor: 'rgba(96, 165, 250, 0.20)',
       borderColor: '#60A5FA',
       textColor: '#93C5FD',
@@ -394,7 +429,7 @@ export default function BadgeManagementPage() {
                         color: badge.textColor,
                       }}
                     >
-                      {badge.icon}
+                      <BadgeIcon icon={badge.icon} className="w-7 h-7" color={badge.textColor} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-lg truncate" style={{ color: 'var(--color-text-primary)' }}>
@@ -544,7 +579,7 @@ export default function BadgeManagementPage() {
                   <option value="">Select a badge...</option>
                   {badges.map((badge) => (
                     <option key={badge.key} value={badge.key}>
-                      {badge.icon} {badge.name}
+                      {getBadgeIconDisplayLabel(badge.icon)} {badge.name}
                     </option>
                   ))}
                 </select>
@@ -649,20 +684,20 @@ export default function BadgeManagementPage() {
                 <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
                   Icon
                 </label>
-                <div className="flex gap-2 mb-2 flex-wrap">
-                  {COMMON_EMOJIS.map((emoji) => (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                  {BADGE_ICON_OPTIONS.map((option) => (
                     <button
-                      key={emoji}
-                      onClick={() => setBadgeForm({ ...badgeForm, icon: emoji })}
-                      className={`w-12 h-12 text-2xl rounded-lg border-2 transition-colors ${
-                        badgeForm.icon === emoji ? 'border-opacity-100' : 'border-opacity-30'
-                      }`}
+                      key={option.key}
+                      type="button"
+                      onClick={() => setBadgeForm({ ...badgeForm, icon: option.key })}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors"
                       style={{
-                        backgroundColor: badgeForm.icon === emoji ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
-                        borderColor: 'var(--color-accent-1)',
+                        backgroundColor: badgeForm.icon === option.key ? 'rgba(96, 165, 250, 0.16)' : 'var(--color-bg-tertiary)',
+                        borderColor: badgeForm.icon === option.key ? '#60A5FA' : 'var(--color-border)',
                       }}
                     >
-                      {emoji}
+                      <BadgeIcon icon={option.key} className="w-5 h-5" color={badgeForm.textColor} />
+                      <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{option.label}</span>
                     </button>
                   ))}
                 </div>
@@ -670,11 +705,13 @@ export default function BadgeManagementPage() {
                   type="text"
                   value={badgeForm.icon}
                   onChange={(e) => setBadgeForm({ ...badgeForm, icon: e.target.value })}
-                  placeholder="Or paste any emoji"
-                  maxLength={2}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none text-center text-2xl"
+                  placeholder="Custom icon key or emoji (optional fallback)"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none"
                   style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
                 />
+                <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                  Tip: use the icon list above for colorable SVG icons. Emoji still works for legacy badges.
+                </p>
               </div>
 
               {/* Colors */}
@@ -683,56 +720,92 @@ export default function BadgeManagementPage() {
                   <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
                     Background Color
                   </label>
-                  <input
-                    type="text"
-                    value={badgeForm.bgColor}
-                    onChange={(e) => setBadgeForm({ ...badgeForm, bgColor: e.target.value })}
-                    placeholder="rgba(96, 165, 250, 0.20)"
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none font-mono text-sm"
-                    style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={colorToHex(badgeForm.bgColor, '#60A5FA')}
+                      onChange={(e) => setBadgeForm({ ...badgeForm, bgColor: rgbaFromHex(e.target.value, 0.2) })}
+                      className="h-10 w-12 rounded border cursor-pointer"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
+                    />
+                    <input
+                      type="text"
+                      value={badgeForm.bgColor}
+                      onChange={(e) => setBadgeForm({ ...badgeForm, bgColor: e.target.value })}
+                      placeholder="rgba(96, 165, 250, 0.20)"
+                      className="w-full px-4 py-2 border rounded-lg focus:outline-none font-mono text-sm"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
                     Border Color
                   </label>
-                  <input
-                    type="text"
-                    value={badgeForm.borderColor}
-                    onChange={(e) => setBadgeForm({ ...badgeForm, borderColor: e.target.value })}
-                    placeholder="#60A5FA"
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none font-mono text-sm"
-                    style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={colorToHex(badgeForm.borderColor, '#60A5FA')}
+                      onChange={(e) => setBadgeForm({ ...badgeForm, borderColor: e.target.value.toUpperCase() })}
+                      className="h-10 w-12 rounded border cursor-pointer"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
+                    />
+                    <input
+                      type="text"
+                      value={badgeForm.borderColor}
+                      onChange={(e) => setBadgeForm({ ...badgeForm, borderColor: e.target.value })}
+                      placeholder="#60A5FA"
+                      className="w-full px-4 py-2 border rounded-lg focus:outline-none font-mono text-sm"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
                     Text/Icon Color
                   </label>
-                  <input
-                    type="text"
-                    value={badgeForm.textColor}
-                    onChange={(e) => setBadgeForm({ ...badgeForm, textColor: e.target.value })}
-                    placeholder="#93C5FD"
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none font-mono text-sm"
-                    style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={colorToHex(badgeForm.textColor, '#93C5FD')}
+                      onChange={(e) => setBadgeForm({ ...badgeForm, textColor: e.target.value.toUpperCase() })}
+                      className="h-10 w-12 rounded border cursor-pointer"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
+                    />
+                    <input
+                      type="text"
+                      value={badgeForm.textColor}
+                      onChange={(e) => setBadgeForm({ ...badgeForm, textColor: e.target.value })}
+                      placeholder="#93C5FD"
+                      className="w-full px-4 py-2 border rounded-lg focus:outline-none font-mono text-sm"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
                     Hover Background
                   </label>
-                  <input
-                    type="text"
-                    value={badgeForm.hoverBg}
-                    onChange={(e) => setBadgeForm({ ...badgeForm, hoverBg: e.target.value })}
-                    placeholder="rgba(96, 165, 250, 0.30)"
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none font-mono text-sm"
-                    style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={colorToHex(badgeForm.hoverBg, '#60A5FA')}
+                      onChange={(e) => setBadgeForm({ ...badgeForm, hoverBg: rgbaFromHex(e.target.value, 0.3) })}
+                      className="h-10 w-12 rounded border cursor-pointer"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
+                    />
+                    <input
+                      type="text"
+                      value={badgeForm.hoverBg}
+                      onChange={(e) => setBadgeForm({ ...badgeForm, hoverBg: e.target.value })}
+                      placeholder="rgba(96, 165, 250, 0.30)"
+                      className="w-full px-4 py-2 border rounded-lg focus:outline-none font-mono text-sm"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -751,7 +824,7 @@ export default function BadgeManagementPage() {
                       boxShadow: `0 2px 10px 0 ${badgeForm.borderColor}33`
                     }}
                   >
-                    {badgeForm.icon}
+                    <BadgeIcon icon={badgeForm.icon} className="w-7 h-7" color={badgeForm.textColor} />
                   </div>
                 </div>
               </div>

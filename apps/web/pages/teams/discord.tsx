@@ -97,8 +97,13 @@ const DiscordSettingsPage: React.FC = () => {
           // Only show teams user owns (can manage Discord settings)
           const ownedTeams = data.filter((t: Team) => t.isOwner);
           setTeams(ownedTeams);
-          if (ownedTeams.length === 1) {
-            setSelectedTeamId(ownedTeams[0].id);
+          if (ownedTeams.length > 0) {
+            setSelectedTeamId((prev) => {
+              if (prev && ownedTeams.some((team: Team) => team.id === prev)) {
+                return prev;
+              }
+              return ownedTeams[0].id;
+            });
           }
         }
 
@@ -444,6 +449,32 @@ const DiscordSettingsPage: React.FC = () => {
             </div>
           )}
 
+          {/* DM discoverability */}
+          <div className="border rounded-xl p-5" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+            <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+              Discord DM Opt-In (Per Member)
+            </h2>
+            <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+              Team members only receive Discord DMs when they link their Discord account and enable DM notifications in personal settings.
+            </p>
+            <div className="rounded-lg p-3 mb-3" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
+              <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                Your status: {isDiscordLinked ? (discordDmEnabled ? 'Linked and DM notifications enabled' : 'Linked, but DM notifications disabled') : 'Discord not linked'}
+                {isDiscordLinked && discordUsername ? ` (${discordUsername})` : ''}
+              </p>
+            </div>
+            <Link
+              href="/settings"
+              className="inline-flex items-center gap-2 text-sm font-semibold"
+              style={{ color: '#5865F2' }}
+            >
+              {isDiscordLinked ? 'Manage DM Notifications in Settings' : 'Link Discord in Settings'}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+
           {selectedTeamId && (
             <>
               {/* Status Messages */}
@@ -491,32 +522,6 @@ const DiscordSettingsPage: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5h5M5 5v14h14v-5" />
                   </svg>
                 </a>
-              </div>
-
-              {/* DM discoverability */}
-              <div className="border rounded-xl p-5" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
-                <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                  Discord DM Opt-In (Per Member)
-                </h2>
-                <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-                  Team members only receive Discord DMs when they link their Discord account and enable DM notifications in personal settings.
-                </p>
-                <div className="rounded-lg p-3 mb-3" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
-                  <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                    Your status: {isDiscordLinked ? (discordDmEnabled ? 'Linked and DM notifications enabled' : 'Linked, but DM notifications disabled') : 'Discord not linked'}
-                    {isDiscordLinked && discordUsername ? ` (${discordUsername})` : ''}
-                  </p>
-                </div>
-                <Link
-                  href="/settings"
-                  className="inline-flex items-center gap-2 text-sm font-semibold"
-                  style={{ color: '#5865F2' }}
-                >
-                  {isDiscordLinked ? 'Manage DM Notifications in Settings' : 'Link Discord in Settings'}
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
               </div>
 
               {/* Webhook Configuration */}

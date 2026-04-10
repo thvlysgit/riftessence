@@ -16,6 +16,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useChat } from '../contexts/ChatContext';
 import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../utils/auth';
 import { getChampionIconUrl } from '../utils/championData';
+import { BadgeIcon } from '../utils/badgeIcons';
 import NoAccess from '../../api/components/NoAccess';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -365,7 +366,7 @@ type BadgeConfig = {
 
 const BADGE_CONFIG: Record<string, BadgeConfig> = {
   'Developer': {
-    icon: '⚡',
+    icon: 'bolt',
     description: 'Bypass cooldowns',
     bgColor: 'rgba(167, 139, 250, 0.20)',
     borderColor: '#A78BFA',
@@ -373,7 +374,7 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     hoverBg: 'rgba(167, 139, 250, 0.30)',
   },
   'Admin': {
-    icon: '🛡️',
+    icon: 'shield',
     description: 'Platform administrator',
     bgColor: 'rgba(239, 68, 68, 0.20)',
     borderColor: '#EF4444',
@@ -381,7 +382,7 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     hoverBg: 'rgba(239, 68, 68, 0.30)',
   },
   'Support': {
-    icon: '💬',
+    icon: 'chat',
     description: 'Support team member',
     bgColor: 'rgba(34, 211, 238, 0.20)',
     borderColor: '#22D3EE',
@@ -389,7 +390,7 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     hoverBg: 'rgba(34, 211, 238, 0.30)',
   },
   'Early Supporter': {
-    icon: '🌟',
+    icon: 'star',
     description: 'Joined during beta',
     bgColor: 'rgba(96, 165, 250, 0.20)',
     borderColor: '#60A5FA',
@@ -397,7 +398,7 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     hoverBg: 'rgba(96, 165, 250, 0.30)',
   },
   'VIP': {
-    icon: '👑',
+    icon: 'crown',
     description: 'VIP member',
     bgColor: 'rgba(245, 158, 11, 0.20)',
     borderColor: '#F59E0B',
@@ -405,7 +406,7 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     hoverBg: 'rgba(245, 158, 11, 0.30)',
   },
   'Partner': {
-    icon: '🤝',
+    icon: 'handshake',
     description: 'Official partner',
     bgColor: 'rgba(34, 197, 94, 0.20)',
     borderColor: '#22C55E',
@@ -413,7 +414,7 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     hoverBg: 'rgba(34, 197, 94, 0.30)',
   },
   'MVP': {
-    icon: '🏆',
+    icon: 'trophy',
     description: 'Most valuable player',
     bgColor: 'rgba(200, 170, 110, 0.20)',
     borderColor: '#C8AA6E',
@@ -1427,7 +1428,7 @@ export default function ProfilePage() {
                     const badgeDisplayName = typeof badge === 'string' ? badge : (badge.name || badge.key);
                     // Try API configs first, then fallback to hardcoded BADGE_CONFIG
                     const config = badgeConfigs[badgeLookupKey] || BADGE_CONFIG[badgeLookupKey] || {
-                      icon: '🏆',
+                      icon: 'trophy',
                       bgColor: 'var(--badge-bg)',
                       borderColor: 'var(--badge-border)',
                       textColor: 'var(--badge-text)',
@@ -1456,9 +1457,9 @@ export default function ProfilePage() {
                         />
 
                         {/* Icon */}
-                        <span className="text-lg md:text-xl relative" style={{ color: config.textColor }}>
-                          {config.icon}
-                        </span>
+                        <div className="relative">
+                          <BadgeIcon icon={config.icon} className="w-5 h-5 md:w-6 md:h-6" color={config.textColor} />
+                        </div>
 
                         {/* Tooltip */}
                         <div
@@ -1466,7 +1467,7 @@ export default function ProfilePage() {
                           style={{ background: 'var(--bg-tooltip)', border: '1px solid var(--accent-primary)' }}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-sm" style={{ color: config.textColor }}>{config.icon}</span>
+                            <BadgeIcon icon={config.icon} className="w-4 h-4" color={config.textColor} />
                             <p className="text-xs font-semibold" style={{ color: config.textColor }}>{badgeDisplayName}</p>
                           </div>
                           {description && (
