@@ -3,7 +3,7 @@
 // Assign/remove badges from users
 // Protected - requires admin badge
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../../utils/auth';
 import { BadgeIcon, BADGE_ICON_OPTIONS, getBadgeIconDisplayLabel } from '../../utils/badgeIcons';
@@ -73,6 +73,69 @@ const rgbaFromHex = (hex: string, alpha: number): string => {
   return `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)})`;
 };
 
+const extractAlpha = (value: string, fallback: number): number => {
+  const match = value.trim().match(/^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*([\d.]+)\s*\)$/i);
+  if (!match) return fallback;
+  const parsed = Number(match[1]);
+  if (Number.isNaN(parsed)) return fallback;
+  return Math.max(0, Math.min(1, parsed));
+};
+
+const mixHexColors = (baseHex: string, mixWithHex: string, mixRatio: number): string => {
+  const ratio = Math.max(0, Math.min(1, mixRatio));
+  const a = colorToHex(baseHex).slice(1);
+  const b = colorToHex(mixWithHex).slice(1);
+
+  const ar = parseInt(a.slice(0, 2), 16);
+  const ag = parseInt(a.slice(2, 4), 16);
+  const ab = parseInt(a.slice(4, 6), 16);
+
+  const br = parseInt(b.slice(0, 2), 16);
+  const bg = parseInt(b.slice(2, 4), 16);
+  const bb = parseInt(b.slice(4, 6), 16);
+
+  const toHex = (value: number) => Math.round(value).toString(16).padStart(2, '0').toUpperCase();
+
+  const r = ar * (1 - ratio) + br * ratio;
+  const g = ag * (1 - ratio) + bg * ratio;
+  const bMix = ab * (1 - ratio) + bb * ratio;
+
+  return `#${toHex(r)}${toHex(g)}${toHex(bMix)}`;
+};
+
+const buildPaletteFromAccent = (accentHex: string, bgAlpha = 0.2, hoverAlpha = 0.3) => {
+  const normalizedAccent = colorToHex(accentHex, '#60A5FA');
+  const textColor = mixHexColors(normalizedAccent, '#FFFFFF', 0.35);
+  return {
+    borderColor: normalizedAccent,
+    textColor,
+    bgColor: rgbaFromHex(normalizedAccent, bgAlpha),
+    hoverBg: rgbaFromHex(normalizedAccent, hoverAlpha),
+  };
+};
+
+const DEFAULT_BADGE_FORM = {
+  key: '',
+  name: '',
+  description: '',
+  icon: 'trophy',
+  bgColor: 'rgba(96, 165, 250, 0.20)',
+  borderColor: '#60A5FA',
+  textColor: '#93C5FD',
+  hoverBg: 'rgba(96, 165, 250, 0.30)',
+};
+
+const BADGE_STYLE_PRESETS = [
+  { name: 'Arcane', accent: '#8B5CF6' },
+  { name: 'Inferno', accent: '#EF4444' },
+  { name: 'Ocean', accent: '#0EA5E9' },
+  { name: 'Emerald', accent: '#10B981' },
+  { name: 'Solar', accent: '#F59E0B' },
+  { name: 'Rose', accent: '#F43F5E' },
+  { name: 'Monochrome', accent: '#94A3B8' },
+  { name: 'Void', accent: '#6366F1' },
+] as const;
+
 export default function BadgeManagementPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'badges' | 'users'>('badges');
@@ -84,16 +147,10 @@ export default function BadgeManagementPage() {
   // Badge Editor State
   const [showBadgeEditor, setShowBadgeEditor] = useState(false);
   const [editingBadge, setEditingBadge] = useState<Badge | null>(null);
-  const [badgeForm, setBadgeForm] = useState({
-    key: '',
-    name: '',
-    description: '',
-    icon: 'trophy',
-    bgColor: 'rgba(96, 165, 250, 0.20)',
-    borderColor: '#60A5FA',
-    textColor: '#93C5FD',
-    hoverBg: 'rgba(96, 165, 250, 0.30)',
-  });
+  const [badgeForm, setBadgeForm] = useState(DEFAULT_BADGE_FORM);
+  const [iconSearch, setIconSearch] = useState('');
+  const [selectedIconCategory, setSelectedIconCategory] = useState<string>('ALL');
+  const [paletteAccent, setPaletteAccent] = useState('#60A5FA');
 
   // User Assignment State
   const [searchQuery, setSearchQuery] = useState('');
@@ -211,35 +268,24 @@ export default function BadgeManagementPage() {
         textColor: badge.textColor,
         hoverBg: badge.hoverBg,
       });
+      setPaletteAccent(colorToHex(badge.borderColor, '#60A5FA'));
     } else {
       setEditingBadge(null);
-      setBadgeForm({
-        key: '',
-        name: '',
-        description: '',
-        icon: 'trophy',
-        bgColor: 'rgba(96, 165, 250, 0.20)',
-        borderColor: '#60A5FA',
-        textColor: '#93C5FD',
-        hoverBg: 'rgba(96, 165, 250, 0.30)',
-      });
+      setBadgeForm(DEFAULT_BADGE_FORM);
+      setPaletteAccent('#60A5FA');
     }
+    setIconSearch('');
+    setSelectedIconCategory('ALL');
     setShowBadgeEditor(true);
   };
 
   const closeBadgeEditor = () => {
     setShowBadgeEditor(false);
     setEditingBadge(null);
-    setBadgeForm({
-      key: '',
-      name: '',
-      description: '',
-      icon: 'trophy',
-      bgColor: 'rgba(96, 165, 250, 0.20)',
-      borderColor: '#60A5FA',
-      textColor: '#93C5FD',
-      hoverBg: 'rgba(96, 165, 250, 0.30)',
-    });
+    setBadgeForm(DEFAULT_BADGE_FORM);
+    setIconSearch('');
+    setSelectedIconCategory('ALL');
+    setPaletteAccent('#60A5FA');
   };
 
   const saveBadge = async () => {
@@ -350,6 +396,44 @@ export default function BadgeManagementPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const iconCategories = useMemo(
+    () => ['ALL', ...Array.from(new Set(BADGE_ICON_OPTIONS.map((option) => option.category)))],
+    []
+  );
+
+  const filteredIconOptions = useMemo(() => {
+    const query = iconSearch.trim().toLowerCase();
+
+    return BADGE_ICON_OPTIONS.filter((option) => {
+      const matchesCategory = selectedIconCategory === 'ALL' || option.category === selectedIconCategory;
+      if (!matchesCategory) return false;
+
+      if (!query) return true;
+
+      return (
+        option.label.toLowerCase().includes(query) ||
+        option.key.toLowerCase().includes(query) ||
+        option.category.toLowerCase().includes(query)
+      );
+    });
+  }, [iconSearch, selectedIconCategory]);
+
+  const applyAccentPalette = (accent: string) => {
+    const currentBgAlpha = extractAlpha(badgeForm.bgColor, 0.2);
+    const currentHoverAlpha = extractAlpha(badgeForm.hoverBg, 0.3);
+    const nextPalette = buildPaletteFromAccent(accent, currentBgAlpha, currentHoverAlpha);
+
+    setBadgeForm((prev) => ({
+      ...prev,
+      ...nextPalette,
+    }));
+    setPaletteAccent(colorToHex(accent, '#60A5FA'));
+  };
+
+  const applyStylePreset = (accent: string) => {
+    applyAccentPalette(accent);
   };
 
   if (isAdmin === null) {
@@ -684,8 +768,46 @@ export default function BadgeManagementPage() {
                 <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
                   Icon
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
-                  {BADGE_ICON_OPTIONS.map((option) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={iconSearch}
+                    onChange={(e) => setIconSearch(e.target.value)}
+                    placeholder="Search icons..."
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none text-sm"
+                    style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                  />
+                  <select
+                    value={selectedIconCategory}
+                    onChange={(e) => setSelectedIconCategory(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none text-sm"
+                    style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                  >
+                    {iconCategories.map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    {filteredIconOptions.length} icon{filteredIconOptions.length !== 1 ? 's' : ''} available
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIconSearch('');
+                      setSelectedIconCategory('ALL');
+                    }}
+                    className="text-xs underline"
+                    style={{ color: 'var(--color-accent-1)' }}
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mb-3 max-h-72 overflow-y-auto pr-1">
+                  {filteredIconOptions.map((option) => (
                     <button
                       key={option.key}
                       type="button"
@@ -701,6 +823,11 @@ export default function BadgeManagementPage() {
                     </button>
                   ))}
                 </div>
+                {filteredIconOptions.length === 0 && (
+                  <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
+                    No icons match your filters. Try a different search term or category.
+                  </p>
+                )}
                 <input
                   type="text"
                   value={badgeForm.icon}
@@ -714,6 +841,101 @@ export default function BadgeManagementPage() {
                 </p>
               </div>
 
+              {/* Global Creative Controls */}
+              <div className="border rounded-xl p-4" style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div>
+                    <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Global Creative Controls</h3>
+                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Apply polished themes and tune opacity globally for this badge style.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                  {BADGE_STYLE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => applyStylePreset(preset.accent)}
+                      className="px-2 py-2 rounded-lg border text-xs font-semibold transition-colors"
+                      style={{
+                        backgroundColor: 'var(--color-bg-secondary)',
+                        borderColor: colorToHex(preset.accent),
+                        color: 'var(--color-text-primary)',
+                      }}
+                    >
+                      <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ backgroundColor: colorToHex(preset.accent) }} />
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] gap-2 mb-3">
+                  <input
+                    type="color"
+                    value={paletteAccent}
+                    onChange={(e) => setPaletteAccent(e.target.value.toUpperCase())}
+                    className="h-10 w-14 rounded border cursor-pointer"
+                    style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}
+                  />
+                  <input
+                    type="text"
+                    value={paletteAccent}
+                    onChange={(e) => setPaletteAccent(colorToHex(e.target.value, '#60A5FA'))}
+                    placeholder="#60A5FA"
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none font-mono text-sm"
+                    style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => applyAccentPalette(paletteAccent)}
+                    className="px-3 py-2 rounded-lg text-xs font-semibold"
+                    style={{ backgroundColor: 'var(--color-accent-1)', color: '#0b1220' }}
+                  >
+                    Apply Accent Palette
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                      Background Opacity: {Math.round(extractAlpha(badgeForm.bgColor, 0.2) * 100)}%
+                    </label>
+                    <input
+                      type="range"
+                      min={5}
+                      max={80}
+                      step={1}
+                      value={Math.round(extractAlpha(badgeForm.bgColor, 0.2) * 100)}
+                      onChange={(e) => {
+                        const alpha = Number(e.target.value) / 100;
+                        const base = colorToHex(badgeForm.bgColor, colorToHex(badgeForm.borderColor, '#60A5FA'));
+                        setBadgeForm((prev) => ({ ...prev, bgColor: rgbaFromHex(base, alpha) }));
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                      Hover Opacity: {Math.round(extractAlpha(badgeForm.hoverBg, 0.3) * 100)}%
+                    </label>
+                    <input
+                      type="range"
+                      min={8}
+                      max={95}
+                      step={1}
+                      value={Math.round(extractAlpha(badgeForm.hoverBg, 0.3) * 100)}
+                      onChange={(e) => {
+                        const alpha = Number(e.target.value) / 100;
+                        const base = colorToHex(badgeForm.hoverBg, colorToHex(badgeForm.borderColor, '#60A5FA'));
+                        setBadgeForm((prev) => ({ ...prev, hoverBg: rgbaFromHex(base, alpha) }));
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Colors */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -724,7 +946,10 @@ export default function BadgeManagementPage() {
                     <input
                       type="color"
                       value={colorToHex(badgeForm.bgColor, '#60A5FA')}
-                      onChange={(e) => setBadgeForm({ ...badgeForm, bgColor: rgbaFromHex(e.target.value, 0.2) })}
+                      onChange={(e) => setBadgeForm({
+                        ...badgeForm,
+                        bgColor: rgbaFromHex(e.target.value, extractAlpha(badgeForm.bgColor, 0.2)),
+                      })}
                       className="h-10 w-12 rounded border cursor-pointer"
                       style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
                     />
@@ -747,14 +972,21 @@ export default function BadgeManagementPage() {
                     <input
                       type="color"
                       value={colorToHex(badgeForm.borderColor, '#60A5FA')}
-                      onChange={(e) => setBadgeForm({ ...badgeForm, borderColor: e.target.value.toUpperCase() })}
+                      onChange={(e) => {
+                        const next = e.target.value.toUpperCase();
+                        setBadgeForm({ ...badgeForm, borderColor: next });
+                        setPaletteAccent(next);
+                      }}
                       className="h-10 w-12 rounded border cursor-pointer"
                       style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
                     />
                     <input
                       type="text"
                       value={badgeForm.borderColor}
-                      onChange={(e) => setBadgeForm({ ...badgeForm, borderColor: e.target.value })}
+                      onChange={(e) => {
+                        setBadgeForm({ ...badgeForm, borderColor: e.target.value });
+                        setPaletteAccent(colorToHex(e.target.value, '#60A5FA'));
+                      }}
                       placeholder="#60A5FA"
                       className="w-full px-4 py-2 border rounded-lg focus:outline-none font-mono text-sm"
                       style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
@@ -793,7 +1025,10 @@ export default function BadgeManagementPage() {
                     <input
                       type="color"
                       value={colorToHex(badgeForm.hoverBg, '#60A5FA')}
-                      onChange={(e) => setBadgeForm({ ...badgeForm, hoverBg: rgbaFromHex(e.target.value, 0.3) })}
+                      onChange={(e) => setBadgeForm({
+                        ...badgeForm,
+                        hoverBg: rgbaFromHex(e.target.value, extractAlpha(badgeForm.hoverBg, 0.3)),
+                      })}
                       className="h-10 w-12 rounded border cursor-pointer"
                       style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
                     />
