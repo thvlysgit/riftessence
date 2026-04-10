@@ -31,7 +31,7 @@ export default async function badgeRoutes(fastify: FastifyInstance) {
     if (!adminCheck) return;
 
     try {
-      const { key, name, description, icon, bgColor, borderColor, textColor, hoverBg } = request.body as {
+      const { key, name, description, icon, bgColor, borderColor, textColor, hoverBg, shape, animation } = request.body as {
         key: string;
         name: string;
         description?: string;
@@ -40,6 +40,8 @@ export default async function badgeRoutes(fastify: FastifyInstance) {
         borderColor?: string;
         textColor?: string;
         hoverBg?: string;
+        shape?: string;
+        animation?: string;
       };
 
       if (!key || !name) {
@@ -62,6 +64,8 @@ export default async function badgeRoutes(fastify: FastifyInstance) {
           borderColor: borderColor || '#60A5FA',
           textColor: textColor || '#93C5FD',
           hoverBg: hoverBg || 'rgba(96, 165, 250, 0.30)',
+          shape: shape || 'squircle',
+          animation: animation || 'breathe',
         },
       });
 
@@ -79,7 +83,7 @@ export default async function badgeRoutes(fastify: FastifyInstance) {
 
     try {
       const { badgeId } = request.params as { badgeId: string };
-      const { name, description, icon, bgColor, borderColor, textColor, hoverBg } = request.body as {
+      const { name, description, icon, bgColor, borderColor, textColor, hoverBg, shape, animation } = request.body as {
         name?: string;
         description?: string;
         icon?: string;
@@ -87,6 +91,8 @@ export default async function badgeRoutes(fastify: FastifyInstance) {
         borderColor?: string;
         textColor?: string;
         hoverBg?: string;
+        shape?: string;
+        animation?: string;
       };
 
       const updateData: any = {};
@@ -97,6 +103,8 @@ export default async function badgeRoutes(fastify: FastifyInstance) {
       if (borderColor !== undefined) updateData.borderColor = borderColor;
       if (textColor !== undefined) updateData.textColor = textColor;
       if (hoverBg !== undefined) updateData.hoverBg = hoverBg;
+      if (shape !== undefined) updateData.shape = shape;
+      if (animation !== undefined) updateData.animation = animation;
 
       const badge = await prisma.badge.update({
         where: { id: badgeId },

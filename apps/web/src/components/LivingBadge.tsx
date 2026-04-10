@@ -1,8 +1,45 @@
-import React, { CSSProperties, useMemo } from 'react';
+import React, { CSSProperties } from 'react';
 import { BadgeIcon } from '../../utils/badgeIcons';
 
-type BadgeShape = 'squircle' | 'hex' | 'shield' | 'ticket' | 'diamond';
-type BadgeMotion = 'pulse' | 'float' | 'drift' | 'orbit';
+export const BADGE_SHAPE_OPTIONS = [
+  { key: 'squircle', label: 'Squircle', description: 'Modern premium rounded frame' },
+  { key: 'round', label: 'Round', description: 'Coin-like circular badge' },
+  { key: 'crest', label: 'Crest', description: 'Heraldic smooth shield silhouette' },
+  { key: 'bevel', label: 'Bevel', description: 'Cut-corner esports style frame' },
+  { key: 'soft-hex', label: 'Soft Hex', description: 'Subtle hexagonal geometry' },
+] as const;
+
+export type BadgeShape = (typeof BADGE_SHAPE_OPTIONS)[number]['key'];
+
+export const BADGE_ANIMATION_OPTIONS = [
+  { key: 'none', label: 'None', description: 'Static with hover highlight only' },
+  { key: 'breathe', label: 'Breathe', description: 'Slow ambient pulse and depth' },
+  { key: 'drift', label: 'Drift', description: 'Gentle icon drift and sheen' },
+  { key: 'glint', label: 'Glint', description: 'Clean metallic light sweep' },
+  { key: 'spark', label: 'Spark', description: 'More energetic glow and micro-motion' },
+] as const;
+
+export type BadgeAnimation = (typeof BADGE_ANIMATION_OPTIONS)[number]['key'];
+
+const BADGE_SHAPE_SET = new Set<string>(BADGE_SHAPE_OPTIONS.map((option) => option.key));
+const BADGE_ANIMATION_SET = new Set<string>(BADGE_ANIMATION_OPTIONS.map((option) => option.key));
+
+const DEFAULT_BADGE_SHAPE: BadgeShape = 'squircle';
+const DEFAULT_BADGE_ANIMATION: BadgeAnimation = 'breathe';
+
+function normalizeBadgeShape(shape: string | null | undefined): BadgeShape {
+  if (!shape) return DEFAULT_BADGE_SHAPE;
+  const normalized = shape.trim().toLowerCase();
+  return BADGE_SHAPE_SET.has(normalized) ? (normalized as BadgeShape) : DEFAULT_BADGE_SHAPE;
+}
+
+function normalizeBadgeAnimation(animation: string | null | undefined): BadgeAnimation {
+  if (!animation) return DEFAULT_BADGE_ANIMATION;
+  const normalized = animation.trim().toLowerCase();
+  return BADGE_ANIMATION_SET.has(normalized)
+    ? (normalized as BadgeAnimation)
+    : DEFAULT_BADGE_ANIMATION;
+}
 
 type LivingBadgeProps = {
   badgeKey: string;
@@ -11,6 +48,8 @@ type LivingBadgeProps = {
   borderColor: string;
   textColor: string;
   hoverBg: string;
+  shape?: string | null;
+  animation?: string | null;
   label?: string;
   description?: string;
   className?: string;
@@ -21,35 +60,6 @@ type LivingBadgeProps = {
   interactive?: boolean;
 };
 
-const SHAPES: BadgeShape[] = ['squircle', 'hex', 'shield', 'ticket', 'diamond'];
-const MOTIONS: BadgeMotion[] = ['pulse', 'float', 'drift', 'orbit'];
-
-function normalizeSeed(value: string): string {
-  return (value || 'badge').toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-function hashString(value: string): number {
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
-  }
-  return hash;
-}
-
-function getBadgeVariant(seedInput: string) {
-  const seed = normalizeSeed(seedInput) || 'badge';
-  const hash = hashString(seed);
-
-  return {
-    shape: SHAPES[hash % SHAPES.length],
-    motion: MOTIONS[Math.floor(hash / SHAPES.length) % MOTIONS.length],
-    tiltDeg: ((hash % 9) - 4) * 0.45,
-    shimmerDelay: `${(hash % 7) * 0.2}s`,
-    shimmerDuration: `${4 + (hash % 4) * 0.55}s`,
-    auraOpacity: (0.3 + ((hash >> 2) % 4) * 0.05).toFixed(2),
-  };
-}
-
 export default function LivingBadge({
   badgeKey,
   icon,
@@ -57,6 +67,8 @@ export default function LivingBadge({
   borderColor,
   textColor,
   hoverBg,
+  shape,
+  animation,
   label,
   description,
   className = 'w-10 h-10',
@@ -66,22 +78,19 @@ export default function LivingBadge({
   showTooltip = true,
   interactive = true,
 }: LivingBadgeProps) {
-  const variant = useMemo(
-    () => getBadgeVariant(badgeKey || label || icon),
-    [badgeKey, label, icon]
-  );
+  const resolvedShape = normalizeBadgeShape(shape);
+  const resolvedAnimation = normalizeBadgeAnimation(animation);
 
   const style = {
     background: bgColor,
     borderColor,
     color: textColor,
-    boxShadow: `0 3px 14px ${borderColor}38`,
+    boxShadow: `0 4px 18px ${borderColor}36`,
     '--badge-hover-bg': hoverBg,
     '--badge-border-color': borderColor,
-    '--badge-tilt': `${variant.tiltDeg}deg`,
-    '--badge-shimmer-delay': variant.shimmerDelay,
-    '--badge-shimmer-duration': variant.shimmerDuration,
-    '--badge-aura-opacity': variant.auraOpacity,
+    '--badge-shimmer-delay': '0s',
+    '--badge-shimmer-duration': '4.6s',
+    '--badge-aura-opacity': '0.34',
   } as CSSProperties;
 
   return (
@@ -92,25 +101,36 @@ export default function LivingBadge({
         'inline-flex',
         'items-center',
         'justify-center',
-        'border-2',
         'select-none',
         interactive ? 'cursor-help' : 'cursor-default',
         'living-badge',
-        `living-badge-shape-${variant.shape}`,
-        `living-badge-motion-${variant.motion}`,
         className,
       ]
         .filter(Boolean)
         .join(' ')}
-      style={style}
       title={label}
+      data-badge-key={badgeKey}
     >
-      <span className="living-badge-aura" aria-hidden />
-      <span className="living-badge-sheen" aria-hidden />
-      <span className="living-badge-hover-layer" aria-hidden />
+      <div
+        className={[
+          'living-badge-shell',
+          'w-full',
+          'h-full',
+          'border-2',
+          `living-badge-shape-${resolvedShape}`,
+          `living-badge-animation-${resolvedAnimation}`,
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        style={style}
+      >
+        <span className="living-badge-aura" aria-hidden />
+        <span className="living-badge-sheen" aria-hidden />
+        <span className="living-badge-hover-layer" aria-hidden />
 
-      <div className="relative z-10 living-badge-icon">
-        <BadgeIcon icon={icon} className={iconClassName} color={textColor} />
+        <div className="relative z-10 living-badge-icon">
+          <BadgeIcon icon={icon} className={iconClassName} color={textColor} />
+        </div>
       </div>
 
       {showTooltip && label && (

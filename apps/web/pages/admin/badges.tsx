@@ -7,7 +7,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../../utils/auth';
 import { BadgeIcon, BADGE_ICON_OPTIONS, getBadgeIconDisplayLabel } from '../../utils/badgeIcons';
-import LivingBadge from '../../src/components/LivingBadge';
+import LivingBadge, { BADGE_ANIMATION_OPTIONS, BADGE_SHAPE_OPTIONS } from '../../src/components/LivingBadge';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -21,6 +21,8 @@ type Badge = {
   borderColor: string;
   textColor: string;
   hoverBg: string;
+  shape: string;
+  animation: string;
   _count?: { users: number };
 };
 
@@ -124,6 +126,8 @@ const DEFAULT_BADGE_FORM = {
   borderColor: '#60A5FA',
   textColor: '#93C5FD',
   hoverBg: 'rgba(96, 165, 250, 0.30)',
+  shape: 'squircle',
+  animation: 'breathe',
 };
 
 const BADGE_STYLE_PRESETS = [
@@ -268,6 +272,8 @@ export default function BadgeManagementPage() {
         borderColor: badge.borderColor,
         textColor: badge.textColor,
         hoverBg: badge.hoverBg,
+        shape: badge.shape || 'squircle',
+        animation: badge.animation || 'breathe',
       });
       setPaletteAccent(colorToHex(badge.borderColor, '#60A5FA'));
     } else {
@@ -513,6 +519,8 @@ export default function BadgeManagementPage() {
                       borderColor={badge.borderColor}
                       textColor={badge.textColor}
                       hoverBg={badge.hoverBg}
+                      shape={badge.shape}
+                      animation={badge.animation}
                       label={badge.name}
                       description={badge.description || undefined}
                       className="w-12 h-12"
@@ -526,6 +534,9 @@ export default function BadgeManagementPage() {
                       </h3>
                       <p className="text-xs opacity-70" style={{ color: 'var(--color-text-secondary)' }}>
                         {badge.key}
+                      </p>
+                      <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                        {badge.shape || 'squircle'} • {badge.animation || 'breathe'}
                       </p>
                       {badge._count && (
                         <p className="text-xs mt-1" style={{ color: 'var(--color-accent-2)' }}>
@@ -941,6 +952,51 @@ export default function BadgeManagementPage() {
                 </div>
               </div>
 
+              {/* Visual Modules */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="border rounded-xl p-4" style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
+                  <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>Badge Shape Module</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {BADGE_SHAPE_OPTIONS.map((option) => (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => setBadgeForm((prev) => ({ ...prev, shape: option.key }))}
+                        className="px-3 py-2 rounded-lg border text-left transition-colors"
+                        style={{
+                          backgroundColor: badgeForm.shape === option.key ? 'rgba(96, 165, 250, 0.16)' : 'var(--color-bg-secondary)',
+                          borderColor: badgeForm.shape === option.key ? '#60A5FA' : 'var(--color-border)',
+                        }}
+                      >
+                        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{option.label}</p>
+                        <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{option.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border rounded-xl p-4" style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
+                  <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>Animation Module</h3>
+                  <div className="space-y-2">
+                    {BADGE_ANIMATION_OPTIONS.map((option) => (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => setBadgeForm((prev) => ({ ...prev, animation: option.key }))}
+                        className="w-full px-3 py-2 rounded-lg border text-left transition-colors"
+                        style={{
+                          backgroundColor: badgeForm.animation === option.key ? 'rgba(96, 165, 250, 0.16)' : 'var(--color-bg-secondary)',
+                          borderColor: badgeForm.animation === option.key ? '#60A5FA' : 'var(--color-border)',
+                        }}
+                      >
+                        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{option.label}</p>
+                        <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{option.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {/* Colors */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1062,6 +1118,8 @@ export default function BadgeManagementPage() {
                     borderColor={badgeForm.borderColor}
                     textColor={badgeForm.textColor}
                     hoverBg={badgeForm.hoverBg}
+                    shape={badgeForm.shape}
+                    animation={badgeForm.animation}
                     label={badgeForm.name || 'Badge Preview'}
                     description={badgeForm.description || undefined}
                     className="w-12 h-12"

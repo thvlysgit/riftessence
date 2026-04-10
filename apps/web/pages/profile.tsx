@@ -362,6 +362,8 @@ type BadgeConfig = {
   borderColor: string;
   textColor: string;
   hoverBg: string;
+  shape?: string;
+  animation?: string;
 };
 
 const BADGE_CONFIG: Record<string, BadgeConfig> = {
@@ -372,6 +374,8 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     borderColor: '#A78BFA',
     textColor: '#A78BFA',
     hoverBg: 'rgba(167, 139, 250, 0.30)',
+    shape: 'soft-hex',
+    animation: 'drift',
   },
   'Admin': {
     icon: 'shield',
@@ -380,6 +384,8 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     borderColor: '#EF4444',
     textColor: '#F87171',
     hoverBg: 'rgba(239, 68, 68, 0.30)',
+    shape: 'crest',
+    animation: 'breathe',
   },
   'Support': {
     icon: 'chat',
@@ -388,6 +394,8 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     borderColor: '#22D3EE',
     textColor: '#67E8F9',
     hoverBg: 'rgba(34, 211, 238, 0.30)',
+    shape: 'round',
+    animation: 'glint',
   },
   'Early Supporter': {
     icon: 'star',
@@ -396,6 +404,8 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     borderColor: '#60A5FA',
     textColor: '#93C5FD',
     hoverBg: 'rgba(96, 165, 250, 0.30)',
+    shape: 'squircle',
+    animation: 'drift',
   },
   'VIP': {
     icon: 'crown',
@@ -404,6 +414,8 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     borderColor: '#F59E0B',
     textColor: '#FCD34D',
     hoverBg: 'rgba(245, 158, 11, 0.30)',
+    shape: 'bevel',
+    animation: 'spark',
   },
   'Partner': {
     icon: 'handshake',
@@ -412,6 +424,8 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     borderColor: '#22C55E',
     textColor: '#86EFAC',
     hoverBg: 'rgba(34, 197, 94, 0.30)',
+    shape: 'soft-hex',
+    animation: 'glint',
   },
   'MVP': {
     icon: 'trophy',
@@ -420,6 +434,8 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     borderColor: '#C8AA6E',
     textColor: '#C8AA6E',
     hoverBg: 'rgba(200, 170, 110, 0.30)',
+    shape: 'squircle',
+    animation: 'breathe',
   },
   'GOAT': {
     icon: '🐐',
@@ -428,6 +444,8 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     borderColor: '#FB923C',
     textColor: '#FDBA74',
     hoverBg: 'rgba(251, 146, 60, 0.30)',
+    shape: 'crest',
+    animation: 'spark',
   },
 };
 
@@ -561,6 +579,8 @@ export default function ProfilePage() {
               borderColor: badge.borderColor,
               textColor: badge.textColor,
               hoverBg: badge.hoverBg,
+              shape: badge.shape || 'squircle',
+              animation: badge.animation || 'breathe',
             };
           });
           setBadgeConfigs(configs);
@@ -1433,6 +1453,8 @@ export default function ProfilePage() {
                       borderColor: 'var(--badge-border)',
                       textColor: 'var(--badge-text)',
                       hoverBg: 'var(--badge-hover-bg)',
+                      shape: 'squircle',
+                      animation: 'breathe',
                     };
                     const badgeKeyNorm = badgeLookupKey.toLowerCase().replace(/\s+/g, '');
                     const tKey = `profile.badge.${badgeKeyNorm}.desc` as any;
@@ -1448,6 +1470,8 @@ export default function ProfilePage() {
                         borderColor={config.borderColor}
                         textColor={config.textColor}
                         hoverBg={config.hoverBg}
+                        shape={config.shape}
+                        animation={config.animation}
                         label={badgeDisplayName}
                         description={description}
                         className="w-9 h-9 md:w-10 md:h-10"
