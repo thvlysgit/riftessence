@@ -2,6 +2,7 @@ import prisma from '../prisma';
 
 const LFT_GAME_ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] as const;
 const LFT_STAFF_NEEDS = ['MANAGER', 'COACH', 'OTHER'] as const;
+const LFT_CANDIDATE_TYPES = ['PLAYER', 'MANAGER', 'COACH', 'OTHER'] as const;
 
 function normalizeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -22,6 +23,14 @@ function normalizeStaffNeeds(value: unknown): string[] {
   return normalizeStringArray(value)
     .map((role) => role.toUpperCase())
     .filter((role) => allowed.has(role as typeof LFT_STAFF_NEEDS[number]));
+}
+
+function normalizeCandidateType(value: unknown): typeof LFT_CANDIDATE_TYPES[number] {
+  const raw = String(value || 'PLAYER').trim().toUpperCase();
+  const allowed = new Set(LFT_CANDIDATE_TYPES);
+  return allowed.has(raw as typeof LFT_CANDIDATE_TYPES[number])
+    ? (raw as typeof LFT_CANDIDATE_TYPES[number])
+    : 'PLAYER';
 }
 
 export default async function lftRoutes(fastify: any) {
@@ -124,6 +133,8 @@ export default async function lftRoutes(fastify: any) {
         preferredRole: post.author.preferredRole,
         secondaryRole: post.author.secondaryRole,
         teamId: post.teamId || null,
+        candidateType: post.candidateType || 'PLAYER',
+        representedName: post.representedName || null,
         
         // TEAM fields
         ...(post.type === 'TEAM' && {
@@ -148,6 +159,7 @@ export default async function lftRoutes(fastify: any) {
           skills: post.skills,
           age: post.age,
           availability: post.availability,
+          details: post.details,
         }),
       }));
 
@@ -277,13 +289,39 @@ export default async function lftRoutes(fastify: any) {
         }
       } else {
         // Player-specific fields
-        const { mainRole, rank, division, experience, languages, skills, age, availability } = body;
-        
-        if (!mainRole) {
-          return reply.status(400).send({ error: 'Player posts require mainRole' });
+        const {
+          mainRole,
+          rank,
+          division,
+          experience,
+          languages,
+          skills,
+          age,
+          availability,
+          candidateType,
+          representedName,
+          details,
+        } = body;
+
+        const normalizedCandidateType = normalizeCandidateType(candidateType);
+        const normalizedRepresentedName = typeof representedName === 'string' ? representedName.trim() : '';
+        const normalizedDetails = typeof details === 'string' ? details.trim() : '';
+
+        if (normalizedCandidateType === 'PLAYER' && !mainRole) {
+          return reply.status(400).send({ error: 'Player listings require a main role' });
         }
 
-        data.mainRole = mainRole;
+        if (normalizedCandidateType !== 'PLAYER' && normalizedDetails.length < 20) {
+          return reply.status(400).send({ error: 'Coach/manager/other listings require a short details section (min 20 chars)' });
+        }
+
+        if (normalizedRepresentedName.length > 80) {
+          return reply.status(400).send({ error: 'Represented name is too long (max 80 characters)' });
+        }
+
+        data.candidateType = normalizedCandidateType;
+        data.representedName = normalizedRepresentedName || null;
+        data.mainRole = normalizedCandidateType === 'PLAYER' ? mainRole : null;
         data.rank = rank || null;
         data.division = division || null;
         data.experience = experience || null;
@@ -291,6 +329,7 @@ export default async function lftRoutes(fastify: any) {
         data.skills = skills || [];
         data.age = age || null;
         data.availability = availability || null;
+        data.details = normalizedDetails || null;
       }
 
       const created = await prisma.lftPost.create({ data });

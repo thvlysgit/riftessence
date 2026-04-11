@@ -3,7 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import SEOHead from '../../api/components/SEOHead';
 import { LoadingSpinner } from '../../api/components/LoadingSpinner';
-import { CreatePlayerLftModal } from '../../api/components/CreatePlayerLftModal';
+import { CreatePlayerLftModal } from '../components/CreatePlayerLftModal';
 import { useGlobalUI } from '../../api/components/GlobalUI';
 import { useChat } from '../contexts/ChatContext';
 import { getAuthHeader, getAuthToken, getUserIdFromToken } from '../utils/auth';
@@ -17,10 +17,17 @@ const RANK_ORDER = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', '
 const LANGUAGE_FILTERS = ['ALL', 'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Polish', 'Russian', 'Turkish', 'Korean', 'Japanese', 'Chinese'];
 const AVAILABILITY_FILTERS = ['ALL', 'ONCE_A_WEEK', 'TWICE_A_WEEK', 'THRICE_A_WEEK', 'FOUR_TIMES_A_WEEK', 'FIVE_TIMES_A_WEEK', 'SIX_TIMES_A_WEEK', 'EVERYDAY'];
 const STAFF_NEED_FILTERS = ['ALL', 'MANAGER', 'COACH', 'OTHER'] as const;
+const CANDIDATE_TYPE_FILTERS = ['ALL', 'PLAYER', 'MANAGER', 'COACH', 'OTHER'] as const;
 const STAFF_NEED_DESCRIPTIONS: Record<string, string> = {
   MANAGER: 'Coordinates roster and operations',
   COACH: 'Leads review, drafts, and progression',
   OTHER: 'Analyst, content, or support specialist',
+};
+const CANDIDATE_TYPE_LABELS: Record<string, string> = {
+  PLAYER: 'Player',
+  MANAGER: 'Manager',
+  COACH: 'Coach',
+  OTHER: 'Other',
 };
 
 // Role icon helper (League of Legends client style)
@@ -176,6 +183,8 @@ type LftPost = {
   type: 'TEAM' | 'PLAYER';
   createdAt: string;
   teamId?: string | null;
+  candidateType?: 'PLAYER' | 'MANAGER' | 'COACH' | 'OTHER' | string;
+  representedName?: string | null;
   // Common
   region: string;
   authorId: string;
@@ -190,8 +199,8 @@ type LftPost = {
   averageRank?: string;
   averageDivision?: string | null;
   scrims?: boolean;
-  minAvailability?: string; // e.g., "Twice a Week"
-  coachingAvailability?: 'Dedicated Coach' | 'Frequent' | 'Occasional' | 'None';
+  minAvailability?: string;
+  coachingAvailability?: string;
   details?: string;
   discordUsername?: string;
   
@@ -200,11 +209,11 @@ type LftPost = {
   mainRole?: string;
   rank?: string;
   division?: string | null;
-  experience?: 'First Team' | 'A Little Experience' | 'Experimented';
+  experience?: string;
   languages?: string[];
-  skills?: string[]; // Shotcaller, Weakside, Ocean Champion Pool, Vision, Duels, Consistency
+  skills?: string[];
   age?: number;
-  availability?: string; // Once a Week, Twice a Week, etc.
+  availability?: string;
 };
 
 export default function LFTPage() {
@@ -214,11 +223,13 @@ export default function LFTPage() {
   const [searchText, setSearchText] = useState('');
   const [regionFilter, setRegionFilter] = useState('ALL');
   const [roleFilter, setRoleFilter] = useState('ALL');
+  const [candidateTypeFilter, setCandidateTypeFilter] = useState<(typeof CANDIDATE_TYPE_FILTERS)[number]>('ALL');
   const [languageFilter, setLanguageFilter] = useState('ALL');
   const [availabilityFilter, setAvailabilityFilter] = useState('ALL');
   const [minimumRankFilter, setMinimumRankFilter] = useState('ALL');
   const [staffNeedFilter, setStaffNeedFilter] = useState<(typeof STAFF_NEED_FILTERS)[number]>('ALL');
   const [scrimsOnly, setScrimsOnly] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [visibleCount, setVisibleCount] = useState(25);
   const [showPlayerModal, setShowPlayerModal] = useState(false);
   const [showNoAccessModal, setShowNoAccessModal] = useState(false);
@@ -282,25 +293,38 @@ export default function LFTPage() {
     const minimumRankIndex = minimumRankFilter === 'ALL' ? -1 : getRankIndex(minimumRankFilter);
 
     return allPosts.filter((post) => {
+      const normalizedCandidateType = String(post.candidateType || 'PLAYER').toUpperCase();
+      const playerIsStaffListing = post.type === 'PLAYER' && normalizedCandidateType !== 'PLAYER';
+      const teamHasStaffNeeds = post.type === 'TEAM' && Array.isArray(post.staffNeeded) && post.staffNeeded.length > 0;
+
       if (listingFilter === 'TEAMS' && post.type !== 'TEAM') return false;
       if (listingFilter === 'PLAYERS' && post.type !== 'PLAYER') return false;
-      if (listingFilter === 'STAFF' && (post.type !== 'TEAM' || !Array.isArray(post.staffNeeded) || post.staffNeeded.length === 0)) {
+      if (listingFilter === 'STAFF' && !teamHasStaffNeeds && !playerIsStaffListing) {
         return false;
       }
 
       if (regionFilter !== 'ALL' && post.region !== regionFilter) return false;
 
+      if (candidateTypeFilter !== 'ALL') {
+        if (post.type !== 'PLAYER' || normalizedCandidateType !== candidateTypeFilter) return false;
+      }
+
       if (roleFilter !== 'ALL') {
         if (post.type === 'TEAM') {
           if (!post.rolesNeeded?.includes(roleFilter)) return false;
-        } else if ((post.mainRole || '').toUpperCase() !== roleFilter) {
-          return false;
+        } else {
+          if (normalizedCandidateType !== 'PLAYER') return false;
+          if ((post.mainRole || '').toUpperCase() !== roleFilter) return false;
         }
       }
 
       if (staffNeedFilter !== 'ALL') {
-        const staff = Array.isArray(post.staffNeeded) ? post.staffNeeded.map((entry) => entry.toUpperCase()) : [];
-        if (!staff.includes(staffNeedFilter)) return false;
+        if (post.type === 'TEAM') {
+          const staff = Array.isArray(post.staffNeeded) ? post.staffNeeded.map((entry) => entry.toUpperCase()) : [];
+          if (!staff.includes(staffNeedFilter)) return false;
+        } else if (normalizedCandidateType !== staffNeedFilter) {
+          return false;
+        }
       }
 
       if (languageFilter !== 'ALL') {
@@ -313,7 +337,9 @@ export default function LFTPage() {
         if (availability !== availabilityFilter) return false;
       }
 
-      if (scrimsOnly && post.type === 'TEAM' && !post.scrims) return false;
+      if (scrimsOnly) {
+        if (post.type !== 'TEAM' || !post.scrims) return false;
+      }
 
       if (minimumRankIndex > -1) {
         const candidateRank = post.type === 'TEAM' ? post.averageRank : post.rank;
@@ -325,8 +351,10 @@ export default function LFTPage() {
         const searchableParts = [
           post.teamName,
           post.username,
+          post.representedName,
           post.details,
           post.mainRole,
+          post.candidateType,
           post.region,
           ...(post.rolesNeeded || []),
           ...(post.staffNeeded || []),
@@ -349,6 +377,7 @@ export default function LFTPage() {
     searchText,
     regionFilter,
     roleFilter,
+    candidateTypeFilter,
     languageFilter,
     availabilityFilter,
     minimumRankFilter,
@@ -363,6 +392,7 @@ export default function LFTPage() {
     searchText,
     regionFilter,
     roleFilter,
+    candidateTypeFilter,
     languageFilter,
     availabilityFilter,
     minimumRankFilter,
@@ -372,6 +402,22 @@ export default function LFTPage() {
 
   const displayedPosts = React.useMemo(() => filteredPosts.slice(0, visibleCount), [filteredPosts, visibleCount]);
   const posts = filteredPosts;
+  const listingCounts = React.useMemo(() => {
+    const teams = allPosts.filter((post) => post.type === 'TEAM').length;
+    const players = allPosts.filter((post) => post.type === 'PLAYER').length;
+    const staff = allPosts.filter((post) => {
+      const normalizedCandidateType = String(post.candidateType || 'PLAYER').toUpperCase();
+      const playerIsStaffListing = post.type === 'PLAYER' && normalizedCandidateType !== 'PLAYER';
+      const teamHasStaffNeeds = post.type === 'TEAM' && Array.isArray(post.staffNeeded) && post.staffNeeded.length > 0;
+      return playerIsStaffListing || teamHasStaffNeeds;
+    }).length;
+    return {
+      ALL: allPosts.length,
+      TEAMS: teams,
+      PLAYERS: players,
+      STAFF: staff,
+    };
+  }, [allPosts]);
 
   const handlePlayerSubmit = async (data: any) => {
     try {
@@ -390,7 +436,7 @@ export default function LFTPage() {
       });
 
       if (res.ok) {
-        showToast('Player post created successfully!', 'success');
+        showToast('Listing published successfully!', 'success');
         setShowPlayerModal(false);
         // Refresh posts
         const currentUserId = getCurrentUserId();
@@ -415,6 +461,7 @@ export default function LFTPage() {
     setSearchText('');
     setRegionFilter('ALL');
     setRoleFilter('ALL');
+    setCandidateTypeFilter('ALL');
     setLanguageFilter('ALL');
     setAvailabilityFilter('ALL');
     setMinimumRankFilter('ALL');
@@ -431,26 +478,33 @@ export default function LFTPage() {
         keywords="LoL LFT, League of Legends team, find LoL team, recruit LoL players, LoL team finder, League team recruitment"
       />
       <div className="min-h-screen py-10 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6">
         <header className="space-y-4">
           <div
-            className="border rounded-xl p-5"
+            className="border rounded-2xl p-6 relative overflow-hidden"
             style={{
-              backgroundColor: 'var(--color-bg-secondary)',
+              background: 'linear-gradient(120deg, var(--color-bg-secondary) 0%, rgba(59, 130, 246, 0.09) 55%, rgba(34, 197, 94, 0.07) 100%)',
               borderColor: 'var(--color-border)',
               boxShadow: 'var(--shadow)',
             }}
           >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold" style={{ color: 'var(--color-accent-1)' }}>
-                  Looking For Team (LFT)
+            <div className="absolute -right-12 -top-12 w-48 h-48 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.20) 0%, transparent 72%)' }} />
+            <div className="absolute -left-8 bottom-0 w-44 h-44 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(34,197,94,0.16) 0%, transparent 72%)' }} />
+
+            <div className="relative flex flex-wrap items-start justify-between gap-4">
+              <div className="max-w-2xl">
+                <p className="text-xs uppercase tracking-[0.18em] font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+                  RiftEssence Marketplace
+                </p>
+                <h1 className="text-3xl sm:text-4xl font-extrabold mt-1" style={{ color: 'var(--color-accent-1)' }}>
+                  LFT Rework
                 </h1>
-                <p className="mt-1 text-sm sm:text-base" style={{ color: 'var(--color-text-secondary)' }}>
-                  Discover players, staff, and active rosters with role-specific filtering.
+                <p className="mt-2 text-sm sm:text-base leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                  One board for teams recruiting and talent discovering opportunities. Players, coaches, managers, and specialists can all list directly.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
+
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <button
                   onClick={async () => {
                     const token = getAuthToken();
@@ -467,20 +521,8 @@ export default function LFTPage() {
                       if (!response.ok) throw new Error('Failed to fetch profile');
                       const data = await response.json();
 
-                      const hasRole = data.preferredRole || data.primaryRole;
-                      const mainAccount = data.riotAccounts?.find((acc: any) => acc.isMain);
-                      const hasRank = mainAccount?.rank && mainAccount.rank !== 'UNRANKED';
-
                       if (!data.region) {
                         showToast('Please set your region in your profile before creating an LFT post', 'error');
-                        return;
-                      }
-                      if (!hasRole) {
-                        showToast('Please set your preferred role in your profile before creating an LFT post', 'error');
-                        return;
-                      }
-                      if (!hasRank) {
-                        showToast('Please add your main account with rank information before creating an LFT post', 'error');
                         return;
                       }
 
@@ -490,39 +532,58 @@ export default function LFTPage() {
                       showToast('Failed to validate profile. Please try again.', 'error');
                     }
                   }}
-                  className="px-4 py-2 font-semibold rounded"
+                  className="px-5 py-2.5 font-semibold rounded-lg"
                   style={{
                     background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
                     color: 'var(--color-bg-primary)',
-                    borderRadius: 'var(--border-radius)',
                   }}
                 >
-                  Look for a Team
+                  Create My Listing
                 </button>
                 <Link
                   href="/teams/dashboard"
-                  className="px-4 py-2 font-semibold rounded border"
+                  className="px-5 py-2.5 font-semibold rounded-lg border text-center"
                   style={{
                     backgroundColor: 'var(--color-bg-tertiary)',
                     borderColor: 'var(--color-border)',
                     color: 'var(--color-accent-1)',
-                    borderRadius: 'var(--border-radius)',
                   }}
                 >
-                  Recruit via Teams Dashboard
+                  Team Recruiting Dashboard
                 </Link>
               </div>
             </div>
 
-            <div className="mt-3 text-xs sm:text-sm" style={{ color: 'var(--color-text-muted)' }}>
-              Team listings can only be published by existing teams through the Teams Dashboard.
+            <div className="relative mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {([
+                { key: 'ALL', label: 'Total Listings' },
+                { key: 'TEAMS', label: 'Teams Recruiting' },
+                { key: 'PLAYERS', label: 'Talent Listings' },
+                { key: 'STAFF', label: 'Staff Opportunities' },
+              ] as const).map((item) => (
+                <div
+                  key={item.key}
+                  className="rounded-lg px-3 py-2 border"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    backgroundColor: 'rgba(255,255,255,0.35)',
+                  }}
+                >
+                  <p className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>{item.label}</p>
+                  <p className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{listingCounts[item.key]}</p>
+                </div>
+              ))}
             </div>
 
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="relative mt-4 text-xs sm:text-sm" style={{ color: 'var(--color-text-muted)' }}>
+              Team listings can only be published by existing teams through Teams Dashboard. Candidate listings can be self-published or posted on behalf of someone else.
+            </div>
+
+            <div className="relative mt-4 grid grid-cols-1 md:grid-cols-3 gap-2">
               {(['MANAGER', 'COACH', 'OTHER'] as const).map((key) => (
                 <div
                   key={key}
-                  className="rounded border px-3 py-2"
+                  className="rounded-lg border px-3 py-2"
                   style={{
                     borderColor: 'var(--color-border)',
                     backgroundColor: 'var(--color-bg-tertiary)',
@@ -538,180 +599,218 @@ export default function LFTPage() {
           </div>
 
           <div
-            className="border rounded-xl p-4"
+            className="border rounded-2xl p-4"
             style={{
               backgroundColor: 'var(--color-bg-secondary)',
               borderColor: 'var(--color-border)',
             }}
           >
             <div className="flex flex-wrap gap-2 mb-3">
-              {(['ALL', 'TEAMS', 'PLAYERS', 'STAFF'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setListingFilter(mode)}
-                  className="px-3 py-1.5 rounded font-medium text-sm transition-all"
-                  style={{
-                    backgroundColor: listingFilter === mode ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
-                    color: listingFilter === mode ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
-                    border: `1px solid ${listingFilter === mode ? 'var(--color-accent-1)' : 'var(--color-border)'}`,
-                  }}
-                >
-                  {mode === 'ALL' ? 'All Listings' : mode === 'TEAMS' ? 'Teams' : mode === 'PLAYERS' ? 'Players' : 'Staff Search'}
-                </button>
-              ))}
+              {(['ALL', 'TEAMS', 'PLAYERS', 'STAFF'] as const).map((mode) => {
+                const active = listingFilter === mode;
+                const modeLabel = mode === 'ALL' ? 'All' : mode === 'TEAMS' ? 'Teams' : mode === 'PLAYERS' ? 'Talent' : 'Staff';
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => setListingFilter(mode)}
+                    className="px-3 py-1.5 rounded-full font-medium text-sm transition-all"
+                    style={{
+                      backgroundColor: active ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
+                      color: active ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
+                      border: `1px solid ${active ? 'var(--color-accent-1)' : 'var(--color-border)'}`,
+                    }}
+                  >
+                    {modeLabel} ({listingCounts[mode]})
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
               <input
                 type="text"
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                placeholder="Search team, player, role, language..."
-                className="px-3 py-2 rounded border"
+                placeholder="Search names, staff roles, regions, skills, languages..."
+                className="w-full px-4 py-2.5 rounded-lg border"
                 style={{
                   backgroundColor: 'var(--color-bg-tertiary)',
                   borderColor: 'var(--color-border)',
                   color: 'var(--color-text-primary)',
                 }}
               />
-
-              <select
-                value={regionFilter}
-                onChange={(e) => setRegionFilter(e.target.value)}
-                className="px-3 py-2 rounded border"
+              <button
+                onClick={() => setShowAdvancedFilters((prev) => !prev)}
+                className="px-4 py-2.5 rounded-lg border font-medium text-sm"
                 style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  borderColor: 'var(--color-border)',
+                  backgroundColor: showAdvancedFilters ? 'rgba(59, 130, 246, 0.14)' : 'var(--color-bg-tertiary)',
+                  borderColor: showAdvancedFilters ? 'var(--color-accent-1)' : 'var(--color-border)',
                   color: 'var(--color-text-primary)',
+                  minWidth: 150,
                 }}
               >
-                {REGIONS.map((region) => (
-                  <option key={region} value={region}>{region === 'ALL' ? 'All Regions' : region}</option>
-                ))}
-              </select>
-
-              <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-                className="px-3 py-2 rounded border"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  borderColor: 'var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
-              >
-                {ROLE_FILTERS.map((role) => (
-                  <option key={role} value={role}>{role === 'ALL' ? 'All In-Game Roles' : role}</option>
-                ))}
-              </select>
-
-              <select
-                value={staffNeedFilter}
-                onChange={(e) => setStaffNeedFilter(e.target.value as (typeof STAFF_NEED_FILTERS)[number])}
-                className="px-3 py-2 rounded border"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  borderColor: 'var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
-              >
-                {STAFF_NEED_FILTERS.map((role) => (
-                  <option key={role} value={role}>{role === 'ALL' ? 'All Staff Needs' : role}</option>
-                ))}
-              </select>
-
-              <select
-                value={languageFilter}
-                onChange={(e) => setLanguageFilter(e.target.value)}
-                className="px-3 py-2 rounded border"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  borderColor: 'var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
-              >
-                {LANGUAGE_FILTERS.map((language) => (
-                  <option key={language} value={language}>{language === 'ALL' ? 'All Languages' : language}</option>
-                ))}
-              </select>
-
-              <select
-                value={availabilityFilter}
-                onChange={(e) => setAvailabilityFilter(e.target.value)}
-                className="px-3 py-2 rounded border"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  borderColor: 'var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
-              >
-                {AVAILABILITY_FILTERS.map((availability) => (
-                  <option key={availability} value={availability}>
-                    {availability === 'ALL' ? 'All Availability' : formatAvailability(availability)}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={minimumRankFilter}
-                onChange={(e) => setMinimumRankFilter(e.target.value)}
-                className="px-3 py-2 rounded border"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  borderColor: 'var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
-              >
-                <option value="ALL">Any Rank</option>
-                {RANK_ORDER.map((rank) => (
-                  <option key={rank} value={rank}>Min Rank: {rank}</option>
-                ))}
-              </select>
-
-              <label
-                className="flex items-center gap-2 px-3 py-2 rounded border text-sm"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  borderColor: 'var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
-              >
-                <input type="checkbox" checked={scrimsOnly} onChange={(e) => setScrimsOnly(e.target.checked)} />
-                Team listings with scrims only
-              </label>
-
+                {showAdvancedFilters ? 'Hide Filters' : 'Advanced Filters'}
+              </button>
               <button
                 onClick={resetFilters}
-                className="px-3 py-2 rounded border font-medium text-sm"
+                className="px-4 py-2.5 rounded-lg border font-medium text-sm"
                 style={{
                   backgroundColor: 'var(--color-bg-tertiary)',
                   borderColor: 'var(--color-border)',
                   color: 'var(--color-accent-1)',
                 }}
               >
-                Clear Filters
+                Reset
               </button>
             </div>
+
+            {showAdvancedFilters && (
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <select
+                  value={regionFilter}
+                  onChange={(e) => setRegionFilter(e.target.value)}
+                  className="px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  {REGIONS.map((region) => (
+                    <option key={region} value={region}>{region === 'ALL' ? 'All Regions' : region}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                  className="px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  {ROLE_FILTERS.map((role) => (
+                    <option key={role} value={role}>{role === 'ALL' ? 'All In-Game Roles' : role}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={candidateTypeFilter}
+                  onChange={(e) => setCandidateTypeFilter(e.target.value as (typeof CANDIDATE_TYPE_FILTERS)[number])}
+                  className="px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  {CANDIDATE_TYPE_FILTERS.map((type) => (
+                    <option key={type} value={type}>{type === 'ALL' ? 'All Candidate Types' : CANDIDATE_TYPE_LABELS[type]}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={staffNeedFilter}
+                  onChange={(e) => setStaffNeedFilter(e.target.value as (typeof STAFF_NEED_FILTERS)[number])}
+                  className="px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  {STAFF_NEED_FILTERS.map((role) => (
+                    <option key={role} value={role}>{role === 'ALL' ? 'All Staff Needs' : role}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={languageFilter}
+                  onChange={(e) => setLanguageFilter(e.target.value)}
+                  className="px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  {LANGUAGE_FILTERS.map((language) => (
+                    <option key={language} value={language}>{language === 'ALL' ? 'All Languages' : language}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={availabilityFilter}
+                  onChange={(e) => setAvailabilityFilter(e.target.value)}
+                  className="px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  {AVAILABILITY_FILTERS.map((availability) => (
+                    <option key={availability} value={availability}>
+                      {availability === 'ALL' ? 'All Availability' : formatAvailability(availability)}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={minimumRankFilter}
+                  onChange={(e) => setMinimumRankFilter(e.target.value)}
+                  className="px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  <option value="ALL">Any Rank</option>
+                  {RANK_ORDER.map((rank) => (
+                    <option key={rank} value={rank}>Minimum Rank: {rank}</option>
+                  ))}
+                </select>
+
+                <label
+                  className="flex items-center gap-2 px-3 py-2 rounded border text-sm"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  <input type="checkbox" checked={scrimsOnly} onChange={(e) => setScrimsOnly(e.target.checked)} />
+                  Scrims-only teams
+                </label>
+              </div>
+            )}
           </div>
         </header>
 
         {loading ? (
           <LoadingSpinner />
         ) : (
-          <section
-            className="border p-4 sm:p-6"
-            style={{
-              backgroundColor: 'var(--color-bg-secondary)',
-              borderColor: 'var(--color-border)',
-              borderRadius: 'var(--border-radius)'
-            }}
-          >
+          <section className="space-y-4">
             {posts.length === 0 ? (
-              <div className="py-8 text-center space-y-3">
-                <p style={{ color: 'var(--color-text-muted)' }}>No listings match your current filters.</p>
+              <div
+                className="border rounded-2xl p-8 text-center"
+                style={{
+                  borderColor: 'var(--color-border)',
+                  backgroundColor: 'var(--color-bg-secondary)',
+                }}
+              >
+                <p className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                  No listings match your filters
+                </p>
+                <p className="mt-1 text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                  Try resetting filters or broaden search terms.
+                </p>
                 <button
                   onClick={resetFilters}
-                  className="px-4 py-2 rounded border text-sm font-medium"
+                  className="mt-4 px-4 py-2 rounded-lg border text-sm font-medium"
                   style={{
                     backgroundColor: 'var(--color-bg-tertiary)',
                     borderColor: 'var(--color-border)',
@@ -726,286 +825,351 @@ export default function LFTPage() {
                 {displayedPosts.map((p, index) => {
                   const currentUserId = getCurrentUserId();
                   const ad = getAdForPosition(ads, index, adFrequency, undefined, undefined, dismissedAdIds);
+                  const isTeam = p.type === 'TEAM';
+                  const normalizedCandidateType = String(p.candidateType || 'PLAYER').toUpperCase();
+                  const isStaffCandidate = !isTeam && normalizedCandidateType !== 'PLAYER';
+                  const accentColor = isTeam ? '#22C55E' : isStaffCandidate ? '#F59E0B' : '#3B82F6';
+                  const heading = isTeam
+                    ? (p.teamName || 'Unnamed Team')
+                    : (p.representedName || p.username || 'Unknown Listing');
+                  const subHeading = isTeam
+                    ? 'Team Recruiting'
+                    : `${CANDIDATE_TYPE_LABELS[normalizedCandidateType] || normalizedCandidateType} Listing`;
+
                   return (
                     <React.Fragment key={p.id}>
-                      {/* Show ad before this post if applicable */}
                       {ad && (
                         <AdSpot ad={ad} feed="lft" userId={currentUserId} onDismiss={handleDismissAd} />
                       )}
-                  <div 
-                    className="p-4 sm:p-6 border rounded-xl relative overflow-hidden" 
-                    style={{ 
-                      borderColor: 'var(--color-border)', 
-                      backgroundColor: 'var(--color-bg-secondary)', 
-                      boxShadow: 'var(--shadow)',
-                      borderLeftWidth: '4px',
-                      borderLeftColor: p.type === 'TEAM' ? '#22C55E' : '#3B82F6'
-                    }}
-                  >
-                    {/* Subtle background gradient overlay */}
-                    <div 
-                      className="absolute top-0 right-0 w-48 h-48 opacity-5 pointer-events-none"
-                      style={{
-                        background: p.type === 'TEAM' 
-                          ? 'radial-gradient(circle, #22C55E 0%, transparent 70%)'
-                          : 'radial-gradient(circle, #3B82F6 0%, transparent 70%)'
-                      }}
-                    />
-                    
-                    <div className="flex flex-wrap items-center justify-between mb-4 gap-2 relative">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        {/* Type icon integrated into design */}
-                        <div className="flex items-center gap-2">
-                          {p.type === 'TEAM' ? (
-                            <svg className="w-5 h-5" style={{ color: '#22C55E' }} fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5" style={{ color: '#3B82F6' }} fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                          <div>
-                            <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: p.type === 'TEAM' ? '#22C55E' : '#3B82F6' }}>
-                              {p.type === 'TEAM' ? 'Team Recruiting' : 'Player Looking for Team'}
-                            </div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="text-xl font-bold leading-tight" style={{ color: 'var(--color-text-primary)' }}>{p.type === 'TEAM' ? p.teamName : p.username}</h3>
-                              {p.discordUsername && (
-                                <span className="px-2 py-0.5 rounded text-xs font-semibold border inline-flex items-center gap-1 self-end mb-0.5" style={{ background: 'rgba(88, 101, 242, 0.15)', color: '#5865F2', borderColor: '#5865F2' }} title={`Discord: ${p.discordUsername}`}>
-                                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
+
+                      <article
+                        className="border rounded-2xl p-5 relative overflow-hidden"
+                        style={{
+                          borderColor: 'var(--color-border)',
+                          backgroundColor: 'var(--color-bg-secondary)',
+                          boxShadow: 'var(--shadow)',
+                        }}
+                      >
+                        <div
+                          className="absolute left-0 top-0 bottom-0 w-1.5"
+                          style={{ backgroundColor: accentColor }}
+                        />
+                        <div
+                          className="absolute -top-12 -right-12 w-52 h-52 rounded-full pointer-events-none"
+                          style={{ background: `radial-gradient(circle, ${accentColor}22 0%, transparent 72%)` }}
+                        />
+
+                        <div className="relative space-y-4">
+                          <header className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              <div
+                                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                                style={{ backgroundColor: `${accentColor}22`, color: accentColor }}
+                              >
+                                {isTeam ? (
+                                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                                   </svg>
+                                ) : (
+                                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                              </div>
+
+                              <div>
+                                <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: accentColor }}>
+                                  {subHeading}
+                                </p>
+                                <h3 className="text-xl font-bold leading-tight" style={{ color: 'var(--color-text-primary)' }}>
+                                  {heading}
+                                </h3>
+                                {!isTeam && p.representedName && p.username && p.representedName !== p.username && (
+                                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                                    Posted by {p.username}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <span
+                                className="px-2 py-1 rounded text-xs border"
+                                style={{
+                                  borderColor: 'var(--color-border)',
+                                  color: 'var(--color-text-secondary)',
+                                  backgroundColor: 'var(--color-bg-tertiary)',
+                                }}
+                              >
+                                {new Date(p.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </span>
+                              <span
+                                className="px-2 py-1 rounded text-xs border"
+                                style={{
+                                  borderColor: 'var(--color-border)',
+                                  color: 'var(--color-text-secondary)',
+                                  backgroundColor: 'var(--color-bg-tertiary)',
+                                }}
+                              >
+                                {p.region}
+                              </span>
+                              {p.discordUsername && (
+                                <span
+                                  className="px-2 py-1 rounded text-xs border"
+                                  style={{
+                                    borderColor: '#5865F2',
+                                    color: '#5865F2',
+                                    backgroundColor: 'rgba(88, 101, 242, 0.1)',
+                                  }}
+                                >
                                   {p.discordUsername}
                                 </span>
                               )}
                             </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                            {new Date(p.createdAt).toLocaleDateString()} at {new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <span style={{ color: 'var(--color-text-muted)' }}>•</span>
-                          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{p.region}</span>
-                        </div>
-                        {p.type === 'PLAYER' && p.username && (
-                          <div className="flex gap-2">
-                            <Link href={`/profile?username=${encodeURIComponent(p.username)}`} className="px-3 py-1 rounded text-sm font-medium transition-colors border" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}>
-                              View Profile
-                            </Link>
-                            {p.authorId !== currentUserId && (
-                              <button
-                                onClick={() => openConversation(p.authorId)}
-                                className="px-3 py-1 rounded text-sm font-medium transition-colors border flex items-center gap-1"
-                                style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}
-                              >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                </svg>
-                                Message
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                          </header>
 
-                    {p.type === 'TEAM' && (
-                      <div className="space-y-4">
-                        {/* Main Info Grid */}
-                        <div className="rounded-lg p-4" style={{ background: 'var(--color-bg-tertiary)' }}>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Player Roles Needed</p>
-                              <div className="flex gap-1.5 flex-wrap">
-                                {p.rolesNeeded && p.rolesNeeded.length > 0 ? (
-                                  p.rolesNeeded.map(r => (
-                                    <span key={r} className="text-xs px-2 py-1 rounded font-semibold border inline-flex items-center gap-1" style={{ background: 'rgba(200, 170, 109, 0.15)', color: '#C8AA6D', borderColor: '#C8AA6D' }}>
-                                      {getRoleIcon(r)}
-                                      {r}
-                                    </span>
-                                  ))
-                                ) : (
-                                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No in-game roles selected</span>
+                          {isTeam ? (
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
+                                  <p className="text-xs uppercase font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>Roles Needed</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {Array.isArray(p.rolesNeeded) && p.rolesNeeded.length > 0 ? (
+                                      p.rolesNeeded.map((role) => (
+                                        <span
+                                          key={role}
+                                          className="text-xs px-2 py-1 rounded font-semibold border inline-flex items-center gap-1"
+                                          style={{ background: 'rgba(200, 170, 109, 0.15)', color: '#C8AA6D', borderColor: '#C8AA6D' }}
+                                        >
+                                          {getRoleIcon(role)}
+                                          {role}
+                                        </span>
+                                      ))
+                                    ) : (
+                                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No in-game role filters set</span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
+                                  <p className="text-xs uppercase font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>Staff Needed</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {Array.isArray(p.staffNeeded) && p.staffNeeded.length > 0 ? (
+                                      p.staffNeeded.map((staffRole) => (
+                                        <span
+                                          key={staffRole}
+                                          className="text-xs px-2 py-1 rounded font-semibold border"
+                                          title={STAFF_NEED_DESCRIPTIONS[staffRole] || ''}
+                                          style={{
+                                            background: 'rgba(59, 130, 246, 0.12)',
+                                            color: '#3B82F6',
+                                            borderColor: 'rgba(59, 130, 246, 0.35)',
+                                          }}
+                                        >
+                                          {staffRole}
+                                        </span>
+                                      ))
+                                    ) : (
+                                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No staff positions listed</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap gap-2">
+                                {p.averageRank && getRankBadge(p.averageRank, p.averageDivision || undefined)}
+                                {typeof p.scrims === 'boolean' && (
+                                  <span
+                                    className="px-2 py-1 rounded text-xs border font-semibold"
+                                    style={{
+                                      borderColor: p.scrims ? '#22C55E' : '#EF4444',
+                                      color: p.scrims ? '#22C55E' : '#EF4444',
+                                      backgroundColor: p.scrims ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                    }}
+                                  >
+                                    {p.scrims ? 'Scrims: Yes' : 'Scrims: No'}
+                                  </span>
+                                )}
+                                {p.minAvailability && (
+                                  <span className="px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                    Availability: {formatAvailability(p.minAvailability)}
+                                  </span>
+                                )}
+                                {p.coachingAvailability && (
+                                  <span className="px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                    Coaching: {formatAvailability(p.coachingAvailability)}
+                                  </span>
                                 )}
                               </div>
 
-                              {p.staffNeeded && p.staffNeeded.length > 0 && (
-                                <div className="mt-3">
-                                  <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Staff Needed</p>
-                                  <div className="flex gap-1.5 flex-wrap">
-                                    {p.staffNeeded.map((staffRole) => (
-                                      <span
-                                        key={staffRole}
-                                        className="text-xs px-2 py-1 rounded font-semibold border"
-                                        style={{
-                                          background: 'rgba(59, 130, 246, 0.12)',
-                                          color: '#3B82F6',
-                                          borderColor: 'rgba(59, 130, 246, 0.4)',
-                                        }}
-                                        title={STAFF_NEED_DESCRIPTIONS[staffRole] || ''}
-                                      >
-                                        {staffRole}
-                                      </span>
-                                    ))}
-                                  </div>
+                              {p.details && (
+                                <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                                  {p.details}
+                                </p>
+                              )}
+
+                              {p.teamId && (
+                                <div className="pt-1">
+                                  <Link
+                                    href={`/teams/${p.teamId}`}
+                                    className="inline-flex px-3 py-1.5 rounded-lg border text-sm font-medium"
+                                    style={{
+                                      background: 'var(--color-bg-tertiary)',
+                                      borderColor: 'var(--color-border)',
+                                      color: 'var(--color-accent-1)',
+                                    }}
+                                  >
+                                    Open Team Page
+                                  </Link>
                                 </div>
                               )}
                             </div>
-                            <div>
-                              <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Average Rank</p>
-                              {p.averageRank && getRankBadge(p.averageRank, p.averageDivision || undefined)}
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Server</p>
-                              <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{p.region}</span>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Scrims</p>
-                              <span className="text-xs px-2 py-1 rounded font-semibold border" style={{ background: p.scrims ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: p.scrims ? '#22C55E' : '#EF4444', borderColor: p.scrims ? '#22C55E' : '#EF4444' }}>{p.scrims ? 'Yes' : 'No'}</span>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Min. Availability</p>
-                              <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{formatAvailability(p.minAvailability)}</span>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Coaching</p>
-                              <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{formatAvailability(p.coachingAvailability)}</span>
-                            </div>
-                          </div>
-                        </div>
-                        {/* Details Section */}
-                        {p.details && (
-                          <div className="rounded-lg p-4" style={{ background: 'var(--color-bg-tertiary)' }}>
-                            <p className="text-xs uppercase font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>Details</p>
-                            <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{p.details}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {p.type === 'PLAYER' && (
-                      <div className="space-y-4">
-                        {/* Main Info Grid */}
-                        <div className="rounded-lg p-4" style={{ background: 'var(--color-bg-tertiary)' }}>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Main Role</p>
-                              <span className="text-xs px-2 py-1 rounded font-semibold border inline-flex items-center gap-1" style={{ background: 'rgba(200, 170, 109, 0.15)', color: '#C8AA6D', borderColor: '#C8AA6D' }}>
-                                {getRoleIcon(p.mainRole || '')}
-                                {p.mainRole}
-                              </span>
-                            </div>
-                            {p.secondaryRole && (
-                              <div>
-                                <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Second Most Played</p>
-                                <span className="text-xs px-2 py-1 rounded font-semibold border inline-flex items-center gap-1" style={{ background: 'rgba(200, 170, 109, 0.1)', color: '#C8AA6D', borderColor: '#C8AA6D', opacity: 0.8 }}>
-                                  {getRoleIcon(p.secondaryRole)}
-                                  {p.secondaryRole}
-                                </span>
-                              </div>
-                            )}
-                            <div>
-                              <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Rank</p>
-                              {p.rank && getRankBadge(p.rank, p.division || undefined)}
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Server</p>
-                              <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{p.region}</span>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Experience</p>
-                              <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{formatAvailability(p.experience)}</span>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Age</p>
-                              <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{p.age || 'N/A'}</span>
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Availability</p>
-                              <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{formatAvailability(p.availability)}</span>
-                            </div>
-                          </div>
-                        </div>
-                        {/* Languages & Skills Section */}
-                        {((p.languages && p.languages.length > 0) || (p.skills && p.skills.length > 0)) && (
-                          <div className="rounded-lg p-4" style={{ background: 'var(--color-bg-tertiary)' }}>
+                          ) : (
                             <div className="space-y-3">
-                              {p.languages && p.languages.length > 0 && (
-                                <div>
-                                  <p className="text-xs uppercase font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>Languages</p>
-                                  <div className="flex gap-1.5 flex-wrap">
-                                    {p.languages.map(l => (
-                                      <span key={l}>{getLanguageBadge(l)}</span>
-                                    ))}
-                                  </div>
+                              <div className="flex flex-wrap gap-2">
+                                <span
+                                  className="px-2 py-1 rounded text-xs border font-semibold"
+                                  style={{
+                                    borderColor: accentColor,
+                                    color: accentColor,
+                                    backgroundColor: `${accentColor}22`,
+                                  }}
+                                >
+                                  {CANDIDATE_TYPE_LABELS[normalizedCandidateType] || normalizedCandidateType}
+                                </span>
+
+                                {normalizedCandidateType === 'PLAYER' && p.mainRole && (
+                                  <span className="text-xs px-2 py-1 rounded font-semibold border inline-flex items-center gap-1" style={{ background: 'rgba(200, 170, 109, 0.15)', color: '#C8AA6D', borderColor: '#C8AA6D' }}>
+                                    {getRoleIcon(p.mainRole)}
+                                    {p.mainRole}
+                                  </span>
+                                )}
+
+                                {p.rank && getRankBadge(p.rank, p.division || undefined)}
+
+                                {p.experience && (
+                                  <span className="px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                    Experience: {formatAvailability(p.experience)}
+                                  </span>
+                                )}
+
+                                {p.availability && (
+                                  <span className="px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                    Availability: {formatAvailability(p.availability)}
+                                  </span>
+                                )}
+
+                                {p.age && normalizedCandidateType === 'PLAYER' && (
+                                  <span className="px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                    Age: {p.age}
+                                  </span>
+                                )}
+                              </div>
+
+                              {Array.isArray(p.languages) && p.languages.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {p.languages.map((language) => (
+                                    <span key={language}>{getLanguageBadge(language)}</span>
+                                  ))}
                                 </div>
                               )}
-                              {p.skills && p.skills.length > 0 && (
-                                <div>
-                                  <p className="text-xs uppercase font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>Skills</p>
-                                  <div className="flex gap-1.5 flex-wrap">
-                                    {p.skills.map(s => (
-                                      <span key={s} className="text-xs px-2 py-1 rounded font-semibold border" style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}>{s}</span>
-                                    ))}
-                                  </div>
+
+                              {Array.isArray(p.skills) && p.skills.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {p.skills.map((skill) => (
+                                    <span
+                                      key={skill}
+                                      className="text-xs px-2 py-1 rounded font-semibold border"
+                                      style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}
+                                    >
+                                      {skill}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {p.details && (
+                                <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                                  {p.details}
+                                </p>
+                              )}
+
+                              {p.username && (
+                                <div className="flex flex-wrap gap-2 pt-1">
+                                  <Link
+                                    href={`/profile?username=${encodeURIComponent(p.username)}`}
+                                    className="px-3 py-1.5 rounded-lg text-sm font-medium border"
+                                    style={{
+                                      background: 'var(--color-bg-tertiary)',
+                                      color: 'var(--color-accent-1)',
+                                      borderColor: 'var(--color-border)',
+                                    }}
+                                  >
+                                    View Profile
+                                  </Link>
+                                  {p.authorId !== currentUserId && (
+                                    <button
+                                      onClick={() => openConversation(p.authorId)}
+                                      className="px-3 py-1.5 rounded-lg text-sm font-medium border"
+                                      style={{
+                                        background: 'var(--color-bg-tertiary)',
+                                        color: 'var(--color-accent-1)',
+                                        borderColor: 'var(--color-border)',
+                                      }}
+                                    >
+                                      Message
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                          )}
 
-                    {/* Admin delete */}
-                    {p.isAdmin && (
-                      <div className="mt-4 text-right">
-                        <button
-                          onClick={async () => {
-                            const ok = await confirm({
-                              title: 'Delete Post',
-                              message: 'Are you sure you want to delete this post? This action cannot be undone.',
-                              confirmText: 'Delete',
-                            });
-                            if (!ok) return;
+                          {p.isAdmin && (
+                            <div className="pt-2 text-right">
+                              <button
+                                onClick={async () => {
+                                  const ok = await confirm({
+                                    title: 'Delete Post',
+                                    message: 'Are you sure you want to delete this post? This action cannot be undone.',
+                                    confirmText: 'Delete',
+                                  });
+                                  if (!ok) return;
 
-                            try {
-                              const res = await fetch(`${API_URL}/api/lft/posts/${p.id}`, {
-                                method: 'DELETE',
-                                headers: getAuthHeader(),
-                              });
-                              if (!res.ok) throw new Error('Failed to delete post');
-                              showToast('Post deleted', 'success');
-                              location.reload();
-                            } catch (err) {
-                              console.error('Failed to delete', err);
-                              showToast('Delete failed', 'error');
-                            }
-                          }}
-                          className="px-3 py-1 rounded text-xs font-medium transition-colors"
-                          style={{ background: 'var(--accent-danger-bg)', color: 'var(--accent-danger)' }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                                  try {
+                                    const res = await fetch(`${API_URL}/api/lft/posts/${p.id}`, {
+                                      method: 'DELETE',
+                                      headers: getAuthHeader(),
+                                    });
+                                    if (!res.ok) throw new Error('Failed to delete post');
+                                    showToast('Post deleted', 'success');
+                                    location.reload();
+                                  } catch (err) {
+                                    console.error('Failed to delete', err);
+                                    showToast('Delete failed', 'error');
+                                  }
+                                }}
+                                className="px-3 py-1 rounded text-xs font-medium"
+                                style={{ background: 'var(--accent-danger-bg)', color: 'var(--accent-danger)' }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </article>
                     </React.Fragment>
                   );
                 })}
-                
+
                 {posts.length > visibleCount && (
                   <div className="mt-6 text-center">
                     <button
-                      onClick={() => setVisibleCount(prev => prev + 25)}
-                      className="px-6 py-3 font-semibold rounded"
+                      onClick={() => setVisibleCount((prev) => prev + 25)}
+                      className="px-6 py-3 font-semibold rounded-lg"
                       style={{
                         background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
                         color: 'var(--color-bg-primary)',
-                        borderRadius: 'var(--border-radius)'
                       }}
                     >
                       Load More ({posts.length - visibleCount} remaining)

@@ -104,14 +104,17 @@ export const CreateTeamLftSchema = z.object({
 export const CreatePlayerLftSchema = z.object({
   userId: z.string().min(1),
   region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU']),
+  candidateType: z.enum(['PLAYER', 'MANAGER', 'COACH', 'OTHER']).default('PLAYER'),
+  representedName: z.string().max(80).optional(),
   mainRole: z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT']).optional(),
   rank: z.string().optional(),
   division: z.string().optional(),
-  experience: z.enum(['FIRST_TEAM', 'A_LITTLE_EXPERIENCE', 'EXPERIMENTED']).optional(),
+  experience: z.enum(['FIRST_TEAM', 'SOME_EXPERIENCE', 'MODERATE', 'EXPERIENCED', 'VERY_EXPERIENCED']).optional(),
   languages: z.array(z.string()).default([]),
   skills: z.array(z.string()).default([]),
   age: z.number().int().min(13).max(100).optional(),
   availability: z.string().optional(),
+  details: z.string().max(500, 'Details too long (max 500 characters)').optional(),
   discordUsername: z.string().max(50).optional(),
 });
 

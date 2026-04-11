@@ -477,6 +477,8 @@ model LftPost {
   details              String?
   
   // Player-specific fields (when type = PLAYER)
+  candidateType  String   @default("PLAYER") // PLAYER | MANAGER | COACH | OTHER
+  representedName String?
   mainRole       Role?
   rank           Rank?
   division       String?  // I, II, III, IV (null for Master+)
@@ -493,6 +495,7 @@ model LftPost {
   @@index([type, createdAt])
   @@index([authorId])
   @@index([region, type, createdAt])
+  @@index([type, candidateType, createdAt])
   @@index([communityId, createdAt])
   @@index([teamId, createdAt])
   @@index([source, discordMirrored])

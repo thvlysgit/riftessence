@@ -1682,13 +1682,19 @@ function buildLftForwardEmbed(post: any, guild: Guild | null | undefined): Embed
   }
 
   const authorName = post.author?.username || 'Unknown';
+  const candidateType = String(post.candidateType || 'PLAYER').toUpperCase();
+  const candidateLabel = candidateType === 'PLAYER'
+    ? 'Player'
+    : candidateType.charAt(0) + candidateType.slice(1).toLowerCase();
+  const listingName = post.representedName || authorName;
   const rankLabel = formatRankLabelForDiscord(post.rank, post.division, guild);
   const languagesLine = formatLanguagesForDiscord(post.languages, guild);
 
   const descriptionParts = [
     truncateForDiscord(post.details || post.description, 340) ? `> ${truncateForDiscord(post.details || post.description, 340)}` : null,
+    post.representedName && post.representedName !== authorName ? `👤 Posted by: ${authorName}` : null,
     post.region ? `${regionPrefix} **${post.region}**` : null,
-    post.mainRole ? formatRoleLabelForDiscord(post.mainRole, guild) : null,
+    candidateType === 'PLAYER' && post.mainRole ? formatRoleLabelForDiscord(post.mainRole, guild) : null,
     rankLabel,
     post.experience ? `🧩 Experience: ${post.experience}` : null,
     post.availability ? `📅 Availability: ${post.availability}` : null,
@@ -1698,8 +1704,8 @@ function buildLftForwardEmbed(post: any, guild: Guild | null | undefined): Embed
   ].filter(Boolean);
 
   return new EmbedBuilder()
-    .setColor(0x3B82F6)
-    .setTitle(`Player LFT • ${authorName}`)
+    .setColor(candidateType === 'PLAYER' ? 0x3B82F6 : 0xF59E0B)
+    .setTitle(`${candidateLabel} LFT • ${listingName}`)
     .setURL(appUrl)
     .setDescription(descriptionParts.join('\n'))
     .setFooter({ text: 'RiftEssence' })
