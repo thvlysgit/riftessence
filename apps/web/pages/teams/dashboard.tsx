@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import SEOHead from '../../../api/components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAuthToken } from '../../utils/auth';
+import { getAuthHeader, getAuthToken } from '../../utils/auth';
 import NoAccess from '../../../api/components/NoAccess';
 import { useGlobalUI } from '../../../api/components/GlobalUI';
 import { CreateTeamLftModal } from '../../../api/components/CreateTeamLftModal';
@@ -40,7 +40,7 @@ const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU
 const TeamsDashboardPage: React.FC = () => {
   const router = useRouter();
   const { user } = useAuth();
-  const { showToast } = useGlobalUI();
+  const { showToast, confirm: confirmAction } = useGlobalUI();
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -131,7 +131,7 @@ const TeamsDashboardPage: React.FC = () => {
   const handleLeaveTeam = async (teamId: string) => {
     const token = getAuthToken();
     if (!token || !user) return;
-    if (!confirm('Are you sure you want to leave this team?')) return;
+    if (!window.confirm('Are you sure you want to leave this team?')) return;
     
     try {
       const res = await fetch(`${apiUrl}/api/teams/${teamId}/members/${user.id}`, {
@@ -150,7 +150,7 @@ const TeamsDashboardPage: React.FC = () => {
   const handleDeleteTeam = async (teamId: string) => {
     const token = getAuthToken();
     if (!token) return;
-    if (!confirm('Are you sure you want to delete this team? This cannot be undone.')) return;
+    if (!window.confirm('Are you sure you want to delete this team? This cannot be undone.')) return;
     
     try {
       const res = await fetch(`${apiUrl}/api/teams/${teamId}`, {
@@ -173,6 +173,43 @@ const TeamsDashboardPage: React.FC = () => {
     }
 
     setShowTeamLftModal(true);
+  };
+
+  const maybeShowDiscordRecruitingNudge = async (): Promise<boolean> => {
+    try {
+      const headers = getAuthHeader();
+      if (!headers || !('Authorization' in headers)) return false;
+
+      const profileRes = await fetch(`${apiUrl}/api/user/profile`, { headers });
+      if (!profileRes.ok) return false;
+
+      const profile = await profileRes.json();
+      const needsDiscordLink = !profile.discordLinked;
+      const needsDmSetup = !profile.discordDmNotifications;
+
+      if (!needsDiscordLink && !needsDmSetup) {
+        return false;
+      }
+
+      const setupNow = await confirmAction({
+        title: 'We Have a Feature That Helps',
+        message: needsDiscordLink
+          ? 'RiftEssence can help your team stay on top of recruiting through Discord reminders. Link your Discord account first, then enable DM notifications.'
+          : 'RiftEssence can help your team stay on top of recruiting through Discord reminders. Enable Discord DM notifications so the bot can send timely updates.',
+        confirmText: needsDiscordLink ? 'Open Profile Setup' : 'Open DM Setup',
+        cancelText: 'Later',
+      });
+
+      if (setupNow) {
+        await router.push(needsDiscordLink ? '/profile' : '/settings');
+        return true;
+      }
+
+      return false;
+    } catch (nudgeError) {
+      console.error('Failed to check Discord DM setup state:', nudgeError);
+      return false;
+    }
   };
 
   const handleTeamLftSubmit = async (data: any) => {
@@ -203,7 +240,10 @@ const TeamsDashboardPage: React.FC = () => {
 
       showToast(body?.updated ? 'Team listing updated on LFT.' : 'Team listing published on LFT.', 'success');
       setShowTeamLftModal(false);
-      router.push('/lft');
+      const redirectedToSetup = await maybeShowDiscordRecruitingNudge();
+      if (!redirectedToSetup) {
+        router.push('/lft');
+      }
     } catch (submitError) {
       console.error('Failed to publish team listing:', submitError);
       showToast('Failed to publish team listing.', 'error');

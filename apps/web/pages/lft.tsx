@@ -465,6 +465,39 @@ export default function LFTPage() {
     };
   }, [allPosts]);
 
+  const maybeShowDiscordRecruitingNudge = async () => {
+    try {
+      const headers = getAuthHeader();
+      if (!headers || !('Authorization' in headers)) return;
+
+      const profileRes = await fetch(`${API_URL}/api/user/profile`, { headers });
+      if (!profileRes.ok) return;
+
+      const profile = await profileRes.json();
+      const needsDiscordLink = !profile.discordLinked;
+      const needsDmSetup = !profile.discordDmNotifications;
+
+      if (!needsDiscordLink && !needsDmSetup) {
+        return;
+      }
+
+      const setupNow = await confirm({
+        title: 'We Have a Feature That Helps',
+        message: needsDiscordLink
+          ? 'RiftEssence can help you stay on top of recruiting through Discord reminders. Link your Discord account first, then enable DM notifications.'
+          : 'RiftEssence can help you stay on top of recruiting through Discord reminders. Enable Discord DM notifications so the bot can send timely updates.',
+        confirmText: needsDiscordLink ? 'Open Profile Setup' : 'Open DM Setup',
+        cancelText: 'Later',
+      });
+
+      if (setupNow && typeof window !== 'undefined') {
+        window.location.href = needsDiscordLink ? '/profile' : '/settings';
+      }
+    } catch (nudgeError) {
+      console.error('Failed to check Discord DM setup state:', nudgeError);
+    }
+  };
+
   const handlePlayerSubmit = async (data: any) => {
     try {
       const token = getAuthToken();
@@ -492,6 +525,8 @@ export default function LFTPage() {
           const posts = await refreshRes.json();
           setAllPosts(posts);
         }
+
+        await maybeShowDiscordRecruitingNudge();
       } else {
         const error = await res.json();
         showToast(error.error || 'Failed to create post', 'error');
@@ -612,7 +647,7 @@ export default function LFTPage() {
                   className="rounded-lg px-3 py-2 border"
                   style={{
                     borderColor: 'var(--color-border)',
-                    backgroundColor: 'rgba(255,255,255,0.35)',
+                    backgroundColor: 'var(--color-bg-tertiary)',
                   }}
                 >
                   <p className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>{item.label}</p>
@@ -1085,7 +1120,7 @@ export default function LFTPage() {
                                       borderColor: 'var(--color-border)',
                                     }}
                                   >
-                                    💬 Contact in App
+                                    💬 Message
                                   </button>
                                 )}
                               </div>
@@ -1193,7 +1228,7 @@ export default function LFTPage() {
                                         borderColor: 'var(--color-border)',
                                       }}
                                     >
-                                      💬 Contact in App
+                                      💬 Message
                                     </button>
                                   )}
                                 </div>

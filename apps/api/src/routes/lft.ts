@@ -219,6 +219,7 @@ export default async function lftRoutes(fastify: any) {
         // Team-specific fields
         const {
           teamId,
+          contactUserId,
           rolesNeeded,
           staffNeeded,
           averageRank,
@@ -241,8 +242,10 @@ export default async function lftRoutes(fastify: any) {
             region: true,
             ownerId: true,
             members: {
-              where: { userId },
-              select: { role: true },
+              select: {
+                userId: true,
+                role: true,
+              },
             },
           },
         });
@@ -251,9 +254,29 @@ export default async function lftRoutes(fastify: any) {
           return reply.status(404).send({ error: 'Team not found. Create a team from Teams Dashboard first.' });
         }
 
-        const canManageTeamPost = team.ownerId === userId || team.members.some((member: any) => member.role === 'MANAGER');
+        const requesterMembership = team.members.find((member: any) => member.userId === userId);
+        const canManageTeamPost = team.ownerId === userId || requesterMembership?.role === 'MANAGER';
         if (!canManageTeamPost) {
           return reply.status(403).send({ error: 'Only the team owner or managers can publish this team listing.' });
+        }
+
+        const requestedContactUserId = typeof contactUserId === 'string' ? contactUserId.trim() : '';
+        let contactAuthorId = userId;
+
+        if (requestedContactUserId) {
+          const eligibleContactIds = new Set<string>([team.ownerId]);
+          for (const member of team.members) {
+            const role = String(member.role || '').toUpperCase();
+            if (role === 'OWNER' || role === 'MANAGER' || role === 'COACH') {
+              eligibleContactIds.add(member.userId);
+            }
+          }
+
+          if (!eligibleContactIds.has(requestedContactUserId)) {
+            return reply.status(403).send({ error: 'Contact person must be an owner, manager, or coach of the selected team.' });
+          }
+
+          contactAuthorId = requestedContactUserId;
         }
 
         const normalizedRolesNeeded = normalizeGameRoles(rolesNeeded);
@@ -266,6 +289,7 @@ export default async function lftRoutes(fastify: any) {
         data.teamId = team.id;
         data.teamName = team.name;
         data.region = team.region;
+        data.authorId = contactAuthorId;
         data.rolesNeeded = normalizedRolesNeeded;
         data.staffNeeded = normalizedStaffNeeded;
         data.averageRank = averageRank || null;

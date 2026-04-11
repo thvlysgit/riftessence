@@ -699,6 +699,7 @@ export default async function discordFeedRoutes(fastify: any) {
         return {
           id: post.id,
           type: post.type,
+          teamId: post.teamId || null,
           createdAt: post.createdAt,
           region: post.region,
           candidateType: post.candidateType || 'PLAYER',

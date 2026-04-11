@@ -1575,18 +1575,30 @@ function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): Embed
     .setTimestamp();
 }
 
-function buildForwardMessagePayload(embed: EmbedBuilder, mentionDiscordId?: string | null) {
-  if (!mentionDiscordId) {
-    return { embeds: [embed] };
+function buildForwardMessagePayload(embed: EmbedBuilder, mentionDiscordId?: string | null, messageUrl?: string) {
+  const payload: any = {
+    embeds: [embed],
+  };
+
+  if (mentionDiscordId) {
+    payload.content = `<@${mentionDiscordId}>`;
+    payload.allowedMentions = {
+      users: [mentionDiscordId],
+    };
   }
 
-  return {
-    content: `<@${mentionDiscordId}>`,
-    embeds: [embed],
-    allowedMentions: {
-      users: [mentionDiscordId],
-    },
-  };
+  if (messageUrl) {
+    payload.components = [
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setStyle(ButtonStyle.Link)
+          .setLabel('💬 Message in App')
+          .setURL(messageUrl)
+      ),
+    ];
+  }
+
+  return payload;
 }
 
 async function mirrorPostToDiscord(post: any) {
@@ -1610,7 +1622,7 @@ async function mirrorPostToDiscord(post: any) {
       if (channel && channel.isTextBased() && 'guild' in channel) {
         const textChannel = channel as TextChannel;
         const embed = buildDuoForwardEmbed(post, textChannel.guild);
-        await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId));
+        await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId, `${APP_URL}/share/post/${id}`));
         console.log(`✅ Mirrored duo post ${id} to channel ${fc.channelId}`);
       }
     } catch (error: any) {
@@ -1733,7 +1745,8 @@ async function mirrorLftPostToDiscord(post: any) {
       if (channel && channel.isTextBased() && 'guild' in channel) {
         const textChannel = channel as TextChannel;
         const embed = buildLftForwardEmbed(post, textChannel.guild);
-        await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId));
+        const messageUrl = post.type === 'TEAM' && post.teamId ? `${APP_URL}/teams/${post.teamId}` : `${APP_URL}/lft`;
+        await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId, messageUrl));
         console.log(`✅ Mirrored LFT post ${id} to channel ${fc.channelId}`);
       }
     } catch (error: any) {

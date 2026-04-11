@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../web/contexts/ThemeContext';
 import { getAuthToken } from '../../web/utils/auth';
 
@@ -7,6 +7,12 @@ interface UserTeam {
   name: string;
   tag: string | null;
   isOwner: boolean;
+  myRole: string;
+  members: Array<{
+    userId: string;
+    username: string;
+    role: string;
+  }>;
 }
 
 // Helper to get custom arrow with theme color
@@ -35,6 +41,7 @@ const STAFF_NEEDS = [
     description: 'Analyst, content, psychologist, or another support profile.',
   },
 ];
+const CONTACT_ELIGIBLE_ROLES = new Set(['OWNER', 'MANAGER', 'COACH']);
 const RANKS = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'];
 const DIVISIONS = ['IV', 'III', 'II', 'I'];
 const AVAILABILITIES = [
@@ -64,6 +71,7 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
   const [userTeams, setUserTeams] = useState<UserTeam[]>([]);
   const [teamsLoading, setTeamsLoading] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [contactUserId, setContactUserId] = useState('');
   const [region, setRegion] = useState('EUW');
   const [rolesNeeded, setRolesNeeded] = useState<string[]>([]);
   const [staffNeeded, setStaffNeeded] = useState<string[]>([]);
@@ -91,9 +99,9 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
           });
           if (res.ok) {
             const data = await res.json();
-            // Filter to only teams where user is owner (can post LFT for)
-            const ownedTeams = data.filter((t: UserTeam) => t.isOwner);
-            setUserTeams(ownedTeams);
+            // Team LFT posts are managed by owner/manager.
+            const manageableTeams = data.filter((t: UserTeam) => t.isOwner || t.myRole === 'MANAGER');
+            setUserTeams(manageableTeams);
           }
         } catch (err) {
           console.error('Failed to fetch teams:', err);
@@ -112,6 +120,7 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
       if (saved) {
         const d = JSON.parse(saved);
         if (d.selectedTeamId !== undefined) setSelectedTeamId(d.selectedTeamId);
+        if (d.contactUserId !== undefined) setContactUserId(d.contactUserId);
         if (d.region) setRegion(d.region);
         if (Array.isArray(d.rolesNeeded)) setRolesNeeded(d.rolesNeeded);
         if (Array.isArray(d.staffNeeded)) setStaffNeeded(d.staffNeeded);
@@ -128,10 +137,38 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
   // Save draft to localStorage on change
   useEffect(() => {
     localStorage.setItem('riftessence_lft_team_draft', JSON.stringify({
-      selectedTeamId, region, rolesNeeded, staffNeeded, averageRank, averageDivision,
+      selectedTeamId, contactUserId, region, rolesNeeded, staffNeeded, averageRank, averageDivision,
       scrims, minAvailability, coachingAvailability, details
     }));
-  }, [selectedTeamId, region, rolesNeeded, staffNeeded, averageRank, averageDivision, scrims, minAvailability, coachingAvailability, details]);
+  }, [selectedTeamId, contactUserId, region, rolesNeeded, staffNeeded, averageRank, averageDivision, scrims, minAvailability, coachingAvailability, details]);
+
+  const selectedTeam = useMemo(
+    () => userTeams.find((team) => team.id === selectedTeamId),
+    [userTeams, selectedTeamId]
+  );
+
+  const contactCandidates = useMemo(
+    () => (selectedTeam?.members || []).filter((member) =>
+      CONTACT_ELIGIBLE_ROLES.has(String(member.role || '').toUpperCase())
+    ),
+    [selectedTeam]
+  );
+
+  useEffect(() => {
+    if (!selectedTeam) {
+      setContactUserId('');
+      return;
+    }
+
+    if (contactCandidates.length === 0) {
+      setContactUserId('');
+      return;
+    }
+
+    if (!contactCandidates.some((member) => member.userId === contactUserId)) {
+      setContactUserId(contactCandidates[0].userId);
+    }
+  }, [selectedTeam, contactCandidates, contactUserId]);
 
   const toggleRole = (role: string) => {
     setRolesNeeded(prev => 
@@ -167,11 +204,17 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
       setError('Coaching availability is required');
       return;
     }
-    const selectedTeam = userTeams.find(t => t.id === selectedTeamId);
+    const selectedContact = contactCandidates.find((member) => member.userId === contactUserId);
+    if (!selectedContact) {
+      setError('Choose a contact person (owner, manager, or coach) from this team');
+      return;
+    }
+
     setError('');
     onSubmit({
       teamName: selectedTeam?.name || '',
       teamId: selectedTeamId,
+      contactUserId: selectedContact.userId,
       region,
       rolesNeeded,
       staffNeeded,
@@ -270,9 +313,10 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
           transform: translate(-50%, -50%) scale(1.0);
         }
       `}</style>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4 overflow-y-auto">
+      <div className="fixed inset-0 z-50 bg-black bg-opacity-60 overflow-y-auto">
+        <div className="min-h-full flex items-start justify-center p-4 sm:p-6">
         <form 
-          className="rounded-xl p-6 w-full max-w-2xl shadow-lg border-2 my-8" 
+          className="rounded-xl p-6 w-full max-w-2xl shadow-lg border-2 my-4 sm:my-8" 
           style={{ 
             background: 'var(--color-bg-secondary)', 
             borderColor: 'var(--color-border)' 
@@ -316,7 +360,7 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
                   color: 'var(--color-text-muted)'
                 }}
               >
-                You need to create a team first. <a href="/teams/dashboard" className="underline" style={{ color: 'var(--color-accent-1)' }}>Go to Teams →</a>
+                You need to own or manage a team first. <a href="/teams/dashboard" className="underline" style={{ color: 'var(--color-accent-1)' }}>Go to Teams →</a>
               </div>
             ) : (
               <select
@@ -342,6 +386,51 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
                 ))}
               </select>
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+              Contact Person *
+            </label>
+            {selectedTeamId && contactCandidates.length > 0 ? (
+              <select
+                value={contactUserId}
+                onChange={(e) => setContactUserId(e.target.value)}
+                className="w-full px-3 py-2 rounded border appearance-none cursor-pointer"
+                style={{
+                  background: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                  backgroundImage: getCustomArrow(),
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 0.75rem center',
+                  paddingRight: '2.5rem'
+                }}
+                required
+              >
+                {contactCandidates.map((member) => (
+                  <option key={member.userId} value={member.userId}>
+                    {member.username} ({member.role})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div
+                className="w-full px-3 py-2 rounded border text-sm"
+                style={{
+                  background: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-muted)'
+                }}
+              >
+                {selectedTeamId
+                  ? 'No eligible contact found. Contact must be OWNER, MANAGER, or COACH.'
+                  : 'Select a team first.'}
+              </div>
+            )}
+            <p className="mt-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              Messages from this listing will route to this team contact.
+            </p>
           </div>
 
           {/* Region */}
@@ -613,6 +702,7 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
           </button>
         </div>
         </form>
+        </div>
       </div>
     </>
   );

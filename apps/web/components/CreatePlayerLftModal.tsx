@@ -242,9 +242,10 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-60 overflow-y-auto">
+      <div className="min-h-full flex items-start justify-center p-4 sm:p-6">
       <form
-        className="rounded-2xl p-6 w-full max-w-3xl shadow-lg border my-8"
+        className="rounded-2xl p-6 w-full max-w-3xl shadow-lg border my-4 sm:my-8"
         style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}
         onSubmit={handleSubmit}
       >
@@ -585,6 +586,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
           </button>
         </div>
       </form>
+      </div>
     </div>
   );
 };
