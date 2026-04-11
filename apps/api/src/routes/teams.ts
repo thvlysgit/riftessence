@@ -939,14 +939,31 @@ export default async function teamsRoutes(fastify: any) {
       if (!userId) return;
 
       const { id } = request.params as any;
-      const { past } = request.query as any;
+      const { past, start, end } = request.query as any;
 
       if (!await isTeamMember(userId, id)) {
         return reply.status(403).send({ error: 'You are not a member of this team' });
       }
 
       const where: any = { teamId: id };
-      if (!past) {
+
+      const hasRange = Boolean(start || end);
+      if (hasRange) {
+        const startDate = start ? new Date(start) : null;
+        const endDate = end ? new Date(end) : null;
+
+        if (start && (!startDate || Number.isNaN(startDate.getTime()))) {
+          return reply.status(400).send({ error: 'Invalid start date' });
+        }
+        if (end && (!endDate || Number.isNaN(endDate.getTime()))) {
+          return reply.status(400).send({ error: 'Invalid end date' });
+        }
+
+        where.scheduledAt = {
+          ...(startDate ? { gte: startDate } : {}),
+          ...(endDate ? { lte: endDate } : {}),
+        };
+      } else if (!past) {
         where.scheduledAt = { gte: new Date() };
       }
       Object.assign(where, buildConcernedEventFilter(userId));
@@ -954,7 +971,7 @@ export default async function teamsRoutes(fastify: any) {
       const events = await prisma.teamEvent.findMany({
         where,
         orderBy: { scheduledAt: past ? 'desc' : 'asc' },
-        take: 50,
+        take: hasRange ? 200 : 50,
         include: {
           attendances: {
             include: {

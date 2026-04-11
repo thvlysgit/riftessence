@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, REST, Routes, SlashCommandBuilder, ChatInputCommandInteraction, TextChannel, EmbedBuilder, ActivityType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonInteraction, StringSelectMenuInteraction, RoleSelectMenuBuilder, RoleSelectMenuInteraction, ModalBuilder, TextInputBuilder, TextInputStyle, ModalSubmitInteraction, Guild } from 'discord.js';
+import { Client, GatewayIntentBits, Events, REST, Routes, SlashCommandBuilder, ChatInputCommandInteraction, TextChannel, EmbedBuilder, ActivityType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonInteraction, StringSelectMenuInteraction, ModalBuilder, TextInputBuilder, TextInputStyle, ModalSubmitInteraction, Guild } from 'discord.js';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
 
@@ -51,6 +51,9 @@ const ROLE_MENU_SYNC = 'rolemenu_sync';
 const ROLE_MENU_CLOSE = 'rolemenu_close';
 const ROLE_MENU_SELECT_KEY = 'rolemenu_select_key';
 const ROLE_MENU_SELECT_ROLE = 'rolemenu_select_role';
+const ROLE_MENU_ROLE_PAGE_PREV = 'rolemenu_role_page_prev';
+const ROLE_MENU_ROLE_PAGE_NEXT = 'rolemenu_role_page_next';
+const ROLE_MENU_ROLES_PER_PAGE = 25;
 
 const ROLE_FORWARDING_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_ROLE_FORWARDING_POLL_INTERVAL_MS || '300000', 10);
 
@@ -106,6 +109,7 @@ type PendingRoleMenuSession = {
   mode: 'RANK' | 'LANGUAGE';
   selectedKey: string | null;
   selectedRoleId: string | null;
+  rolePage: number;
 };
 
 // ============================================================
@@ -231,6 +235,41 @@ function getKeyOptions(mode: 'RANK' | 'LANGUAGE') {
   );
 }
 
+function truncateRoleLabel(value: string, maxLen = 90) {
+  if (value.length <= maxLen) return value;
+  return `${value.slice(0, maxLen - 3)}...`;
+}
+
+function getPagedGuildRoleOptions(guild: Guild, session: PendingRoleMenuSession) {
+  const allRoles = Array.from(guild.roles.cache.values())
+    .filter((role) => role.id !== guild.id)
+    .sort((a, b) => {
+      if (b.position !== a.position) return b.position - a.position;
+      return a.name.localeCompare(b.name);
+    });
+
+  const totalRoles = allRoles.length;
+  const totalPages = Math.max(1, Math.ceil(totalRoles / ROLE_MENU_ROLES_PER_PAGE));
+  const safePage = Math.min(Math.max(0, session.rolePage || 0), totalPages - 1);
+  const start = safePage * ROLE_MENU_ROLES_PER_PAGE;
+  const currentPageRoles = allRoles.slice(start, start + ROLE_MENU_ROLES_PER_PAGE);
+
+  const options = currentPageRoles.map((role) =>
+    new StringSelectMenuOptionBuilder()
+      .setLabel(truncateRoleLabel(role.name))
+      .setValue(role.id)
+      .setDescription(`Position ${role.position}`)
+      .setDefault(role.id === session.selectedRoleId)
+  );
+
+  return {
+    options,
+    page: safePage,
+    totalPages,
+    totalRoles,
+  };
+}
+
 function formatRoleMapSummary(map: Record<string, string>, orderedKeys: string[], iconByKey?: Record<string, string>) {
   const lines = orderedKeys
     .filter((key) => Boolean(map[key]))
@@ -325,7 +364,7 @@ function buildRoleMenuEditorEmbed(session: PendingRoleMenuSession, config: RoleF
     .setFooter({ text: `${config.communityName} • ${modeLabel(session.mode)}` });
 }
 
-function buildRoleMenuEditorRows(session: PendingRoleMenuSession) {
+function buildRoleMenuEditorRows(session: PendingRoleMenuSession, guild?: Guild | null) {
   const keyOptions = getKeyOptions(session.mode).map((option) =>
     option.setDefault(option.data.value === session.selectedKey)
   );
@@ -337,11 +376,48 @@ function buildRoleMenuEditorRows(session: PendingRoleMenuSession) {
     .setMaxValues(1)
     .addOptions(keyOptions);
 
-  const roleMenu = new RoleSelectMenuBuilder()
+  const roleMenu = new StringSelectMenuBuilder()
     .setCustomId(ROLE_MENU_SELECT_ROLE)
-    .setPlaceholder('Choose a Discord role to map')
+    .setPlaceholder('Choose a Discord role to map (page 1)')
     .setMinValues(1)
     .setMaxValues(1);
+
+  const roleOptions = guild ? getPagedGuildRoleOptions(guild, session) : null;
+  if (roleOptions && roleOptions.options.length > 0) {
+    roleMenu
+      .setPlaceholder(`Choose a Discord role (${roleOptions.page + 1}/${roleOptions.totalPages})`)
+      .addOptions(roleOptions.options);
+  } else {
+    roleMenu
+      .setDisabled(true)
+      .setPlaceholder('No server roles found');
+  }
+
+  const rows: ActionRowBuilder<any>[] = [
+    new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(keyMenu),
+    new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(roleMenu),
+  ];
+
+  if (roleOptions && roleOptions.totalPages > 1) {
+    const paginationRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(ROLE_MENU_ROLE_PAGE_PREV)
+        .setLabel('⬅️ Roles')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(roleOptions.page <= 0),
+      new ButtonBuilder()
+        .setCustomId('rolemenu_role_page_indicator')
+        .setLabel(`Page ${roleOptions.page + 1}/${roleOptions.totalPages}`)
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true),
+      new ButtonBuilder()
+        .setCustomId(ROLE_MENU_ROLE_PAGE_NEXT)
+        .setLabel('Roles ➡️')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(roleOptions.page >= roleOptions.totalPages - 1),
+    );
+    rows.push(paginationRow);
+  }
 
   const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -359,11 +435,8 @@ function buildRoleMenuEditorRows(session: PendingRoleMenuSession) {
       .setStyle(ButtonStyle.Secondary),
   );
 
-  return [
-    new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(keyMenu),
-    new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(roleMenu),
-    actionRow,
-  ];
+  rows.push(actionRow);
+  return rows;
 }
 
 async function fetchRoleForwardingConfig(guildId: string): Promise<{ ok: true; config: RoleForwardingConfig } | { ok: false; error: string }> {
@@ -747,13 +820,36 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       mode: roleMenuMode,
       selectedKey: null,
       selectedRoleId: null,
+      rolePage: 0,
     };
     pendingRoleMenuSessions.set(roleMenuSessionKey, session);
 
     return interaction.update({
       content: '',
       embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
-      components: buildRoleMenuEditorRows(session),
+      components: buildRoleMenuEditorRows(session, interaction.guild || null),
+    });
+  }
+
+  if (customId === ROLE_MENU_ROLE_PAGE_PREV || customId === ROLE_MENU_ROLE_PAGE_NEXT) {
+    const session = pendingRoleMenuSessions.get(roleMenuSessionKey);
+    if (!session) {
+      return interaction.update({ content: '❌ Role menu session expired. Run `/rolemenu` again.', embeds: [], components: [] });
+    }
+
+    const delta = customId === ROLE_MENU_ROLE_PAGE_PREV ? -1 : 1;
+    session.rolePage = Math.max(0, session.rolePage + delta);
+    pendingRoleMenuSessions.set(roleMenuSessionKey, session);
+
+    const configResult = await fetchRoleForwardingConfig(guildId);
+    if (!configResult.ok) {
+      return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+    }
+
+    return interaction.update({
+      content: '',
+      embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
+      components: buildRoleMenuEditorRows(session, interaction.guild || null),
     });
   }
 
@@ -786,7 +882,7 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       return interaction.update({
         content: '❌ Select a key first (rank/language) before saving.',
         embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
-        components: buildRoleMenuEditorRows(session),
+        components: buildRoleMenuEditorRows(session, interaction.guild || null),
       });
     }
 
@@ -799,7 +895,7 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       return interaction.update({
         content: '❌ Select a Discord role before saving this mapping.',
         embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
-        components: buildRoleMenuEditorRows(session),
+        components: buildRoleMenuEditorRows(session, interaction.guild || null),
       });
     }
 
@@ -819,7 +915,7 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       return interaction.update({
         content: `❌ ${updateResult.data?.error || 'Failed to update mapping.'}`,
         embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
-        components: buildRoleMenuEditorRows(session),
+        components: buildRoleMenuEditorRows(session, interaction.guild || null),
       });
     }
 
@@ -1063,7 +1159,31 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
     return interaction.update({
       content: '',
       embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
-      components: buildRoleMenuEditorRows(session),
+      components: buildRoleMenuEditorRows(session, interaction.guild || null),
+    });
+  }
+
+  if (customId === ROLE_MENU_SELECT_ROLE) {
+    if (!guildId) return interaction.deferUpdate();
+
+    const roleMenuSessionKey = getRoleMenuSessionKey(interaction.user.id, guildId);
+    const session = pendingRoleMenuSessions.get(roleMenuSessionKey);
+    if (!session) {
+      return interaction.update({ content: '❌ Role menu session expired. Run `/rolemenu` again.', embeds: [], components: [] });
+    }
+
+    session.selectedRoleId = interaction.values[0] || null;
+    pendingRoleMenuSessions.set(roleMenuSessionKey, session);
+
+    const configResult = await fetchRoleForwardingConfig(guildId);
+    if (!configResult.ok) {
+      return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+    }
+
+    return interaction.update({
+      content: '',
+      embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
+      components: buildRoleMenuEditorRows(session, interaction.guild || null),
     });
   }
 
@@ -1094,37 +1214,6 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
 
     return interaction.update({ content: 'Are you sure you want to remove this feed channel?', components: [row] });
   }
-}
-
-async function handleRoleSelectInteraction(interaction: RoleSelectMenuInteraction) {
-  if (interaction.customId !== ROLE_MENU_SELECT_ROLE) {
-    return interaction.deferUpdate();
-  }
-
-  const guildId = interaction.guildId;
-  if (!guildId) {
-    return interaction.deferUpdate();
-  }
-
-  const roleMenuSessionKey = getRoleMenuSessionKey(interaction.user.id, guildId);
-  const session = pendingRoleMenuSessions.get(roleMenuSessionKey);
-  if (!session) {
-    return interaction.update({ content: '❌ Role menu session expired. Run `/rolemenu` again.', embeds: [], components: [] });
-  }
-
-  session.selectedRoleId = interaction.values[0] || null;
-  pendingRoleMenuSessions.set(roleMenuSessionKey, session);
-
-  const configResult = await fetchRoleForwardingConfig(guildId);
-  if (!configResult.ok) {
-    return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
-  }
-
-  return interaction.update({
-    content: '',
-    embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
-    components: buildRoleMenuEditorRows(session),
-  });
 }
 
 async function handleChatReplyButton(interaction: ButtonInteraction) {
@@ -2063,15 +2152,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return interaction.reply({ content: '❌ Only administrators can configure bot settings.', ephemeral: true });
     }
     await handleSelectMenuInteraction(interaction as StringSelectMenuInteraction);
-    return;
-  }
-
-  if (interaction.isRoleSelectMenu()) {
-    const member = interaction.member as any;
-    if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
-      return interaction.reply({ content: '❌ Only administrators can configure role forwarding.', ephemeral: true });
-    }
-    await handleRoleSelectInteraction(interaction as RoleSelectMenuInteraction);
     return;
   }
 

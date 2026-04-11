@@ -275,8 +275,36 @@ const TeamSchedulePage: React.FC = () => {
   const fetchEvents = async () => {
     const token = getAuthToken();
     if (!token || !selectedTeamId) return;
+
+    const rangeStart = new Date();
+    const rangeEnd = new Date();
+
+    if (viewMode === 'week') {
+      rangeStart.setTime(currentWeekStart.getTime());
+      rangeStart.setHours(0, 0, 0, 0);
+
+      rangeEnd.setTime(currentWeekStart.getTime());
+      rangeEnd.setDate(rangeEnd.getDate() + 6);
+      rangeEnd.setHours(23, 59, 59, 999);
+    } else {
+      const monthDays = getMonthCalendarDays();
+      const firstVisibleDay = monthDays[0];
+      const lastVisibleDay = monthDays[monthDays.length - 1];
+
+      rangeStart.setTime(firstVisibleDay.getTime());
+      rangeStart.setHours(0, 0, 0, 0);
+
+      rangeEnd.setTime(lastVisibleDay.getTime());
+      rangeEnd.setHours(23, 59, 59, 999);
+    }
+
+    const query = new URLSearchParams({
+      start: rangeStart.toISOString(),
+      end: rangeEnd.toISOString(),
+    });
+
     try {
-      const res = await fetch(`${apiUrl}/api/teams/${selectedTeamId}/events`, {
+      const res = await fetch(`${apiUrl}/api/teams/${selectedTeamId}/events?${query.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -356,12 +384,15 @@ const TeamSchedulePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedTeamId) {
-      fetchEvents();
-      const team = teams.find(t => t.id === selectedTeamId);
-      setSelectedTeam(team || null);
-    }
+    if (!selectedTeamId) return;
+    const team = teams.find(t => t.id === selectedTeamId);
+    setSelectedTeam(team || null);
   }, [selectedTeamId, teams]);
+
+  useEffect(() => {
+    if (!selectedTeamId) return;
+    fetchEvents();
+  }, [selectedTeamId, viewMode, currentWeekStart, currentMonth]);
 
   const getEventsForDate = (date: Date): TeamEvent[] => {
     return events.filter(event => {
