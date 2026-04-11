@@ -31,8 +31,11 @@ export default async function communitiesRoutes(fastify: any) {
   // GET /api/communities - List all communities with optional filters
   fastify.get('/communities', async (request: any, reply: any) => {
     try {
-      const { region, isPartner, search, discordServerId, limit = 50 } = (request.query || {}) as any;
+      const { region, isPartner, search, discordServerId, limit } = (request.query || {}) as any;
       const where: any = {};
+
+      const parsedLimit = Number.parseInt(String(limit), 10);
+      const take = Number.isNaN(parsedLimit) || parsedLimit <= 0 ? undefined : Math.min(parsedLimit, 500);
       
       // Search by Discord server ID (bot integration)
       if (discordServerId) {
@@ -57,7 +60,7 @@ export default async function communitiesRoutes(fastify: any) {
 
       const communities = await prisma.community.findMany({
         where,
-        take: parseInt(limit),
+        take,
         orderBy: [
           { isPartner: 'desc' },
           { createdAt: 'desc' },

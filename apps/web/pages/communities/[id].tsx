@@ -41,6 +41,7 @@ export default function CommunityDetailPage() {
   const [joining, setJoining] = useState(false);
   const [isMember, setIsMember] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAppAdmin, setIsAppAdmin] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [editData, setEditData] = useState({
@@ -49,6 +50,7 @@ export default function CommunityDetailPage() {
     language: 'English',
     regions: [] as string[],
     inviteLink: '',
+    isPartner: false,
   });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -79,6 +81,39 @@ export default function CommunityDetailPage() {
     }
   }, [community, userId]);
 
+  useEffect(() => {
+    if (!userId) {
+      setIsAppAdmin(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkAppAdmin = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/user/check-admin?userId=${encodeURIComponent(userId)}`, {
+          headers: getAuthHeader(),
+        });
+
+        if (!res.ok) {
+          if (!cancelled) setIsAppAdmin(false);
+          return;
+        }
+
+        const data = await res.json();
+        if (!cancelled) setIsAppAdmin(Boolean(data.isAdmin));
+      } catch {
+        if (!cancelled) setIsAppAdmin(false);
+      }
+    };
+
+    checkAppAdmin();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
   // Populate edit form when community loads
   useEffect(() => {
     if (community) {
@@ -88,6 +123,7 @@ export default function CommunityDetailPage() {
         language: community.language,
         regions: [...community.regions],
         inviteLink: community.inviteLink || '',
+        isPartner: community.isPartner,
       });
     }
   }, [community]);
@@ -298,7 +334,7 @@ export default function CommunityDetailPage() {
 
             {userId && (
               <div className="flex items-center gap-2">
-                {isAdmin && (
+                {(isAdmin || isAppAdmin) && (
                   <button
                     onClick={() => setShowAdminPanel(!showAdminPanel)}
                     className="px-4 py-2 border font-semibold transition-colors text-sm"
@@ -344,7 +380,7 @@ export default function CommunityDetailPage() {
           </div>
 
           {/* Admin Panel */}
-          {isAdmin && showAdminPanel && (
+          {(isAdmin || isAppAdmin) && showAdminPanel && (
             <div
               className="mb-6 p-6 border rounded-lg"
               style={{
@@ -462,6 +498,29 @@ export default function CommunityDetailPage() {
                     }}
                   />
                 </div>
+
+                {isAppAdmin && (
+                  <div
+                    className="p-3 border"
+                    style={{
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      borderColor: 'var(--color-border)',
+                      borderRadius: 'var(--border-radius)',
+                    }}
+                  >
+                    <label className="flex items-center gap-3 text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                      <input
+                        type="checkbox"
+                        checked={editData.isPartner}
+                        onChange={(e) => setEditData({ ...editData, isPartner: e.target.checked })}
+                      />
+                      Mark this community as a partner community
+                    </label>
+                    <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                      App-admin only: partner communities receive the partner badge in discovery and detail views.
+                    </p>
+                  </div>
+                )}
 
                 {/* Save / Delete buttons */}
                 <div className="flex items-center justify-between pt-2">
