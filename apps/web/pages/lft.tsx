@@ -18,6 +18,33 @@ const LANGUAGE_FILTERS = ['ALL', 'English', 'Spanish', 'French', 'German', 'Ital
 const AVAILABILITY_FILTERS = ['ALL', 'ONCE_A_WEEK', 'TWICE_A_WEEK', 'THRICE_A_WEEK', 'FOUR_TIMES_A_WEEK', 'FIVE_TIMES_A_WEEK', 'SIX_TIMES_A_WEEK', 'EVERYDAY'];
 const STAFF_NEED_FILTERS = ['ALL', 'MANAGER', 'COACH', 'OTHER'] as const;
 const CANDIDATE_TYPE_FILTERS = ['ALL', 'PLAYER', 'MANAGER', 'COACH', 'OTHER'] as const;
+const ROLE_FILTER_LABELS: Record<string, string> = {
+  ALL: '🎯 All In-Game Roles',
+  TOP: '🛡️ Top',
+  JUNGLE: '🌿 Jungle',
+  MID: '⚔️ Mid',
+  ADC: '🏹 ADC',
+  SUPPORT: '❤️ Support',
+};
+const CANDIDATE_FILTER_LABELS: Record<string, string> = {
+  ALL: '🧭 All Candidate Types',
+  PLAYER: '🧑 Player',
+  MANAGER: '📋 Manager',
+  COACH: '🎓 Coach',
+  OTHER: '🧩 Other',
+};
+const STAFF_FILTER_LABELS: Record<string, string> = {
+  ALL: '🛠️ All Staff Needs',
+  MANAGER: '📋 Manager',
+  COACH: '🎓 Coach',
+  OTHER: '🧩 Other',
+};
+const LISTING_FILTER_META: Record<'ALL' | 'TEAMS' | 'PLAYERS' | 'STAFF', { icon: string; label: string }> = {
+  ALL: { icon: '🧭', label: 'All' },
+  TEAMS: { icon: '🏰', label: 'Teams' },
+  PLAYERS: { icon: '🧑', label: 'Talent' },
+  STAFF: { icon: '🛠️', label: 'Staff' },
+};
 const STAFF_NEED_DESCRIPTIONS: Record<string, string> = {
   MANAGER: 'Coordinates roster and operations',
   COACH: 'Leads review, drafts, and progression',
@@ -51,6 +78,25 @@ const getRoleIcon = (role: string) => {
     default:
       return null;
   }
+};
+
+const getStaffIcon = (role: string) => {
+  const normalized = role.toUpperCase();
+  if (normalized === 'MANAGER') {
+    return <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><path d="M9 14l2 2 4-4"/></svg>;
+  }
+  if (normalized === 'COACH') {
+    return <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6"/><path d="M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>;
+  }
+  return <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>;
+};
+
+const getCandidateTypeIcon = (candidateType: string) => {
+  const normalized = candidateType.toUpperCase();
+  if (normalized === 'PLAYER') {
+    return <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>;
+  }
+  return getStaffIcon(normalized);
 };
 
 const getLanguageBadge = (language: string) => {
@@ -589,7 +635,7 @@ export default function LFTPage() {
                     backgroundColor: 'var(--color-bg-tertiary)',
                   }}
                 >
-                  <p className="text-xs font-semibold" style={{ color: 'var(--color-accent-1)' }}>{key}</p>
+                  <p className="text-xs font-semibold inline-flex items-center gap-1" style={{ color: 'var(--color-accent-1)' }}>{getStaffIcon(key)} {key}</p>
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
                     {STAFF_NEED_DESCRIPTIONS[key]}
                   </p>
@@ -608,7 +654,6 @@ export default function LFTPage() {
             <div className="flex flex-wrap gap-2 mb-3">
               {(['ALL', 'TEAMS', 'PLAYERS', 'STAFF'] as const).map((mode) => {
                 const active = listingFilter === mode;
-                const modeLabel = mode === 'ALL' ? 'All' : mode === 'TEAMS' ? 'Teams' : mode === 'PLAYERS' ? 'Talent' : 'Staff';
                 return (
                   <button
                     key={mode}
@@ -620,7 +665,7 @@ export default function LFTPage() {
                       border: `1px solid ${active ? 'var(--color-accent-1)' : 'var(--color-border)'}`,
                     }}
                   >
-                    {modeLabel} ({listingCounts[mode]})
+                    {LISTING_FILTER_META[mode].icon} {LISTING_FILTER_META[mode].label} ({listingCounts[mode]})
                   </button>
                 );
               })}
@@ -677,7 +722,7 @@ export default function LFTPage() {
                   }}
                 >
                   {REGIONS.map((region) => (
-                    <option key={region} value={region}>{region === 'ALL' ? 'All Regions' : region}</option>
+                    <option key={region} value={region}>{region === 'ALL' ? '🌍 All Regions' : `🌍 ${region}`}</option>
                   ))}
                 </select>
 
@@ -692,7 +737,7 @@ export default function LFTPage() {
                   }}
                 >
                   {ROLE_FILTERS.map((role) => (
-                    <option key={role} value={role}>{role === 'ALL' ? 'All In-Game Roles' : role}</option>
+                    <option key={role} value={role}>{ROLE_FILTER_LABELS[role] || role}</option>
                   ))}
                 </select>
 
@@ -707,7 +752,7 @@ export default function LFTPage() {
                   }}
                 >
                   {CANDIDATE_TYPE_FILTERS.map((type) => (
-                    <option key={type} value={type}>{type === 'ALL' ? 'All Candidate Types' : CANDIDATE_TYPE_LABELS[type]}</option>
+                    <option key={type} value={type}>{CANDIDATE_FILTER_LABELS[type] || type}</option>
                   ))}
                 </select>
 
@@ -722,7 +767,7 @@ export default function LFTPage() {
                   }}
                 >
                   {STAFF_NEED_FILTERS.map((role) => (
-                    <option key={role} value={role}>{role === 'ALL' ? 'All Staff Needs' : role}</option>
+                    <option key={role} value={role}>{STAFF_FILTER_LABELS[role] || role}</option>
                   ))}
                 </select>
 
@@ -737,7 +782,7 @@ export default function LFTPage() {
                   }}
                 >
                   {LANGUAGE_FILTERS.map((language) => (
-                    <option key={language} value={language}>{language === 'ALL' ? 'All Languages' : language}</option>
+                    <option key={language} value={language}>{language === 'ALL' ? '🗣️ All Languages' : `🗣️ ${language}`}</option>
                   ))}
                 </select>
 
@@ -753,7 +798,7 @@ export default function LFTPage() {
                 >
                   {AVAILABILITY_FILTERS.map((availability) => (
                     <option key={availability} value={availability}>
-                      {availability === 'ALL' ? 'All Availability' : formatAvailability(availability)}
+                      {availability === 'ALL' ? '📅 All Availability' : `📅 ${formatAvailability(availability)}`}
                     </option>
                   ))}
                 </select>
@@ -770,7 +815,7 @@ export default function LFTPage() {
                 >
                   <option value="ALL">Any Rank</option>
                   {RANK_ORDER.map((rank) => (
-                    <option key={rank} value={rank}>Minimum Rank: {rank}</option>
+                    <option key={rank} value={rank}>🏅 Minimum Rank: {rank}</option>
                   ))}
                 </select>
 
@@ -783,7 +828,7 @@ export default function LFTPage() {
                   }}
                 >
                   <input type="checkbox" checked={scrimsOnly} onChange={(e) => setScrimsOnly(e.target.checked)} />
-                  Scrims-only teams
+                  ⚔️ Scrims-only teams
                 </label>
               </div>
             )}
@@ -901,7 +946,7 @@ export default function LFTPage() {
                                   backgroundColor: 'var(--color-bg-tertiary)',
                                 }}
                               >
-                                {new Date(p.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                🕒 {new Date(p.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                               </span>
                               <span
                                 className="px-2 py-1 rounded text-xs border"
@@ -911,7 +956,7 @@ export default function LFTPage() {
                                   backgroundColor: 'var(--color-bg-tertiary)',
                                 }}
                               >
-                                {p.region}
+                                🌍 {p.region}
                               </span>
                               {p.discordUsername && (
                                 <span
@@ -922,7 +967,7 @@ export default function LFTPage() {
                                     backgroundColor: 'rgba(88, 101, 242, 0.1)',
                                   }}
                                 >
-                                  {p.discordUsername}
+                                  💬 {p.discordUsername}
                                 </span>
                               )}
                             </div>
@@ -930,9 +975,9 @@ export default function LFTPage() {
 
                           {isTeam ? (
                             <div className="space-y-3">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <div className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
-                                  <p className="text-xs uppercase font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>Roles Needed</p>
+                                  <p className="text-xs uppercase font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>🎯 Roles Needed</p>
                                   <div className="flex flex-wrap gap-1.5">
                                     {Array.isArray(p.rolesNeeded) && p.rolesNeeded.length > 0 ? (
                                       p.rolesNeeded.map((role) => (
@@ -952,13 +997,13 @@ export default function LFTPage() {
                                 </div>
 
                                 <div className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
-                                  <p className="text-xs uppercase font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>Staff Needed</p>
+                                  <p className="text-xs uppercase font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>🛠️ Staff Needed</p>
                                   <div className="flex flex-wrap gap-1.5">
                                     {Array.isArray(p.staffNeeded) && p.staffNeeded.length > 0 ? (
                                       p.staffNeeded.map((staffRole) => (
                                         <span
                                           key={staffRole}
-                                          className="text-xs px-2 py-1 rounded font-semibold border"
+                                          className="text-xs px-2 py-1 rounded font-semibold border inline-flex items-center gap-1"
                                           title={STAFF_NEED_DESCRIPTIONS[staffRole] || ''}
                                           style={{
                                             background: 'rgba(59, 130, 246, 0.12)',
@@ -966,6 +1011,7 @@ export default function LFTPage() {
                                             borderColor: 'rgba(59, 130, 246, 0.35)',
                                           }}
                                         >
+                                          {getStaffIcon(staffRole)}
                                           {staffRole}
                                         </span>
                                       ))
@@ -974,32 +1020,39 @@ export default function LFTPage() {
                                     )}
                                   </div>
                                 </div>
-                              </div>
 
-                              <div className="flex flex-wrap gap-2">
-                                {p.averageRank && getRankBadge(p.averageRank, p.averageDivision || undefined)}
-                                {typeof p.scrims === 'boolean' && (
-                                  <span
-                                    className="px-2 py-1 rounded text-xs border font-semibold"
-                                    style={{
-                                      borderColor: p.scrims ? '#22C55E' : '#EF4444',
-                                      color: p.scrims ? '#22C55E' : '#EF4444',
-                                      backgroundColor: p.scrims ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                                    }}
-                                  >
-                                    {p.scrims ? 'Scrims: Yes' : 'Scrims: No'}
-                                  </span>
-                                )}
-                                {p.minAvailability && (
-                                  <span className="px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
-                                    Availability: {formatAvailability(p.minAvailability)}
-                                  </span>
-                                )}
-                                {p.coachingAvailability && (
-                                  <span className="px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
-                                    Coaching: {formatAvailability(p.coachingAvailability)}
-                                  </span>
-                                )}
+                                <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
+                                  <p className="text-xs uppercase font-semibold" style={{ color: 'var(--color-text-muted)' }}>📊 Team Snapshot</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {p.averageRank ? getRankBadge(p.averageRank, p.averageDivision || undefined) : (
+                                      <span className="px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+                                        🏅 Rank: Unspecified
+                                      </span>
+                                    )}
+                                    {typeof p.scrims === 'boolean' && (
+                                      <span
+                                        className="px-2 py-1 rounded text-xs border font-semibold"
+                                        style={{
+                                          borderColor: p.scrims ? '#22C55E' : '#EF4444',
+                                          color: p.scrims ? '#22C55E' : '#EF4444',
+                                          backgroundColor: p.scrims ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                        }}
+                                      >
+                                        ⚔️ Scrims: {p.scrims ? 'Yes' : 'No'}
+                                      </span>
+                                    )}
+                                    {p.minAvailability && (
+                                      <span className="px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                        📅 {formatAvailability(p.minAvailability)}
+                                      </span>
+                                    )}
+                                    {p.coachingAvailability && (
+                                      <span className="px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                        🎓 {formatAvailability(p.coachingAvailability)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
 
                               {p.details && (
@@ -1008,62 +1061,91 @@ export default function LFTPage() {
                                 </p>
                               )}
 
-                              {p.teamId && (
-                                <div className="pt-1">
+                              <div className="flex flex-wrap gap-2 pt-1">
+                                {p.teamId && (
                                   <Link
                                     href={`/teams/${p.teamId}`}
-                                    className="inline-flex px-3 py-1.5 rounded-lg border text-sm font-medium"
+                                    className="inline-flex px-3 py-1.5 rounded-lg border text-sm font-medium items-center gap-1"
                                     style={{
                                       background: 'var(--color-bg-tertiary)',
                                       borderColor: 'var(--color-border)',
                                       color: 'var(--color-accent-1)',
                                     }}
                                   >
-                                    Open Team Page
+                                    🏰 Open Team Page
                                   </Link>
-                                </div>
-                              )}
+                                )}
+                                {p.authorId !== currentUserId && (
+                                  <button
+                                    onClick={() => openConversation(p.authorId)}
+                                    className="inline-flex px-3 py-1.5 rounded-lg text-sm font-medium border items-center gap-1"
+                                    style={{
+                                      background: 'var(--color-bg-tertiary)',
+                                      color: 'var(--color-accent-1)',
+                                      borderColor: 'var(--color-border)',
+                                    }}
+                                  >
+                                    💬 Contact in App
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           ) : (
                             <div className="space-y-3">
-                              <div className="flex flex-wrap gap-2">
-                                <span
-                                  className="px-2 py-1 rounded text-xs border font-semibold"
-                                  style={{
-                                    borderColor: accentColor,
-                                    color: accentColor,
-                                    backgroundColor: `${accentColor}22`,
-                                  }}
-                                >
-                                  {CANDIDATE_TYPE_LABELS[normalizedCandidateType] || normalizedCandidateType}
-                                </span>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div className="rounded-lg border p-3 md:col-span-2 space-y-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
+                                  <div className="flex flex-wrap gap-2">
+                                    <span
+                                      className="px-2 py-1 rounded text-xs border font-semibold inline-flex items-center gap-1"
+                                      style={{
+                                        borderColor: accentColor,
+                                        color: accentColor,
+                                        backgroundColor: `${accentColor}22`,
+                                      }}
+                                    >
+                                      {getCandidateTypeIcon(normalizedCandidateType)}
+                                      {CANDIDATE_TYPE_LABELS[normalizedCandidateType] || normalizedCandidateType}
+                                    </span>
 
-                                {normalizedCandidateType === 'PLAYER' && p.mainRole && (
-                                  <span className="text-xs px-2 py-1 rounded font-semibold border inline-flex items-center gap-1" style={{ background: 'rgba(200, 170, 109, 0.15)', color: '#C8AA6D', borderColor: '#C8AA6D' }}>
-                                    {getRoleIcon(p.mainRole)}
-                                    {p.mainRole}
-                                  </span>
-                                )}
+                                    {normalizedCandidateType === 'PLAYER' && p.mainRole && (
+                                      <span className="text-xs px-2 py-1 rounded font-semibold border inline-flex items-center gap-1" style={{ background: 'rgba(200, 170, 109, 0.15)', color: '#C8AA6D', borderColor: '#C8AA6D' }}>
+                                        {getRoleIcon(p.mainRole)}
+                                        {p.mainRole}
+                                      </span>
+                                    )}
 
-                                {p.rank && getRankBadge(p.rank, p.division || undefined)}
+                                    {p.rank && getRankBadge(p.rank, p.division || undefined)}
+                                  </div>
 
-                                {p.experience && (
-                                  <span className="px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
-                                    Experience: {formatAvailability(p.experience)}
-                                  </span>
-                                )}
+                                  {p.details ? (
+                                    <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                                      {p.details}
+                                    </p>
+                                  ) : (
+                                    <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                                      No extra details provided.
+                                    </p>
+                                  )}
+                                </div>
 
-                                {p.availability && (
-                                  <span className="px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
-                                    Availability: {formatAvailability(p.availability)}
-                                  </span>
-                                )}
-
-                                {p.age && normalizedCandidateType === 'PLAYER' && (
-                                  <span className="px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
-                                    Age: {p.age}
-                                  </span>
-                                )}
+                                <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
+                                  <p className="text-xs uppercase font-semibold" style={{ color: 'var(--color-text-muted)' }}>📌 Snapshot</p>
+                                  {p.experience && (
+                                    <span className="block px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                      🧩 {formatAvailability(p.experience)}
+                                    </span>
+                                  )}
+                                  {p.availability && (
+                                    <span className="block px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                      📅 {formatAvailability(p.availability)}
+                                    </span>
+                                  )}
+                                  {p.age && normalizedCandidateType === 'PLAYER' && (
+                                    <span className="block px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                      🎂 Age {p.age}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
                               {Array.isArray(p.languages) && p.languages.length > 0 && (
@@ -1088,36 +1170,30 @@ export default function LFTPage() {
                                 </div>
                               )}
 
-                              {p.details && (
-                                <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-                                  {p.details}
-                                </p>
-                              )}
-
                               {p.username && (
                                 <div className="flex flex-wrap gap-2 pt-1">
                                   <Link
                                     href={`/profile?username=${encodeURIComponent(p.username)}`}
-                                    className="px-3 py-1.5 rounded-lg text-sm font-medium border"
+                                    className="px-3 py-1.5 rounded-lg text-sm font-medium border inline-flex items-center gap-1"
                                     style={{
                                       background: 'var(--color-bg-tertiary)',
                                       color: 'var(--color-accent-1)',
                                       borderColor: 'var(--color-border)',
                                     }}
                                   >
-                                    View Profile
+                                    👤 View Profile
                                   </Link>
                                   {p.authorId !== currentUserId && (
                                     <button
                                       onClick={() => openConversation(p.authorId)}
-                                      className="px-3 py-1.5 rounded-lg text-sm font-medium border"
+                                      className="px-3 py-1.5 rounded-lg text-sm font-medium border inline-flex items-center gap-1"
                                       style={{
                                         background: 'var(--color-bg-tertiary)',
                                         color: 'var(--color-accent-1)',
                                         borderColor: 'var(--color-border)',
                                       }}
                                     >
-                                      Message
+                                      💬 Contact in App
                                     </button>
                                   )}
                                 </div>

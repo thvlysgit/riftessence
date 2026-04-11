@@ -27,12 +27,20 @@ const SKILL_OPTIONS = ['Shotcaller', 'Weakside', 'Ocean Champion Pool', 'Vision'
 
 type CandidateType = 'PLAYER' | 'MANAGER' | 'COACH' | 'OTHER';
 
-const CANDIDATE_OPTIONS: Array<{ value: CandidateType; label: string; subtitle: string }> = [
-  { value: 'PLAYER', label: 'Player', subtitle: 'Looking for a roster as a player' },
-  { value: 'MANAGER', label: 'Manager', subtitle: 'Operations, scheduling, and team coordination' },
-  { value: 'COACH', label: 'Coach', subtitle: 'Review, drafting, structure, and progression' },
-  { value: 'OTHER', label: 'Other', subtitle: 'Analyst, content, strategic or support role' },
+const CANDIDATE_OPTIONS: Array<{ value: CandidateType; icon: string; label: string; subtitle: string }> = [
+  { value: 'PLAYER', icon: '🧑', label: 'Player', subtitle: 'Looking for a roster as a player' },
+  { value: 'MANAGER', icon: '📋', label: 'Manager', subtitle: 'Operations, scheduling, and team coordination' },
+  { value: 'COACH', icon: '🎓', label: 'Coach', subtitle: 'Review, drafting, structure, and progression' },
+  { value: 'OTHER', icon: '🧩', label: 'Other', subtitle: 'Analyst, content, strategic or support role' },
 ];
+
+const ROLE_OPTION_LABELS: Record<string, string> = {
+  TOP: '🛡️ TOP',
+  JUNGLE: '🌿 JUNGLE',
+  MID: '⚔️ MID',
+  ADC: '🏹 ADC',
+  SUPPORT: '❤️ SUPPORT',
+};
 
 export interface CreatePlayerLftModalProps {
   open: boolean;
@@ -287,7 +295,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
                     background: selected ? 'rgba(59, 130, 246, 0.12)' : 'var(--color-bg-tertiary)',
                   }}
                 >
-                  <div className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{option.label}</div>
+                  <div className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{option.icon} {option.label}</div>
                   <div className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>{option.subtitle}</div>
                 </button>
               );
@@ -302,7 +310,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
               checked={advertiseForOther}
               onChange={(e) => setAdvertiseForOther(e.target.checked)}
             />
-            This listing is for someone else
+            👤 This listing is for someone else
           </label>
           {advertiseForOther && (
             <input
@@ -324,7 +332,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-              Region
+              🌍 Region
             </label>
             <select
               value={region}
@@ -337,14 +345,14 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
               }}
             >
               {REGIONS.map((entry) => (
-                <option key={entry} value={entry}>{entry}</option>
+                <option key={entry} value={entry}>🌍 {entry}</option>
               ))}
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-              Availability
+              📅 Availability
             </label>
             <select
               value={availability}
@@ -357,7 +365,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
               }}
             >
               {AVAILABILITIES.map((entry) => (
-                <option key={entry.value} value={entry.value}>{entry.label}</option>
+                <option key={entry.value} value={entry.value}>📅 {entry.label}</option>
               ))}
             </select>
           </div>
@@ -366,7 +374,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
             <>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  Main Role
+                  🎯 Main Role
                 </label>
                 <select
                   value={mainRole}
@@ -379,14 +387,14 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
                   }}
                 >
                   {ROLES.map((entry) => (
-                    <option key={entry} value={entry}>{entry}</option>
+                    <option key={entry} value={entry}>{ROLE_OPTION_LABELS[entry] || entry}</option>
                   ))}
                 </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  Team Experience
+                  🧩 Team Experience
                 </label>
                 <select
                   value={experience}
@@ -406,7 +414,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  Rank
+                  🏅 Rank
                 </label>
                 <select
                   value={rank}
@@ -426,7 +434,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  Age
+                  🎂 Age
                 </label>
                 <input
                   type="number"
@@ -457,7 +465,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
           {showDivision && (
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                Division
+                🪜 Division
               </label>
               <select
                 value={division}
@@ -479,7 +487,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-              Languages
+              🗣️ Languages
             </label>
             <div className="flex flex-wrap gap-2">
               {COMMON_LANGUAGES.map((lang) => {
@@ -496,7 +504,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
                       border: `1px solid ${selected ? 'var(--color-accent-1)' : 'var(--color-border)'}`,
                     }}
                   >
-                    {lang}
+                    🗣️ {lang}
                   </button>
                 );
               })}
@@ -505,7 +513,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-              Skills {isPlayerListing ? '(required)' : '(optional)'}
+              ⭐ Skills {isPlayerListing ? '(required)' : '(optional)'}
             </label>
             <div className="flex flex-wrap gap-2">
               {SKILL_OPTIONS.map((skill) => {
@@ -522,7 +530,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
                       border: `1px solid ${selected ? 'var(--color-accent-1)' : 'var(--color-border)'}`,
                     }}
                   >
-                    {skill}
+                    ⭐ {skill}
                   </button>
                 );
               })}
@@ -531,7 +539,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-              Details {isPlayerListing ? '(optional)' : '(required, min 20 chars)'}
+              📝 Details {isPlayerListing ? '(optional)' : '(required, min 20 chars)'}
             </label>
             <textarea
               value={details}
@@ -561,7 +569,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
               color: 'var(--color-bg-primary)',
             }}
           >
-            Publish Listing
+            🚀 Publish Listing
           </button>
           <button
             type="button"
@@ -573,7 +581,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
               color: 'var(--color-text-primary)',
             }}
           >
-            Cancel
+            ✖ Cancel
           </button>
         </div>
       </form>

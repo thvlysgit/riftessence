@@ -199,11 +199,13 @@ export default async function lftRoutes(fastify: any) {
       }
 
       // Behavior:
-      // - PLAYER (user looking for a team): only one active post allowed; creating a new one replaces previous (auto-delete)
-      // - TEAM (team looking for players): one active post per team; can only be created by team OWNER/MANAGER
+      // - PLAYER (user looking for a team): only one active post allowed; creating a new one replaces previous
+      // - TEAM (team looking for players): one active post per team; creating a new one replaces previous
+      let replacedExistingPost = false;
+
       if (type === 'PLAYER') {
-        // Remove any previous PLAYER posts for this user so the new post replaces them
-        await prisma.lftPost.deleteMany({ where: { authorId: userId, type: 'PLAYER' } });
+        const removed = await prisma.lftPost.deleteMany({ where: { authorId: userId, type: 'PLAYER' } });
+        replacedExistingPost = removed.count > 0;
       }
 
       // Build data object based on type
@@ -273,20 +275,13 @@ export default async function lftRoutes(fastify: any) {
         data.coachingAvailability = coachingAvailability || null;
         data.details = details || null;
 
-        const existingTeamPost = await prisma.lftPost.findFirst({
+        const removedTeamPosts = await prisma.lftPost.deleteMany({
           where: {
             type: 'TEAM',
             teamId: team.id,
           },
         });
-
-        if (existingTeamPost) {
-          const updated = await prisma.lftPost.update({
-            where: { id: existingTeamPost.id },
-            data,
-          });
-          return reply.send({ success: true, updated: true, post: updated });
-        }
+        replacedExistingPost = removedTeamPosts.count > 0;
       } else {
         // Player-specific fields
         const {
@@ -334,7 +329,7 @@ export default async function lftRoutes(fastify: any) {
 
       const created = await prisma.lftPost.create({ data });
 
-      return reply.status(201).send({ success: true, post: created });
+      return reply.status(201).send({ success: true, updated: replacedExistingPost, post: created });
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to create LFT post' });
