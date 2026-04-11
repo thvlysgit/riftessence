@@ -1546,11 +1546,6 @@ function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): Embed
     ? `${mainAccount.gameName}#${mainAccount.tagLine}`
     : mainAccount.summonerName || 'Unknown';
 
-  let titleSuffix = '';
-  if (author.discordId) {
-    titleSuffix = ` <@${author.discordId}>`;
-  }
-
   const postUrl = `${APP_URL}/share/post/${id}`;
   const regionLine = `${resolveEmoji(guild, 'region', '🌍')} **${region || 'Unknown'}** • ${formatRoleLabelForDiscord(role, guild)}`;
   const rankLine = formatRankLabelForDiscord(mainAccount.rank, mainAccount.division, guild);
@@ -1573,11 +1568,25 @@ function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): Embed
 
   return new EmbedBuilder()
     .setColor(0x3B82F6)
-    .setTitle(`Duo • ${author.username}${titleSuffix}`)
+    .setTitle(`Duo • ${author.username}`)
     .setURL(postUrl)
     .setDescription(descriptionParts.join('\n'))
     .setFooter({ text: 'RiftEssence' })
     .setTimestamp();
+}
+
+function buildForwardMessagePayload(embed: EmbedBuilder, mentionDiscordId?: string | null) {
+  if (!mentionDiscordId) {
+    return { embeds: [embed] };
+  }
+
+  return {
+    content: `<@${mentionDiscordId}>`,
+    embeds: [embed],
+    allowedMentions: {
+      users: [mentionDiscordId],
+    },
+  };
 }
 
 async function mirrorPostToDiscord(post: any) {
@@ -1601,7 +1610,7 @@ async function mirrorPostToDiscord(post: any) {
       if (channel && channel.isTextBased() && 'guild' in channel) {
         const textChannel = channel as TextChannel;
         const embed = buildDuoForwardEmbed(post, textChannel.guild);
-        await textChannel.send({ embeds: [embed] });
+        await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId));
         console.log(`✅ Mirrored duo post ${id} to channel ${fc.channelId}`);
       }
     } catch (error: any) {
@@ -1673,7 +1682,6 @@ function buildLftForwardEmbed(post: any, guild: Guild | null | undefined): Embed
   }
 
   const authorName = post.author?.username || 'Unknown';
-  const titleSuffix = post.author?.discordId ? ` <@${post.author.discordId}>` : '';
   const rankLabel = formatRankLabelForDiscord(post.rank, post.division, guild);
   const languagesLine = formatLanguagesForDiscord(post.languages, guild);
 
@@ -1691,7 +1699,7 @@ function buildLftForwardEmbed(post: any, guild: Guild | null | undefined): Embed
 
   return new EmbedBuilder()
     .setColor(0x3B82F6)
-    .setTitle(`Player LFT • ${authorName}${titleSuffix}`)
+    .setTitle(`Player LFT • ${authorName}`)
     .setURL(appUrl)
     .setDescription(descriptionParts.join('\n'))
     .setFooter({ text: 'RiftEssence' })
@@ -1719,7 +1727,7 @@ async function mirrorLftPostToDiscord(post: any) {
       if (channel && channel.isTextBased() && 'guild' in channel) {
         const textChannel = channel as TextChannel;
         const embed = buildLftForwardEmbed(post, textChannel.guild);
-        await textChannel.send({ embeds: [embed] });
+        await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId));
         console.log(`✅ Mirrored LFT post ${id} to channel ${fc.channelId}`);
       }
     } catch (error: any) {
