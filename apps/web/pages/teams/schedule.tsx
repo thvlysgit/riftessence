@@ -92,8 +92,30 @@ const ATTENDANCE_ICONS: Record<string, string> = {
   UNSURE: '?',
 };
 
-// Time slots for timeline view
-const TIME_SLOTS = Array.from({ length: 16 }, (_, i) => i + 8); // 8 AM to 11 PM
+// Time slots for timeline view (full day: 00:00 -> 23:00)
+const TIME_SLOTS = Array.from({ length: 24 }, (_, i) => i);
+const HOUR_ROW_HEIGHT_PX = 64;
+
+const toLocalDateTimeInputValue = (value: string | Date): string => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const localDateTimeInputToUtcIso = (value: string): string | null => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+};
 
 const TeamSchedulePage: React.FC = () => {
   const { user } = useAuth();
@@ -111,8 +133,6 @@ const TeamSchedulePage: React.FC = () => {
     return monday;
   });
   const [selectedEvent, setSelectedEvent] = useState<TeamEvent | null>(null);
-  const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
-  
   // Create/Edit event modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<TeamEvent | null>(null); // Track which event is being edited
@@ -363,6 +383,13 @@ const TeamSchedulePage: React.FC = () => {
     setCreating(true);
     setError(null);
 
+    const normalizedScheduledAt = localDateTimeInputToUtcIso(eventForm.scheduledAt);
+    if (!normalizedScheduledAt) {
+      setError('Invalid date/time. Please pick a valid local date and time.');
+      setCreating(false);
+      return;
+    }
+
     try {
       const isEditing = editingEvent !== null;
       const url = isEditing 
@@ -379,7 +406,7 @@ const TeamSchedulePage: React.FC = () => {
           title: eventForm.title.trim(),
           type: eventForm.type,
           description: eventForm.description.trim() || null,
-          scheduledAt: eventForm.scheduledAt,
+          scheduledAt: normalizedScheduledAt,
           duration: eventForm.duration ? parseInt(eventForm.duration) : null,
           enemyMultigg: (eventForm.type === 'SCRIM' || eventForm.type === 'TOURNAMENT') ? (eventForm.enemyMultigg.trim() || null) : null,
           assignedCoachIds: eventForm.type === 'VOD_REVIEW' ? eventForm.assignedCoachIds : [],
@@ -413,8 +440,7 @@ const TeamSchedulePage: React.FC = () => {
 
   const handleEditEvent = (event: TeamEvent) => {
     // Populate form with event data
-    const eventDate = new Date(event.scheduledAt);
-    const localDateTime = eventDate.toISOString().slice(0, 16);
+    const localDateTime = toLocalDateTimeInputValue(event.scheduledAt);
     
     setEventForm({
       title: event.title,
@@ -707,82 +733,90 @@ const TeamSchedulePage: React.FC = () => {
                 {viewMode === 'week' ? (
                   /* ==================== PREMIUM WEEK VIEW ==================== */
                   <div 
-                    className="h-full rounded-2xl border overflow-hidden"
+                    className="h-full rounded-2xl border overflow-hidden flex flex-col"
                     style={{ 
                       backgroundColor: 'var(--color-bg-secondary)',
                       borderColor: 'var(--color-border)',
                       boxShadow: '0 4px 30px rgba(0, 0, 0, 0.3)'
                     }}
                   >
-                    {/* Week Header */}
-                    <div 
-                      className="grid border-b"
-                      style={{ 
-                        borderColor: 'var(--color-border)',
-                        gridTemplateColumns: '80px repeat(7, 1fr)'  /* Explicit column sizing for Opera compatibility */
-                      }}
+                    <div
+                      className="flex-1 overflow-y-auto"
+                      style={{ scrollbarGutter: 'stable' }}
                     >
-                      {/* Time column header */}
-                      <div 
-                        className="p-3 border-r flex items-end justify-center flex-shrink-0"
-                        style={{ borderColor: 'var(--color-border)', minWidth: '80px' }}
+                      {/* Week Header */}
+                      <div
+                        className="sticky top-0 z-20"
+                        style={{ backgroundColor: 'var(--color-bg-secondary)' }}
                       >
-                        <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
-                          TIME
-                        </span>
-                      </div>
-                      
-                      {/* Day headers */}
-                      {weekDates.map((date, index) => {
-                        const isTodayDate = new Date().toDateString() === date.toDateString();
-                        const hasEvents = getEventsForDate(date).length > 0;
-                        
-                        return (
-                          <div
-                            key={index}
-                            className="p-3 text-center border-r last:border-r-0 relative overflow-hidden"
-                            style={{
-                              borderColor: 'var(--color-border)',
-                              backgroundColor: isTodayDate ? 'rgba(200, 170, 109, 0.08)' : 'transparent',
-                              minWidth: 0,  /* Allow flex items to shrink properly in Opera */
-                            }}
+                        <div 
+                          className="grid border-b"
+                          style={{ 
+                            borderColor: 'var(--color-border)',
+                            gridTemplateColumns: '80px repeat(7, minmax(0, 1fr))'  /* Explicit column sizing for Opera compatibility */
+                          }}
+                        >
+                          {/* Time column header */}
+                          <div 
+                            className="p-3 border-r flex items-end justify-center flex-shrink-0"
+                            style={{ borderColor: 'var(--color-border)', minWidth: '80px' }}
                           >
-                            <p
-                              className="text-xs font-bold uppercase tracking-wider mb-1 truncate"
-                              style={{ color: isTodayDate ? 'var(--color-accent-1)' : 'var(--color-text-muted)' }}
-                            >
-                              {fullDayNames[index]}
-                            </p>
-                            <div className="relative inline-flex items-center justify-center">
-                              <span
-                                className={`text-2xl font-bold ${isTodayDate ? 'w-10 h-10 flex items-center justify-center rounded-full' : ''}`}
-                                style={{ 
-                                  color: isTodayDate ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
-                                  backgroundColor: isTodayDate ? 'var(--color-accent-1)' : 'transparent',
+                            <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
+                              TIME
+                            </span>
+                          </div>
+                          
+                          {/* Day headers */}
+                          {weekDates.map((date, index) => {
+                            const isTodayDate = new Date().toDateString() === date.toDateString();
+                            const hasEvents = getEventsForDate(date).length > 0;
+                            
+                            return (
+                              <div
+                                key={index}
+                                className="p-3 text-center border-r last:border-r-0 relative overflow-hidden"
+                                style={{
+                                  borderColor: 'var(--color-border)',
+                                  backgroundColor: isTodayDate ? 'rgba(200, 170, 109, 0.08)' : 'transparent',
+                                  minWidth: 0,  /* Allow flex items to shrink properly in Opera */
                                 }}
                               >
-                                {date.getDate()}
-                              </span>
-                              {hasEvents && !isTodayDate && (
-                                <span 
-                                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
-                                  style={{ backgroundColor: 'var(--color-accent-1)' }}
-                                />
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                                <p
+                                  className="text-xs font-bold uppercase tracking-wider mb-1 truncate"
+                                  style={{ color: isTodayDate ? 'var(--color-accent-1)' : 'var(--color-text-muted)' }}
+                                >
+                                  {fullDayNames[index]}
+                                </p>
+                                <div className="relative inline-flex items-center justify-center">
+                                  <span
+                                    className={`text-2xl font-bold ${isTodayDate ? 'w-10 h-10 flex items-center justify-center rounded-full' : ''}`}
+                                    style={{ 
+                                      color: isTodayDate ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
+                                      backgroundColor: isTodayDate ? 'var(--color-accent-1)' : 'transparent',
+                                    }}
+                                  >
+                                    {date.getDate()}
+                                  </span>
+                                  {hasEvents && !isTodayDate && (
+                                    <span 
+                                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
+                                      style={{ backgroundColor: 'var(--color-accent-1)' }}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
 
-                    {/* Week Body - Timeline View */}
-                    <div 
-                      className="grid overflow-y-auto" 
-                      style={{ 
-                        height: 'calc(100% - 88px)',
-                        gridTemplateColumns: '80px repeat(7, 1fr)'  /* Match header columns for Opera compatibility */
-                      }}
-                    >
+                      {/* Week Body - Timeline View */}
+                      <div 
+                        className="grid" 
+                        style={{ 
+                          gridTemplateColumns: '80px repeat(7, minmax(0, 1fr))'  /* Match header columns for Opera compatibility */
+                        }}
+                      >
                       {/* Time Labels Column */}
                       <div className="border-r relative flex-shrink-0" style={{ borderColor: 'var(--color-border)', minWidth: '80px' }}>
                         {TIME_SLOTS.map((hour) => (
@@ -812,8 +846,6 @@ const TeamSchedulePage: React.FC = () => {
                               backgroundColor: isTodayDate ? 'rgba(200, 170, 109, 0.03)' : 'transparent',
                               minWidth: 0,  /* Allow flex items to shrink properly in Opera */
                             }}
-                            onMouseEnter={() => setHoveredDate(date)}
-                            onMouseLeave={() => setHoveredDate(null)}
                           >
                             {/* Hour grid lines */}
                             {TIME_SLOTS.map((hour) => (
@@ -830,7 +862,7 @@ const TeamSchedulePage: React.FC = () => {
                               const hours = now.getHours();
                               const minutes = now.getMinutes();
                               if (hours >= TIME_SLOTS[0] && hours <= TIME_SLOTS[TIME_SLOTS.length - 1]) {
-                                const top = ((hours - TIME_SLOTS[0]) * 64) + (minutes / 60 * 64);
+                                const top = ((hours - TIME_SLOTS[0]) * HOUR_ROW_HEIGHT_PX) + (minutes / 60 * HOUR_ROW_HEIGHT_PX);
                                 return (
                                   <div 
                                     className="absolute left-0 right-0 flex items-center z-20 pointer-events-none"
@@ -856,11 +888,11 @@ const TeamSchedulePage: React.FC = () => {
                               const hours = eventDate.getHours();
                               const minutes = eventDate.getMinutes();
                               
-                              if (hours < TIME_SLOTS[0]) return null;
+                              if (hours < TIME_SLOTS[0] || hours > TIME_SLOTS[TIME_SLOTS.length - 1]) return null;
                               
-                              const top = ((hours - TIME_SLOTS[0]) * 64) + (minutes / 60 * 64);
+                              const top = ((hours - TIME_SLOTS[0]) * HOUR_ROW_HEIGHT_PX) + (minutes / 60 * HOUR_ROW_HEIGHT_PX);
                               const duration = event.duration || 60;
-                              const height = Math.max((duration / 60) * 64, 40);
+                              const height = Math.max((duration / 60) * HOUR_ROW_HEIGHT_PX, 40);
                               const myAttendance = getMyAttendance(event);
                               
                               return (
@@ -934,6 +966,7 @@ const TeamSchedulePage: React.FC = () => {
                           </div>
                         );
                       })}
+                    </div>
                     </div>
                   </div>
                 ) : (
@@ -1615,6 +1648,9 @@ const TeamSchedulePage: React.FC = () => {
                     }}
                     required
                   />
+                  <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Interpreted in your local timezone, then saved in UTC to avoid timezone shifts.
+                  </p>
                 </div>
 
                 <div>
