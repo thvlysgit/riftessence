@@ -7,6 +7,7 @@ import { CreatePlayerLftModal } from '../components/CreatePlayerLftModal';
 import { useGlobalUI } from '../../api/components/GlobalUI';
 import { useChat } from '../contexts/ChatContext';
 import { getAuthHeader, getAuthToken, getUserIdFromToken } from '../utils/auth';
+import { getChampionIconUrl } from '../utils/championData';
 import NoAccess from '../../api/components/NoAccess';
 import { AdSpot, useAds, getAdForPosition } from '../../api/components/AdSpot';
 
@@ -262,6 +263,7 @@ type LftPost = {
   rank?: string;
   division?: string | null;
   championPool?: string[];
+  championTierlist?: { S?: string[]; A?: string[]; B?: string[]; C?: string[] } | null;
   experience?: string;
   languages?: string[];
   skills?: string[];
@@ -590,7 +592,7 @@ export default function LFTPage() {
                   RiftEssence Marketplace
                 </p>
                 <h1 className="text-3xl sm:text-4xl font-extrabold mt-1" style={{ color: 'var(--color-accent-1)' }}>
-                  LFT Rework
+                  LFT Feed
                 </h1>
                 <p className="mt-2 text-sm sm:text-base leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
                   One board for teams recruiting and talent discovering opportunities. Players, coaches, managers, and specialists can all list directly.
@@ -922,9 +924,12 @@ export default function LFTPage() {
                   const accentColor = isTeam
                     ? '#22C55E'
                     : CANDIDATE_TYPE_COLORS[normalizedCandidateType] || CANDIDATE_TYPE_COLORS.PLAYER;
+                  const customOtherHeading = normalizedCandidateType === 'OTHER' && typeof p.representedName === 'string' && p.representedName.trim().length > 0
+                    ? p.representedName.trim()
+                    : null;
                   const heading = isTeam
                     ? (p.teamName || 'Unnamed Team')
-                    : (p.username || 'Unknown Listing');
+                    : (customOtherHeading || p.username || 'Unknown Listing');
                   const subHeading = isTeam
                     ? 'Team Recruiting'
                     : `${CANDIDATE_TYPE_LABELS[normalizedCandidateType] || normalizedCandidateType} Listing`;
@@ -1211,20 +1216,68 @@ export default function LFTPage() {
                                 </div>
                               )}
 
-                              {normalizedCandidateType === 'PLAYER' && Array.isArray(p.championPool) && p.championPool.length > 0 && (
-                                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
-                                  <p className="text-xs uppercase font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>🗡️ Champion Pool</p>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {p.championPool.map((champion) => (
-                                      <span
-                                        key={champion}
-                                        className="text-xs px-2 py-1 rounded font-semibold border"
-                                        style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3B82F6', borderColor: 'rgba(59, 130, 246, 0.35)' }}
-                                      >
-                                        {champion}
-                                      </span>
-                                    ))}
-                                  </div>
+                              {normalizedCandidateType === 'PLAYER' && p.championTierlist && (
+                                <div className="rounded-lg border p-3 space-y-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
+                                  <p className="text-xs uppercase font-semibold" style={{ color: 'var(--color-text-muted)' }}>🗡️ Champion Pool</p>
+                                  {(['S', 'A', 'B', 'C'] as const).map((tier) => {
+                                    const tierColors = {
+                                      S: { bg: '#ef4444', border: '#ef4444', text: '#ef4444' },
+                                      A: { bg: '#C8AA6E', border: '#C8AA6E', text: '#C8AA6E' },
+                                      B: { bg: '#3b82f6', border: '#3b82f6', text: '#3b82f6' },
+                                      C: { bg: '#22c55e', border: '#22c55e', text: '#22c55e' },
+                                    };
+                                    const colors = tierColors[tier];
+                                    const champions = Array.isArray(p.championTierlist?.[tier]) ? p.championTierlist?.[tier] || [] : [];
+
+                                    return (
+                                      <div key={tier}>
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <span
+                                            className="inline-block px-2 py-0.5 rounded text-xs font-bold"
+                                            style={{
+                                              backgroundColor: `${colors.bg}20`,
+                                              borderWidth: '1px',
+                                              borderStyle: 'solid',
+                                              borderColor: colors.border,
+                                              color: colors.text,
+                                            }}
+                                          >
+                                            {tier}
+                                          </span>
+                                          <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>Tier</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                          {champions.length > 0 ? (
+                                            champions.map((champion, idx) => (
+                                              <div
+                                                key={`${tier}-${champion}-${idx}`}
+                                                className="px-3 py-2 rounded-lg font-medium flex items-center gap-2"
+                                                style={{
+                                                  backgroundColor: `${colors.bg}20`,
+                                                  borderWidth: '1px',
+                                                  borderStyle: 'solid',
+                                                  borderColor: colors.border,
+                                                  color: colors.text,
+                                                }}
+                                              >
+                                                <img
+                                                  src={getChampionIconUrl(champion)}
+                                                  alt={champion}
+                                                  className="w-8 h-8"
+                                                  onError={(e) => {
+                                                    e.currentTarget.style.display = 'none';
+                                                  }}
+                                                />
+                                                {champion}
+                                              </div>
+                                            ))
+                                          ) : (
+                                            <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>No champions</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
 

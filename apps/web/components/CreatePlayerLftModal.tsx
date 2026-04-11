@@ -59,6 +59,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
   const [division, setDivision] = useState('');
 
   const [candidateType, setCandidateType] = useState<CandidateType>('PLAYER');
+  const [otherListingName, setOtherListingName] = useState('');
 
   const [experience, setExperience] = useState('FIRST_TEAM');
   const [languages, setLanguages] = useState<string[]>([]);
@@ -80,6 +81,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
       if (!saved) return;
       const draft = JSON.parse(saved);
       if (draft.candidateType) setCandidateType(draft.candidateType);
+      if (draft.otherListingName) setOtherListingName(draft.otherListingName);
       if (draft.experience) setExperience(draft.experience);
       if (Array.isArray(draft.languages)) setLanguages(draft.languages);
       if (Array.isArray(draft.skills)) setSkills(draft.skills);
@@ -96,6 +98,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
       'riftessence_lft_player_draft',
       JSON.stringify({
         candidateType,
+        otherListingName,
         experience,
         languages,
         skills,
@@ -104,7 +107,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
         details,
       })
     );
-  }, [candidateType, experience, languages, skills, age, availability, details]);
+  }, [candidateType, otherListingName, experience, languages, skills, age, availability, details]);
 
   useEffect(() => {
     setSkills((prev) => prev.filter((skill) => availableSkills.includes(skill)));
@@ -217,6 +220,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
     onSubmit({
       region,
       candidateType,
+      representedName: candidateType === 'OTHER' ? (otherListingName.trim() || null) : null,
       mainRole: isPlayerListing ? mainRole : null,
       rank: rank || null,
       division: division || null,
@@ -303,6 +307,30 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
             })}
           </div>
         </div>
+
+        {candidateType === 'OTHER' && (
+          <div className="mb-5">
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+              🏷️ Listing Name (optional)
+            </label>
+            <input
+              type="text"
+              value={otherListingName}
+              onChange={(e) => setOtherListingName(e.target.value)}
+              className="w-full px-3 py-2 rounded border"
+              style={{
+                background: 'var(--color-bg-tertiary)',
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-primary)',
+              }}
+              placeholder="Example: Strategic Analyst, Team Content Lead, Performance Support"
+              maxLength={80}
+            />
+            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+              Leave empty to use your username.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>

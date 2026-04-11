@@ -59,6 +59,34 @@ function normalizeChampionPool(author: any): string[] {
   return pool;
 }
 
+function normalizeChampionTierlist(author: any): { S: string[]; A: string[]; B: string[]; C: string[] } | null {
+  const tiers: { S: string[]; A: string[]; B: string[]; C: string[] } = { S: [], A: [], B: [], C: [] };
+  const lowerSeen = new Set<string>();
+
+  const pushUniqueToTier = (tier: 'S' | 'A' | 'B' | 'C', entries: unknown) => {
+    for (const champion of normalizeStringArray(entries)) {
+      const key = champion.toLowerCase();
+      if (lowerSeen.has(key)) continue;
+      lowerSeen.add(key);
+      tiers[tier].push(champion);
+    }
+  };
+
+  if (author?.championTierlist && typeof author.championTierlist === 'object') {
+    const tierlist = author.championTierlist as Record<string, unknown>;
+    pushUniqueToTier('S', tierlist.S);
+    pushUniqueToTier('A', tierlist.A);
+    pushUniqueToTier('B', tierlist.B);
+    pushUniqueToTier('C', tierlist.C);
+  }
+
+  if (tiers.S.length + tiers.A.length + tiers.B.length + tiers.C.length === 0) {
+    pushUniqueToTier('A', author?.championList);
+  }
+
+  return tiers.S.length + tiers.A.length + tiers.B.length + tiers.C.length > 0 ? tiers : null;
+}
+
 export default async function lftRoutes(fastify: any) {
   // Helper to extract userId from JWT (duplicated for route isolation)
   const getUserIdFromRequest = async (request: any, reply: any): Promise<string | null> => {
@@ -152,6 +180,7 @@ export default async function lftRoutes(fastify: any) {
       // Format posts for frontend
       const formatted = posts.map((post: any) => {
         const championPool = normalizeChampionPool(post.author);
+        const championTierlist = normalizeChampionTierlist(post.author);
 
         return {
         id: post.id,
@@ -187,6 +216,7 @@ export default async function lftRoutes(fastify: any) {
           rank: post.rank,
           division: post.division,
           championPool,
+          championTierlist,
           experience: post.experience,
           languages: post.languages,
           skills: post.skills,

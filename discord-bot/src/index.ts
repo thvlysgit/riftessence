@@ -1704,7 +1704,10 @@ function buildLftForwardEmbed(post: any, guild: Guild | null | undefined): Embed
   const candidateLabel = candidateType === 'PLAYER'
     ? 'Player'
     : candidateType.charAt(0) + candidateType.slice(1).toLowerCase();
-  const listingName = authorName;
+  const customOtherName = candidateType === 'OTHER' && typeof post.representedName === 'string' && post.representedName.trim().length > 0
+    ? post.representedName.trim()
+    : null;
+  const listingName = customOtherName || authorName;
   const rankLabel = formatRankLabelForDiscord(post.rank, post.division, guild);
   const languagesLine = formatLanguagesForDiscord(post.languages, guild);
 
