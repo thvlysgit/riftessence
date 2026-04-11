@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, REST, Routes, SlashCommandBuilder, ChatInputCommandInteraction, TextChannel, EmbedBuilder, ActivityType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ComponentType, ButtonInteraction, StringSelectMenuInteraction } from 'discord.js';
+import { Client, GatewayIntentBits, Events, REST, Routes, SlashCommandBuilder, ChatInputCommandInteraction, TextChannel, EmbedBuilder, ActivityType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonInteraction, StringSelectMenuInteraction, RoleSelectMenuBuilder, RoleSelectMenuInteraction, ModalBuilder, TextInputBuilder, TextInputStyle, ModalSubmitInteraction, Guild } from 'discord.js';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
 
@@ -17,6 +17,7 @@ if (!DISCORD_BOT_TOKEN || !DISCORD_BOT_API_KEY) {
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
   ],
@@ -31,6 +32,27 @@ const APP_URL = process.env.APP_URL || 'https://riftessence.app';
 const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'SG'];
 const ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
 const RANKS = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'];
+const ROLE_FORWARDING_RANK_KEYS = [...RANKS, 'UNRANKED'];
+const ROLE_FORWARDING_LANGUAGE_KEYS = [
+  'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
+  'Polish', 'Russian', 'Turkish', 'Korean', 'Japanese', 'Chinese',
+];
+
+const CHAT_REPLY_BUTTON_PREFIX = 'chat_reply_open_';
+const CHAT_REPLY_MODAL_PREFIX = 'chat_reply_modal_';
+const CHAT_REPLY_TEXT_INPUT_ID = 'chat_reply_text';
+
+const ROLE_MENU_MODE_PREFIX = 'rolemenu_mode_';
+const ROLE_MENU_SAVE = 'rolemenu_save';
+const ROLE_MENU_CLEAR = 'rolemenu_clear';
+const ROLE_MENU_BACK = 'rolemenu_back';
+const ROLE_MENU_REFRESH = 'rolemenu_refresh';
+const ROLE_MENU_SYNC = 'rolemenu_sync';
+const ROLE_MENU_CLOSE = 'rolemenu_close';
+const ROLE_MENU_SELECT_KEY = 'rolemenu_select_key';
+const ROLE_MENU_SELECT_ROLE = 'rolemenu_select_role';
+
+const ROLE_FORWARDING_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_ROLE_FORWARDING_POLL_INTERVAL_MS || '300000', 10);
 
 const RANK_EMOJIS: Record<string, string> = {
   IRON: '🪨', BRONZE: '🥉', SILVER: '🥈', GOLD: '🥇', PLATINUM: '💎',
@@ -39,6 +61,51 @@ const RANK_EMOJIS: Record<string, string> = {
 
 const ROLE_EMOJIS: Record<string, string> = {
   TOP: '🛡️', JUNGLE: '🌿', MID: '⚔️', ADC: '🏹', SUPPORT: '❤️',
+};
+
+type RoleForwardingConfig = {
+  guildId: string;
+  communityId: string;
+  communityName: string;
+  rankRoleMap: Record<string, string>;
+  languageRoleMap: Record<string, string>;
+  configuredRanks: number;
+  configuredLanguages: number;
+};
+
+type RoleForwardingSyncMember = {
+  userId: string;
+  username: string;
+  discordId: string | null;
+  rank: string | null;
+  languages: string[];
+  desiredRoleIds: string[];
+  status: 'ELIGIBLE' | 'MISSING_DISCORD_LINK' | 'MISSING_RIOT_LINK' | 'NO_MATCHING_MAPPING' | string;
+};
+
+type RoleForwardingSyncPayload = {
+  enabled: boolean;
+  guildId: string;
+  communityId: string;
+  communityName: string;
+  rankRoleMap: Record<string, string>;
+  languageRoleMap: Record<string, string>;
+  managedRoleIds: string[];
+  summary: {
+    totalMembers: number;
+    eligibleMembers: number;
+    missingDiscordLink: number;
+    missingRiotLink: number;
+    noMatchingMapping: number;
+  };
+  members: RoleForwardingSyncMember[];
+};
+
+type PendingRoleMenuSession = {
+  guildId: string;
+  mode: 'RANK' | 'LANGUAGE';
+  selectedKey: string | null;
+  selectedRoleId: string | null;
 };
 
 // ============================================================
@@ -54,6 +121,11 @@ const commands = [
   new SlashCommandBuilder()
     .setName('setup')
     .setDescription('Set up or manage post forwarding to Discord channels')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('rolemenu')
+    .setDescription('Configure automatic Discord roles from RiftEssence rank/language profile data')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .toJSON(),
 ];
@@ -123,6 +195,339 @@ async function apiRequest(endpoint: string, method = 'GET', body?: any) {
     console.error(`❌ API request failed for ${endpoint}:`, error.message);
     return { ok: false, status: 500, data: { error: error.message } };
   }
+}
+
+const pendingRoleMenuSessions = new Map<string, PendingRoleMenuSession>();
+
+function getRoleMenuSessionKey(userId: string, guildId: string) {
+  return `${userId}-${guildId}`;
+}
+
+function modeLabel(mode: 'RANK' | 'LANGUAGE') {
+  return mode === 'RANK' ? 'Rank roles' : 'Language roles';
+}
+
+function getRoleMenuModeFromCustomId(customId: string): 'RANK' | 'LANGUAGE' | null {
+  if (!customId.startsWith(ROLE_MENU_MODE_PREFIX)) return null;
+  const raw = customId.slice(ROLE_MENU_MODE_PREFIX.length).toUpperCase();
+  if (raw === 'RANK' || raw === 'LANGUAGE') return raw;
+  return null;
+}
+
+function getKeyOptions(mode: 'RANK' | 'LANGUAGE') {
+  if (mode === 'RANK') {
+    return ROLE_FORWARDING_RANK_KEYS.map((rank) =>
+      new StringSelectMenuOptionBuilder()
+        .setLabel(rank)
+        .setValue(rank)
+        .setEmoji(RANK_EMOJIS[rank] || '🏅')
+    );
+  }
+
+  return ROLE_FORWARDING_LANGUAGE_KEYS.map((language) =>
+    new StringSelectMenuOptionBuilder()
+      .setLabel(language)
+      .setValue(language)
+  );
+}
+
+function formatRoleMapSummary(map: Record<string, string>, orderedKeys: string[], iconByKey?: Record<string, string>) {
+  const lines = orderedKeys
+    .filter((key) => Boolean(map[key]))
+    .map((key) => `${iconByKey?.[key] || '•'} ${key}: <@&${map[key]}>`);
+
+  if (lines.length === 0) {
+    return 'Not configured yet.';
+  }
+
+  return lines.join('\n');
+}
+
+function buildRoleMenuOverviewEmbed(config: RoleForwardingConfig, guildName?: string) {
+  return new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle('🎛️ Role Forwarding Setup')
+    .setDescription(
+      `Server: **${guildName || config.guildId}**\n` +
+      `Linked community: **${config.communityName}**\n\n` +
+      'Configure automatic role assignments based on RiftEssence profile data.\n\n' +
+      '**How assignment works**\n' +
+      '1) User must link Discord + Riot account in RiftEssence\n' +
+      '2) User should have rank/languages set on profile\n' +
+      '3) Bot sync assigns mapped roles and removes outdated mapped roles'
+    )
+    .addFields(
+      {
+        name: `🏆 Rank Mappings (${config.configuredRanks})`,
+        value: formatRoleMapSummary(config.rankRoleMap, ROLE_FORWARDING_RANK_KEYS, RANK_EMOJIS),
+        inline: false,
+      },
+      {
+        name: `🗣️ Language Mappings (${config.configuredLanguages})`,
+        value: formatRoleMapSummary(config.languageRoleMap, ROLE_FORWARDING_LANGUAGE_KEYS),
+        inline: false,
+      }
+    )
+    .setFooter({ text: 'Tip: Ensure bot role is above mapped roles and has Manage Roles permission.' })
+    .setTimestamp();
+}
+
+function buildRoleMenuOverviewRows() {
+  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${ROLE_MENU_MODE_PREFIX}RANK`)
+      .setLabel('🏆 Configure Rank Roles')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(`${ROLE_MENU_MODE_PREFIX}LANGUAGE`)
+      .setLabel('🗣️ Configure Language Roles')
+      .setStyle(ButtonStyle.Primary),
+  );
+
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(ROLE_MENU_SYNC)
+      .setLabel('🔄 Sync Now')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(ROLE_MENU_REFRESH)
+      .setLabel('🔁 Refresh')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(ROLE_MENU_CLOSE)
+      .setLabel('Close')
+      .setStyle(ButtonStyle.Danger),
+  );
+
+  return [row1, row2];
+}
+
+function buildRoleMenuEditorEmbed(session: PendingRoleMenuSession, config: RoleForwardingConfig) {
+  const currentMap = session.mode === 'RANK' ? config.rankRoleMap : config.languageRoleMap;
+  const selectedKeyDisplay = session.selectedKey || 'Not selected';
+  const selectedRoleDisplay = session.selectedRoleId ? `<@&${session.selectedRoleId}>` : 'Not selected';
+  const existingRoleDisplay = session.selectedKey && currentMap[session.selectedKey]
+    ? `<@&${currentMap[session.selectedKey]}>`
+    : 'None';
+
+  return new EmbedBuilder()
+    .setColor(0x0a84ff)
+    .setTitle(`⚙️ Configure ${modeLabel(session.mode)}`)
+    .setDescription(
+      'Pick a key and a Discord role, then click **Save Mapping**.\n' +
+      'Use **Clear Mapping** to remove a mapped role from the selected key.'
+    )
+    .addFields(
+      { name: 'Selected Key', value: selectedKeyDisplay, inline: true },
+      { name: 'Selected Role', value: selectedRoleDisplay, inline: true },
+      { name: 'Current Mapping', value: existingRoleDisplay, inline: true },
+    )
+    .setFooter({ text: `${config.communityName} • ${modeLabel(session.mode)}` });
+}
+
+function buildRoleMenuEditorRows(session: PendingRoleMenuSession) {
+  const keyOptions = getKeyOptions(session.mode).map((option) =>
+    option.setDefault(option.data.value === session.selectedKey)
+  );
+
+  const keyMenu = new StringSelectMenuBuilder()
+    .setCustomId(ROLE_MENU_SELECT_KEY)
+    .setPlaceholder(`Choose ${session.mode === 'RANK' ? 'a rank tier' : 'a language'}`)
+    .setMinValues(1)
+    .setMaxValues(1)
+    .addOptions(keyOptions);
+
+  const roleMenu = new RoleSelectMenuBuilder()
+    .setCustomId(ROLE_MENU_SELECT_ROLE)
+    .setPlaceholder('Choose a Discord role to map')
+    .setMinValues(1)
+    .setMaxValues(1);
+
+  const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(ROLE_MENU_SAVE)
+      .setLabel('💾 Save Mapping')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(ROLE_MENU_CLEAR)
+      .setLabel('🧹 Clear Mapping')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(!session.selectedKey),
+    new ButtonBuilder()
+      .setCustomId(ROLE_MENU_BACK)
+      .setLabel('⬅️ Back')
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  return [
+    new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(keyMenu),
+    new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(roleMenu),
+    actionRow,
+  ];
+}
+
+async function fetchRoleForwardingConfig(guildId: string): Promise<{ ok: true; config: RoleForwardingConfig } | { ok: false; error: string }> {
+  const result = await apiRequest(`/api/discord/role-forwarding?guildId=${guildId}`);
+  if (!result.ok) {
+    return { ok: false, error: result.data?.error || 'Failed to load role forwarding configuration.' };
+  }
+
+  return {
+    ok: true,
+    config: {
+      guildId,
+      communityId: result.data.communityId,
+      communityName: result.data.communityName,
+      rankRoleMap: result.data.rankRoleMap || {},
+      languageRoleMap: result.data.languageRoleMap || {},
+      configuredRanks: result.data.configuredRanks || 0,
+      configuredLanguages: result.data.configuredLanguages || 0,
+    },
+  };
+}
+
+async function syncRoleForwardingForGuild(guildId: string, guildHint?: Guild, silentNoop = false) {
+  const syncResult = await apiRequest('/api/discord/role-forwarding/sync', 'POST', { guildId });
+  if (!syncResult.ok) {
+    return {
+      ok: false,
+      message: syncResult.data?.error || 'Failed to prepare role forwarding sync payload.',
+    };
+  }
+
+  const payload = syncResult.data as RoleForwardingSyncPayload;
+  if (!payload.enabled || !Array.isArray(payload.managedRoleIds) || payload.managedRoleIds.length === 0) {
+    return {
+      ok: true,
+      message: silentNoop ? '' : 'No role mappings configured yet. Configure at least one rank/language role first.',
+      summary: payload.summary,
+    };
+  }
+
+  const guild = guildHint || await client.guilds.fetch(guildId).catch(() => null);
+  if (!guild) {
+    return { ok: false, message: 'Bot cannot access this guild right now.' };
+  }
+
+  const botMember = await guild.members.fetchMe().catch(() => null);
+  if (!botMember) {
+    return { ok: false, message: 'Failed to resolve bot member in this guild.' };
+  }
+
+  if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
+    return { ok: false, message: 'Missing Manage Roles permission. Grant it to the bot and retry.' };
+  }
+
+  const manageableRoleIds = new Set<string>();
+  let blockedByHierarchy = 0;
+
+  for (const roleId of payload.managedRoleIds) {
+    const role = guild.roles.cache.get(roleId);
+    if (!role) continue;
+    if (botMember.roles.highest.comparePositionTo(role) > 0) {
+      manageableRoleIds.add(roleId);
+    } else {
+      blockedByHierarchy += 1;
+    }
+  }
+
+  if (manageableRoleIds.size === 0) {
+    return {
+      ok: false,
+      message: 'All configured roles are above the bot role. Move the bot role above mapped roles and retry.',
+    };
+  }
+
+  let eligibleProcessed = 0;
+  let updatedMembers = 0;
+  let unchangedMembers = 0;
+  let failedMembers = 0;
+  let notFoundMembers = 0;
+
+  for (const member of payload.members || []) {
+    if (member.status !== 'ELIGIBLE' || !member.discordId) {
+      continue;
+    }
+
+    eligibleProcessed += 1;
+
+    const guildMember = await guild.members.fetch(member.discordId).catch(() => null);
+    if (!guildMember) {
+      notFoundMembers += 1;
+      continue;
+    }
+
+    const desiredRoleIds = member.desiredRoleIds.filter((id) => manageableRoleIds.has(id));
+    const currentManagedRoleIds = guildMember.roles.cache
+      .filter((role) => manageableRoleIds.has(role.id))
+      .map((role) => role.id);
+
+    const toAdd = desiredRoleIds.filter((roleId) => !guildMember.roles.cache.has(roleId));
+    const toRemove = currentManagedRoleIds.filter((roleId) => !desiredRoleIds.includes(roleId));
+
+    if (toAdd.length === 0 && toRemove.length === 0) {
+      unchangedMembers += 1;
+      continue;
+    }
+
+    try {
+      if (toAdd.length > 0) {
+        await guildMember.roles.add(toAdd, 'RiftEssence role forwarding sync');
+      }
+      if (toRemove.length > 0) {
+        await guildMember.roles.remove(toRemove, 'RiftEssence role forwarding sync');
+      }
+      updatedMembers += 1;
+    } catch (error: any) {
+      failedMembers += 1;
+      console.error(`❌ Role sync failed for ${member.username} (${member.discordId}): ${error.message}`);
+    }
+  }
+
+  const summaryParts = [
+    `eligible=${payload.summary?.eligibleMembers ?? eligibleProcessed}`,
+    `updated=${updatedMembers}`,
+    `unchanged=${unchangedMembers}`,
+    `notFound=${notFoundMembers}`,
+    `failed=${failedMembers}`,
+    `missingDiscord=${payload.summary?.missingDiscordLink ?? 0}`,
+    `missingRiot=${payload.summary?.missingRiotLink ?? 0}`,
+    `noMapping=${payload.summary?.noMatchingMapping ?? 0}`,
+  ];
+
+  if (blockedByHierarchy > 0) {
+    summaryParts.push(`blockedByHierarchy=${blockedByHierarchy}`);
+  }
+
+  return {
+    ok: true,
+    message: `Sync completed: ${summaryParts.join(', ')}`,
+    summary: payload.summary,
+  };
+}
+
+async function pollRoleForwardingSync() {
+  const guildEntries = Array.from(client.guilds.cache.values());
+  if (guildEntries.length === 0) return;
+
+  for (const guild of guildEntries) {
+    const result = await syncRoleForwardingForGuild(guild.id, guild, true);
+    if (!result.ok) {
+      console.warn(`⚠️ Role forwarding sync failed for guild ${guild.id}: ${result.message}`);
+    } else if (result.message) {
+      console.log(`🔁 Role forwarding sync (${guild.name}): ${result.message}`);
+    }
+  }
+}
+
+function buildChatReplyButtonCustomId(conversationId: string) {
+  return `${CHAT_REPLY_BUTTON_PREFIX}${conversationId}`;
+}
+
+function extractConversationIdFromChatReplyCustomId(customId: string, prefix: string) {
+  if (!customId.startsWith(prefix)) return null;
+  const conversationId = customId.slice(prefix.length).trim();
+  return conversationId || null;
 }
 
 // ============================================================
@@ -239,6 +644,38 @@ async function handleSetup(interaction: ChatInputCommandInteraction) {
   return interaction.editReply({ embeds: [embed], components: [row] });
 }
 
+async function handleRoleMenu(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const guildId = interaction.guildId;
+  const guild = interaction.guild;
+
+  if (!guildId || !guild) {
+    return interaction.editReply('❌ This command must be used in a server.');
+  }
+
+  const member = interaction.member as any;
+  if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
+    return interaction.editReply('❌ You need **Administrator** permissions to configure role forwarding.');
+  }
+
+  const configResult = await fetchRoleForwardingConfig(guildId);
+  if (!configResult.ok) {
+    const helpText = configResult.error.includes('linked community')
+      ? '❌ This server is not linked to a RiftEssence community yet.\nUse `/linkserver` first, then register on the app.'
+      : `❌ ${configResult.error}`;
+    return interaction.editReply(helpText);
+  }
+
+  const sessionKey = getRoleMenuSessionKey(interaction.user.id, guildId);
+  pendingRoleMenuSessions.delete(sessionKey);
+
+  return interaction.editReply({
+    embeds: [buildRoleMenuOverviewEmbed(configResult.config, guild.name)],
+    components: buildRoleMenuOverviewRows(),
+  });
+}
+
 function describeFilters(fc: any): string {
   const parts: string[] = [];
   if (fc.filterRegions?.length > 0) parts.push(`Regions: ${fc.filterRegions.join(', ')}`);
@@ -258,6 +695,151 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
 
   const customId = interaction.customId;
   const key = `${interaction.user.id}-${interaction.channelId}`;
+  const roleMenuSessionKey = getRoleMenuSessionKey(interaction.user.id, guildId);
+
+  if (customId === ROLE_MENU_CLOSE) {
+    pendingRoleMenuSessions.delete(roleMenuSessionKey);
+    return interaction.update({ content: 'Role forwarding menu closed.', embeds: [], components: [] });
+  }
+
+  if (customId === ROLE_MENU_REFRESH) {
+    const configResult = await fetchRoleForwardingConfig(guildId);
+    if (!configResult.ok) {
+      return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+    }
+
+    pendingRoleMenuSessions.delete(roleMenuSessionKey);
+    return interaction.update({
+      content: '🔁 Refreshed role forwarding configuration.',
+      embeds: [buildRoleMenuOverviewEmbed(configResult.config, interaction.guild?.name)],
+      components: buildRoleMenuOverviewRows(),
+    });
+  }
+
+  if (customId === ROLE_MENU_SYNC) {
+    const syncResult = await syncRoleForwardingForGuild(guildId, interaction.guild || undefined);
+    const configResult = await fetchRoleForwardingConfig(guildId);
+
+    if (!configResult.ok) {
+      return interaction.update({
+        content: `${syncResult.ok ? '✅' : '❌'} ${syncResult.message}\n⚠️ Could not refresh role menu: ${configResult.error}`,
+        embeds: [],
+        components: [],
+      });
+    }
+
+    return interaction.update({
+      content: `${syncResult.ok ? '✅' : '❌'} ${syncResult.message}`,
+      embeds: [buildRoleMenuOverviewEmbed(configResult.config, interaction.guild?.name)],
+      components: buildRoleMenuOverviewRows(),
+    });
+  }
+
+  const roleMenuMode = getRoleMenuModeFromCustomId(customId);
+  if (roleMenuMode) {
+    const configResult = await fetchRoleForwardingConfig(guildId);
+    if (!configResult.ok) {
+      return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+    }
+
+    const session: PendingRoleMenuSession = {
+      guildId,
+      mode: roleMenuMode,
+      selectedKey: null,
+      selectedRoleId: null,
+    };
+    pendingRoleMenuSessions.set(roleMenuSessionKey, session);
+
+    return interaction.update({
+      content: '',
+      embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
+      components: buildRoleMenuEditorRows(session),
+    });
+  }
+
+  if (customId === ROLE_MENU_BACK) {
+    const configResult = await fetchRoleForwardingConfig(guildId);
+    if (!configResult.ok) {
+      return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+    }
+
+    pendingRoleMenuSessions.delete(roleMenuSessionKey);
+    return interaction.update({
+      content: '',
+      embeds: [buildRoleMenuOverviewEmbed(configResult.config, interaction.guild?.name)],
+      components: buildRoleMenuOverviewRows(),
+    });
+  }
+
+  if (customId === ROLE_MENU_SAVE || customId === ROLE_MENU_CLEAR) {
+    const session = pendingRoleMenuSessions.get(roleMenuSessionKey);
+    if (!session) {
+      return interaction.update({ content: '❌ Role menu session expired. Run `/rolemenu` again.', embeds: [], components: [] });
+    }
+
+    if (!session.selectedKey) {
+      const configResult = await fetchRoleForwardingConfig(guildId);
+      if (!configResult.ok) {
+        return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+      }
+
+      return interaction.update({
+        content: '❌ Select a key first (rank/language) before saving.',
+        embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
+        components: buildRoleMenuEditorRows(session),
+      });
+    }
+
+    if (customId === ROLE_MENU_SAVE && !session.selectedRoleId) {
+      const configResult = await fetchRoleForwardingConfig(guildId);
+      if (!configResult.ok) {
+        return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+      }
+
+      return interaction.update({
+        content: '❌ Select a Discord role before saving this mapping.',
+        embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
+        components: buildRoleMenuEditorRows(session),
+      });
+    }
+
+    const updateResult = await apiRequest('/api/discord/role-forwarding', 'PATCH', {
+      guildId,
+      type: session.mode,
+      key: session.selectedKey,
+      roleId: customId === ROLE_MENU_CLEAR ? null : session.selectedRoleId,
+    });
+
+    if (!updateResult.ok) {
+      const configResult = await fetchRoleForwardingConfig(guildId);
+      if (!configResult.ok) {
+        return interaction.update({ content: `❌ ${updateResult.data?.error || 'Failed to update mapping.'}`, embeds: [], components: [] });
+      }
+
+      return interaction.update({
+        content: `❌ ${updateResult.data?.error || 'Failed to update mapping.'}`,
+        embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
+        components: buildRoleMenuEditorRows(session),
+      });
+    }
+
+    const configResult = await fetchRoleForwardingConfig(guildId);
+    if (!configResult.ok) {
+      return interaction.update({
+        content: `✅ Mapping updated, but refresh failed: ${configResult.error}`,
+        embeds: [],
+        components: [],
+      });
+    }
+
+    pendingRoleMenuSessions.delete(roleMenuSessionKey);
+    const actionText = customId === ROLE_MENU_CLEAR ? 'cleared' : 'saved';
+    return interaction.update({
+      content: `✅ ${modeLabel(session.mode)} mapping ${actionText}: **${session.selectedKey}** ${customId === ROLE_MENU_CLEAR ? '' : `→ <@&${session.selectedRoleId}>`}`,
+      embeds: [buildRoleMenuOverviewEmbed(configResult.config, interaction.guild?.name)],
+      components: buildRoleMenuOverviewRows(),
+    });
+  }
 
   // ── Choose feed type ──
   if (customId === 'setup_duo' || customId === 'setup_lft') {
@@ -459,6 +1041,31 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
 async function handleSelectMenuInteraction(interaction: StringSelectMenuInteraction) {
   const key = `${interaction.user.id}-${interaction.channelId}`;
   const customId = interaction.customId;
+  const guildId = interaction.guildId;
+
+  if (customId === ROLE_MENU_SELECT_KEY) {
+    if (!guildId) return interaction.deferUpdate();
+
+    const roleMenuSessionKey = getRoleMenuSessionKey(interaction.user.id, guildId);
+    const session = pendingRoleMenuSessions.get(roleMenuSessionKey);
+    if (!session) {
+      return interaction.update({ content: '❌ Role menu session expired. Run `/rolemenu` again.', embeds: [], components: [] });
+    }
+
+    session.selectedKey = interaction.values[0] || null;
+    pendingRoleMenuSessions.set(roleMenuSessionKey, session);
+
+    const configResult = await fetchRoleForwardingConfig(guildId);
+    if (!configResult.ok) {
+      return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+    }
+
+    return interaction.update({
+      content: '',
+      embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
+      components: buildRoleMenuEditorRows(session),
+    });
+  }
 
   // ── Filter select menus (update pending state) ──
   if (customId === 'filter_region' || customId === 'filter_role' || customId === 'filter_min_rank' || customId === 'filter_max_rank') {
@@ -487,6 +1094,90 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
 
     return interaction.update({ content: 'Are you sure you want to remove this feed channel?', components: [row] });
   }
+}
+
+async function handleRoleSelectInteraction(interaction: RoleSelectMenuInteraction) {
+  if (interaction.customId !== ROLE_MENU_SELECT_ROLE) {
+    return interaction.deferUpdate();
+  }
+
+  const guildId = interaction.guildId;
+  if (!guildId) {
+    return interaction.deferUpdate();
+  }
+
+  const roleMenuSessionKey = getRoleMenuSessionKey(interaction.user.id, guildId);
+  const session = pendingRoleMenuSessions.get(roleMenuSessionKey);
+  if (!session) {
+    return interaction.update({ content: '❌ Role menu session expired. Run `/rolemenu` again.', embeds: [], components: [] });
+  }
+
+  session.selectedRoleId = interaction.values[0] || null;
+  pendingRoleMenuSessions.set(roleMenuSessionKey, session);
+
+  const configResult = await fetchRoleForwardingConfig(guildId);
+  if (!configResult.ok) {
+    return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+  }
+
+  return interaction.update({
+    content: '',
+    embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
+    components: buildRoleMenuEditorRows(session),
+  });
+}
+
+async function handleChatReplyButton(interaction: ButtonInteraction) {
+  const conversationId = extractConversationIdFromChatReplyCustomId(interaction.customId, CHAT_REPLY_BUTTON_PREFIX);
+  if (!conversationId) {
+    return interaction.reply({ content: '❌ Invalid reply action.', ephemeral: interaction.inGuild() });
+  }
+
+  const modal = new ModalBuilder()
+    .setCustomId(`${CHAT_REPLY_MODAL_PREFIX}${conversationId}`)
+    .setTitle('Reply in RiftEssence Chat');
+
+  const input = new TextInputBuilder()
+    .setCustomId(CHAT_REPLY_TEXT_INPUT_ID)
+    .setLabel('Your message')
+    .setStyle(TextInputStyle.Paragraph)
+    .setMinLength(1)
+    .setMaxLength(2000)
+    .setPlaceholder('Type your reply. It will be sent to the same conversation in the app.')
+    .setRequired(true);
+
+  const row = new ActionRowBuilder<TextInputBuilder>().addComponents(input);
+  modal.addComponents(row);
+
+  return interaction.showModal(modal);
+}
+
+async function handleChatReplyModalSubmit(interaction: ModalSubmitInteraction) {
+  const conversationId = extractConversationIdFromChatReplyCustomId(interaction.customId, CHAT_REPLY_MODAL_PREFIX);
+  if (!conversationId) {
+    return interaction.reply({ content: '❌ Invalid reply context. Please try again from the DM notification.', ephemeral: interaction.inGuild() });
+  }
+
+  const content = interaction.fields.getTextInputValue(CHAT_REPLY_TEXT_INPUT_ID)?.trim();
+  if (!content) {
+    return interaction.reply({ content: '❌ Message cannot be empty.', ephemeral: interaction.inGuild() });
+  }
+
+  const sendResult = await apiRequest('/api/discord/dm-reply', 'POST', {
+    discordId: interaction.user.id,
+    conversationId,
+    content,
+  });
+
+  if (!sendResult.ok) {
+    const errorMessage = sendResult.data?.error || 'Failed to send reply from Discord.';
+    return interaction.reply({ content: `❌ ${errorMessage}`, ephemeral: interaction.inGuild() });
+  }
+
+  return interaction.reply({
+    content: `✅ Reply sent! Continue in app: ${APP_URL}`,
+    ephemeral: interaction.inGuild(),
+  });
 }
 
 // ============================================================
@@ -821,7 +1512,18 @@ async function sendChatDmNotification(dm: {
       .setFooter({ text: 'You can disable DM notifications in your RiftEssence settings.' })
       .setTimestamp();
 
-    await user.send({ embeds: [embed] });
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildChatReplyButtonCustomId(dm.conversationId))
+        .setLabel('✍️ Reply from Discord')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setLabel('Open in RiftEssence')
+        .setStyle(ButtonStyle.Link)
+        .setURL(APP_URL)
+    );
+
+    await user.send({ embeds: [embed], components: [row] });
     console.log(`✅ Sent DM notification to ${dm.recipientDiscordId} for message from ${dm.senderUsername}`);
   } catch (error: any) {
     if (error.code === 50007) {
@@ -1311,6 +2013,10 @@ client.once(Events.ClientReady, async (c) => {
   // Start polling for team event notifications
   console.log(`📅 Starting team event poll (interval: ${TEAM_EVENT_POLL_INTERVAL_MS}ms)`);
   setInterval(pollTeamEventNotifications, TEAM_EVENT_POLL_INTERVAL_MS);
+
+  // Start polling for Discord role forwarding sync
+  console.log(`🏷️ Starting role forwarding sync poll (interval: ${ROLE_FORWARDING_POLL_INTERVAL_MS}ms)`);
+  setInterval(pollRoleForwardingSync, ROLE_FORWARDING_POLL_INTERVAL_MS);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -1321,6 +2027,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleLinkServer(interaction);
     } else if (commandName === 'setup') {
       await handleSetup(interaction);
+    } else if (commandName === 'rolemenu') {
+      await handleRoleMenu(interaction);
     }
     return;
   }
@@ -1332,11 +2040,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleTeamEventButton(interaction as ButtonInteraction);
       return;
     }
+
+    // Chat reply buttons are private DM interactions and do not require admin rights.
+    if (interaction.customId.startsWith(CHAT_REPLY_BUTTON_PREFIX)) {
+      await handleChatReplyButton(interaction as ButtonInteraction);
+      return;
+    }
     
     // Only allow administrators for setup buttons
     const member = interaction.member as any;
     if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
-      return interaction.reply({ content: '❌ Only administrators can configure feeds.', ephemeral: true });
+      return interaction.reply({ content: '❌ Only administrators can configure bot settings.', ephemeral: true });
     }
     await handleButtonInteraction(interaction as ButtonInteraction);
     return;
@@ -1346,9 +2060,25 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isStringSelectMenu()) {
     const member = interaction.member as any;
     if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
-      return interaction.reply({ content: '❌ Only administrators can configure feeds.', ephemeral: true });
+      return interaction.reply({ content: '❌ Only administrators can configure bot settings.', ephemeral: true });
     }
     await handleSelectMenuInteraction(interaction as StringSelectMenuInteraction);
+    return;
+  }
+
+  if (interaction.isRoleSelectMenu()) {
+    const member = interaction.member as any;
+    if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
+      return interaction.reply({ content: '❌ Only administrators can configure role forwarding.', ephemeral: true });
+    }
+    await handleRoleSelectInteraction(interaction as RoleSelectMenuInteraction);
+    return;
+  }
+
+  if (interaction.isModalSubmit()) {
+    if (interaction.customId.startsWith(CHAT_REPLY_MODAL_PREFIX)) {
+      await handleChatReplyModalSubmit(interaction as ModalSubmitInteraction);
+    }
     return;
   }
 });

@@ -6,6 +6,29 @@ const RANK_ORDER = [
   'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER',
 ];
 
+const ROLE_FORWARDING_RANK_KEYS = [...RANK_ORDER, 'UNRANKED'];
+const ROLE_FORWARDING_LANGUAGE_KEYS = [
+  'English',
+  'Spanish',
+  'French',
+  'German',
+  'Italian',
+  'Portuguese',
+  'Polish',
+  'Russian',
+  'Turkish',
+  'Korean',
+  'Japanese',
+  'Chinese',
+];
+
+const LANGUAGE_KEY_LOOKUP: Record<string, string> = ROLE_FORWARDING_LANGUAGE_KEYS.reduce((acc: Record<string, string>, key: string) => {
+  acc[key.toLowerCase()] = key;
+  return acc;
+}, {} as Record<string, string>);
+
+const DISCORD_ROLE_ID_REGEX = /^\d{6,30}$/;
+
 function rankIndex(rank: string | null | undefined): number {
   if (!rank) return -1;
   return RANK_ORDER.indexOf(rank);
@@ -100,6 +123,65 @@ function extractVCPreferenceFromContent(content: string): string | null {
   }
   
   return null;
+}
+
+function normalizeDiscordRoleId(raw: any): string | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const mentionMatch = trimmed.match(/^<@&(\d+)>$/);
+  const roleId = mentionMatch ? mentionMatch[1] : trimmed;
+  return DISCORD_ROLE_ID_REGEX.test(roleId) ? roleId : null;
+}
+
+function normalizeRankKey(raw: any): string | null {
+  if (typeof raw !== 'string') return null;
+  const normalized = raw.trim().toUpperCase();
+  return ROLE_FORWARDING_RANK_KEYS.includes(normalized) ? normalized : null;
+}
+
+function normalizeLanguageKey(raw: any): string | null {
+  if (typeof raw !== 'string') return null;
+  const normalized = raw.trim().toLowerCase();
+  return LANGUAGE_KEY_LOOKUP[normalized] || null;
+}
+
+function normalizeRoleMap(raw: any, kind: 'RANK' | 'LANGUAGE'): Record<string, string> {
+  const output: Record<string, string> = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return output;
+  }
+
+  for (const [key, value] of Object.entries(raw)) {
+    const normalizedKey = kind === 'RANK' ? normalizeRankKey(key) : normalizeLanguageKey(key);
+    const normalizedRoleId = normalizeDiscordRoleId(value);
+    if (normalizedKey && normalizedRoleId) {
+      output[normalizedKey] = normalizedRoleId;
+    }
+  }
+
+  return output;
+}
+
+function pickBestRank(riotAccounts: Array<{ rank: string | null; isMain: boolean }>): string | null {
+  if (!Array.isArray(riotAccounts) || riotAccounts.length === 0) {
+    return null;
+  }
+
+  const main = riotAccounts.find((acc) => acc.isMain);
+  const rankedMain = main?.rank ? normalizeRankKey(main.rank) : null;
+  if (rankedMain) {
+    return rankedMain;
+  }
+
+  for (const account of riotAccounts) {
+    const rank = normalizeRankKey(account.rank);
+    if (rank) {
+      return rank;
+    }
+  }
+
+  return 'UNRANKED';
 }
 
 // Middleware to validate bot API key
@@ -685,6 +767,414 @@ export default async function discordFeedRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to mark DM as sent' });
+    }
+  });
+
+  // POST /api/discord/dm-reply - Send a chat reply from Discord DM modal (bot only)
+  fastify.post('/discord/dm-reply', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { discordId, conversationId, content } = request.body as {
+        discordId?: string;
+        conversationId?: string;
+        content?: string;
+      };
+
+      const trimmedContent = typeof content === 'string' ? content.trim() : '';
+
+      if (!discordId || !conversationId || !trimmedContent) {
+        return reply.status(400).send({ error: 'Missing required fields: discordId, conversationId, content' });
+      }
+
+      if (trimmedContent.length > 2000) {
+        return reply.status(400).send({ error: 'Message too long (max 2000 characters)' });
+      }
+
+      const discordAccount = await prisma.discordAccount.findUnique({
+        where: { discordId },
+        select: { userId: true },
+      });
+
+      if (!discordAccount) {
+        return reply.status(404).send({ error: 'User not linked to Discord' });
+      }
+
+      const senderId = discordAccount.userId;
+
+      const conversation = await prisma.conversation.findFirst({
+        where: {
+          id: conversationId,
+          OR: [{ user1Id: senderId }, { user2Id: senderId }],
+        },
+        select: {
+          id: true,
+          user1Id: true,
+          user2Id: true,
+        },
+      });
+
+      if (!conversation) {
+        return reply.status(404).send({ error: 'Conversation not found or access denied' });
+      }
+
+      const recipientId = conversation.user1Id === senderId ? conversation.user2Id : conversation.user1Id;
+
+      const blockExists = await prisma.block.findFirst({
+        where: {
+          OR: [
+            { blockerId: senderId, blockedId: recipientId },
+            { blockerId: recipientId, blockedId: senderId },
+          ],
+        },
+      });
+
+      if (blockExists) {
+        return reply.status(403).send({ error: 'Cannot send message' });
+      }
+
+      const isSenderUser1 = conversation.user1Id === senderId;
+
+      const createdMessage = await prisma.$transaction(async (tx: any) => {
+        const message = await tx.message.create({
+          data: {
+            conversationId: conversation.id,
+            senderId,
+            content: trimmedContent,
+          },
+          include: {
+            sender: {
+              select: {
+                id: true,
+                username: true,
+              },
+            },
+          },
+        });
+
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessageAt: new Date(),
+            lastMessagePreview: trimmedContent.substring(0, 100),
+            ...(isSenderUser1
+              ? { user2UnreadCount: { increment: 1 } }
+              : { user1UnreadCount: { increment: 1 } }),
+          },
+        });
+
+        return message;
+      });
+
+      // Forward Discord DM preview to the recipient if they opted in.
+      try {
+        const recipientUser = await prisma.user.findUnique({
+          where: { id: recipientId },
+          select: {
+            discordDmNotifications: true,
+            discordAccount: { select: { discordId: true } },
+          },
+        });
+
+        if (recipientUser?.discordDmNotifications && recipientUser.discordAccount?.discordId) {
+          await prisma.discordDmQueue.create({
+            data: {
+              recipientDiscordId: recipientUser.discordAccount.discordId,
+              senderUsername: createdMessage.sender.username || 'Someone',
+              messagePreview: trimmedContent.substring(0, 200),
+              conversationId: conversation.id,
+            },
+          });
+        }
+      } catch (dmQueueError: any) {
+        fastify.log.error(dmQueueError, 'Failed to queue follow-up Discord DM notification after dm-reply');
+      }
+
+      return reply.send({
+        success: true,
+        messageId: createdMessage.id,
+        createdAt: createdMessage.createdAt,
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to send chat reply from Discord' });
+    }
+  });
+
+  // GET /api/discord/role-forwarding - Get role-forwarding config for a linked guild (bot only)
+  fastify.get('/discord/role-forwarding', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { guildId } = request.query as { guildId?: string };
+      if (!guildId) {
+        return reply.status(400).send({ error: 'Missing required query parameter: guildId' });
+      }
+
+      const community = await (prisma as any).community.findUnique({
+        where: { discordServerId: guildId },
+        select: {
+          id: true,
+          name: true,
+          discordRankRoleMap: true,
+          discordLanguageRoleMap: true,
+        },
+      });
+
+      if (!community) {
+        return reply.status(404).send({ error: 'No linked community found for this Discord server' });
+      }
+
+      const rankRoleMap = normalizeRoleMap(community.discordRankRoleMap, 'RANK');
+      const languageRoleMap = normalizeRoleMap(community.discordLanguageRoleMap, 'LANGUAGE');
+
+      return reply.send({
+        success: true,
+        guildId,
+        communityId: community.id,
+        communityName: community.name,
+        rankRoleMap,
+        languageRoleMap,
+        configuredRanks: Object.keys(rankRoleMap).length,
+        configuredLanguages: Object.keys(languageRoleMap).length,
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch role forwarding config' });
+    }
+  });
+
+  // PATCH /api/discord/role-forwarding - Set or clear one rank/language mapping (bot only)
+  fastify.patch('/discord/role-forwarding', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { guildId, type, key, roleId } = request.body as {
+        guildId?: string;
+        type?: 'RANK' | 'LANGUAGE' | string;
+        key?: string;
+        roleId?: string | null;
+      };
+
+      if (!guildId || !type || !key) {
+        return reply.status(400).send({ error: 'Missing required fields: guildId, type, key' });
+      }
+
+      const normalizedType = String(type).toUpperCase();
+      if (normalizedType !== 'RANK' && normalizedType !== 'LANGUAGE') {
+        return reply.status(400).send({ error: 'type must be RANK or LANGUAGE' });
+      }
+
+      const normalizedKey = normalizedType === 'RANK' ? normalizeRankKey(key) : normalizeLanguageKey(key);
+      if (!normalizedKey) {
+        return reply.status(400).send({ error: `Invalid ${normalizedType === 'RANK' ? 'rank' : 'language'} key` });
+      }
+
+      const normalizedRoleId = roleId === null || roleId === undefined || roleId === ''
+        ? null
+        : normalizeDiscordRoleId(roleId);
+
+      if (roleId !== null && roleId !== undefined && roleId !== '' && !normalizedRoleId) {
+        return reply.status(400).send({ error: 'Invalid Discord role ID' });
+      }
+
+      const community = await (prisma as any).community.findUnique({
+        where: { discordServerId: guildId },
+        select: {
+          id: true,
+          name: true,
+          discordRankRoleMap: true,
+          discordLanguageRoleMap: true,
+        },
+      });
+
+      if (!community) {
+        return reply.status(404).send({ error: 'No linked community found for this Discord server' });
+      }
+
+      const rankRoleMap = normalizeRoleMap(community.discordRankRoleMap, 'RANK');
+      const languageRoleMap = normalizeRoleMap(community.discordLanguageRoleMap, 'LANGUAGE');
+
+      if (normalizedType === 'RANK') {
+        if (normalizedRoleId) {
+          rankRoleMap[normalizedKey] = normalizedRoleId;
+        } else {
+          delete rankRoleMap[normalizedKey];
+        }
+      } else {
+        if (normalizedRoleId) {
+          languageRoleMap[normalizedKey] = normalizedRoleId;
+        } else {
+          delete languageRoleMap[normalizedKey];
+        }
+      }
+
+      await (prisma as any).community.update({
+        where: { id: community.id },
+        data: {
+          discordRankRoleMap: rankRoleMap as any,
+          discordLanguageRoleMap: languageRoleMap as any,
+        },
+      });
+
+      return reply.send({
+        success: true,
+        guildId,
+        communityId: community.id,
+        communityName: community.name,
+        action: normalizedRoleId ? 'SET' : 'REMOVED',
+        type: normalizedType,
+        key: normalizedKey,
+        rankRoleMap,
+        languageRoleMap,
+        configuredRanks: Object.keys(rankRoleMap).length,
+        configuredLanguages: Object.keys(languageRoleMap).length,
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to update role forwarding config' });
+    }
+  });
+
+  // POST /api/discord/role-forwarding/sync - Build sync payload for role assignment (bot only)
+  fastify.post('/discord/role-forwarding/sync', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { guildId } = request.body as { guildId?: string };
+      if (!guildId) {
+        return reply.status(400).send({ error: 'Missing required field: guildId' });
+      }
+
+      const community = await (prisma as any).community.findUnique({
+        where: { discordServerId: guildId },
+        select: {
+          id: true,
+          name: true,
+          discordRankRoleMap: true,
+          discordLanguageRoleMap: true,
+          memberships: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  languages: true,
+                  discordAccount: {
+                    select: { discordId: true },
+                  },
+                  riotAccounts: {
+                    select: {
+                      rank: true,
+                      isMain: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!community) {
+        return reply.status(404).send({ error: 'No linked community found for this Discord server' });
+      }
+
+      const rankRoleMap = normalizeRoleMap(community.discordRankRoleMap, 'RANK');
+      const languageRoleMap = normalizeRoleMap(community.discordLanguageRoleMap, 'LANGUAGE');
+      const managedRoleIds = Array.from(new Set([...Object.values(rankRoleMap), ...Object.values(languageRoleMap)]));
+
+      const summary = {
+        totalMembers: community.memberships.length,
+        eligibleMembers: 0,
+        missingDiscordLink: 0,
+        missingRiotLink: 0,
+        noMatchingMapping: 0,
+      };
+
+      const members = community.memberships.map((membership: any) => {
+        const user = membership.user;
+        const discordId = user.discordAccount?.discordId || null;
+
+        if (!discordId) {
+          summary.missingDiscordLink += 1;
+          return {
+            userId: user.id,
+            username: user.username,
+            discordId: null,
+            rank: null,
+            languages: Array.isArray(user.languages) ? user.languages : [],
+            desiredRoleIds: [] as string[],
+            status: 'MISSING_DISCORD_LINK',
+          };
+        }
+
+        const bestRank = pickBestRank(Array.isArray(user.riotAccounts) ? user.riotAccounts : []);
+        if (!bestRank) {
+          summary.missingRiotLink += 1;
+          return {
+            userId: user.id,
+            username: user.username,
+            discordId,
+            rank: null,
+            languages: Array.isArray(user.languages) ? user.languages : [],
+            desiredRoleIds: [] as string[],
+            status: 'MISSING_RIOT_LINK',
+          };
+        }
+
+        const desiredRoleIds = new Set<string>();
+
+        const mappedRankRole = rankRoleMap[bestRank];
+        if (mappedRankRole) {
+          desiredRoleIds.add(mappedRankRole);
+        }
+
+        const normalizedLanguages = Array.isArray(user.languages)
+          ? user.languages
+              .map((lang: string) => normalizeLanguageKey(lang))
+              .filter((lang: string | null): lang is string => Boolean(lang))
+          : [];
+
+        for (const language of normalizedLanguages) {
+          const mappedLanguageRole = languageRoleMap[language];
+          if (mappedLanguageRole) {
+            desiredRoleIds.add(mappedLanguageRole);
+          }
+        }
+
+        if (desiredRoleIds.size === 0) {
+          summary.noMatchingMapping += 1;
+          return {
+            userId: user.id,
+            username: user.username,
+            discordId,
+            rank: bestRank,
+            languages: normalizedLanguages,
+            desiredRoleIds: [] as string[],
+            status: 'NO_MATCHING_MAPPING',
+          };
+        }
+
+        summary.eligibleMembers += 1;
+        return {
+          userId: user.id,
+          username: user.username,
+          discordId,
+          rank: bestRank,
+          languages: normalizedLanguages,
+          desiredRoleIds: Array.from(desiredRoleIds),
+          status: 'ELIGIBLE',
+        };
+      });
+
+      return reply.send({
+        success: true,
+        enabled: managedRoleIds.length > 0,
+        guildId,
+        communityId: community.id,
+        communityName: community.name,
+        rankRoleMap,
+        languageRoleMap,
+        managedRoleIds,
+        summary,
+        members,
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to generate role forwarding sync payload' });
     }
   });
 

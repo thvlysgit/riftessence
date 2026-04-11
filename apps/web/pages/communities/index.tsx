@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import SEOHead from '../../../api/components/SEOHead';
 import { LoadingSpinner } from '../../../api/components/LoadingSpinner';
@@ -17,18 +17,43 @@ type Community = {
   memberCount: number;
   postCount: number;
   createdAt: string;
-};  
+};
+
+type SortMode = 'TRENDING' | 'MEMBERS' | 'POSTS' | 'NEWEST';
+
+const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
+
+function formatCompact(value: number) {
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+  return String(value);
+}
+
+function getCommunityScore(community: Community) {
+  const agePenalty = Math.min(90, Math.floor((Date.now() - new Date(community.createdAt).getTime()) / (1000 * 60 * 60 * 24)));
+  const partnerBoost = community.isPartner ? 400 : 0;
+  return community.memberCount * 3 + community.postCount * 4 + partnerBoost - agePenalty;
+}
 
 export default function CommunitiesPage() {
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [regionFilter, setRegionFilter] = useState<string[]>([]);
   const [partnerFilter, setPartnerFilter] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>('TRENDING');
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setSearch(searchInput.trim());
+    }, 280);
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
 
   useEffect(() => {
     fetchCommunities();
-  }, [regionFilter, partnerFilter]);
+  }, [search, regionFilter, partnerFilter]);
 
   const fetchCommunities = async () => {
     try {
@@ -50,18 +75,46 @@ export default function CommunitiesPage() {
     }
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchCommunities();
-  };
-
   const toggleRegion = (region: string) => {
     setRegionFilter(prev => 
       prev.includes(region) ? prev.filter(r => r !== region) : [...prev, region]
     );
   };
 
-  const regions = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
+  const clearFilters = () => {
+    setRegionFilter([]);
+    setPartnerFilter(false);
+    setSearchInput('');
+    setSearch('');
+  };
+
+  const sortedCommunities = useMemo(() => {
+    const list = [...communities];
+
+    if (sortMode === 'MEMBERS') {
+      list.sort((a, b) => b.memberCount - a.memberCount);
+      return list;
+    }
+
+    if (sortMode === 'POSTS') {
+      list.sort((a, b) => b.postCount - a.postCount);
+      return list;
+    }
+
+    if (sortMode === 'NEWEST') {
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return list;
+    }
+
+    list.sort((a, b) => getCommunityScore(b) - getCommunityScore(a));
+    return list;
+  }, [communities, sortMode]);
+
+  const totalMembers = communities.reduce((sum, community) => sum + community.memberCount, 0);
+  const totalPosts = communities.reduce((sum, community) => sum + community.postCount, 0);
+  const partnerCount = communities.filter((community) => community.isPartner).length;
+
+  const hasActiveFilters = search.length > 0 || regionFilter.length > 0 || partnerFilter;
 
   return (
     <>
@@ -73,107 +126,115 @@ export default function CommunitiesPage() {
       />
       <div className="min-h-screen py-8 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--color-accent-1)' }}>
-              Communities
-            </h1>
-            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-              Discover and join League of Legends communities
-            </p>
-          </div>
-          <Link
-            href="/communities/register"
-            className="px-4 py-2 font-semibold transition-all shadow-md"
-            style={{
-              background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
-              color: 'var(--color-bg-primary)',
-              borderRadius: 'var(--border-radius)',
-            }}
-          >
-            Link Server
-          </Link>
-        </div>
-
-        {/* Quick guide card */}
         <div
-          className="mb-6 p-6 rounded-xl border"
+          className="mb-8 p-6 md:p-8 border"
           style={{
-            background: 'linear-gradient(120deg, rgba(96,165,250,0.12), rgba(167,139,250,0.12))',
+            borderRadius: 'calc(var(--border-radius) * 1.4)',
             borderColor: 'var(--color-border)',
+            background: 'radial-gradient(circle at 10% 0%, rgba(88,101,242,0.20), transparent 38%), radial-gradient(circle at 95% 90%, rgba(200,170,110,0.25), transparent 42%), var(--color-bg-secondary)',
             boxShadow: 'var(--shadow-lg)',
           }}
         >
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
             <div>
-              <p className="text-sm uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--color-accent-1)' }}>
-                New to communities?
+              <p className="text-xs uppercase tracking-[0.2em] mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                RiftEssence Network
               </p>
-              <h3 className="text-xl font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                Link your Discord server in 3 easy steps
-              </h3>
-              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                Invite our bot, run /linkserver, enter the code here — done.
+              <h1 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
+                Discover active communities, not dead servers
+              </h1>
+              <p className="max-w-3xl text-sm md:text-base" style={{ color: 'var(--color-text-secondary)' }}>
+                Filter by region, compare activity, and join groups where people are actually posting and queueing now.
               </p>
             </div>
+
             <div className="flex flex-wrap gap-3">
               <a
                 href="https://discord.com/oauth2/authorize?client_id=1363678859471491312&scope=bot&permissions=2147863617"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 rounded font-semibold flex items-center gap-2"
-                style={{
-                  backgroundColor: '#5865F2',
-                  color: '#fff',
-                }}
+                className="px-4 py-2 rounded font-semibold"
+                style={{ backgroundColor: '#5865F2', color: '#fff' }}
               >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/></svg>
                 Add Bot
               </a>
               <Link
                 href="/communities/guide"
-                className="px-4 py-2 rounded font-semibold border"
+                className="px-4 py-2 rounded border font-semibold"
                 style={{
-                  background: 'var(--color-bg-primary)',
                   borderColor: 'var(--color-border)',
-                  color: 'var(--color-text-primary)'
+                  color: 'var(--color-text-primary)',
+                  backgroundColor: 'var(--color-bg-primary)',
                 }}
               >
-                Open quick guide
+                Setup Guide
               </Link>
               <Link
                 href="/communities/register"
-                className="px-4 py-2 font-semibold transition-all shadow-md"
+                className="px-4 py-2 font-semibold shadow-md"
                 style={{
                   background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
                   color: 'var(--color-bg-primary)',
                   borderRadius: 'var(--border-radius)',
                 }}
               >
-                Start linking
+                Link Server
               </Link>
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="p-4 border" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--border-radius)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+              <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Communities</p>
+              <p className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{formatCompact(communities.length)}</p>
+            </div>
+            <div className="p-4 border" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--border-radius)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+              <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Members Reached</p>
+              <p className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{formatCompact(totalMembers)}</p>
+            </div>
+            <div className="p-4 border" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--border-radius)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+              <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Partner Groups</p>
+              <p className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{formatCompact(partnerCount)}</p>
             </div>
           </div>
         </div>
 
-        {/* Search and Filters */}
-        <div 
-          className="border p-6 mb-6"
+        <div
+          className="mb-6 border p-5"
           style={{
             backgroundColor: 'var(--color-bg-secondary)',
             borderColor: 'var(--color-border)',
             borderRadius: 'var(--border-radius)',
           }}
         >
-          <form onSubmit={handleSearch} className="mb-4">
-            <div className="flex gap-2">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+            <div>
+              <p className="text-sm uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--color-accent-1)' }}>
+                Discovery Controls
+              </p>
+              <h3 className="text-lg md:text-xl font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                Find the right place fast
+              </h3>
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                Search updates live, stack region filters, and sort by activity or member size.
+              </p>
+            </div>
+            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+              Total visible posts across current results: <strong style={{ color: 'var(--color-text-primary)' }}>{formatCompact(totalPosts)}</strong>
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+            <div className="lg:col-span-2">
+              <label className="block text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                Search
+              </label>
               <input
                 type="text"
-                placeholder="Search communities..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="flex-1 px-4 py-2 border"
+                value={searchInput}
+                placeholder="Type a community name..."
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="w-full px-4 py-3 border"
                 style={{
                   backgroundColor: 'var(--color-bg-tertiary)',
                   borderColor: 'var(--color-border)',
@@ -181,80 +242,138 @@ export default function CommunitiesPage() {
                   borderRadius: 'var(--border-radius)',
                 }}
               />
-              <button
-                type="submit"
-                className="px-6 py-2 font-semibold"
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                Sort
+              </label>
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+                className="w-full px-4 py-3 border"
                 style={{
-                  background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
-                  color: 'var(--color-bg-primary)',
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)',
                   borderRadius: 'var(--border-radius)',
                 }}
               >
-                Search
-              </button>
-            </div>
-          </form>
-
-          {/* Region Filter */}
-          <div className="mb-4">
-            <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-              Regions
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {regions.map(region => (
-                <button
-                  key={region}
-                  onClick={() => toggleRegion(region)}
-                  className="px-3 py-1 text-sm font-medium border transition-colors"
-                  style={{
-                    backgroundColor: regionFilter.includes(region) ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
-                    borderColor: regionFilter.includes(region) ? 'var(--color-accent-1)' : 'var(--color-border)',
-                    color: regionFilter.includes(region) ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
-                    borderRadius: 'var(--border-radius)',
-                  }}
-                >
-                  {region}
-                </button>
-              ))}
+                <option value="TRENDING">Trending</option>
+                <option value="MEMBERS">Most members</option>
+                <option value="POSTS">Most posts</option>
+                <option value="NEWEST">Newest first</option>
+              </select>
             </div>
           </div>
 
-          {/* Partner Filter */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={partnerFilter}
-              onChange={(e) => setPartnerFilter(e.target.checked)}
-              className="cursor-pointer"
-            />
-            <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              Show only partner communities
+          <div className="flex flex-wrap gap-2 mb-4">
+            {REGIONS.map((region) => (
+              <button
+                key={region}
+                onClick={() => toggleRegion(region)}
+                className="px-3 py-1.5 text-sm font-medium border transition-colors"
+                style={{
+                  borderRadius: '999px',
+                  backgroundColor: regionFilter.includes(region) ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
+                  borderColor: regionFilter.includes(region) ? 'var(--color-accent-1)' : 'var(--color-border)',
+                  color: regionFilter.includes(region) ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+                }}
+              >
+                {region}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setPartnerFilter((prev) => !prev)}
+              className="px-3 py-1.5 text-sm font-semibold border"
+              style={{
+                borderRadius: '999px',
+                backgroundColor: partnerFilter ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
+                borderColor: partnerFilter ? 'var(--color-accent-1)' : 'var(--color-border)',
+                color: partnerFilter ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+              }}
+            >
+              ⭐ Partner only
+            </button>
+
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="px-3 py-1.5 text-sm border"
+                style={{
+                  borderRadius: '999px',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-secondary)',
+                  backgroundColor: 'var(--color-bg-primary)',
+                }}
+              >
+                Clear filters
+              </button>
+            )}
+
+            <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+              {sortedCommunities.length} result{sortedCommunities.length !== 1 ? 's' : ''}
             </span>
-          </label>
+          </div>
         </div>
 
-        {/* Communities Grid */}
         {loading ? (
           <LoadingSpinner />
-        ) : communities.length === 0 ? (
-          <div className="text-center py-12" style={{ color: 'var(--color-text-muted)' }}>
-            No communities found. Try adjusting your filters or register a new community!
+        ) : sortedCommunities.length === 0 ? (
+          <div
+            className="text-center py-14 px-6 border"
+            style={{
+              borderColor: 'var(--color-border)',
+              borderRadius: 'var(--border-radius)',
+              backgroundColor: 'var(--color-bg-secondary)',
+            }}
+          >
+            <p className="text-lg font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+              No communities match these filters
+            </p>
+            <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
+              Try widening regions, disabling partner-only mode, or searching by another keyword.
+            </p>
+            <button
+              onClick={clearFilters}
+              className="px-4 py-2 font-semibold"
+              style={{
+                borderRadius: 'var(--border-radius)',
+                background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
+                color: 'var(--color-bg-primary)',
+              }}
+            >
+              Reset discovery filters
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {communities.map(community => (
+            {sortedCommunities.map((community) => (
               <Link
                 key={community.id}
                 href={`/communities/${community.id}`}
-                className="border p-6 hover:shadow-lg transition-all"
+                className="border p-5 transition-all hover:-translate-y-1"
                 style={{
+                  position: 'relative',
                   backgroundColor: 'var(--color-bg-secondary)',
                   borderColor: 'var(--color-border)',
                   borderRadius: 'var(--border-radius)',
+                  boxShadow: 'var(--shadow)',
                 }}
               >
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: 'var(--border-radius)',
+                    background: 'linear-gradient(120deg, rgba(88,101,242,0.08), rgba(200,170,110,0.08), transparent 60%)',
+                    pointerEvents: 'none',
+                  }}
+                />
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                  <h3 className="text-xl font-bold pr-3" style={{ color: 'var(--color-text-primary)' }}>
                     {community.name}
                   </h3>
                   {community.isPartner && (
@@ -272,13 +391,22 @@ export default function CommunitiesPage() {
                 </div>
 
                 {community.description && (
-                  <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--color-text-muted)' }}>
+                  <p
+                    className="text-sm mb-4"
+                    style={{
+                      color: 'var(--color-text-muted)',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
                     {community.description}
                   </p>
                 )}
 
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {community.regions.map(region => (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {community.regions.slice(0, 4).map((region) => (
                     <span
                       key={region}
                       className="px-2 py-1 text-xs font-medium border"
@@ -292,6 +420,19 @@ export default function CommunitiesPage() {
                       {region}
                     </span>
                   ))}
+                  {community.regions.length > 4 && (
+                    <span
+                      className="px-2 py-1 text-xs font-medium border"
+                      style={{
+                        backgroundColor: 'var(--color-bg-tertiary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-muted)',
+                        borderRadius: 'calc(var(--border-radius) * 0.5)',
+                      }}
+                    >
+                      +{community.regions.length - 4}
+                    </span>
+                  )}
                   <span
                     className="px-2 py-1 text-xs font-medium border"
                     style={{
@@ -305,9 +446,9 @@ export default function CommunitiesPage() {
                   </span>
                 </div>
 
-                <div className="flex justify-between text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                  <span>{community.memberCount} members</span>
-                  <span>{community.postCount} posts</span>
+                <div className="flex justify-between items-center text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                  <span>{formatCompact(community.memberCount)} members</span>
+                  <span>{formatCompact(community.postCount)} posts</span>
                 </div>
               </Link>
             ))}
