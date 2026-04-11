@@ -4,8 +4,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
 const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
 const ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
-const RANKS = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER', 'UNRANKED'];
-const DIVISIONS = ['IV', 'III', 'II', 'I'];
 const EXPERIENCES = [
   { value: 'FIRST_TEAM', label: 'First Team' },
   { value: 'SOME_EXPERIENCE', label: 'Some Experience' },
@@ -23,9 +21,15 @@ const AVAILABILITIES = [
   { value: 'EVERYDAY', label: 'Everyday' },
 ];
 const COMMON_LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Portuguese', 'Korean', 'Japanese', 'Chinese'];
-const SKILL_OPTIONS = ['Shotcaller', 'Weakside', 'Ocean Champion Pool', 'Vision', 'Duels', 'Consistency'];
 
 type CandidateType = 'PLAYER' | 'MANAGER' | 'COACH' | 'OTHER';
+
+const SKILL_OPTIONS_BY_CANDIDATE: Record<CandidateType, string[]> = {
+  PLAYER: ['Shotcaller', 'Weakside', 'Ocean Champion Pool', 'Vision', 'Duels', 'Consistency'],
+  MANAGER: ['Scheduling', 'Scrim Coordination', 'Roster Management', 'Player Support', 'Tournament Operations', 'Conflict Resolution'],
+  COACH: ['Draft Prep', 'VOD Review', 'Macro Planning', 'Objective Setup', '1-on-1 Coaching', 'Performance Tracking'],
+  OTHER: ['Analyst Reports', 'Scouting', 'Content Creation', 'Mental Performance', 'Data Tracking', 'Logistics Support'],
+};
 
 const CANDIDATE_OPTIONS: Array<{ value: CandidateType; icon: string; label: string; subtitle: string }> = [
   { value: 'PLAYER', icon: '🧑', label: 'Player', subtitle: 'Looking for a roster as a player' },
@@ -55,8 +59,6 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
   const [division, setDivision] = useState('');
 
   const [candidateType, setCandidateType] = useState<CandidateType>('PLAYER');
-  const [advertiseForOther, setAdvertiseForOther] = useState(false);
-  const [representedName, setRepresentedName] = useState('');
 
   const [experience, setExperience] = useState('FIRST_TEAM');
   const [languages, setLanguages] = useState<string[]>([]);
@@ -69,7 +71,8 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
   const [loading, setLoading] = useState(true);
 
   const isPlayerListing = candidateType === 'PLAYER';
-  const showDivision = rank && !['MASTER', 'GRANDMASTER', 'CHALLENGER', 'UNRANKED'].includes(rank);
+  const availableSkills = useMemo(() => SKILL_OPTIONS_BY_CANDIDATE[candidateType], [candidateType]);
+  const rankDisplay = division ? `${rank} ${division}` : rank;
 
   useEffect(() => {
     try {
@@ -77,8 +80,6 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
       if (!saved) return;
       const draft = JSON.parse(saved);
       if (draft.candidateType) setCandidateType(draft.candidateType);
-      if (typeof draft.advertiseForOther === 'boolean') setAdvertiseForOther(draft.advertiseForOther);
-      if (draft.representedName) setRepresentedName(draft.representedName);
       if (draft.experience) setExperience(draft.experience);
       if (Array.isArray(draft.languages)) setLanguages(draft.languages);
       if (Array.isArray(draft.skills)) setSkills(draft.skills);
@@ -95,8 +96,6 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
       'riftessence_lft_player_draft',
       JSON.stringify({
         candidateType,
-        advertiseForOther,
-        representedName,
         experience,
         languages,
         skills,
@@ -105,7 +104,11 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
         details,
       })
     );
-  }, [candidateType, advertiseForOther, representedName, experience, languages, skills, age, availability, details]);
+  }, [candidateType, experience, languages, skills, age, availability, details]);
+
+  useEffect(() => {
+    setSkills((prev) => prev.filter((skill) => availableSkills.includes(skill)));
+  }, [availableSkills]);
 
   useEffect(() => {
     if (!open) return;
@@ -146,6 +149,9 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
           if (mainAcc.rank) {
             setRank(mainAcc.rank);
             setDivision(mainAcc.division || '');
+          } else {
+            setRank('UNRANKED');
+            setDivision('');
           }
         }
       } catch (err) {
@@ -188,11 +194,6 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
       return;
     }
 
-    if (advertiseForOther && !representedName.trim()) {
-      setError('Enter who this listing is for.');
-      return;
-    }
-
     if (isPlayerListing) {
       if (!mainRole) {
         setError('Main role is required for player listings.');
@@ -216,10 +217,9 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
     onSubmit({
       region,
       candidateType,
-      representedName: advertiseForOther ? representedName.trim() : null,
       mainRole: isPlayerListing ? mainRole : null,
       rank: rank || null,
-      division: showDivision ? (division || null) : null,
+      division: division || null,
       experience: experience || null,
       languages,
       skills,
@@ -302,32 +302,6 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
               );
             })}
           </div>
-        </div>
-
-        <div className="rounded-lg border p-3 mb-5" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
-          <label className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-            <input
-              type="checkbox"
-              checked={advertiseForOther}
-              onChange={(e) => setAdvertiseForOther(e.target.checked)}
-            />
-            👤 This listing is for someone else
-          </label>
-          {advertiseForOther && (
-            <input
-              type="text"
-              value={representedName}
-              onChange={(e) => setRepresentedName(e.target.value)}
-              className="mt-3 w-full px-3 py-2 rounded border"
-              style={{
-                background: 'var(--color-bg-secondary)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-primary)',
-              }}
-              placeholder="Name to display on the listing (coach, manager, analyst, etc.)"
-              maxLength={80}
-            />
-          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -415,26 +389,6 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  🏅 Rank
-                </label>
-                <select
-                  value={rank}
-                  onChange={(e) => setRank(e.target.value)}
-                  className="w-full px-3 py-2 rounded border"
-                  style={{
-                    background: 'var(--color-bg-tertiary)',
-                    borderColor: 'var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                  }}
-                >
-                  {RANKS.map((entry) => (
-                    <option key={entry} value={entry}>{entry}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
                   🎂 Age
                 </label>
                 <input
@@ -463,28 +417,17 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
             </div>
           )}
 
-          {showDivision && (
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                🪜 Division
-              </label>
-              <select
-                value={division}
-                onChange={(e) => setDivision(e.target.value)}
-                className="w-full px-3 py-2 rounded border"
-                style={{
-                  background: 'var(--color-bg-tertiary)',
-                  borderColor: 'var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
-              >
-                <option value="">Select division</option>
-                {DIVISIONS.map((entry) => (
-                  <option key={entry} value={entry}>{entry}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div className="md:col-span-2 rounded-lg border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
+            <p className="text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+              🏅 Profile Rank
+            </p>
+            <p className="text-sm mt-1" style={{ color: 'var(--color-text-primary)' }}>
+              {rankDisplay || 'UNRANKED'}
+            </p>
+            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+              Rank and division are pulled automatically from your linked Riot profile.
+            </p>
+          </div>
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
@@ -517,7 +460,7 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
               ⭐ Skills {isPlayerListing ? '(required)' : '(optional)'}
             </label>
             <div className="flex flex-wrap gap-2">
-              {SKILL_OPTIONS.map((skill) => {
+              {availableSkills.map((skill) => {
                 const selected = skills.includes(skill);
                 return (
                   <button

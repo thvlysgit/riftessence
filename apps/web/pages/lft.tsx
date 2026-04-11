@@ -56,6 +56,12 @@ const CANDIDATE_TYPE_LABELS: Record<string, string> = {
   COACH: 'Coach',
   OTHER: 'Other',
 };
+const CANDIDATE_TYPE_COLORS: Record<string, string> = {
+  PLAYER: '#3B82F6',
+  MANAGER: '#14B8A6',
+  COACH: '#F97316',
+  OTHER: '#A855F7',
+};
 
 // Role icon helper (League of Legends client style)
 const getRoleIcon = (role: string) => {
@@ -255,6 +261,7 @@ type LftPost = {
   mainRole?: string;
   rank?: string;
   division?: string | null;
+  championPool?: string[];
   experience?: string;
   languages?: string[];
   skills?: string[];
@@ -337,6 +344,7 @@ export default function LFTPage() {
   const filteredPosts = React.useMemo(() => {
     const normalizedSearch = searchText.trim().toLowerCase();
     const minimumRankIndex = minimumRankFilter === 'ALL' ? -1 : getRankIndex(minimumRankFilter);
+    const effectiveCandidateTypeFilter = listingFilter === 'PLAYERS' ? 'PLAYER' : candidateTypeFilter;
 
     return allPosts.filter((post) => {
       const normalizedCandidateType = String(post.candidateType || 'PLAYER').toUpperCase();
@@ -344,15 +352,15 @@ export default function LFTPage() {
       const teamHasStaffNeeds = post.type === 'TEAM' && Array.isArray(post.staffNeeded) && post.staffNeeded.length > 0;
 
       if (listingFilter === 'TEAMS' && post.type !== 'TEAM') return false;
-      if (listingFilter === 'PLAYERS' && post.type !== 'PLAYER') return false;
+      if (listingFilter === 'PLAYERS' && (post.type !== 'PLAYER' || normalizedCandidateType !== 'PLAYER')) return false;
       if (listingFilter === 'STAFF' && !teamHasStaffNeeds && !playerIsStaffListing) {
         return false;
       }
 
       if (regionFilter !== 'ALL' && post.region !== regionFilter) return false;
 
-      if (candidateTypeFilter !== 'ALL') {
-        if (post.type !== 'PLAYER' || normalizedCandidateType !== candidateTypeFilter) return false;
+      if (effectiveCandidateTypeFilter !== 'ALL') {
+        if (post.type !== 'PLAYER' || normalizedCandidateType !== effectiveCandidateTypeFilter) return false;
       }
 
       if (roleFilter !== 'ALL') {
@@ -406,6 +414,7 @@ export default function LFTPage() {
           ...(post.staffNeeded || []),
           ...(post.languages || []),
           ...(post.skills || []),
+          ...(post.championPool || []),
         ]
           .filter(Boolean)
           .map((value) => String(value).toLowerCase());
@@ -450,7 +459,10 @@ export default function LFTPage() {
   const posts = filteredPosts;
   const listingCounts = React.useMemo(() => {
     const teams = allPosts.filter((post) => post.type === 'TEAM').length;
-    const players = allPosts.filter((post) => post.type === 'PLAYER').length;
+    const players = allPosts.filter((post) => {
+      const normalizedCandidateType = String(post.candidateType || 'PLAYER').toUpperCase();
+      return post.type === 'PLAYER' && normalizedCandidateType === 'PLAYER';
+    }).length;
     const staff = allPosts.filter((post) => {
       const normalizedCandidateType = String(post.candidateType || 'PLAYER').toUpperCase();
       const playerIsStaffListing = post.type === 'PLAYER' && normalizedCandidateType !== 'PLAYER';
@@ -657,7 +669,7 @@ export default function LFTPage() {
             </div>
 
             <div className="relative mt-4 text-xs sm:text-sm" style={{ color: 'var(--color-text-muted)' }}>
-              Team listings can only be published by existing teams through Teams Dashboard. Candidate listings can be self-published or posted on behalf of someone else.
+              Team listings can only be published by existing teams through Teams Dashboard. Candidate listings are published directly from your own profile.
             </div>
 
             <div className="relative mt-4 grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -670,7 +682,7 @@ export default function LFTPage() {
                     backgroundColor: 'var(--color-bg-tertiary)',
                   }}
                 >
-                  <p className="text-xs font-semibold inline-flex items-center gap-1" style={{ color: 'var(--color-accent-1)' }}>{getStaffIcon(key)} {key}</p>
+                  <p className="text-xs font-semibold inline-flex items-center gap-1" style={{ color: CANDIDATE_TYPE_COLORS[key] || 'var(--color-accent-1)' }}>{getStaffIcon(key)} {key}</p>
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
                     {STAFF_NEED_DESCRIPTIONS[key]}
                   </p>
@@ -907,11 +919,12 @@ export default function LFTPage() {
                   const ad = getAdForPosition(ads, index, adFrequency, undefined, undefined, dismissedAdIds);
                   const isTeam = p.type === 'TEAM';
                   const normalizedCandidateType = String(p.candidateType || 'PLAYER').toUpperCase();
-                  const isStaffCandidate = !isTeam && normalizedCandidateType !== 'PLAYER';
-                  const accentColor = isTeam ? '#22C55E' : isStaffCandidate ? '#F59E0B' : '#3B82F6';
+                  const accentColor = isTeam
+                    ? '#22C55E'
+                    : CANDIDATE_TYPE_COLORS[normalizedCandidateType] || CANDIDATE_TYPE_COLORS.PLAYER;
                   const heading = isTeam
                     ? (p.teamName || 'Unnamed Team')
-                    : (p.representedName || p.username || 'Unknown Listing');
+                    : (p.username || 'Unknown Listing');
                   const subHeading = isTeam
                     ? 'Team Recruiting'
                     : `${CANDIDATE_TYPE_LABELS[normalizedCandidateType] || normalizedCandidateType} Listing`;
@@ -951,9 +964,7 @@ export default function LFTPage() {
                                     <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                                   </svg>
                                 ) : (
-                                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                                  </svg>
+                                  getCandidateTypeIcon(normalizedCandidateType)
                                 )}
                               </div>
 
@@ -964,11 +975,6 @@ export default function LFTPage() {
                                 <h3 className="text-xl font-bold leading-tight" style={{ color: 'var(--color-text-primary)' }}>
                                   {heading}
                                 </h3>
-                                {!isTeam && p.representedName && p.username && p.representedName !== p.username && (
-                                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                                    Posted by {p.username}
-                                  </p>
-                                )}
                               </div>
                             </div>
 
@@ -1202,6 +1208,23 @@ export default function LFTPage() {
                                       {skill}
                                     </span>
                                   ))}
+                                </div>
+                              )}
+
+                              {normalizedCandidateType === 'PLAYER' && Array.isArray(p.championPool) && p.championPool.length > 0 && (
+                                <div className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
+                                  <p className="text-xs uppercase font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>🗡️ Champion Pool</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {p.championPool.map((champion) => (
+                                      <span
+                                        key={champion}
+                                        className="text-xs px-2 py-1 rounded font-semibold border"
+                                        style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3B82F6', borderColor: 'rgba(59, 130, 246, 0.35)' }}
+                                      >
+                                        {champion}
+                                      </span>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
 

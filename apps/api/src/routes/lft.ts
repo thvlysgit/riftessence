@@ -33,6 +33,32 @@ function normalizeCandidateType(value: unknown): typeof LFT_CANDIDATE_TYPES[numb
     : 'PLAYER';
 }
 
+function normalizeChampionPool(author: any): string[] {
+  const lowerSeen = new Set<string>();
+  const pool: string[] = [];
+
+  const pushUnique = (entries: unknown) => {
+    for (const champion of normalizeStringArray(entries)) {
+      const key = champion.toLowerCase();
+      if (lowerSeen.has(key)) continue;
+      lowerSeen.add(key);
+      pool.push(champion);
+    }
+  };
+
+  const mode = String(author?.championPoolMode || '').toUpperCase();
+  if (mode === 'TIERLIST' && author?.championTierlist && typeof author.championTierlist === 'object') {
+    const tierlist = author.championTierlist as Record<string, unknown>;
+    pushUnique(tierlist.S);
+    pushUnique(tierlist.A);
+    pushUnique(tierlist.B);
+    pushUnique(tierlist.C);
+  }
+
+  pushUnique(author?.championList);
+  return pool;
+}
+
 export default async function lftRoutes(fastify: any) {
   // Helper to extract userId from JWT (duplicated for route isolation)
   const getUserIdFromRequest = async (request: any, reply: any): Promise<string | null> => {
@@ -112,6 +138,9 @@ export default async function lftRoutes(fastify: any) {
               username: true,
               preferredRole: true,
               secondaryRole: true,
+              championPoolMode: true,
+              championList: true,
+              championTierlist: true,
               discordAccount: {
                 select: { username: true }
               }
@@ -121,7 +150,10 @@ export default async function lftRoutes(fastify: any) {
       });
 
       // Format posts for frontend
-      const formatted = posts.map((post: any) => ({
+      const formatted = posts.map((post: any) => {
+        const championPool = normalizeChampionPool(post.author);
+
+        return {
         id: post.id,
         type: post.type,
         createdAt: post.createdAt,
@@ -154,6 +186,7 @@ export default async function lftRoutes(fastify: any) {
           mainRole: post.mainRole,
           rank: post.rank,
           division: post.division,
+          championPool,
           experience: post.experience,
           languages: post.languages,
           skills: post.skills,
@@ -161,7 +194,8 @@ export default async function lftRoutes(fastify: any) {
           availability: post.availability,
           details: post.details,
         }),
-      }));
+      };
+      });
 
       return reply.send(formatted);
     } catch (error: any) {
