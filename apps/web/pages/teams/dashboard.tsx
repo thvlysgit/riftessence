@@ -5,6 +5,8 @@ import SEOHead from '../../../api/components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAuthToken } from '../../utils/auth';
 import NoAccess from '../../../api/components/NoAccess';
+import { useGlobalUI } from '../../../api/components/GlobalUI';
+import { CreateTeamLftModal } from '../../../api/components/CreateTeamLftModal';
 
 interface TeamMember {
   userId: string;
@@ -38,6 +40,7 @@ const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU
 const TeamsDashboardPage: React.FC = () => {
   const router = useRouter();
   const { user } = useAuth();
+  const { showToast } = useGlobalUI();
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +49,7 @@ const TeamsDashboardPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState({ name: '', tag: '', description: '', region: 'NA' });
   const [creating, setCreating] = useState(false);
+  const [showTeamLftModal, setShowTeamLftModal] = useState(false);
   
   // Team selector modal for Manage Roster
   const [showTeamSelectorModal, setShowTeamSelectorModal] = useState(false);
@@ -159,6 +163,50 @@ const TeamsDashboardPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to delete team:', err);
+    }
+  };
+
+  const handleOpenTeamLftModal = () => {
+    if (teams.length === 0) {
+      setShowCreateModal(true);
+      return;
+    }
+
+    setShowTeamLftModal(true);
+  };
+
+  const handleTeamLftSubmit = async (data: any) => {
+    const token = getAuthToken();
+    if (!token) {
+      showToast('Please log in to publish a team listing.', 'error');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${apiUrl}/api/lft/posts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...data,
+          type: 'TEAM',
+        }),
+      });
+
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(body?.error || 'Failed to publish team listing.', 'error');
+        return;
+      }
+
+      showToast(body?.updated ? 'Team listing updated on LFT.' : 'Team listing published on LFT.', 'success');
+      setShowTeamLftModal(false);
+      router.push('/lft');
+    } catch (submitError) {
+      console.error('Failed to publish team listing:', submitError);
+      showToast('Failed to publish team listing.', 'error');
     }
   };
   
@@ -459,7 +507,7 @@ const TeamsDashboardPage: React.FC = () => {
           </section>
 
           {/* Quick Action Buttons */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {/* Manage Roster - Clickable */}
             <button
               onClick={handleManageRosterClick}
@@ -514,6 +562,53 @@ const TeamsDashboardPage: React.FC = () => {
                   </span>
                 </div>
               )}
+            </button>
+
+            {/* Recruit via LFT */}
+            <button
+              onClick={handleOpenTeamLftModal}
+              className="border p-6 rounded-xl text-left transition-all hover:scale-[1.02] hover:shadow-lg group"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                borderColor: 'var(--color-border)',
+              }}
+            >
+              <div
+                className="w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(34, 197, 94, 0.1) 100%)',
+                  border: '1px solid rgba(34, 197, 94, 0.3)',
+                }}
+              >
+                <svg className="w-7 h-7" style={{ color: '#22C55E' }} fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M8 9a3 3 0 116 0v1h1a2 2 0 012 2v3H3v-3a2 2 0 012-2h1V9z" />
+                  <path d="M10 2a3 3 0 00-3 3v2h6V5a3 3 0 00-3-3z" />
+                </svg>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-lg mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                    Recruit via LFT
+                  </h4>
+                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                    Publish or update your team listing, including manager and coach needs.
+                  </p>
+                </div>
+                <svg
+                  className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-1"
+                  style={{ color: '#22C55E' }}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+              <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  {teams.length === 0 ? 'Create a team first to post.' : 'One active listing per team, editable anytime.'}
+                </span>
+              </div>
             </button>
 
             {/* Schedule Scrims - Clickable Link */}
@@ -779,6 +874,12 @@ const TeamsDashboardPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <CreateTeamLftModal
+        open={showTeamLftModal}
+        onClose={() => setShowTeamLftModal(false)}
+        onSubmit={handleTeamLftSubmit}
+      />
       
       {/* Team Selector Modal */}
       {showTeamSelectorModal && (

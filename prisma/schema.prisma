@@ -465,8 +465,10 @@ model LftPost {
   communityId String?
   
   // Team-specific fields (when type = TEAM)
+  teamId               String?
   teamName             String?
   rolesNeeded          Role[]  @default([])
+  staffNeeded          String[] @default([])
   averageRank          Rank?
   averageDivision      String?  // I, II, III, IV (null for Master+)
   scrims               Boolean?
@@ -492,6 +494,7 @@ model LftPost {
   @@index([authorId])
   @@index([region, type, createdAt])
   @@index([communityId, createdAt])
+  @@index([teamId, createdAt])
   @@index([source, discordMirrored])
 }
 

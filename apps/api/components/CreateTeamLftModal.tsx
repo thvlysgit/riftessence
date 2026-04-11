@@ -18,6 +18,23 @@ const getCustomArrow = () => {
 
 const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
 const ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
+const STAFF_NEEDS = [
+  {
+    value: 'MANAGER',
+    label: 'Manager',
+    description: 'Leads operations, roster updates, and logistics.',
+  },
+  {
+    value: 'COACH',
+    label: 'Coach',
+    description: 'Supports strategy, review, and player development.',
+  },
+  {
+    value: 'OTHER',
+    label: 'Other Staff',
+    description: 'Analyst, content, psychologist, or another support profile.',
+  },
+];
 const RANKS = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'];
 const DIVISIONS = ['IV', 'III', 'II', 'I'];
 const AVAILABILITIES = [
@@ -49,6 +66,7 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [region, setRegion] = useState('EUW');
   const [rolesNeeded, setRolesNeeded] = useState<string[]>([]);
+  const [staffNeeded, setStaffNeeded] = useState<string[]>([]);
   const [averageRank, setAverageRank] = useState('');
   const [averageDivision, setAverageDivision] = useState('');
   const [scrims, setScrims] = useState(false);
@@ -96,6 +114,7 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
         if (d.selectedTeamId !== undefined) setSelectedTeamId(d.selectedTeamId);
         if (d.region) setRegion(d.region);
         if (Array.isArray(d.rolesNeeded)) setRolesNeeded(d.rolesNeeded);
+        if (Array.isArray(d.staffNeeded)) setStaffNeeded(d.staffNeeded);
         if (d.averageRank !== undefined) setAverageRank(d.averageRank);
         if (d.averageDivision !== undefined) setAverageDivision(d.averageDivision);
         if (d.scrims !== undefined) setScrims(d.scrims);
@@ -109,14 +128,20 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
   // Save draft to localStorage on change
   useEffect(() => {
     localStorage.setItem('riftessence_lft_team_draft', JSON.stringify({
-      selectedTeamId, region, rolesNeeded, averageRank, averageDivision,
+      selectedTeamId, region, rolesNeeded, staffNeeded, averageRank, averageDivision,
       scrims, minAvailability, coachingAvailability, details
     }));
-  }, [selectedTeamId, region, rolesNeeded, averageRank, averageDivision, scrims, minAvailability, coachingAvailability, details]);
+  }, [selectedTeamId, region, rolesNeeded, staffNeeded, averageRank, averageDivision, scrims, minAvailability, coachingAvailability, details]);
 
   const toggleRole = (role: string) => {
     setRolesNeeded(prev => 
       prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
+    );
+  };
+
+  const toggleStaffNeed = (staffRole: string) => {
+    setStaffNeeded(prev =>
+      prev.includes(staffRole) ? prev.filter((role) => role !== staffRole) : [...prev, staffRole]
     );
   };
 
@@ -126,8 +151,8 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
       setError('Please select a team');
       return;
     }
-    if (rolesNeeded.length === 0) {
-      setError('Select at least one role needed');
+    if (rolesNeeded.length === 0 && staffNeeded.length === 0) {
+      setError('Select at least one player role or staff need');
       return;
     }
     if (!averageRank) {
@@ -149,6 +174,7 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
       teamId: selectedTeamId,
       region,
       rolesNeeded,
+      staffNeeded,
       averageRank,
       averageDivision: (averageRank && !['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(averageRank)) ? averageDivision : null,
       scrims,
@@ -343,10 +369,10 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
             </select>
           </div>
 
-          {/* Roles Needed */}
+          {/* Player Roles Needed */}
           <div className="md:col-span-2">
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-              Roles Needed *
+              Player Roles Needed
             </label>
             <div className="flex flex-wrap gap-2">
               {ROLES.map(role => (
@@ -365,6 +391,45 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
                 </button>
               ))}
             </div>
+            <p className="mt-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              Select game roles your roster still needs.
+            </p>
+          </div>
+
+          {/* Staff Needs */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+              Staff Needs
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {STAFF_NEEDS.map((staffRole) => {
+                const selected = staffNeeded.includes(staffRole.value);
+                return (
+                  <button
+                    key={staffRole.value}
+                    type="button"
+                    onClick={() => toggleStaffNeed(staffRole.value)}
+                    className="px-3 py-2 rounded font-medium text-left transition-all"
+                    style={{
+                      background: selected ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
+                      color: selected ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
+                      border: `1px solid ${selected ? 'var(--color-accent-1)' : 'var(--color-border)'}`,
+                    }}
+                  >
+                    <span className="block text-sm font-semibold">{staffRole.label}</span>
+                    <span
+                      className="block text-xs mt-1"
+                      style={{ color: selected ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)' }}
+                    >
+                      {staffRole.description}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              Add Manager, Coach, or Other when recruiting non-player profiles.
+            </p>
           </div>
 
           {/* Average Rank */}

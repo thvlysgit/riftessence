@@ -88,9 +88,10 @@ export const ReportSchema = z.object({
 
 export const CreateTeamLftSchema = z.object({
   userId: z.string().min(1),
+  teamId: z.string().min(1),
   region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU']),
-  teamName: z.string().min(1).max(100),
   rolesNeeded: z.array(z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'])).optional(),
+  staffNeeded: z.array(z.enum(['MANAGER', 'COACH', 'OTHER'])).optional(),
   averageRank: z.string().optional(),
   averageDivision: z.string().optional(),
   scrims: z.boolean().optional(),

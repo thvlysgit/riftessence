@@ -1,5 +1,29 @@
 import prisma from '../prisma';
 
+const LFT_GAME_ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] as const;
+const LFT_STAFF_NEEDS = ['MANAGER', 'COACH', 'OTHER'] as const;
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => String(entry || '').trim())
+    .filter((entry) => entry.length > 0);
+}
+
+function normalizeGameRoles(value: unknown): string[] {
+  const allowed = new Set(LFT_GAME_ROLES);
+  return normalizeStringArray(value)
+    .map((role) => role.toUpperCase())
+    .filter((role) => allowed.has(role as typeof LFT_GAME_ROLES[number]));
+}
+
+function normalizeStaffNeeds(value: unknown): string[] {
+  const allowed = new Set(LFT_STAFF_NEEDS);
+  return normalizeStringArray(value)
+    .map((role) => role.toUpperCase())
+    .filter((role) => allowed.has(role as typeof LFT_STAFF_NEEDS[number]));
+}
+
 export default async function lftRoutes(fastify: any) {
   // Helper to extract userId from JWT (duplicated for route isolation)
   const getUserIdFromRequest = async (request: any, reply: any): Promise<string | null> => {
@@ -99,11 +123,13 @@ export default async function lftRoutes(fastify: any) {
         isAdmin: viewerIsAdmin,
         preferredRole: post.author.preferredRole,
         secondaryRole: post.author.secondaryRole,
+        teamId: post.teamId || null,
         
         // TEAM fields
         ...(post.type === 'TEAM' && {
           teamName: post.teamName,
           rolesNeeded: post.rolesNeeded,
+          staffNeeded: post.staffNeeded || [],
           averageRank: post.averageRank,
           averageDivision: post.averageDivision,
           scrims: post.scrims,
@@ -160,22 +186,12 @@ export default async function lftRoutes(fastify: any) {
         return reply.status(400).send({ error: 'A Discord account must be linked to your profile to create LFT posts' });
       }
 
-      // Count existing posts per type
-      const existingTeamCount = await prisma.lftPost.count({ where: { authorId: userId, type: 'TEAM' } });
-      const existingPlayerCount = await prisma.lftPost.count({ where: { authorId: userId, type: 'PLAYER' } });
-
       // Behavior:
       // - PLAYER (user looking for a team): only one active post allowed; creating a new one replaces previous (auto-delete)
-      // - TEAM (team looking for players): up to 5 active posts allowed; teamName must be unique per user; do NOT auto-delete
+      // - TEAM (team looking for players): one active post per team; can only be created by team OWNER/MANAGER
       if (type === 'PLAYER') {
         // Remove any previous PLAYER posts for this user so the new post replaces them
         await prisma.lftPost.deleteMany({ where: { authorId: userId, type: 'PLAYER' } });
-      }
-
-      if (type === 'TEAM') {
-        if (existingTeamCount >= 5) {
-          return reply.status(400).send({ error: 'You can have up to 5 Team posts at the same time. Please delete an existing one before creating another.' });
-        }
       }
 
       // Build data object based on type
@@ -187,24 +203,78 @@ export default async function lftRoutes(fastify: any) {
 
       if (type === 'TEAM') {
         // Team-specific fields
-        const { teamName, rolesNeeded, averageRank, averageDivision, scrims, minAvailability, coachingAvailability, details } = body;
-        
-        if (!teamName || !rolesNeeded || rolesNeeded.length === 0) {
-          return reply.status(400).send({ error: 'Team posts require teamName and rolesNeeded' });
+        const {
+          teamId,
+          rolesNeeded,
+          staffNeeded,
+          averageRank,
+          averageDivision,
+          scrims,
+          minAvailability,
+          coachingAvailability,
+          details,
+        } = body;
+
+        if (!teamId || typeof teamId !== 'string') {
+          return reply.status(400).send({ error: 'Team posts require a valid teamId from Teams Dashboard' });
         }
-        // Ensure the user doesn't already have a TEAM post with the same teamName
-        const duplicate = await prisma.lftPost.findFirst({ where: { authorId: userId, type: 'TEAM', teamName } });
-        if (duplicate) {
-          return reply.status(400).send({ error: 'You already have a Team post with that team name. Please choose a different team name or delete the existing post.' });
+
+        const team = await prisma.team.findUnique({
+          where: { id: teamId },
+          select: {
+            id: true,
+            name: true,
+            region: true,
+            ownerId: true,
+            members: {
+              where: { userId },
+              select: { role: true },
+            },
+          },
+        });
+
+        if (!team) {
+          return reply.status(404).send({ error: 'Team not found. Create a team from Teams Dashboard first.' });
         }
-        data.teamName = teamName;
-        data.rolesNeeded = rolesNeeded;
+
+        const canManageTeamPost = team.ownerId === userId || team.members.some((member: any) => member.role === 'MANAGER');
+        if (!canManageTeamPost) {
+          return reply.status(403).send({ error: 'Only the team owner or managers can publish this team listing.' });
+        }
+
+        const normalizedRolesNeeded = normalizeGameRoles(rolesNeeded);
+        const normalizedStaffNeeded = normalizeStaffNeeds(staffNeeded);
+
+        if (normalizedRolesNeeded.length === 0 && normalizedStaffNeeded.length === 0) {
+          return reply.status(400).send({ error: 'Team posts require at least one player role or staff need.' });
+        }
+
+        data.teamId = team.id;
+        data.teamName = team.name;
+        data.region = team.region;
+        data.rolesNeeded = normalizedRolesNeeded;
+        data.staffNeeded = normalizedStaffNeeded;
         data.averageRank = averageRank || null;
         data.averageDivision = averageDivision || null;
         data.scrims = scrims !== undefined ? scrims : null;
         data.minAvailability = minAvailability || null;
         data.coachingAvailability = coachingAvailability || null;
         data.details = details || null;
+
+        const existingTeamPost = await prisma.lftPost.findFirst({
+          where: {
+            type: 'TEAM',
+            teamId: team.id,
+          },
+        });
+
+        if (existingTeamPost) {
+          const updated = await prisma.lftPost.update({
+            where: { id: existingTeamPost.id },
+            data,
+          });
+          return reply.send({ success: true, updated: true, post: updated });
+        }
       } else {
         // Player-specific fields
         const { mainRole, rank, division, experience, languages, skills, age, availability } = body;
@@ -246,9 +316,27 @@ export default async function lftRoutes(fastify: any) {
       if (!requester) return reply.status(404).send({ error: 'User not found' });
       const isAdmin = (requester.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin');
 
-      // Allow owners OR admins
-      if (post.authorId !== requesterId && !isAdmin) {
-        return reply.status(403).send({ error: 'You can only delete your own posts' });
+      let canManageTeamPost = false;
+      if (post.type === 'TEAM' && post.teamId) {
+        const team = await prisma.team.findUnique({
+          where: { id: post.teamId },
+          select: {
+            ownerId: true,
+            members: {
+              where: { userId: requesterId },
+              select: { role: true },
+            },
+          },
+        });
+
+        canManageTeamPost = Boolean(
+          team && (team.ownerId === requesterId || team.members.some((member: any) => member.role === 'MANAGER'))
+        );
+      }
+
+      // Allow post owner, site admins, or authorized team managers/owners for TEAM posts.
+      if (post.authorId !== requesterId && !isAdmin && !canManageTeamPost) {
+        return reply.status(403).send({ error: 'You are not allowed to delete this post' });
       }
 
       await prisma.lftPost.delete({ where: { id } });

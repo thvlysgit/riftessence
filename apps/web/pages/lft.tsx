@@ -3,7 +3,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import SEOHead from '../../api/components/SEOHead';
 import { LoadingSpinner } from '../../api/components/LoadingSpinner';
-import { CreateTeamLftModal } from '../../api/components/CreateTeamLftModal';
 import { CreatePlayerLftModal } from '../../api/components/CreatePlayerLftModal';
 import { useGlobalUI } from '../../api/components/GlobalUI';
 import { useChat } from '../contexts/ChatContext';
@@ -12,6 +11,17 @@ import NoAccess from '../../api/components/NoAccess';
 import { AdSpot, useAds, getAdForPosition } from '../../api/components/AdSpot';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+const REGIONS = ['ALL', 'NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
+const ROLE_FILTERS = ['ALL', 'TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
+const RANK_ORDER = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'];
+const LANGUAGE_FILTERS = ['ALL', 'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Polish', 'Russian', 'Turkish', 'Korean', 'Japanese', 'Chinese'];
+const AVAILABILITY_FILTERS = ['ALL', 'ONCE_A_WEEK', 'TWICE_A_WEEK', 'THRICE_A_WEEK', 'FOUR_TIMES_A_WEEK', 'FIVE_TIMES_A_WEEK', 'SIX_TIMES_A_WEEK', 'EVERYDAY'];
+const STAFF_NEED_FILTERS = ['ALL', 'MANAGER', 'COACH', 'OTHER'] as const;
+const STAFF_NEED_DESCRIPTIONS: Record<string, string> = {
+  MANAGER: 'Coordinates roster and operations',
+  COACH: 'Leads review, drafts, and progression',
+  OTHER: 'Analyst, content, or support specialist',
+};
 
 // Role icon helper (League of Legends client style)
 const getRoleIcon = (role: string) => {
@@ -165,6 +175,7 @@ type LftPost = {
   id: string;
   type: 'TEAM' | 'PLAYER';
   createdAt: string;
+  teamId?: string | null;
   // Common
   region: string;
   authorId: string;
@@ -175,6 +186,7 @@ type LftPost = {
   // TEAM fields
   teamName?: string;
   rolesNeeded?: string[];
+  staffNeeded?: string[];
   averageRank?: string;
   averageDivision?: string | null;
   scrims?: boolean;
@@ -197,12 +209,17 @@ type LftPost = {
 
 export default function LFTPage() {
   const [allPosts, setAllPosts] = useState<LftPost[]>([]);
-  const [posts, setPosts] = useState<LftPost[]>([]);
-  const [displayedPosts, setDisplayedPosts] = useState<LftPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'ALL' | 'TEAMS' | 'PLAYERS'>('ALL');
+  const [listingFilter, setListingFilter] = useState<'ALL' | 'TEAMS' | 'PLAYERS' | 'STAFF'>('ALL');
+  const [searchText, setSearchText] = useState('');
+  const [regionFilter, setRegionFilter] = useState('ALL');
+  const [roleFilter, setRoleFilter] = useState('ALL');
+  const [languageFilter, setLanguageFilter] = useState('ALL');
+  const [availabilityFilter, setAvailabilityFilter] = useState('ALL');
+  const [minimumRankFilter, setMinimumRankFilter] = useState('ALL');
+  const [staffNeedFilter, setStaffNeedFilter] = useState<(typeof STAFF_NEED_FILTERS)[number]>('ALL');
+  const [scrimsOnly, setScrimsOnly] = useState(false);
   const [visibleCount, setVisibleCount] = useState(25);
-  const [showTeamModal, setShowTeamModal] = useState(false);
   const [showPlayerModal, setShowPlayerModal] = useState(false);
   const [showNoAccessModal, setShowNoAccessModal] = useState(false);
   const [noAccessAction, setNoAccessAction] = useState<'find-players' | 'find-team'>('find-team');
@@ -225,6 +242,11 @@ export default function LFTPage() {
   const formatAvailability = (avail: string | undefined) => {
     if (!avail) return '';
     return avail.split('_').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
+  };
+
+  const getRankIndex = (rank: string | null | undefined) => {
+    if (!rank) return -1;
+    return RANK_ORDER.indexOf(String(rank).toUpperCase());
   };
 
   useEffect(() => {
@@ -255,54 +277,101 @@ export default function LFTPage() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    const next = allPosts.filter(p => 
-      filter === 'ALL' ? true : filter === 'TEAMS' ? p.type === 'TEAM' : p.type === 'PLAYER'
-    );
-    setPosts(next);
-    setVisibleCount(25); // Reset to 25 when filter changes
-  }, [filter, allPosts]);
+  const filteredPosts = React.useMemo(() => {
+    const normalizedSearch = searchText.trim().toLowerCase();
+    const minimumRankIndex = minimumRankFilter === 'ALL' ? -1 : getRankIndex(minimumRankFilter);
 
-  useEffect(() => {
-    setDisplayedPosts(posts.slice(0, visibleCount));
-  }, [posts, visibleCount]);
-
-  const handleTeamSubmit = async (data: any) => {
-    try {
-      const token = getAuthToken();
-      const userId = token ? getUserIdFromToken(token) : null;
-      if (!userId) {
-        setShowTeamModal(false);
-        showToast('Please log in to create a post', 'error');
-        return;
+    return allPosts.filter((post) => {
+      if (listingFilter === 'TEAMS' && post.type !== 'TEAM') return false;
+      if (listingFilter === 'PLAYERS' && post.type !== 'PLAYER') return false;
+      if (listingFilter === 'STAFF' && (post.type !== 'TEAM' || !Array.isArray(post.staffNeeded) || post.staffNeeded.length === 0)) {
+        return false;
       }
 
-      const res = await fetch(`${API_URL}/api/lft/posts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({ ...data, type: 'TEAM', userId }),
-      });
+      if (regionFilter !== 'ALL' && post.region !== regionFilter) return false;
 
-      if (res.ok) {
-        showToast('Team post created successfully!', 'success');
-        setShowTeamModal(false);
-        // Refresh posts
-        const currentUserId = getCurrentUserId();
-        const refreshUrl = `${API_URL}/api/lft/posts${currentUserId ? `?userId=${encodeURIComponent(currentUserId)}` : ''}`;
-        const refreshRes = await fetch(refreshUrl);
-        if (refreshRes.ok) {
-          const posts = await refreshRes.json();
-          setAllPosts(posts);
+      if (roleFilter !== 'ALL') {
+        if (post.type === 'TEAM') {
+          if (!post.rolesNeeded?.includes(roleFilter)) return false;
+        } else if ((post.mainRole || '').toUpperCase() !== roleFilter) {
+          return false;
         }
-      } else {
-        const error = await res.json();
-        showToast(error.error || 'Failed to create post', 'error');
       }
-    } catch (err) {
-      console.error('Error creating team post:', err);
-      showToast('Failed to create post', 'error');
-    }
-  };
+
+      if (staffNeedFilter !== 'ALL') {
+        const staff = Array.isArray(post.staffNeeded) ? post.staffNeeded.map((entry) => entry.toUpperCase()) : [];
+        if (!staff.includes(staffNeedFilter)) return false;
+      }
+
+      if (languageFilter !== 'ALL') {
+        const langs = Array.isArray(post.languages) ? post.languages : [];
+        if (!langs.includes(languageFilter)) return false;
+      }
+
+      if (availabilityFilter !== 'ALL') {
+        const availability = post.type === 'TEAM' ? post.minAvailability : post.availability;
+        if (availability !== availabilityFilter) return false;
+      }
+
+      if (scrimsOnly && post.type === 'TEAM' && !post.scrims) return false;
+
+      if (minimumRankIndex > -1) {
+        const candidateRank = post.type === 'TEAM' ? post.averageRank : post.rank;
+        const candidateRankIndex = getRankIndex(candidateRank || null);
+        if (candidateRankIndex === -1 || candidateRankIndex < minimumRankIndex) return false;
+      }
+
+      if (normalizedSearch) {
+        const searchableParts = [
+          post.teamName,
+          post.username,
+          post.details,
+          post.mainRole,
+          post.region,
+          ...(post.rolesNeeded || []),
+          ...(post.staffNeeded || []),
+          ...(post.languages || []),
+          ...(post.skills || []),
+        ]
+          .filter(Boolean)
+          .map((value) => String(value).toLowerCase());
+
+        if (!searchableParts.some((part) => part.includes(normalizedSearch))) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [
+    allPosts,
+    listingFilter,
+    searchText,
+    regionFilter,
+    roleFilter,
+    languageFilter,
+    availabilityFilter,
+    minimumRankFilter,
+    staffNeedFilter,
+    scrimsOnly,
+  ]);
+
+  useEffect(() => {
+    setVisibleCount(25);
+  }, [
+    listingFilter,
+    searchText,
+    regionFilter,
+    roleFilter,
+    languageFilter,
+    availabilityFilter,
+    minimumRankFilter,
+    staffNeedFilter,
+    scrimsOnly,
+  ]);
+
+  const displayedPosts = React.useMemo(() => filteredPosts.slice(0, visibleCount), [filteredPosts, visibleCount]);
+  const posts = filteredPosts;
 
   const handlePlayerSubmit = async (data: any) => {
     try {
@@ -341,6 +410,18 @@ export default function LFTPage() {
     }
   };
 
+  const resetFilters = () => {
+    setListingFilter('ALL');
+    setSearchText('');
+    setRegionFilter('ALL');
+    setRoleFilter('ALL');
+    setLanguageFilter('ALL');
+    setAvailabilityFilter('ALL');
+    setMinimumRankFilter('ALL');
+    setStaffNeedFilter('ALL');
+    setScrimsOnly(false);
+  };
+
   return (
     <>
       <SEOHead
@@ -352,100 +433,264 @@ export default function LFTPage() {
       <div className="min-h-screen py-10 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <div className="max-w-4xl mx-auto space-y-6">
         <header className="space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold" style={{ color: 'var(--color-accent-1)' }}>Looking For Team (LFT)</h1>
-            <div className="flex gap-2">
-              <button
-                onClick={async () => {
-                  const token = getAuthToken();
-                  const userId = token ? getUserIdFromToken(token) : null;
-                  
-                  if (!userId) {
-                    setNoAccessAction('find-team');
-                    setShowNoAccessModal(true);
-                    return;
-                  }
-                  
-                  try {
-                    const response = await fetch(`${API_URL}/api/user/profile?userId=${userId}`);
-                    if (!response.ok) throw new Error('Failed to fetch profile');
-                    const data = await response.json();
-                    
-                    const hasRole = data.preferredRole || data.primaryRole;
-                    const mainAccount = data.riotAccounts?.find((acc: any) => acc.isMain);
-                    const hasRank = mainAccount?.rank && mainAccount.rank !== 'UNRANKED';
-                    
-                    if (!data.region) {
-                      showToast('Please set your region in your profile before creating an LFT post', 'error');
-                      return;
-                    }
-                    if (!hasRole) {
-                      showToast('Please set your preferred role in your profile before creating an LFT post', 'error');
-                      return;
-                    }
-                    if (!hasRank) {
-                      showToast('Please add your main account with rank information before creating an LFT post', 'error');
-                      return;
-                    }
-                    
-                    setShowPlayerModal(true);
-                  } catch (error) {
-                    console.error('Profile validation error:', error);
-                    showToast('Failed to validate profile. Please try again.', 'error');
-                  }
-                }}
-                className="px-4 py-2 font-semibold rounded"
-                style={{
-                  background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
-                  color: 'var(--color-bg-primary)',
-                  borderRadius: 'var(--border-radius)'
-                }}
-              >
-                Look for a Team
-              </button>
-              <button
-                onClick={() => {
-                  const token = getAuthToken();
-                  const userId = token ? getUserIdFromToken(token) : null;
-                  
-                  if (!userId) {
-                    setNoAccessAction('find-players');
-                    setShowNoAccessModal(true);
-                    return;
-                  }
-                  
-                  setShowTeamModal(true);
-                }}
-                className="px-4 py-2 font-semibold rounded"
-                style={{
-                  background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
-                  color: 'var(--color-bg-primary)',
-                  borderRadius: 'var(--border-radius)'
-                }}
-              >
-                Look for Players
-              </button>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Show:</span>
-            <div className="flex gap-2">
-              {(['ALL', 'TEAMS', 'PLAYERS'] as const).map(f => (
+          <div
+            className="border rounded-xl p-5"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              borderColor: 'var(--color-border)',
+              boxShadow: 'var(--shadow)',
+            }}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold" style={{ color: 'var(--color-accent-1)' }}>
+                  Looking For Team (LFT)
+                </h1>
+                <p className="mt-1 text-sm sm:text-base" style={{ color: 'var(--color-text-secondary)' }}>
+                  Discover players, staff, and active rosters with role-specific filtering.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
                 <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className="px-4 py-2 rounded font-medium transition-all"
+                  onClick={async () => {
+                    const token = getAuthToken();
+                    const userId = token ? getUserIdFromToken(token) : null;
+
+                    if (!userId) {
+                      setNoAccessAction('find-team');
+                      setShowNoAccessModal(true);
+                      return;
+                    }
+
+                    try {
+                      const response = await fetch(`${API_URL}/api/user/profile?userId=${userId}`);
+                      if (!response.ok) throw new Error('Failed to fetch profile');
+                      const data = await response.json();
+
+                      const hasRole = data.preferredRole || data.primaryRole;
+                      const mainAccount = data.riotAccounts?.find((acc: any) => acc.isMain);
+                      const hasRank = mainAccount?.rank && mainAccount.rank !== 'UNRANKED';
+
+                      if (!data.region) {
+                        showToast('Please set your region in your profile before creating an LFT post', 'error');
+                        return;
+                      }
+                      if (!hasRole) {
+                        showToast('Please set your preferred role in your profile before creating an LFT post', 'error');
+                        return;
+                      }
+                      if (!hasRank) {
+                        showToast('Please add your main account with rank information before creating an LFT post', 'error');
+                        return;
+                      }
+
+                      setShowPlayerModal(true);
+                    } catch (error) {
+                      console.error('Profile validation error:', error);
+                      showToast('Failed to validate profile. Please try again.', 'error');
+                    }
+                  }}
+                  className="px-4 py-2 font-semibold rounded"
                   style={{
-                    backgroundColor: filter === f ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
-                    color: filter === f ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
-                    border: `1px solid ${filter === f ? 'var(--color-accent-1)' : 'var(--color-border)'}`,
-                    borderRadius: 'var(--border-radius)'
+                    background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
+                    color: 'var(--color-bg-primary)',
+                    borderRadius: 'var(--border-radius)',
                   }}
                 >
-                  {f === 'ALL' ? 'All Posts' : f === 'TEAMS' ? 'Teams' : 'Players'}
+                  Look for a Team
+                </button>
+                <Link
+                  href="/teams/dashboard"
+                  className="px-4 py-2 font-semibold rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-accent-1)',
+                    borderRadius: 'var(--border-radius)',
+                  }}
+                >
+                  Recruit via Teams Dashboard
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-3 text-xs sm:text-sm" style={{ color: 'var(--color-text-muted)' }}>
+              Team listings can only be published by existing teams through the Teams Dashboard.
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2">
+              {(['MANAGER', 'COACH', 'OTHER'] as const).map((key) => (
+                <div
+                  key={key}
+                  className="rounded border px-3 py-2"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                  }}
+                >
+                  <p className="text-xs font-semibold" style={{ color: 'var(--color-accent-1)' }}>{key}</p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    {STAFF_NEED_DESCRIPTIONS[key]}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div
+            className="border rounded-xl p-4"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              borderColor: 'var(--color-border)',
+            }}
+          >
+            <div className="flex flex-wrap gap-2 mb-3">
+              {(['ALL', 'TEAMS', 'PLAYERS', 'STAFF'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setListingFilter(mode)}
+                  className="px-3 py-1.5 rounded font-medium text-sm transition-all"
+                  style={{
+                    backgroundColor: listingFilter === mode ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
+                    color: listingFilter === mode ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
+                    border: `1px solid ${listingFilter === mode ? 'var(--color-accent-1)' : 'var(--color-border)'}`,
+                  }}
+                >
+                  {mode === 'ALL' ? 'All Listings' : mode === 'TEAMS' ? 'Teams' : mode === 'PLAYERS' ? 'Players' : 'Staff Search'}
                 </button>
               ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="Search team, player, role, language..."
+                className="px-3 py-2 rounded border"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+              />
+
+              <select
+                value={regionFilter}
+                onChange={(e) => setRegionFilter(e.target.value)}
+                className="px-3 py-2 rounded border"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                {REGIONS.map((region) => (
+                  <option key={region} value={region}>{region === 'ALL' ? 'All Regions' : region}</option>
+                ))}
+              </select>
+
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="px-3 py-2 rounded border"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                {ROLE_FILTERS.map((role) => (
+                  <option key={role} value={role}>{role === 'ALL' ? 'All In-Game Roles' : role}</option>
+                ))}
+              </select>
+
+              <select
+                value={staffNeedFilter}
+                onChange={(e) => setStaffNeedFilter(e.target.value as (typeof STAFF_NEED_FILTERS)[number])}
+                className="px-3 py-2 rounded border"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                {STAFF_NEED_FILTERS.map((role) => (
+                  <option key={role} value={role}>{role === 'ALL' ? 'All Staff Needs' : role}</option>
+                ))}
+              </select>
+
+              <select
+                value={languageFilter}
+                onChange={(e) => setLanguageFilter(e.target.value)}
+                className="px-3 py-2 rounded border"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                {LANGUAGE_FILTERS.map((language) => (
+                  <option key={language} value={language}>{language === 'ALL' ? 'All Languages' : language}</option>
+                ))}
+              </select>
+
+              <select
+                value={availabilityFilter}
+                onChange={(e) => setAvailabilityFilter(e.target.value)}
+                className="px-3 py-2 rounded border"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                {AVAILABILITY_FILTERS.map((availability) => (
+                  <option key={availability} value={availability}>
+                    {availability === 'ALL' ? 'All Availability' : formatAvailability(availability)}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={minimumRankFilter}
+                onChange={(e) => setMinimumRankFilter(e.target.value)}
+                className="px-3 py-2 rounded border"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                <option value="ALL">Any Rank</option>
+                {RANK_ORDER.map((rank) => (
+                  <option key={rank} value={rank}>Min Rank: {rank}</option>
+                ))}
+              </select>
+
+              <label
+                className="flex items-center gap-2 px-3 py-2 rounded border text-sm"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                <input type="checkbox" checked={scrimsOnly} onChange={(e) => setScrimsOnly(e.target.checked)} />
+                Team listings with scrims only
+              </label>
+
+              <button
+                onClick={resetFilters}
+                className="px-3 py-2 rounded border font-medium text-sm"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-accent-1)',
+                }}
+              >
+                Clear Filters
+              </button>
             </div>
           </div>
         </header>
@@ -462,7 +707,20 @@ export default function LFTPage() {
             }}
           >
             {posts.length === 0 ? (
-              <p style={{ color: 'var(--color-text-muted)' }}>No posts yet.</p>
+              <div className="py-8 text-center space-y-3">
+                <p style={{ color: 'var(--color-text-muted)' }}>No listings match your current filters.</p>
+                <button
+                  onClick={resetFilters}
+                  className="px-4 py-2 rounded border text-sm font-medium"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-accent-1)',
+                  }}
+                >
+                  Reset Filters
+                </button>
+              </div>
             ) : (
               <div className="space-y-4">
                 {displayedPosts.map((p, index) => {
@@ -509,7 +767,7 @@ export default function LFTPage() {
                           )}
                           <div>
                             <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: p.type === 'TEAM' ? '#22C55E' : '#3B82F6' }}>
-                              {p.type === 'TEAM' ? 'Team Looking for Players' : 'Player Looking for Team'}
+                              {p.type === 'TEAM' ? 'Team Recruiting' : 'Player Looking for Team'}
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <h3 className="text-xl font-bold leading-tight" style={{ color: 'var(--color-text-primary)' }}>{p.type === 'TEAM' ? p.teamName : p.username}</h3>
@@ -561,15 +819,41 @@ export default function LFTPage() {
                         <div className="rounded-lg p-4" style={{ background: 'var(--color-bg-tertiary)' }}>
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Roles Needed</p>
+                              <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Player Roles Needed</p>
                               <div className="flex gap-1.5 flex-wrap">
-                                {p.rolesNeeded?.map(r => (
-                                  <span key={r} className="text-xs px-2 py-1 rounded font-semibold border inline-flex items-center gap-1" style={{ background: 'rgba(200, 170, 109, 0.15)', color: '#C8AA6D', borderColor: '#C8AA6D' }}>
-                                    {getRoleIcon(r)}
-                                    {r}
-                                  </span>
-                                ))}
+                                {p.rolesNeeded && p.rolesNeeded.length > 0 ? (
+                                  p.rolesNeeded.map(r => (
+                                    <span key={r} className="text-xs px-2 py-1 rounded font-semibold border inline-flex items-center gap-1" style={{ background: 'rgba(200, 170, 109, 0.15)', color: '#C8AA6D', borderColor: '#C8AA6D' }}>
+                                      {getRoleIcon(r)}
+                                      {r}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No in-game roles selected</span>
+                                )}
                               </div>
+
+                              {p.staffNeeded && p.staffNeeded.length > 0 && (
+                                <div className="mt-3">
+                                  <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Staff Needed</p>
+                                  <div className="flex gap-1.5 flex-wrap">
+                                    {p.staffNeeded.map((staffRole) => (
+                                      <span
+                                        key={staffRole}
+                                        className="text-xs px-2 py-1 rounded font-semibold border"
+                                        style={{
+                                          background: 'rgba(59, 130, 246, 0.12)',
+                                          color: '#3B82F6',
+                                          borderColor: 'rgba(59, 130, 246, 0.4)',
+                                        }}
+                                        title={STAFF_NEED_DESCRIPTIONS[staffRole] || ''}
+                                      >
+                                        {staffRole}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                             <div>
                               <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>Average Rank</p>
@@ -734,11 +1018,6 @@ export default function LFTPage() {
         )}
 
         {/* Modals */}
-        <CreateTeamLftModal
-          open={showTeamModal}
-          onClose={() => setShowTeamModal(false)}
-          onSubmit={handleTeamSubmit}
-        />
         <CreatePlayerLftModal
           open={showPlayerModal}
           onClose={() => setShowPlayerModal(false)}
