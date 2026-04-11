@@ -552,6 +552,7 @@ model DiscordFeedChannel {
   // Filters (empty arrays / null = no filter = all)
   filterRegions Region[] @default([])
   filterRoles   Role[]   @default([])   // DUO only
+  filterLanguages String[] @default([]) // DUO + LFT
   filterMinRank Rank?                   // null = no minimum
   filterMaxRank Rank?                   // null = no maximum
 

@@ -146,6 +146,24 @@ function normalizeLanguageKey(raw: any): string | null {
   return LANGUAGE_KEY_LOOKUP[normalized] || null;
 }
 
+function normalizeLanguageArray(raw: any): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((value: any) => normalizeLanguageKey(value))
+    .filter((value: string | null): value is string => Boolean(value));
+}
+
+function matchesLanguageFilter(filterLanguages: any, postLanguages: any): boolean {
+  const normalizedFilter = normalizeLanguageArray(filterLanguages);
+  if (normalizedFilter.length === 0) return true;
+
+  const normalizedPostLanguages = normalizeLanguageArray(postLanguages);
+  if (normalizedPostLanguages.length === 0) return false;
+
+  const filterSet = new Set(normalizedFilter);
+  return normalizedPostLanguages.some((language) => filterSet.has(language));
+}
+
 function normalizeRoleMap(raw: any, kind: 'RANK' | 'LANGUAGE'): Record<string, string> {
   const output: Record<string, string> = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -246,9 +264,16 @@ export default async function discordFeedRoutes(fastify: any) {
         feedType = 'DUO',
         filterRegions = [],
         filterRoles = [],
+        filterLanguages = [],
         filterMinRank = null,
         filterMaxRank = null,
       } = request.body as any;
+
+      const normalizedFilterLanguages = Array.isArray(filterLanguages)
+        ? filterLanguages
+            .map((value: any) => (typeof value === 'string' ? value.trim() : ''))
+            .filter((value: string) => value.length > 0)
+        : [];
 
       if (!communityId || !guildId || !channelId) {
         return reply.status(400).send({ error: 'Missing required fields: communityId, guildId, channelId' });
@@ -288,7 +313,7 @@ export default async function discordFeedRoutes(fastify: any) {
         // Update filters instead of erroring
         const updated = await prisma.discordFeedChannel.update({
           where: { id: existing.id },
-          data: { filterRegions, filterRoles, filterMinRank, filterMaxRank },
+          data: { filterRegions, filterRoles, filterLanguages: normalizedFilterLanguages, filterMinRank, filterMaxRank },
         });
         return reply.send({ success: true, feedChannel: updated, updated: true });
       }
@@ -301,6 +326,7 @@ export default async function discordFeedRoutes(fastify: any) {
           feedType,
           filterRegions,
           filterRoles,
+          filterLanguages: normalizedFilterLanguages,
           filterMinRank: filterMinRank || null,
           filterMaxRank: filterMaxRank || null,
         },
@@ -569,6 +595,8 @@ export default async function discordFeedRoutes(fastify: any) {
           if (fc.filterRoles && fc.filterRoles.length > 0) {
             if (!fc.filterRoles.includes(post.role)) return false;
           }
+          // Language filter
+          if (!matchesLanguageFilter(fc.filterLanguages, post.languages)) return false;
           // Rank filter (use posting account rank)
           const postRank = postingAccount?.rank || null;
           if (!rankInRange(postRank, fc.filterMinRank, fc.filterMaxRank)) return false;
@@ -657,6 +685,13 @@ export default async function discordFeedRoutes(fastify: any) {
           if (fc.filterRegions && fc.filterRegions.length > 0) {
             if (!fc.filterRegions.includes(post.region)) return false;
           }
+
+          if (fc.filterLanguages && fc.filterLanguages.length > 0) {
+            if (post.type === 'PLAYER') {
+              if (!matchesLanguageFilter(fc.filterLanguages, post.languages)) return false;
+            }
+          }
+
           if (!rankInRange(postRank, fc.filterMinRank, fc.filterMaxRank)) return false;
           return true;
         });

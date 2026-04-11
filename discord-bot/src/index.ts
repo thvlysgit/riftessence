@@ -28,6 +28,7 @@ const client = new Client({
 // ============================================================
 
 const APP_URL = process.env.APP_URL || 'https://riftessence.app';
+const EMOJI_SOURCE_GUILD_ID = process.env.DISCORD_EMOJI_SOURCE_GUILD_ID || '1051156621860020304';
 
 const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'SG'];
 const ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
@@ -55,6 +56,9 @@ const ROLE_MENU_ROLE_PAGE_PREV = 'rolemenu_role_page_prev';
 const ROLE_MENU_ROLE_PAGE_NEXT = 'rolemenu_role_page_next';
 const ROLE_MENU_ROLES_PER_PAGE = 25;
 
+const SETUP_FILTER_LANGUAGE = 'filter_language';
+const SETUP_FILTER_RANK_RANGE = 'filter_rank_range';
+
 const ROLE_FORWARDING_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_ROLE_FORWARDING_POLL_INTERVAL_MS || '300000', 10);
 
 const RANK_EMOJIS: Record<string, string> = {
@@ -65,6 +69,140 @@ const RANK_EMOJIS: Record<string, string> = {
 const ROLE_EMOJIS: Record<string, string> = {
   TOP: '🛡️', JUNGLE: '🌿', MID: '⚔️', ADC: '🏹', SUPPORT: '❤️',
 };
+
+const ROLE_CUSTOM_EMOJI_NAMES: Record<string, string> = {
+  TOP: 'top',
+  JUNGLE: 'jgl',
+  MID: 'mid',
+  ADC: 'adc',
+  SUPPORT: 'sup',
+};
+
+const RANK_CUSTOM_EMOJI_NAMES: Record<string, string> = {
+  IRON: 'loliron',
+  BRONZE: 'lolbronze',
+  SILVER: 'lolsilver',
+  GOLD: 'lolgold',
+  PLATINUM: 'lolplatine',
+  EMERALD: 'lolemerald',
+  DIAMOND: 'loldiamant',
+  MASTER: 'lolmaster',
+  GRANDMASTER: 'lolgrandmaster',
+  CHALLENGER: 'lolchallenger',
+};
+
+const globalEmojiFallbackMap = new Map<string, string>();
+
+function formatEmojiMention(emoji: { id: string; name: string | null; animated?: boolean | null }): string | null {
+  if (!emoji.name) return null;
+  return `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>`;
+}
+
+async function refreshGlobalEmojiFallbackMap() {
+  globalEmojiFallbackMap.clear();
+
+  try {
+    const sourceGuild = await client.guilds.fetch(EMOJI_SOURCE_GUILD_ID);
+    await sourceGuild.emojis.fetch();
+
+    for (const emoji of sourceGuild.emojis.cache.values()) {
+      const mention = formatEmojiMention(emoji);
+      if (!emoji.name || !mention) continue;
+      globalEmojiFallbackMap.set(emoji.name.toLowerCase(), mention);
+    }
+
+    console.log(`😀 Loaded ${globalEmojiFallbackMap.size} shared emojis from source guild ${EMOJI_SOURCE_GUILD_ID}`);
+  } catch (error: any) {
+    console.warn(
+      `⚠️ Could not load shared emojis from source guild ${EMOJI_SOURCE_GUILD_ID}: ${error?.message || error}`
+    );
+  }
+}
+
+function findCustomEmoji(guild: Guild | null | undefined, emojiName: string): string | null {
+  const key = emojiName.toLowerCase();
+
+  if (guild) {
+    const found = guild.emojis.cache.find((emoji) => (emoji.name || '').toLowerCase() === key);
+    const localMention = found ? formatEmojiMention(found) : null;
+    if (localMention) return localMention;
+  }
+
+  return globalEmojiFallbackMap.get(key) || null;
+}
+
+function resolveEmoji(guild: Guild | null | undefined, preferredName: string | undefined, fallback: string): string {
+  if (!preferredName) return fallback;
+  return findCustomEmoji(guild, preferredName) || fallback;
+}
+
+function truncateForDiscord(text: string | null | undefined, maxLen = 260): string {
+  const normalized = (text || '').replace(/\s+/g, ' ').trim();
+  if (normalized.length <= maxLen) return normalized;
+  return `${normalized.slice(0, maxLen - 3)}...`;
+}
+
+function normalizeRankTier(rank: string | null | undefined): string | null {
+  if (!rank) return null;
+  const tier = rank.trim().toUpperCase().split(/\s+/)[0];
+  return tier || null;
+}
+
+function formatRoleLabelForDiscord(role: string | null | undefined, guild: Guild | null | undefined): string {
+  const normalized = (role || '').trim().toUpperCase();
+  if (!normalized) {
+    return `${resolveEmoji(guild, undefined, '🎮')} Unknown`;
+  }
+  const customEmojiName = ROLE_CUSTOM_EMOJI_NAMES[normalized];
+  const fallbackEmoji = ROLE_EMOJIS[normalized] || '🎮';
+  return `${resolveEmoji(guild, customEmojiName, fallbackEmoji)} ${normalized}`;
+}
+
+function formatRankLabelForDiscord(
+  rank: string | null | undefined,
+  division: string | null | undefined,
+  guild: Guild | null | undefined,
+): string | null {
+  if (!rank) return null;
+
+  const tier = normalizeRankTier(rank);
+  const customEmojiName = tier ? RANK_CUSTOM_EMOJI_NAMES[tier] : undefined;
+  const fallbackEmoji = tier ? (RANK_EMOJIS[tier] || '🏅') : '🏅';
+
+  const hasDivision = Boolean(division && String(division).trim().length > 0);
+  const normalizedDivision = hasDivision ? String(division).trim().toUpperCase() : '';
+  const rankText = hasDivision && !rank.toUpperCase().includes(normalizedDivision)
+    ? `${rank} ${normalizedDivision}`
+    : rank;
+
+  return `${resolveEmoji(guild, customEmojiName, fallbackEmoji)} ${rankText}`;
+}
+
+function formatVcLabelForDiscord(vcPreference: string | null | undefined, guild: Guild | null | undefined): string | null {
+  const normalized = (vcPreference || '').toUpperCase();
+  if (!normalized) return null;
+
+  if (normalized === 'ALWAYS') {
+    return `${resolveEmoji(guild, 'VC', '🎤')} VC`;
+  }
+  if (normalized === 'NEVER') {
+    return `${resolveEmoji(guild, 'NoVC', '🔇')} No VC`;
+  }
+  if (normalized === 'SOMETIMES') {
+    return `${resolveEmoji(guild, 'sometimesVC', '🎙️')} Sometimes VC`;
+  }
+
+  return `${resolveEmoji(guild, undefined, '🎙️')} ${vcPreference}`;
+}
+
+function formatLanguagesForDiscord(languages: string[] | null | undefined, guild: Guild | null | undefined): string | null {
+  if (!Array.isArray(languages) || languages.length === 0) return null;
+  const cleaned = languages
+    .map((lang) => String(lang || '').trim())
+    .filter((lang) => lang.length > 0);
+  if (cleaned.length === 0) return null;
+  return `${resolveEmoji(guild, 'language', '🗣️')} ${cleaned.join(', ')}`;
+}
 
 type RoleForwardingConfig = {
   guildId: string;
@@ -663,6 +801,7 @@ const pendingSetups = new Map<string, {
   communityId: string;
   filterRegions: string[];
   filterRoles: string[];
+  filterLanguages: string[];
   filterMinRank: string | null;
   filterMaxRank: string | null;
 }>();
@@ -753,6 +892,7 @@ function describeFilters(fc: any): string {
   const parts: string[] = [];
   if (fc.filterRegions?.length > 0) parts.push(`Regions: ${fc.filterRegions.join(', ')}`);
   if (fc.filterRoles?.length > 0) parts.push(`Roles: ${fc.filterRoles.join(', ')}`);
+  if (fc.filterLanguages?.length > 0) parts.push(`Languages: ${fc.filterLanguages.join(', ')}`);
   if (fc.filterMinRank) parts.push(`Min: ${fc.filterMinRank}`);
   if (fc.filterMaxRank) parts.push(`Max: ${fc.filterMaxRank}`);
   return parts.length > 0 ? ` (${parts.join(' | ')})` : ' (Global)';
@@ -954,6 +1094,7 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       communityId: community.id,
       filterRegions: [],
       filterRoles: [],
+      filterLanguages: [],
       filterMinRank: null,
       filterMaxRank: null,
     });
@@ -1016,7 +1157,20 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       .addOptions(REGIONS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r)));
     rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(regionMenu));
 
-    // Row 2: Role select (DUO only)
+    // Row 2: Language select (DUO + LFT)
+    const languageMenu = new StringSelectMenuBuilder()
+      .setCustomId(SETUP_FILTER_LANGUAGE)
+      .setPlaceholder('Select languages (leave empty = all)')
+      .setMinValues(0)
+      .setMaxValues(Math.min(ROLE_FORWARDING_LANGUAGE_KEYS.length, 25))
+      .addOptions(
+        ROLE_FORWARDING_LANGUAGE_KEYS.map((language) =>
+          new StringSelectMenuOptionBuilder().setLabel(language).setValue(language)
+        )
+      );
+    rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(languageMenu));
+
+    // Row 3: Role select (DUO only)
     if (setup.feedType === 'DUO') {
       const roleMenu = new StringSelectMenuBuilder()
         .setCustomId('filter_role')
@@ -1027,23 +1181,27 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(roleMenu));
     }
 
-    // Row 3: Min rank
-    const minRankMenu = new StringSelectMenuBuilder()
-      .setCustomId('filter_min_rank')
-      .setPlaceholder('Minimum rank (optional)')
+    // Row 4: Rank range (single row to stay within Discord's 5-row component limit)
+    const rankRangeMenu = new StringSelectMenuBuilder()
+      .setCustomId(SETUP_FILTER_RANK_RANGE)
+      .setPlaceholder('Rank range (optional): choose min and/or max')
       .setMinValues(0)
-      .setMaxValues(1)
-      .addOptions(RANKS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(RANK_EMOJIS[r] || '🏆')));
-    rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(minRankMenu));
-
-    // Row 4: Max rank
-    const maxRankMenu = new StringSelectMenuBuilder()
-      .setCustomId('filter_max_rank')
-      .setPlaceholder('Maximum rank (optional)')
-      .setMinValues(0)
-      .setMaxValues(1)
-      .addOptions(RANKS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(RANK_EMOJIS[r] || '🏆')));
-    rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(maxRankMenu));
+      .setMaxValues(2)
+      .addOptions([
+        ...RANKS.map((r) =>
+          new StringSelectMenuOptionBuilder()
+            .setLabel(`Min: ${r}`)
+            .setValue(`min:${r}`)
+            .setEmoji(RANK_EMOJIS[r] || '🏆')
+        ),
+        ...RANKS.map((r) =>
+          new StringSelectMenuOptionBuilder()
+            .setLabel(`Max: ${r}`)
+            .setValue(`max:${r}`)
+            .setEmoji(RANK_EMOJIS[r] || '🏆')
+        ),
+      ]);
+    rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(rankRangeMenu));
 
     // Row 5: Confirm / Cancel
     rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -1075,6 +1233,7 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       feedType: setup.feedType,
       filterRegions: setup.filterRegions,
       filterRoles: setup.filterRoles,
+      filterLanguages: setup.filterLanguages,
       filterMinRank: setup.filterMinRank,
       filterMaxRank: setup.filterMaxRank,
     });
@@ -1188,7 +1347,14 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
   }
 
   // ── Filter select menus (update pending state) ──
-  if (customId === 'filter_region' || customId === 'filter_role' || customId === 'filter_min_rank' || customId === 'filter_max_rank') {
+  if (
+    customId === 'filter_region' ||
+    customId === 'filter_role' ||
+    customId === SETUP_FILTER_LANGUAGE ||
+    customId === SETUP_FILTER_RANK_RANGE ||
+    customId === 'filter_min_rank' ||
+    customId === 'filter_max_rank'
+  ) {
     const setup = pendingSetups.get(key);
     if (!setup) {
       return interaction.deferUpdate(); // session expired, don't crash
@@ -1196,6 +1362,28 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
 
     if (customId === 'filter_region') setup.filterRegions = interaction.values;
     if (customId === 'filter_role') setup.filterRoles = interaction.values;
+    if (customId === SETUP_FILTER_LANGUAGE) setup.filterLanguages = interaction.values;
+
+    if (customId === SETUP_FILTER_RANK_RANGE) {
+      const selectedMin = interaction.values.find((value) => value.startsWith('min:'))?.slice(4) || null;
+      const selectedMax = interaction.values.find((value) => value.startsWith('max:'))?.slice(4) || null;
+
+      let min = selectedMin;
+      let max = selectedMax;
+
+      if (min && max) {
+        const minIndex = RANKS.indexOf(min);
+        const maxIndex = RANKS.indexOf(max);
+        if (minIndex > -1 && maxIndex > -1 && minIndex > maxIndex) {
+          min = selectedMax;
+          max = selectedMin;
+        }
+      }
+
+      setup.filterMinRank = min;
+      setup.filterMaxRank = max;
+    }
+
     if (customId === 'filter_min_rank') setup.filterMinRank = interaction.values[0] || null;
     if (customId === 'filter_max_rank') setup.filterMaxRank = interaction.values[0] || null;
 
@@ -1350,8 +1538,50 @@ async function pollOutgoingPosts() {
   }
 }
 
+function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): EmbedBuilder {
+  const { id, author, riotAccount, message, role, region, vcPreference, languages, communityName } = post;
+
+  const mainAccount = riotAccount || { gameName: 'Unknown', tagLine: '', rank: '', division: '', winrate: null };
+  const displayName = mainAccount.gameName && mainAccount.tagLine
+    ? `${mainAccount.gameName}#${mainAccount.tagLine}`
+    : mainAccount.summonerName || 'Unknown';
+
+  let titleSuffix = '';
+  if (author.discordId) {
+    titleSuffix = ` <@${author.discordId}>`;
+  }
+
+  const postUrl = `${APP_URL}/share/post/${id}`;
+  const regionLine = `${resolveEmoji(guild, 'region', '🌍')} **${region || 'Unknown'}** • ${formatRoleLabelForDiscord(role, guild)}`;
+  const rankLine = formatRankLabelForDiscord(mainAccount.rank, mainAccount.division, guild);
+  const winrateLine = mainAccount.winrate !== null && mainAccount.winrate !== undefined
+    ? `${resolveEmoji(guild, 'winrate', '📈')} ${Number(mainAccount.winrate).toFixed(1)}%`
+    : null;
+  const vcLine = formatVcLabelForDiscord(vcPreference, guild);
+  const languagesLine = formatLanguagesForDiscord(languages, guild);
+
+  const descriptionParts = [
+    truncateForDiscord(message, 320) ? `> ${truncateForDiscord(message, 320)}` : null,
+    `${resolveEmoji(guild, 'riot', '🎮')} **${displayName}**`,
+    regionLine,
+    [rankLine, winrateLine].filter(Boolean).join(' • ') || null,
+    vcLine,
+    languagesLine,
+    communityName ? `🏠 ${communityName}` : null,
+    `↗ [open in app](${postUrl})`,
+  ].filter(Boolean);
+
+  return new EmbedBuilder()
+    .setColor(0x3B82F6)
+    .setTitle(`Duo • ${author.username}${titleSuffix}`)
+    .setURL(postUrl)
+    .setDescription(descriptionParts.join('\n'))
+    .setFooter({ text: 'RiftEssence' })
+    .setTimestamp();
+}
+
 async function mirrorPostToDiscord(post: any) {
-  const { id, author, riotAccount, message, role, region, vcPreference, languages, feedChannels } = post;
+  const { id, feedChannels } = post;
 
   // Mark as mirrored FIRST to prevent duplicate processing
   const markResult = await apiRequest(`/api/discord/posts/${id}/mirrored`, 'PATCH');
@@ -1365,62 +1595,13 @@ async function mirrorPostToDiscord(post: any) {
     return;
   }
 
-  const mainAccount = riotAccount || { gameName: 'Unknown', tagLine: '', rank: '', division: '', winrate: null };
-  const displayName = mainAccount.gameName && mainAccount.tagLine
-    ? `${mainAccount.gameName}#${mainAccount.tagLine}`
-    : mainAccount.summonerName || 'Unknown';
-
-  let titleSuffix = '';
-  if (author.discordId) {
-    titleSuffix = ` <@${author.discordId}>`;
-  }
-
-  const embed = new EmbedBuilder()
-    .setColor(0x0a84ff)
-    .setTitle(`🤝 Duo Post — ${author.username}${titleSuffix}`)
-    .setDescription(message || 'Looking for teammates!')
-    .addFields(
-      { name: '🎮 Riot Account', value: displayName, inline: true },
-      { name: '🌍 Region', value: region, inline: true },
-      { name: '🎭 Role', value: role, inline: true },
-    );
-
-  if (author.discordUsername) {
-    embed.addFields({ name: '💬 Discord', value: author.discordUsername, inline: true });
-  }
-  if (mainAccount.rank) {
-    embed.addFields({ name: '🏆 Rank', value: mainAccount.rank, inline: true });
-  }
-  if (mainAccount.division) {
-    embed.addFields({ name: '📊 Division', value: mainAccount.division, inline: true });
-  }
-  if (mainAccount.winrate !== null && mainAccount.winrate !== undefined) {
-    embed.addFields({ name: '📈 Winrate', value: `${mainAccount.winrate.toFixed(1)}%`, inline: true });
-  }
-  if (vcPreference) {
-    embed.addFields({ name: '🎤 Voice', value: vcPreference, inline: true });
-  }
-  if (languages && languages.length > 0) {
-    embed.addFields({ name: '🗣️ Languages', value: languages.join(', '), inline: true });
-  }
-
-  const communitySlug = post.communitySlug || post.communityId;
-  if (communitySlug) {
-    embed.addFields({
-      name: '🔗 Join Community',
-      value: `[Join on RiftEssence](${APP_URL}/communities/join/${communitySlug})`,
-      inline: false,
-    });
-  }
-
-  embed.setFooter({ text: 'Find your duo on riftessence.app!' });
-  embed.setTimestamp();
-
   for (const fc of feedChannels) {
     try {
-      const channel = await client.channels.fetch(fc.channelId) as TextChannel;
-      if (channel && channel.isTextBased()) {
-        await channel.send({ embeds: [embed] });
+      const channel = await client.channels.fetch(fc.channelId);
+      if (channel && channel.isTextBased() && 'guild' in channel) {
+        const textChannel = channel as TextChannel;
+        const embed = buildDuoForwardEmbed(post, textChannel.guild);
+        await textChannel.send({ embeds: [embed] });
         console.log(`✅ Mirrored duo post ${id} to channel ${fc.channelId}`);
       }
     } catch (error: any) {
@@ -1459,6 +1640,64 @@ async function pollOutgoingLftPosts() {
   }
 }
 
+function buildLftForwardEmbed(post: any, guild: Guild | null | undefined): EmbedBuilder {
+  const isTeam = post.type === 'TEAM';
+  const appUrl = `${APP_URL}/lft`;
+  const regionPrefix = resolveEmoji(guild, 'region', '🌍');
+
+  if (isTeam) {
+    const teamName = post.teamName || 'Unnamed Team';
+    const rankLabel = formatRankLabelForDiscord(post.averageRank, post.averageDivision, guild);
+    const rolesNeeded = Array.isArray(post.rolesNeeded)
+      ? post.rolesNeeded.map((role: string) => formatRoleLabelForDiscord(role, guild)).join(' • ')
+      : '';
+
+    const descriptionParts = [
+      truncateForDiscord(post.details || post.description, 340) ? `> ${truncateForDiscord(post.details || post.description, 340)}` : null,
+      post.region ? `${regionPrefix} **${post.region}**` : null,
+      rankLabel,
+      rolesNeeded ? `🎯 ${rolesNeeded}` : null,
+      typeof post.scrims === 'boolean' ? `⚔️ Scrims: ${post.scrims ? 'Yes' : 'No'}` : null,
+      post.minAvailability ? `📅 Min availability: ${post.minAvailability}` : null,
+      post.coachingAvailability ? `🧠 Coaching: ${post.coachingAvailability}` : null,
+      `↗ [open in app](${appUrl})`,
+    ].filter(Boolean);
+
+    return new EmbedBuilder()
+      .setColor(0x22C55E)
+      .setTitle(`Team LFT • ${teamName}`)
+      .setURL(appUrl)
+      .setDescription(descriptionParts.join('\n'))
+      .setFooter({ text: 'RiftEssence' })
+      .setTimestamp();
+  }
+
+  const authorName = post.author?.username || 'Unknown';
+  const titleSuffix = post.author?.discordId ? ` <@${post.author.discordId}>` : '';
+  const rankLabel = formatRankLabelForDiscord(post.rank, post.division, guild);
+  const languagesLine = formatLanguagesForDiscord(post.languages, guild);
+
+  const descriptionParts = [
+    truncateForDiscord(post.details || post.description, 340) ? `> ${truncateForDiscord(post.details || post.description, 340)}` : null,
+    post.region ? `${regionPrefix} **${post.region}**` : null,
+    post.mainRole ? formatRoleLabelForDiscord(post.mainRole, guild) : null,
+    rankLabel,
+    post.experience ? `🧩 Experience: ${post.experience}` : null,
+    post.availability ? `📅 Availability: ${post.availability}` : null,
+    languagesLine,
+    post.author?.discordUsername ? `💬 ${post.author.discordUsername}` : null,
+    `↗ [open in app](${appUrl})`,
+  ].filter(Boolean);
+
+  return new EmbedBuilder()
+    .setColor(0x3B82F6)
+    .setTitle(`Player LFT • ${authorName}${titleSuffix}`)
+    .setURL(appUrl)
+    .setDescription(descriptionParts.join('\n'))
+    .setFooter({ text: 'RiftEssence' })
+    .setTimestamp();
+}
+
 async function mirrorLftPostToDiscord(post: any) {
   const { id, feedChannels } = post;
 
@@ -1474,61 +1713,13 @@ async function mirrorLftPostToDiscord(post: any) {
     return;
   }
 
-  const isTeam = post.type === 'TEAM';
-
-  const embed = new EmbedBuilder()
-    .setColor(isTeam ? 0xe74c3c : 0x2ecc71)
-    .setTimestamp();
-
-  if (isTeam) {
-    // TEAM looking for players
-    embed.setTitle(`👥 Team LFT — ${post.teamName || 'Unnamed Team'}`);
-    embed.setDescription(post.description || 'Looking for players!');
-
-    if (post.region) embed.addFields({ name: '🌍 Region', value: post.region, inline: true });
-    if (post.averageRank) embed.addFields({ name: '🏆 Average Rank', value: post.averageRank, inline: true });
-    if (post.rolesNeeded?.length > 0) {
-      embed.addFields({
-        name: '🎭 Roles Needed',
-        value: post.rolesNeeded.map((r: string) => `${ROLE_EMOJIS[r] || '🎮'} ${r}`).join(', '),
-        inline: true,
-      });
-    }
-    if (post.schedule) embed.addFields({ name: '📅 Schedule', value: post.schedule, inline: true });
-  } else {
-    // PLAYER looking for team
-    const authorName = post.author?.username || 'Unknown';
-    let titleSuffix = '';
-    if (post.author?.discordId) titleSuffix = ` <@${post.author.discordId}>`;
-
-    embed.setTitle(`🙋 Player LFT — ${authorName}${titleSuffix}`);
-    embed.setDescription(post.description || 'Looking for a team!');
-
-    if (post.region) embed.addFields({ name: '🌍 Region', value: post.region, inline: true });
-    if (post.mainRole) embed.addFields({ name: '🎭 Main Role', value: `${ROLE_EMOJIS[post.mainRole] || '🎮'} ${post.mainRole}`, inline: true });
-    if (post.rank) embed.addFields({ name: '🏆 Rank', value: post.rank, inline: true });
-    if (post.availability) embed.addFields({ name: '📅 Availability', value: post.availability, inline: true });
-    if (post.author?.discordUsername) {
-      embed.addFields({ name: '💬 Discord', value: post.author.discordUsername, inline: true });
-    }
-  }
-
-  const communitySlug = post.communitySlug || post.communityId;
-  if (communitySlug) {
-    embed.addFields({
-      name: '🔗 View on RiftEssence',
-      value: `[Open](${APP_URL}/communities/${communitySlug}/lft)`,
-      inline: false,
-    });
-  }
-
-  embed.setFooter({ text: 'Find your team on riftessence.app!' });
-
   for (const fc of feedChannels) {
     try {
-      const channel = await client.channels.fetch(fc.channelId) as TextChannel;
-      if (channel && channel.isTextBased()) {
-        await channel.send({ embeds: [embed] });
+      const channel = await client.channels.fetch(fc.channelId);
+      if (channel && channel.isTextBased() && 'guild' in channel) {
+        const textChannel = channel as TextChannel;
+        const embed = buildLftForwardEmbed(post, textChannel.guild);
+        await textChannel.send({ embeds: [embed] });
         console.log(`✅ Mirrored LFT post ${id} to channel ${fc.channelId}`);
       }
     } catch (error: any) {
@@ -2081,6 +2272,9 @@ async function handleTeamEventButton(interaction: ButtonInteraction) {
 client.once(Events.ClientReady, async (c) => {
   console.log(`✅ Bot logged in as ${c.user.tag}`);
   client.user?.setActivity('RiftEssence | /setup', { type: ActivityType.Playing });
+
+  // Load shared emoji fallback map (source guild), used when target guild lacks custom emojis.
+  await refreshGlobalEmojiFallbackMap();
 
   // Register slash commands
   const guildIds = client.guilds.cache.map(g => g.id);
