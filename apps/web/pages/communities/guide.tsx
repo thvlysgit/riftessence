@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 const DISCORD_INVITE_URL =
   'https://discord.com/oauth2/authorize?client_id=1363678859471491312&scope=bot&permissions=2147863617';
+const SUPPORT_DISCORD_URL = 'https://discord.gg/uypaWqmxx6';
 
 export default function CommunityGuidePage() {
   const commandCards = [
@@ -54,6 +55,25 @@ export default function CommunityGuidePage() {
     },
   ];
 
+  const commonConfusions = [
+    {
+      title: '"I ran /setup but nothing appears in my channel"',
+      body: 'You probably ran /setup in a different channel. Run /setup directly in the destination channel and select the feed again.',
+    },
+    {
+      title: '"/linkserver code says expired"',
+      body: 'Link codes are short-lived for security. Run /linkserver again and use the new code immediately on the registration page.',
+    },
+    {
+      title: '"I only see some posts"',
+      body: 'Your channel may be configured with filters (region, role, language, rank). Re-run /setup and use Global if you want everything.',
+    },
+    {
+      title: '"Commands are missing in Discord"',
+      body: 'Make sure you are an Administrator and wait a moment after inviting/updating the bot. Reopen Discord if command list is stale.',
+    },
+  ];
+
   const [previewMode, setPreviewMode] = React.useState<'LFD' | 'LFT'>('LFD');
   const isLfdPreview = previewMode === 'LFD';
 
@@ -69,8 +89,7 @@ export default function CommunityGuidePage() {
         <section
           className="p-6 sm:p-8 rounded-2xl border relative overflow-hidden"
           style={{
-            background:
-              'linear-gradient(118deg, rgba(2,6,23,0.56) 0%, rgba(15,23,42,0.64) 52%, rgba(88,101,242,0.17) 100%)',
+            background: 'linear-gradient(118deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%)',
             borderColor: 'var(--color-border)',
             boxShadow: 'var(--shadow)',
           }}
@@ -86,7 +105,7 @@ export default function CommunityGuidePage() {
 
           <div className="relative flex flex-col lg:flex-row gap-6 lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <p className="text-xs uppercase tracking-[0.16em] font-semibold" style={{ color: '#A5B4FC' }}>
+              <p className="text-xs uppercase tracking-[0.16em] font-semibold" style={{ color: 'var(--color-accent-1)' }}>
                 Communities • Discord Onboarding
               </p>
               <h1 className="text-3xl sm:text-4xl font-extrabold mt-2" style={{ color: 'var(--color-text-primary)' }}>
@@ -101,9 +120,9 @@ export default function CommunityGuidePage() {
                 <span
                   className="px-3 py-1.5 rounded-full text-xs font-semibold border"
                   style={{
-                    borderColor: 'rgba(96,165,250,0.5)',
-                    background: 'rgba(59,130,246,0.18)',
-                    color: '#93C5FD',
+                    borderColor: 'var(--color-border)',
+                    background: 'var(--color-bg-primary)',
+                    color: 'var(--color-text-primary)',
                   }}
                 >
                   No coding needed
@@ -111,9 +130,9 @@ export default function CommunityGuidePage() {
                 <span
                   className="px-3 py-1.5 rounded-full text-xs font-semibold border"
                   style={{
-                    borderColor: 'rgba(45,212,191,0.5)',
-                    background: 'rgba(20,184,166,0.16)',
-                    color: '#5EEAD4',
+                    borderColor: 'var(--color-border)',
+                    background: 'var(--color-bg-primary)',
+                    color: 'var(--color-text-primary)',
                   }}
                 >
                   Works with Duo and LFT
@@ -121,9 +140,9 @@ export default function CommunityGuidePage() {
                 <span
                   className="px-3 py-1.5 rounded-full text-xs font-semibold border"
                   style={{
-                    borderColor: 'rgba(251,191,36,0.5)',
-                    background: 'rgba(234,179,8,0.16)',
-                    color: '#FCD34D',
+                    borderColor: 'var(--color-border)',
+                    background: 'var(--color-bg-primary)',
+                    color: 'var(--color-text-primary)',
                   }}
                 >
                   Admin-safe setup flow
@@ -159,11 +178,12 @@ export default function CommunityGuidePage() {
         <section
           className="p-4 rounded-xl border"
           style={{
-            background: 'rgba(88, 101, 242, 0.12)',
-            borderColor: 'rgba(88, 101, 242, 0.45)',
+            background: 'var(--color-bg-tertiary)',
+            borderColor: 'var(--color-border)',
+            borderLeft: '4px solid var(--color-accent-1)',
           }}
         >
-          <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: '#A5B4FC' }}>
+          <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: 'var(--color-accent-1)' }}>
             Most Important Rule
           </p>
           <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
@@ -571,8 +591,29 @@ export default function CommunityGuidePage() {
           <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
             Make sure you have Administrator permissions in Discord. If forwarding appears in the wrong place, rerun
             <strong> /setup </strong>
-            in the correct destination channel.
+            in the correct destination channel. If you're blocked, check these common cases first.
           </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+            {commonConfusions.map((item) => (
+              <div
+                key={item.title}
+                className="rounded-lg border p-3"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  borderColor: 'var(--color-border)',
+                }}
+              >
+                <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                  {item.title}
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                  {item.body}
+                </p>
+              </div>
+            ))}
+          </div>
+
           <div className="flex flex-wrap gap-3">
             <a
               href={DISCORD_INVITE_URL}
@@ -582,6 +623,18 @@ export default function CommunityGuidePage() {
               style={{ backgroundColor: '#5865F2', color: '#fff' }}
             >
               Add Bot
+            </a>
+            <a
+              href={SUPPORT_DISCORD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded font-semibold flex items-center gap-2"
+              style={{
+                background: 'linear-gradient(135deg, #5865F2, #3B82F6)',
+                color: '#fff',
+              }}
+            >
+              Join Support Discord
             </a>
             <Link
               href="/communities/register"
