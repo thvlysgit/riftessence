@@ -54,6 +54,9 @@ export default function CommunityGuidePage() {
     },
   ];
 
+  const [previewMode, setPreviewMode] = React.useState<'LFD' | 'LFT'>('LFD');
+  const isLfdPreview = previewMode === 'LFD';
+
   return (
     <div
       className="min-h-screen py-10 px-4"
@@ -220,75 +223,181 @@ export default function CommunityGuidePage() {
             boxShadow: 'var(--shadow)',
           }}
         >
-          <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-            Mirroring Preview: App vs Discord
-          </h2>
-          <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
-            Styled in code to mimic the real Discord post rendering as closely as possible.
-          </p>
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                Mirroring Preview: App vs Discord
+              </h2>
+              <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                Switch between pixel-mocked <strong>LFD</strong> and <strong>LFT</strong> previews.
+              </p>
+            </div>
+
+            <div
+              className="inline-flex p-1 rounded-xl border"
+              style={{
+                background: 'var(--color-bg-tertiary)',
+                borderColor: 'var(--color-border)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setPreviewMode('LFD')}
+                className="px-3 py-1.5 text-sm font-semibold rounded-lg transition-all"
+                style={{
+                  background: isLfdPreview ? 'linear-gradient(135deg, rgba(59,130,246,0.3), rgba(14,165,233,0.24))' : 'transparent',
+                  color: isLfdPreview ? '#E2E8F0' : 'var(--color-text-muted)',
+                  border: isLfdPreview ? '1px solid rgba(96,165,250,0.5)' : '1px solid transparent',
+                }}
+              >
+                LFD Preview
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewMode('LFT')}
+                className="px-3 py-1.5 text-sm font-semibold rounded-lg transition-all"
+                style={{
+                  background: !isLfdPreview ? 'linear-gradient(135deg, rgba(16,185,129,0.28), rgba(20,184,166,0.22))' : 'transparent',
+                  color: !isLfdPreview ? '#E2E8F0' : 'var(--color-text-muted)',
+                  border: !isLfdPreview ? '1px solid rgba(45,212,191,0.5)' : '1px solid transparent',
+                }}
+              >
+                LFT Preview
+              </button>
+            </div>
+          </div>
 
           <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
             <div className="rounded-xl border p-4" style={{ background: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
               <p className="text-xs uppercase tracking-wide font-semibold mb-2" style={{ color: 'var(--color-accent-1)' }}>
-                RiftEssence Feed Card
+                RiftEssence Feed Card {isLfdPreview ? '• LFD' : '• LFT'}
               </p>
               <div className="rounded-lg border p-4" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <p className="text-xs uppercase font-semibold" style={{ color: '#3B82F6' }}>
-                      Duo Listing
+                {isLfdPreview ? (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs uppercase font-semibold" style={{ color: '#3B82F6' }}>
+                          LFD Listing
+                        </p>
+                        <p className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                          thvlys
+                        </p>
+                      </div>
+                      <span
+                        className="px-2 py-1 rounded text-xs border"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
+                      >
+                        🌍 EUW
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span
+                        className="px-3 py-1.5 rounded text-sm border"
+                        style={{ borderColor: '#C8AA6D', color: '#C8AA6D', background: 'rgba(200,170,109,0.16)' }}
+                      >
+                        🛡 SUPPORT
+                      </span>
+                      <span
+                        className="px-3 py-1.5 rounded text-sm border"
+                        style={{ borderColor: '#B9F2FF', color: '#B9F2FF', background: 'rgba(185,242,255,0.16)' }}
+                      >
+                        💎 DIAMOND IV
+                      </span>
+                      <span
+                        className="px-3 py-1.5 rounded text-sm border"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                      >
+                        🎙️ Sometimes VC
+                      </span>
+                    </div>
+
+                    <p className="mt-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                      cherche duo pour la soirée !
                     </p>
-                    <p className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                      thvlys
+
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      <span
+                        className="px-2 py-1 rounded text-xs border"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                      >
+                        French
+                      </span>
+                      <span
+                        className="px-2 py-1 rounded text-xs border"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                      >
+                        English
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs uppercase font-semibold" style={{ color: '#34D399' }}>
+                          Player LFT
+                        </p>
+                        <p className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                          Vortex
+                        </p>
+                      </div>
+                      <span
+                        className="px-2 py-1 rounded text-xs border"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
+                      >
+                        🌍 EUW
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span
+                        className="px-3 py-1.5 rounded text-sm border"
+                        style={{ borderColor: '#60A5FA', color: '#60A5FA', background: 'rgba(96,165,250,0.16)' }}
+                      >
+                        🏹 ADC
+                      </span>
+                      <span
+                        className="px-3 py-1.5 rounded text-sm border"
+                        style={{ borderColor: '#FBBF24', color: '#FCD34D', background: 'rgba(251,191,36,0.16)' }}
+                      >
+                        🥇 GOLD II
+                      </span>
+                      <span
+                        className="px-3 py-1.5 rounded text-sm border"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                      >
+                        📅 Weekdays + Weekends
+                      </span>
+                    </div>
+
+                    <p className="mt-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                      Consistent ADC looking for a serious team. Comfortable with structured scrim blocks and VOD review.
                     </p>
-                  </div>
-                  <span
-                    className="px-2 py-1 rounded text-xs border"
-                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
-                  >
-                    🌍 EUW
-                  </span>
-                </div>
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <span
-                    className="px-3 py-1.5 rounded text-sm border"
-                    style={{ borderColor: '#C8AA6D', color: '#C8AA6D', background: 'rgba(200,170,109,0.16)' }}
-                  >
-                    🛡 SUPPORT
-                  </span>
-                  <span
-                    className="px-3 py-1.5 rounded text-sm border"
-                    style={{ borderColor: '#B9F2FF', color: '#B9F2FF', background: 'rgba(185,242,255,0.16)' }}
-                  >
-                    💎 DIAMOND IV
-                  </span>
-                  <span
-                    className="px-3 py-1.5 rounded text-sm border"
-                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-                  >
-                    🎙️ Sometimes VC
-                  </span>
-                </div>
-
-                <p className="mt-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  cherche duo pour la soirée !
-                </p>
-
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  <span
-                    className="px-2 py-1 rounded text-xs border"
-                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-                  >
-                    French
-                  </span>
-                  <span
-                    className="px-2 py-1 rounded text-xs border"
-                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-                  >
-                    English
-                  </span>
-                </div>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      <span
+                        className="px-2 py-1 rounded text-xs border"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                      >
+                        English
+                      </span>
+                      <span
+                        className="px-2 py-1 rounded text-xs border"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                      >
+                        French
+                      </span>
+                      <span
+                        className="px-2 py-1 rounded text-xs border"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                      >
+                        Macro Focus
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -300,7 +409,7 @@ export default function CommunityGuidePage() {
               }}
             >
               <p className="text-xs uppercase tracking-wide font-semibold mb-2" style={{ color: '#A5B4FC' }}>
-                Discord Feed Mirror
+                Discord Feed Mirror {isLfdPreview ? '• LFD' : '• LFT'}
               </p>
 
               <div
@@ -356,7 +465,7 @@ export default function CommunityGuidePage() {
                         border: '1px solid rgba(88, 101, 242, 0.36)',
                       }}
                     >
-                      @Thvlys
+                      {isLfdPreview ? '@Thvlys' : '@Vortex'}
                     </div>
 
                     <div
@@ -373,7 +482,7 @@ export default function CommunityGuidePage() {
                       }}
                     >
                       <div style={{ color: '#60a5fa', fontSize: 'clamp(22px, 4vw, 30px)', fontWeight: 700, lineHeight: 1.1, marginBottom: 8 }}>
-                        Duo • thvlys
+                        {isLfdPreview ? 'Duo • thvlys' : 'Player LFT • Vortex'}
                       </div>
 
                       <div
@@ -384,14 +493,28 @@ export default function CommunityGuidePage() {
                           color: '#dbdee1',
                         }}
                       >
-                        cherche duo pour la soirée !
+                        {isLfdPreview
+                          ? 'cherche duo pour la soirée !'
+                          : 'Consistent ADC looking for a serious team. Comfortable with structured scrim blocks and VOD review.'}
                       </div>
 
-                      <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>🔴 <strong>Thvlys#9099</strong></div>
-                      <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>📍 <strong>EUW</strong> • 🛡 SUPPORT</div>
-                      <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>💎 DIAMOND IV • 📉 51.3%</div>
-                      <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>🎙️ Sometimes VC</div>
-                      <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>🈯 French, English</div>
+                      {isLfdPreview ? (
+                        <>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>🔴 <strong>Thvlys#9099</strong></div>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>📍 <strong>EUW</strong> • 🛡 SUPPORT</div>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>💎 DIAMOND IV • 📉 51.3%</div>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>🎙️ Sometimes VC</div>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>🈯 French, English</div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>👤 <strong>Vortex</strong></div>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>📍 <strong>EUW</strong> • 🏹 ADC</div>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>🥇 GOLD II • 🧩 Experience: Moderate</div>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>📅 Availability: Weekdays + Weekends</div>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>🈯 English, French</div>
+                        </>
+                      )}
                       <div style={{ marginTop: 2, fontSize: 14, color: '#60a5fa' }}>↗ open in app</div>
 
                       <div style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: '#f2f3f5' }}>
