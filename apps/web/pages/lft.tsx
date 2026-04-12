@@ -217,14 +217,14 @@ const getRankColor = (rank: string) => {
 const getRankIcon = (rank: string) => {
   const rankLower = rank.toLowerCase();
   const iconUrl = `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-shared-components/global/default/${rankLower}.png`;
-  return <img src={iconUrl} alt={rank} className="inline-block w-4 h-4" />;
+  return <img src={iconUrl} alt={rank} className="inline-block w-5 h-5" />;
 };
 
 const getRankBadge = (rank: string, division?: string) => {
   const color = getRankColor(rank);
   const displayText = division ? `${rank} ${division}` : rank;
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold border" style={{ background: `${color}15`, color: color, borderColor: color }}>
+    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold border" style={{ background: `${color}15`, color: color, borderColor: color }}>
       {getRankIcon(rank)}
       {displayText}
     </span>
@@ -1142,7 +1142,7 @@ export default function LFTPage() {
                                 <div className="rounded-lg border p-3 md:col-span-2 space-y-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
                                   <div className="flex flex-wrap gap-2">
                                     <span
-                                      className="px-2 py-1 rounded text-xs border font-semibold inline-flex items-center gap-1"
+                                      className="px-3 py-1.5 rounded text-sm border font-semibold inline-flex items-center gap-1.5"
                                       style={{
                                         borderColor: accentColor,
                                         color: accentColor,
@@ -1154,7 +1154,7 @@ export default function LFTPage() {
                                     </span>
 
                                     {normalizedCandidateType === 'PLAYER' && p.mainRole && (
-                                      <span className="text-xs px-2 py-1 rounded font-semibold border inline-flex items-center gap-1" style={{ background: 'rgba(200, 170, 109, 0.15)', color: '#C8AA6D', borderColor: '#C8AA6D' }}>
+                                      <span className="text-sm px-3 py-1.5 rounded font-semibold border inline-flex items-center gap-1.5" style={{ background: 'rgba(200, 170, 109, 0.15)', color: '#C8AA6D', borderColor: '#C8AA6D' }}>
                                         {getRoleIcon(p.mainRole)}
                                         {p.mainRole}
                                       </span>
@@ -1174,20 +1174,20 @@ export default function LFTPage() {
                                   )}
                                 </div>
 
-                                <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
-                                  <p className="text-xs uppercase font-semibold" style={{ color: 'var(--color-text-muted)' }}>📌 Snapshot</p>
+                                <div className="rounded-lg border p-3 space-y-2.5" style={{ borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' }}>
+                                  <p className="text-sm uppercase font-semibold" style={{ color: 'var(--color-text-muted)' }}>📌 Snapshot</p>
                                   {p.experience && (
-                                    <span className="block px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                    <span className="block px-3 py-1.5 rounded text-sm border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
                                       🧩 {formatAvailability(p.experience)}
                                     </span>
                                   )}
                                   {p.availability && (
-                                    <span className="block px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                    <span className="block px-3 py-1.5 rounded text-sm border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
                                       📅 {formatAvailability(p.availability)}
                                     </span>
                                   )}
                                   {p.age && normalizedCandidateType === 'PLAYER' && (
-                                    <span className="block px-2 py-1 rounded text-xs border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                    <span className="block px-3 py-1.5 rounded text-sm border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
                                       🎂 Age {p.age}
                                     </span>
                                   )}

@@ -124,6 +124,40 @@ export default async function communitiesRoutes(fastify: any) {
         return reply.status(404).send({ error: 'Community not found' });
       }
 
+      let viewerUserId: string | null = null;
+      const authHeader = request.headers?.authorization;
+      if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.replace('Bearer ', '').trim();
+        if (token) {
+          try {
+            const payload = fastify.jwt.verify(token) as any;
+            if (payload?.userId) {
+              viewerUserId = payload.userId as string;
+            }
+          } catch {
+            // Optional viewer context only; ignore invalid auth here.
+          }
+        }
+      }
+
+      let viewerMembershipRole: string | null = null;
+      let viewerCanManageMembers = false;
+      if (viewerUserId) {
+        const [viewerMembership, viewerUser] = await Promise.all([
+          prisma.communityMembership.findUnique({
+            where: { userId_communityId: { userId: viewerUserId, communityId: id } },
+          }),
+          prisma.user.findUnique({
+            where: { id: viewerUserId },
+            include: { badges: true },
+          }),
+        ]);
+
+        viewerMembershipRole = viewerMembership?.role || null;
+        const viewerIsAppAdmin = Boolean(viewerUser?.badges?.some((b: any) => b.key === 'admin'));
+        viewerCanManageMembers = viewerIsAppAdmin || viewerMembershipRole === 'ADMIN';
+      }
+
       return reply.send({
         id: community.id,
         name: community.name,
@@ -137,6 +171,8 @@ export default async function communitiesRoutes(fastify: any) {
         memberCount: community._count.memberships,
         postCount: community._count.posts,
         lftPostCount: community._count.lftPosts,
+        viewerMembershipRole,
+        viewerCanManageMembers,
         createdAt: community.createdAt,
         members: community.memberships.map((m: any) => ({
           userId: m.user.id,
@@ -341,6 +377,68 @@ export default async function communitiesRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to leave community' });
+    }
+  });
+
+  // DELETE /api/communities/:id/members/:memberUserId - Remove a community member (community admin/app-admin only)
+  fastify.delete('/communities/:id/members/:memberUserId', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id, memberUserId } = request.params as { id: string; memberUserId: string };
+      if (!id || !memberUserId) {
+        return reply.status(400).send({ error: 'Missing required params' });
+      }
+
+      if (memberUserId === userId) {
+        return reply.status(400).send({ error: 'Use leave community to remove yourself' });
+      }
+
+      const [actingMembership, targetMembership, actingUser] = await Promise.all([
+        prisma.communityMembership.findUnique({
+          where: { userId_communityId: { userId, communityId: id } },
+        }),
+        prisma.communityMembership.findUnique({
+          where: { userId_communityId: { userId: memberUserId, communityId: id } },
+        }),
+        prisma.user.findUnique({
+          where: { id: userId },
+          include: { badges: true },
+        }),
+      ]);
+
+      const isAppAdmin = Boolean(actingUser?.badges?.some((b: any) => b.key === 'admin'));
+      if (!isAppAdmin && actingMembership?.role !== 'ADMIN') {
+        return reply.status(403).send({ error: 'Only community admins can remove members' });
+      }
+
+      if (!targetMembership) {
+        return reply.status(404).send({ error: 'Target user is not a member of this community' });
+      }
+
+      if (!isAppAdmin && targetMembership.role === 'ADMIN') {
+        return reply.status(403).send({ error: 'Only app admins can remove another community admin' });
+      }
+
+      if (targetMembership.role === 'ADMIN') {
+        const adminCount = await prisma.communityMembership.count({
+          where: {
+            communityId: id,
+            role: 'ADMIN',
+          },
+        });
+
+        if (adminCount <= 1) {
+          return reply.status(400).send({ error: 'Cannot remove the last remaining community admin' });
+        }
+      }
+
+      await prisma.communityMembership.delete({ where: { id: targetMembership.id } });
+      return reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to remove community member' });
     }
   });
 

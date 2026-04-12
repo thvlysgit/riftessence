@@ -18,6 +18,7 @@ import { trackNewVisitor } from '../utils/analytics';
 import { Analytics } from '@vercel/analytics/react';
 
 const queryClient = new QueryClient();
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
 // Route → browser tab title map. Dynamic pages override via document.title in useEffect.
 const ROUTE_TITLES: Record<string, string> = {
@@ -78,6 +79,33 @@ export default function App({ Component, pageProps, router }: AppProps) {
   useEffect(() => {
     trackNewVisitor();
   }, []);
+
+  // Enforce IP blacklist redirects for unauthenticated browsing as well.
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkIpBlacklist = async () => {
+      if (router.pathname === '/banned') return;
+
+      try {
+        const res = await fetch(`${API_URL}/api/communities?limit=1`);
+        if (!res.ok && res.status === 403) {
+          const payload = await res.json().catch(() => null);
+          if (!cancelled && payload?.code === 'IP_BLACKLISTED') {
+            router.replace('/banned');
+          }
+        }
+      } catch {
+        // Network issues should not block normal page usage.
+      }
+    };
+
+    checkIpBlacklist();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router.pathname, router]);
   
   return (
     <>

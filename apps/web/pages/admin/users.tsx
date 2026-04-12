@@ -29,6 +29,9 @@ type User = {
   verified: boolean;
   createdAt: string;
   reportCount: number;
+  discordDmNotifications: boolean;
+  isBanned: boolean;
+  bannedAt?: string | null;
   badges: Badge[];
   riotAccounts: RiotAccount[];
 };
@@ -185,6 +188,42 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function handleToggleBan(targetUserId: string, username: string, currentlyBanned: boolean) {
+    const actionVerb = currentlyBanned ? 'Unban' : 'Ban';
+    const confirmed = await confirm({
+      title: `${actionVerb} User`,
+      message: currentlyBanned
+        ? `Unban "${username}"? This restores account access.`
+        : `Ban "${username}"? This will block account and last known IP access.`,
+      confirmText: actionVerb,
+      cancelText: 'Cancel',
+    });
+
+    if (!confirmed) return;
+
+    try {
+      setProcessingUserId(targetUserId);
+      const res = await fetch(`${API_URL}/api/admin/users/${targetUserId}/ban`, {
+        method: 'PATCH',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ban: !currentlyBanned }),
+      });
+
+      if (res.ok) {
+        showToast(currentlyBanned ? 'User unbanned successfully' : 'User banned successfully', 'success');
+        loadUsers(currentPage, searchQuery);
+      } else {
+        const data = await res.json();
+        showToast(data.error || `Failed to ${actionVerb.toLowerCase()} user`, 'error');
+      }
+    } catch (err) {
+      console.error(`Failed to ${actionVerb.toLowerCase()} user:`, err);
+      showToast(`Failed to ${actionVerb.toLowerCase()} user`, 'error');
+    } finally {
+      setProcessingUserId(null);
+    }
+  }
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     if (user?.id) {
@@ -279,6 +318,12 @@ export default function AdminUsersPage() {
                         Badges
                       </th>
                       <th className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                        Discord DMs
+                      </th>
+                      <th className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
                         Reports
                       </th>
                       <th className="px-6 py-3 text-right text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
@@ -346,6 +391,29 @@ export default function AdminUsersPage() {
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span
+                            className="inline-block px-3 py-1 rounded text-xs font-medium"
+                            style={{
+                              backgroundColor: u.discordDmNotifications ? 'rgba(34, 197, 94, 0.2)' : 'rgba(148, 163, 184, 0.2)',
+                              color: u.discordDmNotifications ? 'var(--color-success)' : 'var(--color-text-muted)',
+                            }}
+                          >
+                            {u.discordDmNotifications ? 'Enabled' : 'Disabled'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span
+                            className="inline-block px-3 py-1 rounded text-xs font-semibold"
+                            style={{
+                              backgroundColor: u.isBanned ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+                              color: u.isBanned ? 'var(--color-error)' : 'var(--color-success)',
+                            }}
+                            title={u.bannedAt ? `Banned at ${new Date(u.bannedAt).toLocaleString()}` : undefined}
+                          >
+                            {u.isBanned ? 'Banned' : 'Active'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span
                             className="inline-block px-3 py-1 rounded text-sm font-medium"
                             style={{
                               backgroundColor: u.reportCount > 0 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)',
@@ -357,6 +425,17 @@ export default function AdminUsersPage() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleToggleBan(u.id, u.username, u.isBanned)}
+                              disabled={processingUserId === u.id || (u.badges || []).some((b) => b.key.toLowerCase() === 'admin')}
+                              className="px-3 py-1 text-xs rounded transition-colors disabled:opacity-50"
+                              style={{
+                                backgroundColor: u.isBanned ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)',
+                                color: u.isBanned ? 'var(--color-success)' : 'var(--color-error)',
+                              }}
+                            >
+                              {processingUserId === u.id ? '...' : (u.isBanned ? 'Unban' : 'Ban')}
+                            </button>
                             {u.reportCount > 0 && (
                               <button
                                 onClick={() => handleResetReports(u.id)}

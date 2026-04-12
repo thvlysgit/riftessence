@@ -34,6 +34,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  const isBannedPayload = (payload: any) => (
+    payload?.code === 'ACCOUNT_BANNED' || payload?.code === 'IP_BLACKLISTED'
+  );
+
   // Load user from token on mount
   useEffect(() => {
     const loadUser = async () => {
@@ -72,8 +76,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               discordUsername: data.discordUsername || null,
             });
           } else {
-            // Invalid token, clear it
-            clearAllAuthState();
+            let payload: any = null;
+            try {
+              payload = await res.json();
+            } catch {
+              payload = null;
+            }
+
+            if (res.status === 403 && isBannedPayload(payload)) {
+              clearAllAuthState();
+              setUser(null);
+              router.push('/banned');
+            } else {
+              // Invalid token, clear it
+              clearAllAuthState();
+            }
           }
         }
       } catch (err) {
@@ -117,6 +134,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const data = await res.json();
 
+      if (res.status === 403 && isBannedPayload(data)) {
+        clearAllAuthState();
+        setUser(null);
+        router.push('/banned');
+        return { success: false, error: data.error || 'Your account is banned.' };
+      }
+
       if (res.ok) {
         // Store JWT token
         if (data.token) {
@@ -157,6 +181,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const data = await res.json();
+
+      if (res.status === 403 && isBannedPayload(data)) {
+        clearAllAuthState();
+        setUser(null);
+        router.push('/banned');
+        return { success: false, error: data.error || 'Access denied.' };
+      }
 
       if (res.ok) {
         // Store JWT token
@@ -218,6 +249,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           discordLinked: Boolean(data.discordLinked ?? data.discordAccount),
           discordUsername: data.discordUsername || null,
         });
+      } else {
+        let payload: any = null;
+        try {
+          payload = await res.json();
+        } catch {
+          payload = null;
+        }
+
+        if (res.status === 403 && isBannedPayload(payload)) {
+          clearAllAuthState();
+          setUser(null);
+          router.push('/banned');
+        }
       }
     } catch (err) {
       console.error('Failed to refresh user:', err);

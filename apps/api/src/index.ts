@@ -35,6 +35,31 @@ import { logAdminAction, AuditActions } from './utils/auditLog';
 
 const server = Fastify({ logger: true });
 
+function normalizeClientIp(rawIp: string | null | undefined): string | null {
+  if (!rawIp) return null;
+  const trimmed = rawIp.trim();
+  if (!trimmed) return null;
+  if (trimmed === '::1') return '127.0.0.1';
+  if (trimmed.startsWith('::ffff:')) return trimmed.slice('::ffff:'.length);
+  return trimmed;
+}
+
+function extractClientIp(request: any): string | null {
+  const forwardedFor = request.headers?.['x-forwarded-for'];
+  const forwarded = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+  const firstForwarded = typeof forwarded === 'string' ? forwarded.split(',')[0] : null;
+  const candidate = firstForwarded || request.ip || request.socket?.remoteAddress || null;
+  return normalizeClientIp(candidate);
+}
+
+function isBypassBanCheckRoute(pathname: string): boolean {
+  if (!pathname) return false;
+  return pathname === '/health'
+    || pathname === '/health/db'
+    || pathname === '/health/deep'
+    || pathname.startsWith('/docs');
+}
+
 // Verify JWT_SECRET is properly set before doing anything else
 if (!env.JWT_SECRET) {
   console.error('❌ FATAL: JWT_SECRET environment variable is not set!');
@@ -60,6 +85,80 @@ async function build() {
   await server.register(jwt, {
     secret: env.JWT_SECRET,
     sign: { expiresIn: '7d' },
+  });
+
+  // Global enforcement for IP/account blacklists.
+  server.addHook('onRequest', async (request: any, reply: any) => {
+    const pathname = String(request.url || '').split('?')[0] || '';
+    if (isBypassBanCheckRoute(pathname)) {
+      return;
+    }
+
+    const clientIp = extractClientIp(request);
+    if (clientIp) {
+      const blockedIp = await prisma.ipBlacklist.findFirst({
+        where: { ipAddress: clientIp, active: true },
+        select: { id: true },
+      });
+
+      if (blockedIp) {
+        return reply.code(403).send({
+          error: 'Access denied for this IP address.',
+          code: 'IP_BLACKLISTED',
+        });
+      }
+    }
+
+    const authHeader = request.headers?.authorization;
+    if (!authHeader || typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
+      return;
+    }
+
+    const token = authHeader.substring(7).trim();
+    if (!token) {
+      return;
+    }
+
+    try {
+      const payload = server.jwt.verify(token) as any;
+      const authUserId = payload?.userId as string | undefined;
+      if (!authUserId) {
+        return;
+      }
+
+      const authUser = await prisma.user.findUnique({
+        where: { id: authUserId },
+        select: {
+          id: true,
+          isBanned: true,
+          bannedReason: true,
+          lastKnownIp: true,
+        },
+      });
+
+      if (!authUser) {
+        return reply.code(401).send({ error: 'User not found' });
+      }
+
+      if (authUser.isBanned) {
+        return reply.code(403).send({
+          error: 'Your account has been banned.',
+          code: 'ACCOUNT_BANNED',
+          reason: authUser.bannedReason || null,
+        });
+      }
+
+      if (clientIp && authUser.lastKnownIp !== clientIp) {
+        await prisma.user.update({
+          where: { id: authUserId },
+          data: { lastKnownIp: clientIp },
+        });
+      }
+
+      request.userId = authUserId;
+    } catch {
+      // Invalid/expired token handling is done by route-level auth checks.
+    }
   });
 
   // Rate limiting disabled for development
@@ -624,6 +723,9 @@ async function build() {
           verified: u.verified,
           createdAt: u.createdAt,
           reportCount: u.reportCount,
+          discordDmNotifications: Boolean(u.discordDmNotifications),
+          isBanned: Boolean(u.isBanned),
+          bannedAt: u.bannedAt,
           badges: u.badges.map((b: any) => ({ key: b.key, name: b.name })),
           riotAccounts: u.riotAccounts,
         })),
@@ -647,10 +749,14 @@ async function build() {
       if (!userId) return; // getUserIdFromRequest already sent error response
 
       const { targetUserId } = request.params as { targetUserId: string };
-      const { ban } = request.body as { ban: boolean };
+      const { ban, reason } = request.body as { ban: boolean; reason?: string };
 
-      if (!targetUserId) {
+      if (!targetUserId || typeof ban !== 'boolean') {
         return reply.code(400).send({ error: 'Missing required fields' });
+      }
+
+      if (targetUserId === userId) {
+        return reply.code(400).send({ error: 'You cannot ban or unban your own account' });
       }
 
       // Check admin status
@@ -664,34 +770,141 @@ async function build() {
       }
 
       // Check target user exists
-      const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
+      const targetUser = await prisma.user.findUnique({
+        where: { id: targetUserId },
+        include: { badges: true },
+      });
       if (!targetUser) {
         return reply.code(404).send({ error: 'User not found' });
       }
 
       // Prevent banning admins
-      const targetIsAdmin = (await prisma.user.findUnique({
-        where: { id: targetUserId },
-        include: { badges: true },
-      }))?.badges?.some((b: any) => (b.key || '').toLowerCase() === 'admin');
+      const targetIsAdmin = (targetUser.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin');
 
       if (targetIsAdmin && ban) {
         return reply.code(403).send({ error: 'Cannot ban admin users' });
       }
 
+      const normalizedReason = typeof reason === 'string' && reason.trim().length > 0
+        ? reason.trim()
+        : null;
+      const now = new Date();
+
+      if (ban) {
+        const ipToBlacklist = targetUser.lastKnownIp ? String(targetUser.lastKnownIp).trim() : null;
+
+        await prisma.$transaction(async (tx: any) => {
+          await tx.user.update({
+            where: { id: targetUserId },
+            data: {
+              isBanned: true,
+              bannedAt: now,
+              bannedReason: normalizedReason,
+              bannedById: userId,
+              bannedIp: ipToBlacklist,
+            },
+          });
+
+          if (ipToBlacklist) {
+            await tx.ipBlacklist.upsert({
+              where: { ipAddress: ipToBlacklist },
+              update: {
+                active: true,
+                reason: normalizedReason,
+                sourceUserId: targetUserId,
+                bannedById: userId,
+                liftedAt: null,
+              },
+              create: {
+                ipAddress: ipToBlacklist,
+                active: true,
+                reason: normalizedReason,
+                sourceUserId: targetUserId,
+                bannedById: userId,
+              },
+            });
+          }
+        });
+
+        await logAdminAction({
+          adminId: userId,
+          action: AuditActions.USER_BANNED,
+          targetId: targetUserId,
+          details: {
+            username: targetUser.username,
+            ipBlacklisted: ipToBlacklist,
+            reason: normalizedReason,
+          },
+        });
+
+        return reply.send({
+          success: true,
+          message: 'User banned successfully',
+          user: {
+            id: targetUserId,
+            isBanned: true,
+            bannedAt: now,
+            bannedIp: ipToBlacklist,
+          },
+        });
+      }
+
+      await prisma.$transaction(async (tx: any) => {
+        if (targetUser.bannedIp) {
+          const otherUsersStillBannedOnIp = await tx.user.count({
+            where: {
+              id: { not: targetUserId },
+              isBanned: true,
+              bannedIp: targetUser.bannedIp,
+            },
+          });
+
+          if (otherUsersStillBannedOnIp === 0) {
+            await tx.ipBlacklist.updateMany({
+              where: {
+                ipAddress: targetUser.bannedIp,
+                active: true,
+              },
+              data: {
+                active: false,
+                liftedAt: now,
+              },
+            });
+          }
+        }
+
+        await tx.user.update({
+          where: { id: targetUserId },
+          data: {
+            isBanned: false,
+            bannedAt: null,
+            bannedReason: null,
+            bannedById: null,
+            bannedIp: null,
+          },
+        });
+      });
+
       // Log the action
       await logAdminAction({
         adminId: userId,
-        action: ban ? AuditActions.USER_BANNED : AuditActions.USER_UNBANNED,
+        action: AuditActions.USER_UNBANNED,
         targetId: targetUserId,
-        details: { username: targetUser.username },
+        details: {
+          username: targetUser.username,
+          reason: normalizedReason,
+        },
       });
 
-      // Note: Ban field would need to be added to User schema
-      // For now, we'll just return success (schema update needed)
       return reply.send({
         success: true,
-        message: ban ? 'User banned successfully' : 'User unbanned successfully',
+        message: 'User unbanned successfully',
+        user: {
+          id: targetUserId,
+          isBanned: false,
+          bannedAt: null,
+          bannedIp: null,
+        },
       });
     } catch (error: any) {
       logError(request, 'Failed to update user ban status', error);

@@ -116,6 +116,12 @@ model User {
   lastPostCreated DateTime?
   onboardingCompleted Boolean @default(false) // Track if user completed onboarding
   discordDmNotifications Boolean @default(false) // Opt-in: forward in-app chat messages to Discord DMs
+  isBanned       Boolean   @default(false)
+  bannedAt       DateTime?
+  bannedReason   String?
+  bannedById     String?
+  bannedIp       String?
+  lastKnownIp    String?
 
   reportCount    Int       @default(0) // Number of accepted reports against this user
 
@@ -166,6 +172,7 @@ model User {
   assignedCoachEvents    TeamEventCoach[]       @relation("AssignedCoachEvents")
 
   @@index([region, primaryRole, createdAt])
+  @@index([isBanned, createdAt])
 }
 
 model RiotAccount {
@@ -596,6 +603,21 @@ model AuditLog {
   @@index([adminId, createdAt])
   @@index([action, createdAt])
   @@index([targetId, createdAt])
+}
+
+model IpBlacklist {
+  id           String   @id @default(cuid())
+  ipAddress    String   @unique
+  reason       String?
+  sourceUserId String?
+  bannedById   String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  liftedAt     DateTime?
+
+  @@index([active, ipAddress])
+  @@index([sourceUserId, active])
 }
 
 // Ad system for monetization

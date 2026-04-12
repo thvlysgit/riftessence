@@ -22,6 +22,8 @@ type Community = {
   memberCount: number;
   postCount: number;
   lftPostCount: number;
+  viewerMembershipRole?: 'MEMBER' | 'MODERATOR' | 'ADMIN' | null;
+  viewerCanManageMembers?: boolean;
   createdAt: string;
   members: Array<{
     userId: string;
@@ -54,6 +56,7 @@ export default function CommunityDetailPage() {
   });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('lfd_token');
@@ -75,9 +78,10 @@ export default function CommunityDetailPage() {
 
   useEffect(() => {
     if (community && userId) {
-      const membership = community.members.find(m => m.userId === userId);
-      setIsMember(!!membership);
-      setIsAdmin(membership?.role === 'ADMIN');
+      const listedMembership = community.members.find(m => m.userId === userId);
+      const resolvedRole = community.viewerMembershipRole || listedMembership?.role || null;
+      setIsMember(Boolean(resolvedRole || listedMembership));
+      setIsAdmin(resolvedRole === 'ADMIN');
     }
   }, [community, userId]);
 
@@ -131,7 +135,9 @@ export default function CommunityDetailPage() {
   const fetchCommunity = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/api/communities/${id}`);
+      const res = await fetch(`${API_URL}/api/communities/${id}`, {
+        headers: getAuthHeader(),
+      });
       if (res.ok) {
         const data = await res.json();
         setCommunity(data);
@@ -260,6 +266,39 @@ export default function CommunityDetailPage() {
     }
   };
 
+  const handleRemoveMember = async (member: Community['members'][number]) => {
+    if (!community || !userId) return;
+
+    const confirmed = await confirm({
+      title: 'Remove Member',
+      message: `Remove ${member.username} from ${community.name}?`,
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+    });
+
+    if (!confirmed) return;
+
+    try {
+      setRemovingMemberId(member.userId);
+      const res = await fetch(`${API_URL}/api/communities/${community.id}/members/${member.userId}`, {
+        method: 'DELETE',
+        headers: getAuthHeader(),
+      });
+
+      if (res.ok) {
+        showToast(`${member.username} removed from community`, 'success');
+        await fetchCommunity();
+      } else {
+        const data = await res.json();
+        showToast(data.error || 'Failed to remove member', 'error');
+      }
+    } catch {
+      showToast('Network error. Please try again.', 'error');
+    } finally {
+      setRemovingMemberId(null);
+    }
+  };
+
   const toggleEditRegion = (region: string) => {
     setEditData(prev => ({
       ...prev,
@@ -288,6 +327,8 @@ export default function CommunityDetailPage() {
       </div>
     );
   }
+
+  const canManageMembers = Boolean(isAppAdmin || isAdmin || community.viewerCanManageMembers);
 
   return (
     <div className="min-h-screen py-8 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
@@ -644,57 +685,92 @@ export default function CommunityDetailPage() {
           <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
             Members ({community.memberCount})
           </h2>
+          {canManageMembers && (
+            <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
+              Community admins can remove members. Only RiftEssence admins can remove another community admin.
+            </p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {community.members.slice(0, 12).map(member => (
-              <Link
+              <div
                 key={member.userId}
-                href={`/profile/${member.username}`}
-                className="flex items-center gap-3 p-3 border hover:shadow-md transition-all"
+                className="p-3 border hover:shadow-md transition-all"
                 style={{
                   backgroundColor: 'var(--color-bg-tertiary)',
                   borderColor: 'var(--color-border)',
                   borderRadius: 'var(--border-radius)',
                 }}
               >
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm"
-                  style={{
-                    background: 'linear-gradient(to bottom right, var(--color-accent-1), var(--color-accent-2))',
-                    color: 'var(--color-bg-primary)',
-                  }}
-                >
-                  {member.username[0].toUpperCase()}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                      {member.username}
-                    </p>
-                    {member.role === 'ADMIN' && (
-                      <span className="text-xs px-1 py-0.5" style={{ color: 'var(--color-accent-1)' }}>
-                        Admin
-                      </span>
-                    )}
-                  </div>
-                  {member.badges.length > 0 && (
-                    <div className="flex gap-1 mt-1">
-                      {member.badges.slice(0, 2).map(badge => (
-                        <span
-                          key={badge.key}
-                          className="text-xs px-1 py-0.5"
-                          style={{
-                            backgroundColor: 'var(--color-accent-1)',
-                            color: 'var(--color-bg-primary)',
-                            borderRadius: 'calc(var(--border-radius) * 0.5)',
-                          }}
-                        >
-                          {badge.name}
-                        </span>
-                      ))}
+                <div className="flex items-center gap-3">
+                  <Link
+                    href={`/profile/${member.username}`}
+                    className="flex items-center gap-3 flex-1 min-w-0"
+                  >
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm"
+                      style={{
+                        background: 'linear-gradient(to bottom right, var(--color-accent-1), var(--color-accent-2))',
+                        color: 'var(--color-bg-primary)',
+                      }}
+                    >
+                      {member.username[0].toUpperCase()}
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
+                          {member.username}
+                        </p>
+                        {member.role === 'ADMIN' && (
+                          <span className="text-xs px-1 py-0.5" style={{ color: 'var(--color-accent-1)' }}>
+                            Admin
+                          </span>
+                        )}
+                      </div>
+                      {member.badges.length > 0 && (
+                        <div className="flex gap-1 mt-1">
+                          {member.badges.slice(0, 2).map(badge => (
+                            <span
+                              key={badge.key}
+                              className="text-xs px-1 py-0.5"
+                              style={{
+                                backgroundColor: 'var(--color-accent-1)',
+                                color: 'var(--color-bg-primary)',
+                                borderRadius: 'calc(var(--border-radius) * 0.5)',
+                              }}
+                            >
+                              {badge.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+
+                  {canManageMembers && member.userId !== userId && (
+                    <button
+                      onClick={() => handleRemoveMember(member)}
+                      disabled={
+                        removingMemberId === member.userId
+                        || (!isAppAdmin && member.role === 'ADMIN')
+                      }
+                      className="px-2 py-1 text-xs border font-semibold disabled:opacity-50"
+                      style={{
+                        backgroundColor: 'transparent',
+                        borderColor: '#C84040',
+                        color: '#C84040',
+                        borderRadius: 'calc(var(--border-radius) * 0.6)',
+                      }}
+                      title={!isAppAdmin && member.role === 'ADMIN' ? 'Only app admins can remove another community admin' : 'Remove member'}
+                    >
+                      {removingMemberId === member.userId ? '...' : 'Remove'}
+                    </button>
                   )}
                 </div>
-              </Link>
+
+                <div className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                  Joined {new Date(member.joinedAt).toLocaleDateString()}
+                </div>
+              </div>
             ))}
           </div>
           {community.memberCount > 12 && (

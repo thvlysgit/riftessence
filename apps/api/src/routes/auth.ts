@@ -6,6 +6,23 @@ import { logError } from '../middleware/logger';
 import { Errors } from '../middleware/errors';
 import { sendDiscordWebhook, createNewUserEmbed } from '../utils/discord-webhook';
 
+function normalizeClientIp(rawIp: string | null | undefined): string | null {
+  if (!rawIp) return null;
+  const trimmed = rawIp.trim();
+  if (!trimmed) return null;
+  if (trimmed === '::1') return '127.0.0.1';
+  if (trimmed.startsWith('::ffff:')) return trimmed.slice('::ffff:'.length);
+  return trimmed;
+}
+
+function extractClientIp(request: any): string | null {
+  const forwardedFor = request.headers?.['x-forwarded-for'];
+  const forwarded = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+  const firstForwarded = typeof forwarded === 'string' ? forwarded.split(',')[0] : null;
+  const candidate = firstForwarded || request.ip || request.socket?.remoteAddress || null;
+  return normalizeClientIp(candidate);
+}
+
 export default async function authRoutes(fastify: FastifyInstance) {
   // Register new user with username/email/password
   fastify.post('/register', async (request: any, reply: any) => {
@@ -67,11 +84,13 @@ export default async function authRoutes(fastify: FastifyInstance) {
       const hashedPassword = await bcrypt.hash(password, 10);
 
       // Create user
+      const clientIp = extractClientIp(request);
       const user = await prisma.user.create({
         data: {
           username,
           email,
           password: hashedPassword,
+          lastKnownIp: clientIp,
         },
       });
 
@@ -129,9 +148,25 @@ export default async function authRoutes(fastify: FastifyInstance) {
       // SECURITY FIX: Use generic error to prevent user enumeration
       if (!user.password) return Errors.invalidCredentials(reply, request);
 
+      if (user.isBanned) {
+        return reply.code(403).send({
+          error: 'Your account has been banned.',
+          code: 'ACCOUNT_BANNED',
+          reason: user.bannedReason || null,
+        });
+      }
+
       // Verify password
       const isValid = await bcrypt.compare(password, user.password);
       if (!isValid) return Errors.invalidCredentials(reply, request);
+
+      const clientIp = extractClientIp(request);
+      if (clientIp && user.lastKnownIp !== clientIp) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastKnownIp: clientIp },
+        });
+      }
 
       // Generate JWT token
       const token = fastify.jwt.sign({ userId: user.id });
@@ -202,6 +237,14 @@ export default async function authRoutes(fastify: FastifyInstance) {
       const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
       if (!user) {
         return reply.code(401).send({ error: 'User not found' });
+      }
+
+      if (user.isBanned) {
+        return reply.code(403).send({
+          error: 'Your account has been banned.',
+          code: 'ACCOUNT_BANNED',
+          reason: user.bannedReason || null,
+        });
       }
 
       // Generate new token
