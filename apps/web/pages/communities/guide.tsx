@@ -57,20 +57,20 @@ export default function CommunityGuidePage() {
 
   const commonConfusions = [
     {
-      title: '"I ran /setup but nothing appears in my channel"',
-      body: 'You probably ran /setup in a different channel. Run /setup directly in the destination channel and select the feed again.',
+      title: 'Placeholder FAQ Slot 01',
+      body: 'Reserved for the most reported onboarding friction once enough support data is collected.',
     },
     {
-      title: '"/linkserver code says expired"',
-      body: 'Link codes are short-lived for security. Run /linkserver again and use the new code immediately on the registration page.',
+      title: 'Placeholder FAQ Slot 02',
+      body: 'Reserved for a high-frequency setup confusion observed from real user questions.',
     },
     {
-      title: '"I only see some posts"',
-      body: 'Your channel may be configured with filters (region, role, language, rank). Re-run /setup and use Global if you want everything.',
+      title: 'Placeholder FAQ Slot 03',
+      body: 'Reserved for a recurrent permission or command-visibility issue once patterns are confirmed.',
     },
     {
-      title: '"Commands are missing in Discord"',
-      body: 'Make sure you are an Administrator and wait a moment after inviting/updating the bot. Reopen Discord if command list is stale.',
+      title: 'Placeholder FAQ Slot 04',
+      body: 'Reserved for a recurring feed-behavior misunderstanding reported by community admins.',
     },
   ];
 
@@ -249,7 +249,7 @@ export default function CommunityGuidePage() {
                 Mirroring Preview: App vs Discord
               </h2>
               <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                Switch between pixel-mocked <strong>LFD</strong> and <strong>LFT</strong> previews.
+                Switch between <strong>LFD</strong> and <strong>LFT</strong> previews.
               </p>
             </div>
 
@@ -294,129 +294,321 @@ export default function CommunityGuidePage() {
               </p>
               <div className="rounded-lg border p-4" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
                 {isLfdPreview ? (
-                  <>
-                    <div className="flex items-center justify-between gap-2">
+                  <div
+                    className="rounded-xl border p-4"
+                    style={{
+                      background: 'linear-gradient(110deg, #151822 0%, #1c202c 55%, #141721 100%)',
+                      borderColor: 'rgba(80,120,255,0.42)',
+                      boxShadow: '0 16px 34px rgba(2,6,23,0.45)',
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div>
-                        <p className="text-xs uppercase font-semibold" style={{ color: '#3B82F6' }}>
-                          LFD Listing
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-3xl font-extrabold leading-none" style={{ color: '#F8FAFC' }}>
+                            thvlys
+                          </p>
+                          <span
+                            className="px-3 py-1 rounded-md text-sm font-semibold border"
+                            style={{
+                              color: '#A5B4FC',
+                              background: 'rgba(30,64,175,0.35)',
+                              borderColor: 'rgba(129,140,248,0.5)',
+                            }}
+                          >
+                            🎮 thvlys
+                          </span>
+                        </div>
+
+                        <div className="mt-2 text-sm flex items-center gap-2 flex-wrap" style={{ color: '#D1D5DB' }}>
+                          <span>11/04/2026 at 19:36</span>
+                          <span style={{ opacity: 0.45 }}>•</span>
+                          <span>EUW</span>
+                          <span style={{ opacity: 0.45 }}>•</span>
+                          <span
+                            className="px-2 py-0.5 rounded border text-xs font-semibold"
+                            style={{ borderColor: 'rgba(251,191,36,0.7)', color: '#FBBF24' }}
+                          >
+                            🛡 SUPPORT
+                          </span>
+                          <span style={{ color: '#9CA3AF' }}>&</span>
+                          <span
+                            className="px-2 py-0.5 rounded border text-xs font-semibold"
+                            style={{ borderColor: 'rgba(251,191,36,0.7)', color: '#FBBF24' }}
+                          >
+                            🔁 TOP
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <span
+                          className="px-3 py-1.5 rounded-md text-sm font-semibold border"
+                          style={{ borderColor: 'rgba(113,113,122,0.7)', background: '#23262f', color: '#D4AF67' }}
+                        >
+                          View Profile
+                        </span>
+                        <span
+                          className="px-3 py-1.5 rounded-md text-sm font-semibold border"
+                          style={{ borderColor: 'rgba(113,113,122,0.7)', background: '#23262f', color: '#D4AF67' }}
+                        >
+                          Share Post
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+                      <div className="rounded-lg border p-3" style={{ background: '#2A2D38', borderColor: 'rgba(255,255,255,0.06)' }}>
+                        <p className="text-sm" style={{ color: '#A7AAB4' }}>
+                          Posting With
                         </p>
-                        <p className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                          thvlys
+                        <p className="mt-1 text-3xl font-bold leading-none" style={{ color: '#F3F4F6' }}>
+                          🔴 Thvlys#9099
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <span
+                            className="px-3 py-1 rounded-md text-sm font-semibold border"
+                            style={{ borderColor: '#8CC4FF', color: '#BFE5FF', background: 'rgba(56,189,248,0.12)' }}
+                          >
+                            💠 DIAMOND IV
+                          </span>
+                          <span
+                            className="px-3 py-1 rounded-md text-sm font-semibold border"
+                            style={{ borderColor: '#3B82F6', color: '#60A5FA', background: 'rgba(59,130,246,0.15)' }}
+                          >
+                            ◆ 51.3% WR
+                          </span>
+                        </div>
+                      </div>
+
+                      <div
+                        className="rounded-lg border p-3 flex flex-col items-center justify-center"
+                        style={{ background: '#2A2D38', borderColor: 'rgba(255,255,255,0.06)' }}
+                      >
+                        <div style={{ fontSize: 34, color: '#D4AF67', lineHeight: 1 }}>★</div>
+                        <p className="text-sm font-bold mt-1" style={{ color: '#D4AF67' }}>
+                          MAIN ACCOUNT
                         </p>
                       </div>
-                      <span
-                        className="px-2 py-1 rounded text-xs border"
-                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
-                      >
-                        🌍 EUW
-                      </span>
                     </div>
 
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <span
-                        className="px-3 py-1.5 rounded text-sm border"
-                        style={{ borderColor: '#C8AA6D', color: '#C8AA6D', background: 'rgba(200,170,109,0.16)' }}
-                      >
-                        🛡 SUPPORT
-                      </span>
-                      <span
-                        className="px-3 py-1.5 rounded text-sm border"
-                        style={{ borderColor: '#B9F2FF', color: '#B9F2FF', background: 'rgba(185,242,255,0.16)' }}
-                      >
-                        💎 DIAMOND IV
-                      </span>
-                      <span
-                        className="px-3 py-1.5 rounded text-sm border"
-                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-                      >
-                        🎙️ Sometimes VC
-                      </span>
+                    <div className="rounded-lg border p-3 mt-3" style={{ background: '#2A2D38', borderColor: 'rgba(255,255,255,0.06)' }}>
+                      <p className="text-2xl" style={{ color: '#F3F4F6' }}>
+                        cherche duo pour la soirée !
+                      </p>
                     </div>
 
-                    <p className="mt-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                      cherche duo pour la soirée !
-                    </p>
-
-                    <div className="mt-3 flex flex-wrap gap-1.5">
+                    <div className="mt-3 flex items-center gap-2 flex-wrap">
                       <span
-                        className="px-2 py-1 rounded text-xs border"
-                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                        className="px-3 py-1 rounded-md text-sm font-bold"
+                        style={{ background: 'rgba(217,119,6,0.2)', color: '#D4AF67' }}
+                      >
+                        VC: SOMETIMES
+                      </span>
+                      <span
+                        className="px-2.5 py-1 rounded-md text-sm font-semibold border"
+                        style={{ borderColor: '#2563EB', color: '#F3F4F6', background: 'linear-gradient(135deg, #1E3A8A, #1D4ED8)' }}
                       >
                         French
                       </span>
                       <span
-                        className="px-2 py-1 rounded text-xs border"
-                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                        className="px-2.5 py-1 rounded-md text-sm font-semibold border"
+                        style={{ borderColor: '#DC2626', color: '#F3F4F6', background: 'linear-gradient(135deg, #1E3A8A, #DB2777)' }}
                       >
                         English
                       </span>
+                      {['🧙', '🗡️', '🦊', '🔥', '🎯', '🏹'].map((champ, idx) => (
+                        <span
+                          key={idx}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-xs"
+                          style={{ background: '#111827', border: '1px solid rgba(255,255,255,0.22)' }}
+                        >
+                          {champ}
+                        </span>
+                      ))}
                     </div>
-                  </>
+
+                    <div
+                      className="mt-3 rounded-lg border p-3 flex items-center justify-between gap-3 flex-wrap"
+                      style={{ background: '#2A2D38', borderColor: 'rgba(255,255,255,0.06)' }}
+                    >
+                      <div className="text-sm font-semibold" style={{ color: '#D1D5DB' }}>
+                        Skill: ★ ★ ★ ★ ★ <span style={{ color: '#D4AF67', marginLeft: 6 }}>0.0/5</span> <span style={{ color: '#9CA3AF' }}>(0)</span>
+                      </div>
+                      <div className="text-sm font-semibold" style={{ color: '#D1D5DB' }}>
+                        Personality: ☾ ☾ ☾ ☾ ☾ <span style={{ color: '#D4AF67', marginLeft: 6 }}>0.0/5</span> <span style={{ color: '#9CA3AF' }}>(0)</span>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
-                  <>
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-xs uppercase font-semibold" style={{ color: '#34D399' }}>
-                          Player LFT
-                        </p>
-                        <p className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                          Vortex
+                  <div
+                    className="rounded-xl border p-4"
+                    style={{
+                      background: 'linear-gradient(110deg, #151822 0%, #1c202c 55%, #141721 100%)',
+                      borderColor: 'rgba(37,99,235,0.65)',
+                      boxShadow: '0 16px 34px rgba(2,6,23,0.45)',
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-9 h-9 rounded-lg flex items-center justify-center"
+                          style={{ background: 'rgba(37,99,235,0.26)', color: '#93C5FD' }}
+                        >
+                          👤
+                        </span>
+                        <div>
+                          <p className="text-xs uppercase font-bold" style={{ color: '#60A5FA' }}>
+                            PLAYER LISTING
+                          </p>
+                          <p className="text-3xl font-extrabold leading-none" style={{ color: '#F8FAFC' }}>
+                            thvlys
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className="px-2.5 py-1 rounded-md text-xs border"
+                          style={{ borderColor: 'rgba(255,255,255,0.18)', color: '#D1D5DB', background: '#2A2D38' }}
+                        >
+                          🕘 12 avr. 2026
+                        </span>
+                        <span
+                          className="px-2.5 py-1 rounded-md text-xs border"
+                          style={{ borderColor: 'rgba(59,130,246,0.5)', color: '#93C5FD', background: 'rgba(30,64,175,0.22)' }}
+                        >
+                          🌍 EUW
+                        </span>
+                        <span
+                          className="px-2.5 py-1 rounded-md text-xs border"
+                          style={{ borderColor: 'rgba(99,102,241,0.5)', color: '#A5B4FC', background: 'rgba(49,46,129,0.3)' }}
+                        >
+                          💬 thvlys
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-[2fr,1fr] gap-3 mt-3">
+                      <div className="rounded-lg border p-3" style={{ background: '#2A2D38', borderColor: 'rgba(255,255,255,0.06)' }}>
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          <span
+                            className="px-3 py-1 rounded-md text-sm font-semibold border"
+                            style={{ borderColor: '#3B82F6', color: '#60A5FA', background: 'rgba(59,130,246,0.15)' }}
+                          >
+                            👤 Player
+                          </span>
+                          <span
+                            className="px-3 py-1 rounded-md text-sm font-semibold border"
+                            style={{ borderColor: '#D4AF67', color: '#D4AF67', background: 'rgba(212,175,103,0.14)' }}
+                          >
+                            🛡 SUPPORT
+                          </span>
+                          <span
+                            className="px-3 py-1 rounded-md text-sm font-semibold border"
+                            style={{ borderColor: '#8CC4FF', color: '#BFE5FF', background: 'rgba(56,189,248,0.12)' }}
+                          >
+                            💠 DIAMOND IV
+                          </span>
+                        </div>
+
+                        <p className="text-2xl leading-snug" style={{ color: '#F3F4F6' }}>
+                          I am looking for a serious team with a coach available, open to changing champion pool!
                         </p>
                       </div>
-                      <span
-                        className="px-2 py-1 rounded text-xs border"
-                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
-                      >
-                        🌍 EUW
-                      </span>
+
+                      <div className="rounded-lg border p-3" style={{ background: '#2A2D38', borderColor: 'rgba(255,255,255,0.06)' }}>
+                        <p className="text-sm font-bold" style={{ color: '#9CA3AF' }}>
+                          📌 SNAPSHOT
+                        </p>
+                        <ul className="mt-2 space-y-1 text-sm" style={{ color: '#E5E7EB' }}>
+                          <li>🧩 Experienced</li>
+                          <li>🗓 Four Times A Week</li>
+                          <li>🎂 Age 20</li>
+                        </ul>
+                      </div>
                     </div>
 
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-3 flex items-center gap-2 flex-wrap">
                       <span
-                        className="px-3 py-1.5 rounded text-sm border"
-                        style={{ borderColor: '#60A5FA', color: '#60A5FA', background: 'rgba(96,165,250,0.16)' }}
-                      >
-                        🏹 ADC
-                      </span>
-                      <span
-                        className="px-3 py-1.5 rounded text-sm border"
-                        style={{ borderColor: '#FBBF24', color: '#FCD34D', background: 'rgba(251,191,36,0.16)' }}
-                      >
-                        🥇 GOLD II
-                      </span>
-                      <span
-                        className="px-3 py-1.5 rounded text-sm border"
-                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-                      >
-                        📅 Weekdays + Weekends
-                      </span>
-                    </div>
-
-                    <p className="mt-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                      Consistent ADC looking for a serious team. Comfortable with structured scrim blocks and VOD review.
-                    </p>
-
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      <span
-                        className="px-2 py-1 rounded text-xs border"
-                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                        className="px-2.5 py-1 rounded-md text-sm font-semibold border"
+                        style={{ borderColor: '#2563EB', color: '#F3F4F6', background: 'linear-gradient(135deg, #1E3A8A, #1D4ED8)' }}
                       >
                         English
                       </span>
                       <span
-                        className="px-2 py-1 rounded text-xs border"
-                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                        className="px-2.5 py-1 rounded-md text-sm font-semibold"
+                        style={{ background: '#2A2D38', color: '#D4AF67' }}
                       >
-                        French
-                      </span>
-                      <span
-                        className="px-2 py-1 rounded text-xs border"
-                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-                      >
-                        Macro Focus
+                        Weakside
                       </span>
                     </div>
-                  </>
+
+                    <div className="mt-3 rounded-lg border p-3" style={{ background: '#2A2D38', borderColor: 'rgba(255,255,255,0.06)' }}>
+                      <p className="text-sm font-bold" style={{ color: '#9CA3AF' }}>
+                        🗡 CHAMPION POOL
+                      </p>
+
+                      <div className="mt-2 space-y-3">
+                        <div>
+                          <p className="text-xs font-semibold" style={{ color: '#F87171' }}>S Tier</p>
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            {['Diana', 'Karma', 'Lulu'].map((name) => (
+                              <span
+                                key={name}
+                                className="px-3 py-1 rounded-lg text-sm font-semibold border"
+                                style={{ borderColor: '#EF4444', color: '#F87171', background: 'rgba(239,68,68,0.12)' }}
+                              >
+                                {name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-semibold" style={{ color: '#FCD34D' }}>A Tier</p>
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            {['Leona', 'Rell', 'Milio', 'Swain', 'Nami'].map((name) => (
+                              <span
+                                key={name}
+                                className="px-3 py-1 rounded-lg text-sm font-semibold border"
+                                style={{ borderColor: '#D4AF67', color: '#D4AF67', background: 'rgba(212,175,103,0.12)' }}
+                              >
+                                {name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-semibold" style={{ color: '#60A5FA' }}>B Tier</p>
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            <span
+                              className="px-3 py-1 rounded-lg text-sm font-semibold border"
+                              style={{ borderColor: '#3B82F6', color: '#60A5FA', background: 'rgba(59,130,246,0.12)' }}
+                            >
+                              Braum
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <span
+                        className="px-3 py-1.5 rounded-md text-sm font-semibold"
+                        style={{ background: '#2A2D38', color: '#D4AF67' }}
+                      >
+                        👤 View Profile
+                      </span>
+                      <span
+                        className="px-3 py-1.5 rounded-md text-sm font-semibold"
+                        style={{ background: 'rgba(127,29,29,0.35)', color: '#F87171' }}
+                      >
+                        Delete
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -591,8 +783,25 @@ export default function CommunityGuidePage() {
           <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
             Make sure you have Administrator permissions in Discord. If forwarding appears in the wrong place, rerun
             <strong> /setup </strong>
-            in the correct destination channel. If you're blocked, check these common cases first.
+            in the correct destination channel.
           </p>
+
+          <div
+            className="rounded-lg border p-3 mb-3"
+            style={{
+              background: 'var(--color-bg-secondary)',
+              borderColor: 'var(--color-border)',
+            }}
+          >
+            <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+              Placeholder FAQ (temporary)
+            </p>
+            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+              These FAQ cards are placeholders for now because we do not yet have enough real support volume to rank
+              the most frequent confusions. If something feels unclear, share your case in the support Discord so we
+              can replace placeholders with real guidance from your feedback.
+            </p>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
             {commonConfusions.map((item) => (
