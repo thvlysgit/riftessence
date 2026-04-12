@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { DiscordIcon } from '../../src/components/DiscordBrand';
 
 const DISCORD_INVITE_URL =
   'https://discord.com/oauth2/authorize?client_id=1363678859471491312&scope=bot&permissions=2147863617';
@@ -76,6 +77,7 @@ export default function CommunityGuidePage() {
 
   const [previewMode, setPreviewMode] = React.useState<'LFD' | 'LFT'>('LFD');
   const isLfdPreview = previewMode === 'LFD';
+  const discordPreviewTimestamp = isLfdPreview ? 'Yesterday at 7:36 PM' : '12 Apr 2026 at 8:41 PM';
 
   return (
     <div
@@ -155,9 +157,9 @@ export default function CommunityGuidePage() {
                 href={DISCORD_INVITE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2.5 rounded-lg font-semibold flex items-center gap-2 transition-all hover:translate-y-[-1px]"
-                style={{ backgroundColor: '#5865F2', color: '#fff', boxShadow: '0 8px 18px rgba(88,101,242,0.35)' }}
+                className="discord-cta px-4 py-2.5 rounded-lg font-semibold flex items-center gap-2"
               >
+                <DiscordIcon className="w-4 h-4" />
                 Add Bot
               </a>
               <Link
@@ -661,7 +663,7 @@ export default function CommunityGuidePage() {
                       >
                         APP
                       </span>
-                      <span style={{ fontSize: 12, color: '#949ba4' }}>Yesterday at 7:36 PM</span>
+                      <span style={{ fontSize: 12, color: '#949ba4' }}>{discordPreviewTimestamp}</span>
                     </div>
 
                     <div
@@ -730,7 +732,7 @@ export default function CommunityGuidePage() {
                       <div style={{ marginTop: 2, fontSize: 14, color: '#60a5fa' }}>↗ open in app</div>
 
                       <div style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: '#f2f3f5' }}>
-                        RiftEssence • Yesterday at 7:36 PM
+                        RiftEssence • {discordPreviewTimestamp}
                       </div>
                     </div>
                   </div>
@@ -828,21 +830,18 @@ export default function CommunityGuidePage() {
               href={DISCORD_INVITE_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2 rounded font-semibold flex items-center gap-2"
-              style={{ backgroundColor: '#5865F2', color: '#fff' }}
+              className="discord-cta px-4 py-2 rounded font-semibold flex items-center gap-2"
             >
+              <DiscordIcon className="w-4 h-4" />
               Add Bot
             </a>
             <a
               href={SUPPORT_DISCORD_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2 rounded font-semibold flex items-center gap-2"
-              style={{
-                background: 'linear-gradient(135deg, #5865F2, #3B82F6)',
-                color: '#fff',
-              }}
+              className="discord-cta px-4 py-2 rounded font-semibold flex items-center gap-2"
             >
+              <DiscordIcon className="w-4 h-4" />
               Join Support Discord
             </a>
             <Link

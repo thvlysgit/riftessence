@@ -8,6 +8,7 @@ import { useGlobalUI } from '../../api/components/GlobalUI';
 import { useChat } from '../contexts/ChatContext';
 import { getAuthHeader, getAuthToken, getUserIdFromToken } from '../utils/auth';
 import { getChampionIconUrl } from '../utils/championData';
+import { DiscordIcon } from '../src/components/DiscordBrand';
 import NoAccess from '../../api/components/NoAccess';
 import { AdSpot, useAds, getAdForPosition } from '../../api/components/AdSpot';
 
@@ -1006,14 +1007,10 @@ export default function LFTPage() {
                               </span>
                               {p.discordUsername && (
                                 <span
-                                  className="px-2 py-1 rounded text-xs border"
-                                  style={{
-                                    borderColor: '#5865F2',
-                                    color: '#5865F2',
-                                    backgroundColor: 'rgba(88, 101, 242, 0.1)',
-                                  }}
+                                  className="discord-chip px-2 py-1 rounded text-xs border inline-flex items-center gap-1"
                                 >
-                                  💬 {p.discordUsername}
+                                  <DiscordIcon className="w-3.5 h-3.5" />
+                                  {p.discordUsername}
                                 </span>
                               )}
                             </div>

@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import SEOHead from '../../../api/components/SEOHead';
 import { LoadingSpinner } from '../../../api/components/LoadingSpinner';
+import { DiscordIcon } from '../../src/components/DiscordBrand';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -153,9 +154,9 @@ export default function CommunitiesPage() {
                 href="https://discord.com/oauth2/authorize?client_id=1363678859471491312&scope=bot&permissions=2147863617"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 rounded font-semibold"
-                style={{ backgroundColor: '#5865F2', color: '#fff' }}
+                className="discord-cta inline-flex items-center gap-2 px-4 py-2 rounded font-semibold"
               >
+                <DiscordIcon className="w-4 h-4" />
                 Add Bot
               </a>
               <Link

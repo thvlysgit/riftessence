@@ -5,6 +5,7 @@ import { useTheme, ThemeContext } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LoadingSpinner } from '../../api/components/LoadingSpinner';
 import { getAuthHeader } from '../utils/auth';
+import { DiscordIcon } from '../src/components/DiscordBrand';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 const DISCORD_USER_APP_INSTALL_URL = 'https://discord.com/oauth2/authorize?client_id=1363678859471491312&integration_type=1&scope=applications.commands';
@@ -292,9 +293,7 @@ export default function SettingsPage() {
           borderRadius: 'var(--border-radius)'
         }}>
           <div className="flex items-center gap-3 mb-4">
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="#5865F2">
-              <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286z"/>
-            </svg>
+            <DiscordIcon className="w-6 h-6" style={{ color: 'var(--accent-discord)' }} />
             <h2 className="text-xl font-bold" style={{ color: 'var(--color-accent-1)' }}>Discord DM Notifications</h2>
           </div>
 
@@ -316,9 +315,9 @@ export default function SettingsPage() {
                   href={DISCORD_USER_APP_INSTALL_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center px-3 py-2 rounded-lg text-xs font-semibold transition-all"
-                  style={{ backgroundColor: '#5865F2', color: '#fff' }}
+                  className="discord-cta inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold"
                 >
+                  <DiscordIcon className="w-4 h-4" />
                   Add RiftEssence To Discord Apps
                 </a>
                 <a
@@ -377,9 +376,9 @@ export default function SettingsPage() {
                   href={DISCORD_USER_APP_INSTALL_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center px-3 py-2 rounded-lg text-xs font-semibold transition-all"
-                  style={{ backgroundColor: '#5865F2', color: '#fff' }}
+                  className="discord-cta inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold"
                 >
+                  <DiscordIcon className="w-4 h-4" />
                   Add RiftEssence To Discord Apps
                 </a>
                 <a
@@ -394,9 +393,9 @@ export default function SettingsPage() {
               </div>
               <a
                 href="/profile"
-                className="inline-block px-4 py-2 font-semibold rounded-lg text-sm transition-colors"
-                style={{ backgroundColor: '#5865F2', color: '#fff' }}
+                className="discord-cta inline-flex items-center gap-2 px-4 py-2 font-semibold rounded-lg text-sm"
               >
+                <DiscordIcon className="w-4 h-4" />
                 Link Discord In Profile
               </a>
             </>
