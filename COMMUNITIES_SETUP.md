@@ -210,9 +210,13 @@ To get your Discord Server ID:
 ### 3. Set Up Feed Channels
 
 In Discord:
-1. Navigate to channel you want to use for the feed
-2. Run `/setfeedchannel`
-3. Bot confirms channel is registered
+1. Navigate to the channel you want to receive forwarded posts
+2. Run `/setup` in that exact channel
+3. Choose `Duo Feed` or `LFT Feed`
+4. Choose `Global` or `Custom Filters`
+5. Confirm setup
+
+> Important: `/setup` configures the **current channel only**. If you want forwarding in another channel, run `/setup` again inside that channel.
 
 The channel will now:
 - Receive embeds when app users post to the community
@@ -237,6 +241,15 @@ The channel will now:
 4. If Discord user not linked: Creates anonymous app user with Discord ID
 5. If Discord user linked: Uses existing app user's data
 6. User is auto-joined to the community
+
+### Preview: App Feed vs Discord Feed
+
+When a listing is mirrored, the same core data appears in two presentation styles:
+
+- **RiftEssence app feed**: richer cards with filters, profile links, and extended context
+- **Discord feed**: compact embed with key info (region, role, rank, availability, language) + open-in-app link
+
+This gives users fast visibility in Discord while preserving full interaction depth in the app.
 
 ### Joining a Community
 
@@ -279,10 +292,11 @@ Community admins (role `ADMIN` or `MODERATOR`) can:
 3. Verify it appears in `/communities` list
 
 ### Test Discord Bot Commands
-1. In Discord, run `/setfeedchannel` in a test channel
-2. Run `/listfeedchannels` to verify
-3. Post a message in the feed channel
-4. Check the app feed for the ingested post
+1. In Discord, open a test channel and run `/setup`
+2. Select `Duo Feed` and confirm
+3. Run `/setup` in another channel and select `LFT Feed`
+4. Post a message in one configured feed channel
+5. Check the app feed for the ingested post
 
 ### Test App → Discord Mirroring
 1. Create a post on the app with your test community selected
@@ -318,7 +332,7 @@ Community admins (role `ADMIN` or `MODERATOR`) can:
 - Check bot logs for API errors
 
 ### Feed Channels Not Working
-- Run `/listfeedchannels` to verify registration
+- Run `/setup` again in the channel to verify/update configuration
 - Check community's `discordServerId` matches actual Discord server ID
 - Verify bot has permissions to send messages in the channel
 
@@ -364,7 +378,7 @@ Community admins (role `ADMIN` or `MODERATOR`) can:
 
 ### Discord Bot
 - New standalone app in `discord-bot/` folder
-- 3 slash commands: `/setfeedchannel`, `/removefeedchannel`, `/listfeedchannels`
+- Core slash commands: `/linkserver`, `/setup`, `/rolemenu`
 - Message ingestion (Discord → App)
 - Post mirroring (App → Discord)
 

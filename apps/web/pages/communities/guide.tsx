@@ -10,10 +10,25 @@ export default function CommunityGuidePage() {
             Communities • Quick Guide
           </p>
           <h1 className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-            How to link your Discord server
+            How to link your Discord server and forward posts
           </h1>
           <p className="text-sm mt-2" style={{ color: 'var(--color-text-muted)' }}>
-            A fast, step-by-step walkthrough to connect your Discord server and start syncing posts.
+            A fast, step-by-step walkthrough to connect your Discord server and configure Duo/LFT forwarding correctly.
+          </p>
+        </div>
+
+        <div
+          className="mb-6 p-4 rounded-xl border"
+          style={{
+            background: 'rgba(88, 101, 242, 0.12)',
+            borderColor: 'rgba(88, 101, 242, 0.4)',
+          }}
+        >
+          <p className="text-sm font-semibold" style={{ color: '#8EA1FF' }}>
+            Important
+          </p>
+          <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+            Run <strong>/setup</strong> in the exact Discord channel where you want posts to appear. The command configures the current channel only.
           </p>
         </div>
 
@@ -43,11 +58,11 @@ export default function CommunityGuidePage() {
             },
             {
               title: '4) Set a feed channel in Discord',
-              body: 'In your server, run /setfeedchannel in the channel that should receive duo posts from the app. Use /listfeedchannels to verify.',
+              body: 'Open the destination channel and run /setup there. Choose Duo Feed or LFT Feed, then pick Global or Custom Filters. You can run /setup again in another channel to add more feeds.',
             },
             {
               title: '5) Manage your community',
-              body: 'As the community admin, you can edit your community info, update the invite link, or remove it entirely from your community page on RiftEssence.',
+              body: 'As the community admin, you can edit your community info, manage members, and keep Discord forwarding aligned with your server channels.',
             },
           ].map((step, idx) => (
             <div
@@ -115,6 +130,51 @@ export default function CommunityGuidePage() {
               </div>
             </div>
           ))}
+        </div>
+
+        <div
+          className="mt-6 p-5 rounded-xl border"
+          style={{
+            background: 'var(--color-bg-secondary)',
+            borderColor: 'var(--color-border)',
+            boxShadow: 'var(--shadow)',
+          }}
+        >
+          <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+            Preview: App Feed vs Discord Feed
+          </h3>
+          <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
+            Same listing, two surfaces. Discord mirrors the key recruiting info so players can react quickly without leaving their server.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 rounded-lg border" style={{ background: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
+              <p className="text-xs uppercase font-semibold mb-2" style={{ color: 'var(--color-accent-1)' }}>
+                RiftEssence Feed
+              </p>
+              <div className="space-y-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                <p><strong style={{ color: 'var(--color-text-primary)' }}>Player LFT • Vortex</strong></p>
+                <p>🌍 EUW • 🏹 ADC • 🥇 GOLD II</p>
+                <p>🧩 Experience: Moderate • 📅 Availability: Everyday</p>
+                <p>🗣️ English, French</p>
+                <p>🗡️ Champion Pool: S/A/B/C tiers with icons</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg border" style={{ background: 'rgba(88, 101, 242, 0.12)', borderColor: 'rgba(88, 101, 242, 0.45)' }}>
+              <p className="text-xs uppercase font-semibold mb-2" style={{ color: '#8EA1FF' }}>
+                Discord Mirror
+              </p>
+              <div className="space-y-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                <p><strong style={{ color: 'var(--color-text-primary)' }}>Player LFT • Vortex</strong></p>
+                <p>🌍 EUW</p>
+                <p>🏹 ADC • 🥇 GOLD II</p>
+                <p>🧩 Experience: MODERATE</p>
+                <p>📅 Availability: EVERYDAY • 🗣️ English, French</p>
+                <p>↗ Open in app link included</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="mt-6 p-5 rounded-xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--color-border)' }}>

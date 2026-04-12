@@ -14,9 +14,11 @@
 
 | Command | Description |
 |---------|-------------|
-| `/setfeedchannel` | Register a Discord channel as a feed channel for a community |
-| `/removefeedchannel` | Unregister a feed channel |
-| `/listfeedchannels` | List all registered feed channels in the guild |
+| `/linkserver` | Generate a short code to link a Discord server to a RiftEssence community |
+| `/setup` | Configure forwarding for the current channel (Duo/LFT, global or filtered) |
+| `/rolemenu` | Configure rank/language to Discord role mappings |
+
+> Important: `/setup` applies to the channel where it is run.
 
 ## Features
 
@@ -36,7 +38,7 @@
 ## Bot → API Communication
 
 All via REST calls to the Fastify API:
-- `/api/discord/channels` — CRUD feed channels
+- `/api/discord/feed/channels` — CRUD feed channels + filter configs
 - `/api/communities` — Community lookup
 - `/api/discord/ingest` — Post ingestion from Discord messages
 

@@ -5,9 +5,9 @@ Discord bot for integrating Discord communities with the RiftEssence app feed sy
 ## Features
 
 - **Slash Commands**:
-  - `/setfeedchannel` - Register current channel to receive app posts
-  - `/removefeedchannel` - Remove current channel from feed
-  - `/listfeedchannels` - List all registered feed channels
+   - `/linkserver` - Generate link code to connect a Discord server with a RiftEssence community
+   - `/setup` - Configure forwarding for the current channel (Duo/LFT, global or filtered)
+   - `/rolemenu` - Configure rank/language role forwarding mappings
 
 - **Discord → App Ingestion**:
   - Monitors registered feed channels
@@ -75,16 +75,21 @@ npm start
 
 ### Setting Up Feed Channels
 
-1. In your Discord server, navigate to the channel you want to use for the feed
-2. Run `/setfeedchannel` to register the channel
-3. The channel will now:
+1. In your Discord server, navigate to the channel you want to use for forwarding
+2. Run `/setup` in that exact channel
+3. Choose feed type (`Duo Feed` or `LFT Feed`)
+4. Choose setup mode (`Global` or `Custom Filters`)
+5. Confirm setup
+6. The channel will now:
    - Receive embeds when app users post to your community
    - Ingest messages from Discord users (creates app posts automatically)
 
+> Important: `/setup` applies to the channel where it is executed. To configure another channel, run `/setup` there as well.
+
 ### Managing Feed Channels
 
-- `/removefeedchannel` - Remove the current channel from the feed
-- `/listfeedchannels` - View all registered feed channels for your server
+- Run `/setup` again to update feed type/filters for the current channel
+- Use `/setup` then select `Remove Channel` to remove an existing feed channel configuration
 
 ## How It Works
 
@@ -129,7 +134,7 @@ Every `DISCORD_BOT_POLL_INTERVAL_MS`:
 
 ### Messages not being ingested
 - Check that Message Content Intent is enabled
-- Verify the channel is registered with `/listfeedchannels`
+- Verify the channel was configured using `/setup` in that channel
 - Check bot logs for API errors
 
 ### Posts not mirroring to Discord

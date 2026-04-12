@@ -262,7 +262,7 @@ const commands = [
     .toJSON(),
   new SlashCommandBuilder()
     .setName('setup')
-    .setDescription('Set up or manage post forwarding to Discord channels')
+    .setDescription('Set up or manage forwarding for this channel (run /setup in target channel)')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .toJSON(),
   new SlashCommandBuilder()
@@ -834,7 +834,8 @@ async function handleSetup(interaction: ChatInputCommandInteraction) {
     .setDescription(
       `Community: **${community.name}**\n` +
       `Channel: <#${interaction.channelId}>\n\n` +
-      `Choose what type of posts to forward to **this channel**, or manage existing channels.\n\n` +
+      `Choose what type of posts to forward to **this channel**, or manage existing channels.\n` +
+      `Run **/setup** in the exact destination channel if you want forwarding there.\n\n` +
       `📌 Max 5 feed channels per server (currently ${existingChannels.length}/5).`
     )
     .setFooter({ text: 'Only administrators can configure feeds.' });
