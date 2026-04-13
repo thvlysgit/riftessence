@@ -145,23 +145,23 @@ const VISUAL_EFFECT_PREVIEW_CLASSES: Record<string, string> = {
 const PRESTIGE_BADGE_PREVIEW_META: Record<string, { icon: React.ReactNode; frame: string; glow: string }> = {
   BADGE_FORTUNE_COIN: {
     icon: <FaGem />,
-    frame: 'linear-gradient(145deg, rgba(180,83,9,0.5), rgba(249,115,22,0.42))',
+    frame: 'linear-gradient(145deg, rgba(180,83,9,0.5), rgba(217,119,6,0.42))',
     glow: 'rgba(249,115,22,0.35)',
   },
   BADGE_ORACLE_DICE: {
     icon: <FaDiceD20 />,
-    frame: 'linear-gradient(145deg, rgba(76,29,149,0.54), rgba(168,85,247,0.44))',
-    glow: 'rgba(168,85,247,0.34)',
+    frame: 'linear-gradient(145deg, rgba(180,83,9,0.52), rgba(234,179,8,0.4), rgba(217,119,6,0.35))',
+    glow: 'rgba(245,158,11,0.38)',
   },
   BADGE_JACKPOT_CROWN: {
     icon: <FaCrown />,
-    frame: 'linear-gradient(145deg, rgba(146,64,14,0.54), rgba(245,158,11,0.44))',
-    glow: 'rgba(245,158,11,0.34)',
+    frame: 'linear-gradient(145deg, rgba(146,64,14,0.56), rgba(217,119,6,0.42), rgba(192,132,252,0.34))',
+    glow: 'rgba(251,191,36,0.36)',
   },
   BADGE_VAULT_ASCENDANT: {
     icon: <FaTrophy />,
-    frame: 'linear-gradient(145deg, rgba(30,41,59,0.62), rgba(147,51,234,0.48))',
-    glow: 'rgba(234,179,8,0.34)',
+    frame: 'linear-gradient(145deg, rgba(120,53,15,0.58), rgba(217,119,6,0.44), rgba(168,85,247,0.38))',
+    glow: 'rgba(234,179,8,0.42)',
   },
 };
 

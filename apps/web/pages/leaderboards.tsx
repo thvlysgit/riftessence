@@ -22,11 +22,12 @@ type LeaderboardEntry = {
   rankScore: number;
   inGameSkillScore: number;
   overallScore: number;
+  prismaticEssence: number;
   ratingCount: number;
   position: number;
 };
 
-type LeaderboardType = 'overall' | 'skill' | 'personality' | 'rank' | 'ingame';
+type LeaderboardType = 'overall' | 'skill' | 'personality' | 'rank' | 'ingame' | 'prismatic';
 
 export default function LeaderboardsPage() {
   const { user } = useAuth();
@@ -104,6 +105,8 @@ export default function LeaderboardsPage() {
         return `${getRankDisplay(entry.rank, entry.division, entry.lp)} • ${entry.winrate?.toFixed(1)}% WR`;
       case 'overall':
         return `${entry.overallScore.toFixed(0)} pts`;
+      case 'prismatic':
+        return `${entry.prismaticEssence.toLocaleString()} PE`;
       default:
         return '';
     }
@@ -198,6 +201,18 @@ Rank Score (see In-Game Rank tab) × Winrate Multiplier
 • Total: 7,400 × 1.1 = **8,140 points**
 
 **Requirements:** Ranked status AND winrate data available`
+    },
+    {
+      key: 'prismatic',
+      label: 'Prismatic Essence',
+      icon: '✨',
+      description: 'Highest PE balances',
+      tooltip: `**Calculation:**
+Total current Prismatic Essence balance in each player's wallet.
+
+This leaderboard is sorted by live wallet PE balance, highest to lowest.
+
+**Requirements:** At least 1 PE in wallet`
     },
   ];
 
@@ -317,7 +332,9 @@ Rank Score (see In-Game Rank tab) × Winrate Multiplier
             <p className="text-sm">
               {activeTab === 'skill' || activeTab === 'personality'
                 ? 'Users need at least 3 ratings to appear here'
-                : 'No ranked players found'}
+                : activeTab === 'prismatic'
+                  ? 'No players with Prismatic Essence found'
+                  : 'No ranked players found'}
             </p>
           </div>
         ) : (
@@ -448,7 +465,7 @@ Rank Score (see In-Game Rank tab) × Winrate Multiplier
 
                   {/* Rating Count */}
                   <div className="col-span-1 text-center text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                    {entry.ratingCount}
+                    {activeTab === 'prismatic' ? '-' : entry.ratingCount}
                   </div>
                 </Link>
               );

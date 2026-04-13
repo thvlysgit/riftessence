@@ -10,6 +10,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 const QUICK_AMOUNTS = [250, 500, 1000, 2500, 5000, 10000] as const;
 
 type GrantResult = {
+  action?: 'GRANT' | 'REMOVE';
   amount: number;
   reason: string | null;
   target: {
@@ -30,6 +31,7 @@ export default function AdminPrismaticGrantPage() {
   const { showToast } = useGlobalUI();
 
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [actionMode, setActionMode] = useState<'grant' | 'remove'>('grant');
   const [targetMode, setTargetMode] = useState<'self' | 'user'>('self');
   const [targetUsername, setTargetUsername] = useState('');
   const [amount, setAmount] = useState(500);
@@ -98,20 +100,37 @@ export default function AdminPrismaticGrantPage() {
         return;
       }
 
-      const payload = targetMode === 'self'
-        ? {
-            grantToSelf: true,
-            amount: normalizedAmount,
-            reason: reason.trim() || undefined,
-          }
-        : {
-            grantToSelf: false,
-            targetUsername: targetUsername.trim(),
-            amount: normalizedAmount,
-            reason: reason.trim() || undefined,
-          };
+      const payload = actionMode === 'grant'
+        ? (targetMode === 'self'
+          ? {
+              grantToSelf: true,
+              amount: normalizedAmount,
+              reason: reason.trim() || undefined,
+            }
+          : {
+              grantToSelf: false,
+              targetUsername: targetUsername.trim(),
+              amount: normalizedAmount,
+              reason: reason.trim() || undefined,
+            })
+        : (targetMode === 'self'
+          ? {
+              removeFromSelf: true,
+              amount: normalizedAmount,
+              reason: reason.trim() || undefined,
+            }
+          : {
+              removeFromSelf: false,
+              targetUsername: targetUsername.trim(),
+              amount: normalizedAmount,
+              reason: reason.trim() || undefined,
+            });
 
-      const res = await fetch(`${API_URL}/api/wallet/admin/grant-pe`, {
+      const endpoint = actionMode === 'grant'
+        ? '/api/wallet/admin/grant-pe'
+        : '/api/wallet/admin/remove-pe';
+
+      const res = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,11 +144,20 @@ export default function AdminPrismaticGrantPage() {
         throw new Error(data?.error || 'Failed to grant PE.');
       }
 
-      setLastGrant(data.grant || null);
-      showToast(
-        `Granted ${normalizedAmount.toLocaleString()} PE to ${data.grant?.target?.username || 'user'}.`,
-        'success'
-      );
+      const result = data?.grant || data?.adjustment || null;
+      setLastGrant(result);
+
+      if (actionMode === 'grant') {
+        showToast(
+          `Granted ${normalizedAmount.toLocaleString()} PE to ${result?.target?.username || 'user'}.`,
+          'success'
+        );
+      } else {
+        showToast(
+          `Removed ${normalizedAmount.toLocaleString()} PE from ${result?.target?.username || 'user'}.`,
+          'success'
+        );
+      }
 
       if (targetMode === 'self') {
         setReason('');
@@ -156,17 +184,17 @@ export default function AdminPrismaticGrantPage() {
   return (
     <>
       <Head>
-        <title>Prismatic Grants | Admin Dashboard</title>
-        <meta name="description" content="Grant Prismatic Essence to users from the admin panel" />
+        <title>Prismatic Controls | Admin Dashboard</title>
+        <meta name="description" content="Grant or remove Prismatic Essence from users via the admin panel" />
       </Head>
 
       <div className="min-h-screen" style={{ background: 'linear-gradient(140deg, var(--color-bg-primary), var(--color-bg-secondary), var(--color-bg-primary))' }}>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
             <div>
-              <h1 className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>✨ Prismatic Essence Grants</h1>
+              <h1 className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>✨ Prismatic Essence Controls</h1>
               <p className="mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                Grant PE to yourself for testing or to any user by username.
+                Grant or remove PE for yourself or any user by username.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -187,6 +215,38 @@ export default function AdminPrismaticGrantPage() {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <p className="text-xs uppercase tracking-wide font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                  Action
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActionMode('grant')}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold"
+                    style={{
+                      background: actionMode === 'grant' ? 'var(--accent-primary-bg)' : 'var(--color-bg-tertiary)',
+                      color: actionMode === 'grant' ? 'var(--accent-primary)' : 'var(--color-text-secondary)',
+                      border: `1px solid ${actionMode === 'grant' ? 'var(--accent-primary-border)' : 'var(--color-border)'}`,
+                    }}
+                  >
+                    Grant PE
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActionMode('remove')}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold"
+                    style={{
+                      background: actionMode === 'remove' ? 'rgba(239,68,68,0.14)' : 'var(--color-bg-tertiary)',
+                      color: actionMode === 'remove' ? '#fca5a5' : 'var(--color-text-secondary)',
+                      border: `1px solid ${actionMode === 'remove' ? 'rgba(239,68,68,0.34)' : 'var(--color-border)'}`,
+                    }}
+                  >
+                    Remove PE
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wide font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>
                   Target
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -200,7 +260,7 @@ export default function AdminPrismaticGrantPage() {
                       border: `1px solid ${targetMode === 'self' ? 'var(--accent-primary-border)' : 'var(--color-border)'}`,
                     }}
                   >
-                    Grant To Myself
+                    {actionMode === 'grant' ? 'Apply To Myself' : 'Remove From Myself'}
                   </button>
                   <button
                     type="button"
@@ -212,7 +272,7 @@ export default function AdminPrismaticGrantPage() {
                       border: `1px solid ${targetMode === 'user' ? 'var(--accent-primary-border)' : 'var(--color-border)'}`,
                     }}
                   >
-                    Grant To User
+                    {actionMode === 'grant' ? 'Apply To User' : 'Remove From User'}
                   </button>
                 </div>
               </div>
@@ -276,8 +336,11 @@ export default function AdminPrismaticGrantPage() {
 
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                 <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  Granting <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{normalizedAmount.toLocaleString()} PE</span>
-                  {targetMode === 'self' ? ' to your own account.' : ` to ${targetUsername.trim() || 'the selected user'}.`}
+                  {actionMode === 'grant' ? 'Granting ' : 'Removing '}
+                  <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{normalizedAmount.toLocaleString()} PE</span>
+                  {targetMode === 'self'
+                    ? actionMode === 'grant' ? ' to your own account.' : ' from your own account.'
+                    : `${actionMode === 'grant' ? ' to ' : ' from '}${targetUsername.trim() || 'the selected user'}.`}
                 </p>
                 <button
                   type="submit"
@@ -289,7 +352,9 @@ export default function AdminPrismaticGrantPage() {
                     border: '1px solid var(--accent-primary-border)',
                   }}
                 >
-                  {submitting ? 'Granting...' : 'Grant Prismatic Essence'}
+                  {submitting
+                    ? actionMode === 'grant' ? 'Granting...' : 'Removing...'
+                    : actionMode === 'grant' ? 'Grant Prismatic Essence' : 'Remove Prismatic Essence'}
                 </button>
               </div>
             </form>
@@ -301,7 +366,7 @@ export default function AdminPrismaticGrantPage() {
               style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--accent-primary-border)', boxShadow: 'var(--shadow)' }}
             >
               <p className="text-xs uppercase tracking-wide font-semibold mb-2" style={{ color: 'var(--accent-primary)' }}>
-                Last Grant Executed
+                Last Action Executed
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="rounded-lg p-3" style={{ background: 'var(--color-bg-tertiary)' }}>
@@ -310,7 +375,9 @@ export default function AdminPrismaticGrantPage() {
                 </div>
                 <div className="rounded-lg p-3" style={{ background: 'var(--color-bg-tertiary)' }}>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Amount</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>{lastGrant.amount.toLocaleString()} PE</p>
+                  <p className="text-sm font-semibold" style={{ color: (lastGrant.action || 'GRANT') === 'REMOVE' ? '#fca5a5' : 'var(--accent-primary)' }}>
+                    {(lastGrant.action || 'GRANT') === 'REMOVE' ? '-' : '+'}{lastGrant.amount.toLocaleString()} PE
+                  </p>
                 </div>
                 <div className="rounded-lg p-3" style={{ background: 'var(--color-bg-tertiary)' }}>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>New Balance</p>

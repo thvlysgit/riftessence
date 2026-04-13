@@ -177,81 +177,85 @@ type CosmeticDefinition = {
   unlockKey?: string;
   adCredits?: number;
   badgeGrant?: BadgeGrantConfig;
+  requiresBadgeKey?: string;
 };
 
 const COSMETIC_DEFINITIONS = {
   BADGE_FORTUNE_COIN: {
-    title: 'Fortune Sigil I',
-    description: 'First prestige crest of the Fortune line.',
+    title: 'Fortune Sigil I - Ember Mark',
+    description: 'Base Fortune sigil forged in ember gold.',
     category: 'BADGE',
     costPrismaticEssence: 2800,
     repeatable: false,
     badgeGrant: {
       key: 'shop_fortune_coin',
-      name: 'Fortune Sigil I',
+      name: 'Fortune Sigil I - Ember Mark',
       description: 'Prestige badge unlocked through the Prismatic shop.',
       icon: 'gem',
-      bgColor: 'linear-gradient(140deg, rgba(180,83,9,0.36), rgba(234,88,12,0.34))',
+      bgColor: 'linear-gradient(140deg, rgba(180,83,9,0.36), rgba(217,119,6,0.34))',
       borderColor: '#F97316',
       textColor: '#FED7AA',
-      hoverBg: 'rgba(249, 115, 22, 0.34)',
+      hoverBg: 'rgba(249, 115, 22, 0.3)',
       shape: 'round',
       animation: 'glint',
     },
   },
   BADGE_ORACLE_DICE: {
-    title: 'Fortune Sigil II',
-    description: 'Oracle-grade crest for high-stakes contenders.',
+    title: 'Fortune Sigil II - Ember Crest',
+    description: 'Refined Ember Mark with brighter trims and charged highlights.',
     category: 'BADGE',
     costPrismaticEssence: 5600,
     repeatable: false,
+    requiresBadgeKey: 'shop_fortune_coin',
     badgeGrant: {
       key: 'shop_oracle_dice',
-      name: 'Fortune Sigil II',
+      name: 'Fortune Sigil II - Ember Crest',
       description: 'Prestige badge unlocked through the Prismatic shop.',
       icon: 'dice-d20',
-      bgColor: 'linear-gradient(140deg, rgba(88,28,135,0.38), rgba(76,29,149,0.36))',
-      borderColor: '#A855F7',
-      textColor: '#E9D5FF',
-      hoverBg: 'rgba(168, 85, 247, 0.3)',
-      shape: 'soft-hex',
-      animation: 'spark',
-    },
-  },
-  BADGE_JACKPOT_CROWN: {
-    title: 'Fortune Sigil III',
-    description: 'Crown-tier crest reserved for elite collectors.',
-    category: 'BADGE',
-    costPrismaticEssence: 10400,
-    repeatable: false,
-    badgeGrant: {
-      key: 'shop_jackpot_crown',
-      name: 'Fortune Sigil III',
-      description: 'Prestige badge unlocked through the Prismatic shop.',
-      icon: 'crown',
-      bgColor: 'linear-gradient(140deg, rgba(146,64,14,0.42), rgba(180,83,9,0.42))',
+      bgColor: 'linear-gradient(140deg, rgba(180,83,9,0.4), rgba(234,179,8,0.34), rgba(217,119,6,0.3))',
       borderColor: '#F59E0B',
       textColor: '#FEF3C7',
       hoverBg: 'rgba(245, 158, 11, 0.34)',
+      shape: 'soft-hex',
+      animation: 'glint',
+    },
+  },
+  BADGE_JACKPOT_CROWN: {
+    title: 'Fortune Sigil III - Sovereign Crest',
+    description: 'Sovereign evolution of the Ember line with prismatic accents.',
+    category: 'BADGE',
+    costPrismaticEssence: 10400,
+    repeatable: false,
+    requiresBadgeKey: 'shop_oracle_dice',
+    badgeGrant: {
+      key: 'shop_jackpot_crown',
+      name: 'Fortune Sigil III - Sovereign Crest',
+      description: 'Prestige badge unlocked through the Prismatic shop.',
+      icon: 'crown',
+      bgColor: 'linear-gradient(140deg, rgba(146,64,14,0.46), rgba(217,119,6,0.4), rgba(192,132,252,0.32))',
+      borderColor: '#FBBF24',
+      textColor: '#FEF9C3',
+      hoverBg: 'rgba(251, 191, 36, 0.34)',
       shape: 'crest',
-      animation: 'drift',
+      animation: 'spark',
     },
   },
   BADGE_VAULT_ASCENDANT: {
-    title: 'Fortune Sigil IV',
-    description: 'Ascendant vault crest, apex of the Fortune collection.',
+    title: 'Fortune Sigil IV - Ascendant Crown',
+    description: 'Final Fortune sigil, perfected with radiant multi-tone prestige.',
     category: 'BADGE',
     costPrismaticEssence: 16800,
     repeatable: false,
+    requiresBadgeKey: 'shop_jackpot_crown',
     badgeGrant: {
       key: 'shop_vault_ascendant',
-      name: 'Fortune Sigil IV',
+      name: 'Fortune Sigil IV - Ascendant Crown',
       description: 'Prestige badge unlocked through the Prismatic shop.',
       icon: 'trophy',
-      bgColor: 'linear-gradient(140deg, rgba(30,41,59,0.56), rgba(76,29,149,0.46))',
+      bgColor: 'linear-gradient(140deg, rgba(120,53,15,0.5), rgba(217,119,6,0.44), rgba(168,85,247,0.34))',
       borderColor: '#EAB308',
       textColor: '#FEFCE8',
-      hoverBg: 'rgba(234, 179, 8, 0.32)',
+      hoverBg: 'rgba(234, 179, 8, 0.38)',
       shape: 'bevel',
       animation: 'spark',
     },
@@ -415,6 +419,23 @@ const AdminGrantPeSchema = z.object({
   }, z.string().max(180).optional()),
 });
 
+const AdminRemovePeSchema = z.object({
+  removeFromSelf: z.preprocess((value) => value === true || value === 'true' || value === 1 || value === '1', z.boolean()),
+  targetUserId: z.preprocess((value) => {
+    const normalized = String(value || '').trim();
+    return normalized.length > 0 ? normalized : undefined;
+  }, z.string().min(1).max(64).optional()),
+  targetUsername: z.preprocess((value) => {
+    const normalized = String(value || '').trim();
+    return normalized.length > 0 ? normalized : undefined;
+  }, z.string().min(2).max(40).optional()),
+  amount: z.preprocess((value) => Number(value), z.number().int().min(1).max(1_000_000)),
+  reason: z.preprocess((value) => {
+    const normalized = String(value || '').trim();
+    return normalized.length > 0 ? normalized : undefined;
+  }, z.string().max(180).optional()),
+});
+
 function getUtcDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
@@ -443,6 +464,20 @@ function isKnownActionKey(value: string): value is ActionKey {
 
 function isKnownCosmeticKey(value: string): value is CosmeticItemKey {
   return (COSMETIC_KEYS as string[]).includes(value);
+}
+
+function getCosmeticTitleByBadgeKey(badgeKey: string): string | null {
+  const normalized = String(badgeKey || '').trim().toLowerCase();
+  if (!normalized) return null;
+
+  for (const itemKey of COSMETIC_KEYS) {
+    const definition = COSMETIC_DEFINITIONS[itemKey] as CosmeticDefinition;
+    if (definition.badgeGrant?.key.toLowerCase() === normalized) {
+      return definition.title;
+    }
+  }
+
+  return null;
 }
 
 function hasJoinedSupportServer(memberships: Array<{ community: { slug: string; name: string; inviteLink: string | null; discordServerId: string | null } }>) {
@@ -922,6 +957,8 @@ async function buildCosmeticStates(userId: string, wallet?: WalletRow) {
     const activeField = getActiveFieldForCategory(definition.category);
     const active = Boolean(activeField && definition.unlockKey && (user as any)[activeField] === definition.unlockKey);
     const blockedByOwnership = Boolean(!definition.repeatable && owned);
+    const blockedByRequirement = Boolean(definition.requiresBadgeKey && !ownedBadgeKeys.has(definition.requiresBadgeKey));
+    const requiredTitle = definition.requiresBadgeKey ? getCosmeticTitleByBadgeKey(definition.requiresBadgeKey) : null;
 
     return {
       key: itemKey,
@@ -932,9 +969,11 @@ async function buildCosmeticStates(userId: string, wallet?: WalletRow) {
       repeatable: definition.repeatable,
       owned,
       active,
-      available: walletState.prismaticEssence >= definition.costPrismaticEssence && !blockedByOwnership,
+      available: walletState.prismaticEssence >= definition.costPrismaticEssence && !blockedByOwnership && !blockedByRequirement,
       blockedReason: blockedByOwnership
         ? 'Already owned.'
+        : blockedByRequirement
+          ? `Unlock ${requiredTitle || 'the previous Fortune Sigil'} first.`
         : walletState.prismaticEssence < definition.costPrismaticEssence
           ? `Need ${definition.costPrismaticEssence.toLocaleString()} Prismatic Essence.`
           : null,
@@ -1099,6 +1138,7 @@ export default async function walletRoutes(fastify: FastifyInstance) {
       return reply.send({
         success: true,
         grant: {
+          action: 'GRANT',
           amount,
           reason: normalizedReason || null,
           target: targetUser,
@@ -1110,6 +1150,148 @@ export default async function walletRoutes(fastify: FastifyInstance) {
     } catch (error: any) {
       request.log.error({ err: error }, 'Failed to grant PE as admin');
       return reply.code(500).send({ error: 'Failed to grant PE.' });
+    }
+  });
+
+  fastify.post('/wallet/admin/remove-pe', async (request: any, reply: any) => {
+    try {
+      const requesterId = await getUserIdFromRequest(request, reply);
+      if (!requesterId) return;
+
+      const admin = await resolveAdminActor(requesterId);
+      if (!admin) {
+        return reply.code(403).send({ error: 'Admin access required.' });
+      }
+
+      const validation = validateRequest(AdminRemovePeSchema, request.body || {});
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid PE removal request.', details: validation.errors });
+      }
+
+      const {
+        removeFromSelf,
+        targetUserId,
+        targetUsername,
+        amount,
+        reason,
+      } = validation.data as {
+        removeFromSelf: boolean;
+        targetUserId?: string;
+        targetUsername?: string;
+        amount: number;
+        reason?: string;
+      };
+
+      let targetUser: { id: string; username: string } | null = null;
+
+      if (removeFromSelf) {
+        targetUser = { id: admin.id, username: admin.username };
+      } else if (targetUserId) {
+        targetUser = await prisma.user.findUnique({
+          where: { id: targetUserId },
+          select: { id: true, username: true },
+        });
+      } else if (targetUsername) {
+        targetUser = await prisma.user.findFirst({
+          where: {
+            username: {
+              equals: targetUsername,
+              mode: 'insensitive',
+            },
+          },
+          select: { id: true, username: true },
+        });
+      }
+
+      if (!targetUser) {
+        return reply.code(404).send({ error: 'Target user not found.' });
+      }
+
+      const normalizedReason = String(reason || '').trim();
+
+      const removeResult = await prisma.$transaction(async (tx: any) => {
+        const wallet = await ensureWalletState(targetUser!.id, tx);
+        if (wallet.prismaticEssence < amount) {
+          throw new Error(`Cannot remove ${amount.toLocaleString()} PE. User only has ${wallet.prismaticEssence.toLocaleString()} PE.`);
+        }
+
+        const nextBalance = wallet.prismaticEssence - amount;
+
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: {
+            prismaticEssence: nextBalance,
+            totalRiftCoinsSpent: { increment: amount },
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            userId: targetUser!.id,
+            currency: 'PRISMATIC_ESSENCE',
+            type: 'ADMIN_ADJUSTMENT',
+            amount: -amount,
+            balanceAfter: nextBalance,
+            note: normalizedReason
+              ? `Admin PE removal (${admin.username}): ${normalizedReason}`
+              : `Admin PE removal (${admin.username})`,
+            metadata: {
+              source: 'admin_remove_pe',
+              adminId: admin.id,
+              adminUsername: admin.username,
+              targetUserId: targetUser!.id,
+              targetUsername: targetUser!.username,
+              reason: normalizedReason || null,
+            },
+          },
+        });
+
+        if (targetUser!.id !== admin.id) {
+          await tx.notification.create({
+            data: {
+              userId: targetUser!.id,
+              type: 'ADMIN_TEST',
+              message: `[PE Adjustment] ${amount.toLocaleString()} PE was removed by admin ${admin.username}.${normalizedReason ? ` Reason: ${normalizedReason}` : ''}`,
+            },
+          });
+        }
+
+        return {
+          newBalance: nextBalance,
+        };
+      });
+
+      await logAdminAction({
+        adminId: admin.id,
+        action: 'PRISMATIC_REMOVED',
+        targetId: targetUser.id,
+        details: {
+          amount,
+          reason: normalizedReason || null,
+          selfRemoval: targetUser.id === admin.id,
+          targetUsername: targetUser.username,
+        },
+      });
+
+      return reply.send({
+        success: true,
+        adjustment: {
+          action: 'REMOVE',
+          amount,
+          reason: normalizedReason || null,
+          target: targetUser,
+          admin,
+          newBalance: removeResult.newBalance,
+          createdAt: new Date().toISOString(),
+        },
+      });
+    } catch (error: any) {
+      if (error?.message && typeof error.message === 'string' && error.message.length < 240) {
+        return reply.code(400).send({ error: error.message });
+      }
+      request.log.error({ err: error }, 'Failed to remove PE as admin');
+      return reply.code(500).send({ error: 'Failed to remove PE.' });
     }
   });
 
@@ -1570,6 +1752,11 @@ export default async function walletRoutes(fastify: FastifyInstance) {
 
         if (!item.repeatable && alreadyOwned) {
           throw new Error('You already own this item.');
+        }
+
+        if (item.requiresBadgeKey && !user.badges.some((badge: any) => badge.key === item.requiresBadgeKey)) {
+          const requiredTitle = getCosmeticTitleByBadgeKey(item.requiresBadgeKey) || 'the previous Fortune Sigil';
+          throw new Error(`You must unlock ${requiredTitle} first.`);
         }
 
         if (wallet.prismaticEssence < item.costPrismaticEssence) {

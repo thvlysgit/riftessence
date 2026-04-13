@@ -84,10 +84,16 @@ export default async function leaderboardRoutes(fastify: any) {
           id: true,
           username: true,
           verified: true,
+          profileIconId: true,
           badges: {
             select: {
               key: true,
               name: true,
+            },
+          },
+          wallet: {
+            select: {
+              prismaticEssence: true,
             },
           },
           riotAccounts: {
@@ -152,6 +158,7 @@ export default async function leaderboardRoutes(fastify: any) {
           rankScore,
           inGameSkillScore,
           overallScore,
+          prismaticEssence: user.wallet?.prismaticEssence || 0,
           ratingCount: ratings.length,
         };
       });
@@ -178,6 +185,11 @@ export default async function leaderboardRoutes(fastify: any) {
           sorted = usersWithScores
             .filter((u: any) => u.rank && u.rank !== 'UNRANKED' && u.winrate !== null)
             .sort((a: any, b: any) => b.inGameSkillScore - a.inGameSkillScore);
+          break;
+        case 'prismatic':
+          sorted = usersWithScores
+            .filter((u: any) => u.prismaticEssence > 0)
+            .sort((a: any, b: any) => b.prismaticEssence - a.prismaticEssence);
           break;
         case 'overall':
         default:
