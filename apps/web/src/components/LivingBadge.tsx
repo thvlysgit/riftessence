@@ -27,6 +27,13 @@ const BADGE_ANIMATION_SET = new Set<string>(BADGE_ANIMATION_OPTIONS.map((option)
 const DEFAULT_BADGE_SHAPE: BadgeShape = 'squircle';
 const DEFAULT_BADGE_ANIMATION: BadgeAnimation = 'breathe';
 
+const FORTUNE_BADGE_TIER_CLASSES: Record<string, string> = {
+  shop_fortune_coin: 'living-badge-fortune-tier-1',
+  shop_oracle_dice: 'living-badge-fortune-tier-2',
+  shop_jackpot_crown: 'living-badge-fortune-tier-3',
+  shop_vault_ascendant: 'living-badge-fortune-tier-4',
+};
+
 function normalizeBadgeShape(shape: string | null | undefined): BadgeShape {
   if (!shape) return DEFAULT_BADGE_SHAPE;
   const normalized = shape.trim().toLowerCase();
@@ -80,17 +87,21 @@ export default function LivingBadge({
 }: LivingBadgeProps) {
   const resolvedShape = normalizeBadgeShape(shape);
   const resolvedAnimation = normalizeBadgeAnimation(animation);
+  const normalizedBadgeKey = String(badgeKey || '').trim().toLowerCase();
+  const fortuneTierClass = FORTUNE_BADGE_TIER_CLASSES[normalizedBadgeKey] || '';
+  const isFortuneBadge = Boolean(fortuneTierClass);
 
   const style = {
     background: bgColor,
     borderColor,
     color: textColor,
-    boxShadow: `0 4px 18px ${borderColor}36`,
+    boxShadow: isFortuneBadge ? `0 6px 24px ${borderColor}52` : `0 4px 18px ${borderColor}36`,
     '--badge-hover-bg': hoverBg,
     '--badge-border-color': borderColor,
     '--badge-shimmer-delay': '0s',
-    '--badge-shimmer-duration': '4.6s',
-    '--badge-aura-opacity': '0.34',
+    '--badge-shimmer-duration': isFortuneBadge ? '3.8s' : '4.6s',
+    '--badge-aura-opacity': isFortuneBadge ? '0.46' : '0.34',
+    '--badge-fortune-glow': borderColor,
   } as CSSProperties;
 
   return (
@@ -104,6 +115,8 @@ export default function LivingBadge({
         'select-none',
         interactive ? 'cursor-help' : 'cursor-default',
         'living-badge',
+        isFortuneBadge ? 'living-badge-fortune' : '',
+        fortuneTierClass,
         className,
       ]
         .filter(Boolean)

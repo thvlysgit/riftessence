@@ -163,7 +163,7 @@ const PRESTIGE_BADGE_PREVIEW_CONFIG: Record<string, PrestigeBadgePreviewConfig> 
     borderColor: '#F97316',
     textColor: '#FED7AA',
     hoverBg: 'rgba(249, 115, 22, 0.28)',
-    shape: 'round',
+    shape: 'squircle',
     animation: 'glint',
   },
   BADGE_ORACLE_DICE: {
@@ -175,7 +175,7 @@ const PRESTIGE_BADGE_PREVIEW_CONFIG: Record<string, PrestigeBadgePreviewConfig> 
     borderColor: '#F59E0B',
     textColor: '#FEF3C7',
     hoverBg: 'rgba(245, 158, 11, 0.32)',
-    shape: 'soft-hex',
+    shape: 'squircle',
     animation: 'drift',
   },
   BADGE_JACKPOT_CROWN: {
@@ -187,7 +187,7 @@ const PRESTIGE_BADGE_PREVIEW_CONFIG: Record<string, PrestigeBadgePreviewConfig> 
     borderColor: '#FBBF24',
     textColor: '#FEF9C3',
     hoverBg: 'rgba(251, 191, 36, 0.36)',
-    shape: 'crest',
+    shape: 'squircle',
     animation: 'spark',
   },
   BADGE_VAULT_ASCENDANT: {
@@ -199,8 +199,8 @@ const PRESTIGE_BADGE_PREVIEW_CONFIG: Record<string, PrestigeBadgePreviewConfig> 
     borderColor: '#EAB308',
     textColor: '#FEFCE8',
     hoverBg: 'rgba(234, 179, 8, 0.42)',
-    shape: 'bevel',
-    animation: 'spark',
+    shape: 'squircle',
+    animation: 'breathe',
   },
 };
 

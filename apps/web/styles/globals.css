@@ -563,6 +563,172 @@ input[type="checkbox"]:checked::after {
   }
 }
 
+.living-badge-fortune .living-badge-shell {
+  filter: saturate(1.16) contrast(1.06);
+}
+
+.living-badge-fortune .living-badge-shell::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(circle at 22% 20%, rgba(255, 255, 255, 0.38) 0 6%, transparent 7%),
+    radial-gradient(circle at 78% 34%, rgba(255, 255, 255, 0.3) 0 5%, transparent 6%),
+    radial-gradient(circle at 60% 78%, rgba(255, 255, 255, 0.24) 0 4%, transparent 5%),
+    conic-gradient(from 240deg, rgba(255, 255, 255, 0.18), transparent 24%, rgba(255, 255, 255, 0.21) 48%, transparent 76%, rgba(255, 255, 255, 0.16));
+  mix-blend-mode: screen;
+  opacity: 0.42;
+}
+
+.living-badge-fortune .living-badge-sheen {
+  opacity: 0.68;
+}
+
+.living-badge-fortune .living-badge-shell::after {
+  border-color: rgba(255, 255, 255, 0.32);
+  opacity: 0.56;
+}
+
+.living-badge-fortune-tier-1 .living-badge-shell::before {
+  animation: fortuneFiligreePulse 6.2s ease-in-out infinite;
+}
+
+.living-badge-fortune-tier-2 .living-badge-shell::before {
+  animation: fortuneOrbit 5.4s linear infinite;
+}
+
+.living-badge-fortune-tier-3 .living-badge-shell::before {
+  animation: fortuneCrestFlicker 3.6s ease-in-out infinite;
+}
+
+.living-badge-fortune-tier-4 .living-badge-shell::before {
+  animation: fortuneAscend 2.8s ease-in-out infinite;
+}
+
+.living-badge-fortune-tier-4 .living-badge-aura {
+  animation: fortuneAscendantAura 2.4s ease-in-out infinite;
+}
+
+@keyframes fortuneFiligreePulse {
+  0%,
+  100% {
+    opacity: 0.34;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.52;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes fortuneOrbit {
+  0% {
+    transform: rotate(0deg) scale(0.98);
+  }
+  100% {
+    transform: rotate(360deg) scale(1.03);
+  }
+}
+
+@keyframes fortuneCrestFlicker {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: scale(0.96);
+  }
+  35% {
+    opacity: 0.62;
+    transform: scale(1.02);
+  }
+  70% {
+    opacity: 0.5;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes fortuneAscend {
+  0%,
+  100% {
+    opacity: 0.44;
+    transform: translateY(0) scale(0.98);
+  }
+  50% {
+    opacity: 0.72;
+    transform: translateY(-2px) scale(1.07);
+  }
+}
+
+@keyframes fortuneAscendantAura {
+  0%,
+  100% {
+    transform: scale(0.72);
+    opacity: 0.34;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.66;
+  }
+}
+
+@keyframes playstyleGraphPulse {
+  0%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.85;
+  }
+  50% {
+    stroke-dashoffset: -16;
+    opacity: 1;
+  }
+}
+
+@keyframes playstyleSnowSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes playstyleSignalFlow {
+  0%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dashoffset: -22;
+  }
+}
+
+@keyframes playstyleCoinArc {
+  0%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.75;
+  }
+  50% {
+    stroke-dashoffset: -18;
+    opacity: 1;
+  }
+}
+
+@keyframes playstyleBoltJitter {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-1.5px);
+  }
+  65% {
+    transform: translateY(1px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .living-badge-shell,
   .living-badge-icon,
