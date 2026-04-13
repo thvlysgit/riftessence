@@ -171,6 +171,11 @@ model User {
   teamEventAttendances   TeamEventAttendance[]  @relation("TeamEventAttendances")
   assignedCoachEvents    TeamEventCoach[]       @relation("AssignedCoachEvents")
 
+  // Wallet relations
+  wallet             Wallet?
+  walletTransactions WalletTransaction[]
+  walletQuestClaims  WalletQuestClaim[]
+
   @@index([region, primaryRole, createdAt])
   @@index([isBanned, createdAt])
 }
@@ -301,6 +306,27 @@ enum NotificationType {
   ADMIN_TEST
 }
 
+enum WalletCurrency {
+  RIFT_COINS
+  PRISMATIC_ESSENCE
+}
+
+enum WalletTransactionType {
+  WELCOME_BONUS
+  QUEST_REWARD
+  SHOP_PURCHASE
+  CONVERT_BUY_PRISMATIC
+  CONVERT_SELL_PRISMATIC
+  ADMIN_ADJUSTMENT
+}
+
+enum WalletQuestKey {
+  DAILY_CHECKIN
+  COMPLETE_PROFILE
+  CREATE_FIRST_DUO_POST
+  JOIN_FIRST_COMMUNITY
+}
+
 model Notification {
   id          String           @id @default(cuid())
   userId      String
@@ -314,6 +340,69 @@ model Notification {
   createdAt   DateTime         @default(now())
 
   @@index([userId, read, createdAt])
+}
+
+model Wallet {
+  id                   String              @id @default(cuid())
+  user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId               String              @unique
+  riftCoins            Int                 @default(0)
+  prismaticEssence     Int                 @default(0)
+  totalRiftCoinsEarned Int                 @default(0)
+  totalRiftCoinsSpent  Int                 @default(0)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  transactions         WalletTransaction[]
+
+  @@index([riftCoins])
+  @@index([prismaticEssence])
+}
+
+model WalletTransaction {
+  id           String                @id @default(cuid())
+  wallet       Wallet                @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  walletId     String
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  currency     WalletCurrency
+  type         WalletTransactionType
+  amount       Int
+  balanceAfter Int
+  unitPriceRc  Int?
+  note         String?
+  metadata     Json?
+  createdAt    DateTime              @default(now())
+
+  @@index([walletId, createdAt])
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+}
+
+model WalletQuestClaim {
+  id              String        @id @default(cuid())
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  questKey        WalletQuestKey
+  claimWindow     String
+  rewardRiftCoins Int
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+
+  @@unique([userId, questKey, claimWindow])
+  @@index([userId, createdAt])
+  @@index([questKey, createdAt])
+}
+
+model PrismaticMarket {
+  id                String   @id @default("global")
+  totalSupplyCap    Int      @default(1000000)
+  circulatingSupply Int      @default(0)
+  basePriceRc       Int      @default(40)
+  slopeRc           Int      @default(320)
+  sellSpreadBps     Int      @default(700)
+  lastTradePriceRc  Int?
+  updatedAt         DateTime @updatedAt
 }
 
 model Rating {

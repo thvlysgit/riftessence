@@ -5,6 +5,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { FaCoins } from 'react-icons/fa';
 import { useAuth } from '../../web/contexts/AuthContext';
 import { useTheme } from '../../web/contexts/ThemeContext';
 import { useLanguage } from '../../web/contexts/LanguageContext';
@@ -20,6 +21,11 @@ type SearchResult = {
   profileIconId?: number;
 };
 
+type WalletNavbarSummary = {
+  riftCoins: number;
+  prismaticEssence: number;
+};
+
 export default function Navbar() {
   const router = useRouter();
   const { user, loading, logout } = useAuth();
@@ -32,11 +38,18 @@ export default function Navbar() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [walletSummary, setWalletSummary] = useState<WalletNavbarSummary | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const teamsMenuRef = useRef<HTMLDivElement>(null);
+
+  const formatCompactBalance = (value: number) => {
+    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+    if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+    return `${value}`;
+  };
 
   // Theme-based logo SVG icon
   const getThemeLogo = () => {
@@ -156,6 +169,43 @@ export default function Navbar() {
     fetchUnreadCount();
     // Poll every 30 seconds to keep count updated
     const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  // Fetch wallet summary for RiftCoins navbar badge
+  useEffect(() => {
+    if (!user) {
+      setWalletSummary(null);
+      return;
+    }
+
+    const fetchWalletSummary = async () => {
+      try {
+        if (!user.id) return;
+
+        const authHeader = getAuthHeader();
+        if (!('Authorization' in authHeader)) return;
+
+        const res = await fetch(`${API_URL}/api/wallet/summary`, {
+          headers: authHeader,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const riftCoins = Number(data?.wallet?.riftCoins || 0);
+          const prismaticEssence = Number(data?.wallet?.prismaticEssence || 0);
+          setWalletSummary({
+            riftCoins: Number.isFinite(riftCoins) ? riftCoins : 0,
+            prismaticEssence: Number.isFinite(prismaticEssence) ? prismaticEssence : 0,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch wallet summary:', err);
+      }
+    };
+
+    fetchWalletSummary();
+    const interval = setInterval(fetchWalletSummary, 45000);
     return () => clearInterval(interval);
   }, [user]);
 
@@ -463,6 +513,38 @@ export default function Navbar() {
               </div>
             )}
 
+            {/* RiftCoins Purse */}
+            {user && (
+              <Link
+                href="/purse"
+                className="hidden md:flex relative p-2 rounded-lg transition-colors"
+                title={walletSummary ? `Purse • ${walletSummary.riftCoins.toLocaleString()} RC` : 'Purse'}
+                style={{ color: 'var(--color-text-muted)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'var(--color-accent-1)';
+                  e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--color-text-muted)';
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <FaCoins className="w-5 h-5" />
+                {walletSummary && (
+                  <span
+                    className="absolute -top-1 -right-2 min-w-[22px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full"
+                    style={{
+                      backgroundColor: 'var(--color-accent-1)',
+                      color: 'var(--color-bg-primary)',
+                      padding: '0 6px',
+                    }}
+                  >
+                    {formatCompactBalance(walletSummary.riftCoins)}
+                  </span>
+                )}
+              </Link>
+            )}
+
             {/* Notifications Bell */}
             {user && (
               <Link
@@ -557,6 +639,16 @@ export default function Navbar() {
                       <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>View Profile</p>
                     </div>
                     <DropdownLink href="/profile">My Profile</DropdownLink>
+                    <DropdownLink href="/purse">
+                      <div className="flex items-center justify-between">
+                        <span>Purse</span>
+                        {walletSummary && (
+                          <span className="text-xs font-semibold" style={{ color: 'var(--color-accent-1)' }}>
+                            {formatCompactBalance(walletSummary.riftCoins)} RC
+                          </span>
+                        )}
+                      </div>
+                    </DropdownLink>
                     <DropdownLink href="/notifications">
                       <div className="flex items-center justify-between">
                         <span>Notifications</span>
@@ -758,6 +850,18 @@ export default function Navbar() {
             <MobileNavLink href="/profile">Profile</MobileNavLink>
             <MobileNavLink href="/communities">Communities</MobileNavLink>
             <MobileNavLink href="/leaderboards">Leaderboards</MobileNavLink>
+            {user && (
+              <MobileNavLink href="/purse">
+                <div className="flex items-center justify-between">
+                  <span>Purse</span>
+                  {walletSummary && (
+                    <span className="text-xs font-semibold" style={{ color: 'var(--color-accent-1)' }}>
+                      {formatCompactBalance(walletSummary.riftCoins)} RC
+                    </span>
+                  )}
+                </div>
+              </MobileNavLink>
+            )}
             {user && (
               <MobileNavLink href="/notifications">
                 <div className="flex items-center justify-between">
