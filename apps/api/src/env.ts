@@ -26,7 +26,8 @@ const envSchema = z.object({
   // Server config
   PORT: z.string().default('3333'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  ALLOW_ORIGIN: z.string().default('http://localhost:3000'),
+  ALLOW_ORIGIN: z.string().default('http://localhost:3000,https://riftessence.app,https://www.riftessence.app'),
+  FRONTEND_URL: z.string().optional(),
   
   // Redis (optional, used for sessions)
   REDIS_URL: z.string().url().optional(),

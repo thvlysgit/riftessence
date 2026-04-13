@@ -1711,8 +1711,15 @@ export default function ProfilePage() {
               )}
             </div>
 
-            <aside className="w-full lg:w-[320px]">
-              <div className="rounded-xl border p-4" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-card)' }}>
+            <aside className="w-full lg:w-[320px] xl:w-[340px]">
+              <div
+                className="rounded-xl border p-4 sm:p-5"
+                style={{
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-card)',
+                  boxShadow: 'var(--shadow)',
+                }}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: 'var(--text-secondary)' }}>
                     {t('profile.bio')}
@@ -1729,7 +1736,7 @@ export default function ProfilePage() {
                     <textarea
                       value={editedBio}
                       onChange={(event) => setEditedBio(event.target.value.slice(0, 220))}
-                      rows={7}
+                      rows={8}
                       maxLength={220}
                       className="w-full px-3 py-2 rounded-lg border focus:outline-none"
                       style={{
@@ -1744,7 +1751,7 @@ export default function ProfilePage() {
                     </p>
                   </>
                 ) : user.bio ? (
-                  <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-main)' }}>
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--text-main)' }}>
                     {user.bio}
                   </p>
                 ) : (
@@ -1752,13 +1759,33 @@ export default function ProfilePage() {
                     No bio set yet.
                   </p>
                 )}
-              </div>
 
-              {!isViewingOther && (
-                <div className="mt-3 rounded-lg border px-3 py-2 text-xs" style={{ borderColor: 'var(--border-card)', color: 'var(--text-secondary)' }}>
-                  Ad credits: <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{Number(user.adCredits || 0)}</span>
+                <div className="mt-4 pt-3 space-y-2 border-t" style={{ borderColor: 'var(--border-card)' }}>
+                  <div className="flex items-center justify-between text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    <span>Communities</span>
+                    <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{user.communities.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    <span>Discord DMs</span>
+                    <span
+                      className="px-2 py-0.5 rounded-full"
+                      style={{
+                        color: user.discordDmNotifications ? '#86efac' : 'var(--text-muted)',
+                        background: user.discordDmNotifications ? 'var(--accent-success-bg)' : 'var(--bg-card)',
+                        border: `1px solid ${user.discordDmNotifications ? 'var(--accent-success-border)' : 'var(--border-card)'}`,
+                      }}
+                    >
+                      {user.discordDmNotifications ? 'On' : 'Off'}
+                    </span>
+                  </div>
+                  {!isViewingOther && (
+                    <div className="flex items-center justify-between text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <span>Ad credits</span>
+                      <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{Number(user.adCredits || 0)}</span>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </aside>
           </div>
         </div>

@@ -71,37 +71,67 @@ if (!env.JWT_SECRET) {
 }
 
 async function build() {
-  const configuredOrigins = String(env.ALLOW_ORIGIN || '')
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  const normalizeOrigin = (value: string): string => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+
+    try {
+      return new URL(trimmed).origin;
+    } catch {
+      return trimmed.replace(/\/+$/, '');
+    }
+  };
+
+  const parseOrigins = (rawValue: string | undefined): string[] => {
+    return String(rawValue || '')
+      .split(',')
+      .map(normalizeOrigin)
+      .filter(Boolean);
+  };
+
+  const isLocalOrigin = (origin: string): boolean => {
+    try {
+      const parsed = new URL(origin);
+      return parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+    } catch {
+      return false;
+    }
+  };
+
+  const configuredOrigins = parseOrigins(env.ALLOW_ORIGIN);
+  const frontendOrigins = parseOrigins(env.FRONTEND_URL);
 
   const productionOrigins = new Set([
     'https://riftessence.app',
     'https://www.riftessence.app',
     ...configuredOrigins,
+    ...frontendOrigins,
   ]);
 
   const developmentOrigins = new Set([
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     ...configuredOrigins,
+    ...frontendOrigins,
   ]);
 
   const isAllowedOrigin = (origin: string | undefined): boolean => {
     if (!origin) return true; // server-side calls and curl without origin
 
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (!normalizedOrigin) return false;
+
     if (env.NODE_ENV !== 'production') {
-      return true;
+      return developmentOrigins.has(normalizedOrigin) || isLocalOrigin(normalizedOrigin);
     }
 
-    if (productionOrigins.has(origin)) {
+    if (productionOrigins.has(normalizedOrigin)) {
       return true;
     }
 
     // Allow trusted subdomains under riftessence.app if needed (e.g. previews).
     try {
-      const parsed = new URL(origin);
+      const parsed = new URL(normalizedOrigin);
       return parsed.protocol === 'https:' && parsed.hostname.endsWith('.riftessence.app');
     } catch {
       return false;
@@ -115,11 +145,8 @@ async function build() {
         return cb(null, true);
       }
 
-      if (env.NODE_ENV !== 'production' && developmentOrigins.has(origin || '')) {
-        return cb(null, true);
-      }
-
-      return cb(new Error('Origin not allowed by CORS'), false);
+      server.log.warn({ origin }, 'Origin blocked by CORS policy');
+      return cb(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
