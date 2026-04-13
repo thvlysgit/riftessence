@@ -3,6 +3,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../prisma';
 import { getUserIdFromRequest } from '../middleware/auth';
+import { logAdminAction } from '../utils/auditLog';
 import { validateRequest } from '../validation';
 
 function parseBoundedInt(raw: string | undefined, fallback: number, min: number, max: number) {
@@ -370,6 +371,23 @@ const DeactivateCosmeticSchema = z.object({
   category: z.enum(['ALL', 'USERNAME_DECORATION', 'HOVER_EFFECT', 'VISUAL_EFFECT', 'FONT']).default('ALL'),
 });
 
+const AdminGrantPeSchema = z.object({
+  grantToSelf: z.preprocess((value) => value === true || value === 'true' || value === 1 || value === '1', z.boolean()),
+  targetUserId: z.preprocess((value) => {
+    const normalized = String(value || '').trim();
+    return normalized.length > 0 ? normalized : undefined;
+  }, z.string().min(1).max(64).optional()),
+  targetUsername: z.preprocess((value) => {
+    const normalized = String(value || '').trim();
+    return normalized.length > 0 ? normalized : undefined;
+  }, z.string().min(2).max(40).optional()),
+  amount: z.preprocess((value) => Number(value), z.number().int().min(1).max(1_000_000)),
+  reason: z.preprocess((value) => {
+    const normalized = String(value || '').trim();
+    return normalized.length > 0 ? normalized : undefined;
+  }, z.string().max(180).optional()),
+});
+
 function getUtcDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
@@ -560,6 +578,29 @@ async function buildWalletSummary(userId: string) {
       updatedAt: wallet.updatedAt,
     },
     progression: buildProgression(wallet.totalRiftCoinsEarned),
+  };
+}
+
+async function resolveAdminActor(userId: string): Promise<{ id: string; username: string } | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      username: true,
+      badges: {
+        select: { key: true },
+      },
+    },
+  });
+
+  if (!user) return null;
+
+  const isAdmin = (user.badges || []).some((badge: any) => String(badge.key || '').toLowerCase() === 'admin');
+  if (!isAdmin) return null;
+
+  return {
+    id: user.id,
+    username: user.username,
   };
 }
 
@@ -908,6 +949,140 @@ export default async function walletRoutes(fastify: FastifyInstance) {
     } catch (error: any) {
       request.log.error({ err: error }, 'Failed to load wallet summary');
       return reply.code(500).send({ error: 'Failed to load wallet summary.' });
+    }
+  });
+
+  fastify.post('/wallet/admin/grant-pe', async (request: any, reply: any) => {
+    try {
+      const requesterId = await getUserIdFromRequest(request, reply);
+      if (!requesterId) return;
+
+      const admin = await resolveAdminActor(requesterId);
+      if (!admin) {
+        return reply.code(403).send({ error: 'Admin access required.' });
+      }
+
+      const validation = validateRequest(AdminGrantPeSchema, request.body || {});
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid PE grant request.', details: validation.errors });
+      }
+
+      const {
+        grantToSelf,
+        targetUserId,
+        targetUsername,
+        amount,
+        reason,
+      } = validation.data as {
+        grantToSelf: boolean;
+        targetUserId?: string;
+        targetUsername?: string;
+        amount: number;
+        reason?: string;
+      };
+
+      let targetUser: { id: string; username: string } | null = null;
+
+      if (grantToSelf) {
+        targetUser = { id: admin.id, username: admin.username };
+      } else if (targetUserId) {
+        targetUser = await prisma.user.findUnique({
+          where: { id: targetUserId },
+          select: { id: true, username: true },
+        });
+      } else if (targetUsername) {
+        targetUser = await prisma.user.findFirst({
+          where: {
+            username: {
+              equals: targetUsername,
+              mode: 'insensitive',
+            },
+          },
+          select: { id: true, username: true },
+        });
+      }
+
+      if (!targetUser) {
+        return reply.code(404).send({ error: 'Target user not found.' });
+      }
+
+      const normalizedReason = String(reason || '').trim();
+
+      const grantResult = await prisma.$transaction(async (tx: any) => {
+        const wallet = await ensureWalletState(targetUser!.id, tx);
+        const nextBalance = wallet.prismaticEssence + amount;
+
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: {
+            prismaticEssence: nextBalance,
+            totalRiftCoinsEarned: { increment: amount },
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            userId: targetUser!.id,
+            currency: 'PRISMATIC_ESSENCE',
+            type: 'ADMIN_ADJUSTMENT',
+            amount,
+            balanceAfter: nextBalance,
+            note: normalizedReason
+              ? `Admin PE grant (${admin.username}): ${normalizedReason}`
+              : `Admin PE grant (${admin.username})`,
+            metadata: {
+              source: 'admin_grant_pe',
+              adminId: admin.id,
+              adminUsername: admin.username,
+              targetUserId: targetUser!.id,
+              targetUsername: targetUser!.username,
+              reason: normalizedReason || null,
+            },
+          },
+        });
+
+        if (targetUser!.id !== admin.id) {
+          await tx.notification.create({
+            data: {
+              userId: targetUser!.id,
+              type: 'ADMIN_TEST',
+              message: `[PE Grant] You received ${amount.toLocaleString()} PE from admin ${admin.username}.${normalizedReason ? ` Reason: ${normalizedReason}` : ''}`,
+            },
+          });
+        }
+
+        return {
+          newBalance: nextBalance,
+        };
+      });
+
+      await logAdminAction({
+        adminId: admin.id,
+        action: 'PRISMATIC_GRANTED',
+        targetId: targetUser.id,
+        details: {
+          amount,
+          reason: normalizedReason || null,
+          selfGrant: targetUser.id === admin.id,
+          targetUsername: targetUser.username,
+        },
+      });
+
+      return reply.send({
+        success: true,
+        grant: {
+          amount,
+          reason: normalizedReason || null,
+          target: targetUser,
+          admin,
+          newBalance: grantResult.newBalance,
+          createdAt: new Date().toISOString(),
+        },
+      });
+    } catch (error: any) {
+      request.log.error({ err: error }, 'Failed to grant PE as admin');
+      return reply.code(500).send({ error: 'Failed to grant PE.' });
     }
   });
 

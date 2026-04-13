@@ -50,6 +50,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/admin/reports': 'Reports | RiftEssence',
   '/admin/badges': 'Badge Management | RiftEssence',
   '/admin/ads': 'Ad Management | RiftEssence',
+  '/admin/prismatic': 'Prismatic Grants | RiftEssence',
   '/admin/settings': 'Admin Settings | RiftEssence',
   '/admin/broadcast': 'Broadcast Message | RiftEssence',
   // Region / role landing pages

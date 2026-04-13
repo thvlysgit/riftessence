@@ -152,6 +152,12 @@ export default function AdminDashboard() {
       description: 'Create and monitor advertising campaigns',
     },
     {
+      label: 'Prismatic Grants',
+      href: '/admin/prismatic',
+      icon: '✨',
+      description: 'Grant Prismatic Essence to yourself or other users',
+    },
+    {
       label: 'System Settings',
       href: '/admin/settings',
       icon: '⚙️',
@@ -282,6 +288,11 @@ export default function AdminDashboard() {
                 label="Assign Badges"
                 description="Grant or revoke user badges"
                 onClick={() => router.push('/admin/badges')}
+              />
+              <QuickActionButton
+                label="Grant Prismatic Essence"
+                description="Issue PE rewards to any user account"
+                onClick={() => router.push('/admin/prismatic')}
               />
               <QuickActionButton
                 label="System Logs"

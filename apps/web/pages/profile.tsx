@@ -362,6 +362,90 @@ type UserProfile = {
 const AVAILABLE_PLAYSTYLES = ['Controlled Chaos', 'FUNDAMENTALS', 'CoinFlips', 'Scaling', 'Snowball'];
 const AVAILABLE_LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Polish', 'Russian', 'Turkish', 'Korean', 'Japanese', 'Chinese'];
 
+type PlaystyleTheme = {
+  icon: string;
+  description: string;
+  baseBg: string;
+  baseBorder: string;
+  baseText: string;
+  selectedBg: string;
+  selectedBorder: string;
+  selectedText: string;
+  glow: string;
+};
+
+const PLAYSTYLE_THEME_MAP: Record<string, PlaystyleTheme> = {
+  'Controlled Chaos': {
+    icon: '🔥',
+    description: 'High-tempo skirmish pressure.',
+    baseBg: 'rgba(249, 115, 22, 0.08)',
+    baseBorder: 'rgba(249, 115, 22, 0.35)',
+    baseText: '#fdba74',
+    selectedBg: 'linear-gradient(145deg, rgba(194,65,12,0.42), rgba(120,53,15,0.4))',
+    selectedBorder: '#f97316',
+    selectedText: '#ffedd5',
+    glow: 'rgba(249, 115, 22, 0.32)',
+  },
+  FUNDAMENTALS: {
+    icon: '🧠',
+    description: 'Discipline, spacing, and wave control.',
+    baseBg: 'rgba(59, 130, 246, 0.08)',
+    baseBorder: 'rgba(59, 130, 246, 0.34)',
+    baseText: '#93c5fd',
+    selectedBg: 'linear-gradient(145deg, rgba(37,99,235,0.38), rgba(30,64,175,0.38))',
+    selectedBorder: '#3b82f6',
+    selectedText: '#dbeafe',
+    glow: 'rgba(59, 130, 246, 0.28)',
+  },
+  CoinFlips: {
+    icon: '🎲',
+    description: 'Volatile all-ins and hard commits.',
+    baseBg: 'rgba(245, 158, 11, 0.08)',
+    baseBorder: 'rgba(245, 158, 11, 0.34)',
+    baseText: '#fcd34d',
+    selectedBg: 'linear-gradient(145deg, rgba(217,119,6,0.38), rgba(146,64,14,0.38))',
+    selectedBorder: '#f59e0b',
+    selectedText: '#fef3c7',
+    glow: 'rgba(245, 158, 11, 0.3)',
+  },
+  Scaling: {
+    icon: '📈',
+    description: 'Patience, economy, and late-game spike.',
+    baseBg: 'rgba(139, 92, 246, 0.08)',
+    baseBorder: 'rgba(139, 92, 246, 0.34)',
+    baseText: '#c4b5fd',
+    selectedBg: 'linear-gradient(145deg, rgba(124,58,237,0.38), rgba(91,33,182,0.38))',
+    selectedBorder: '#8b5cf6',
+    selectedText: '#ede9fe',
+    glow: 'rgba(139, 92, 246, 0.3)',
+  },
+  Snowball: {
+    icon: '❄️',
+    description: 'Explode early leads into map control.',
+    baseBg: 'rgba(34, 211, 238, 0.08)',
+    baseBorder: 'rgba(34, 211, 238, 0.34)',
+    baseText: '#67e8f9',
+    selectedBg: 'linear-gradient(145deg, rgba(8,145,178,0.38), rgba(12,74,110,0.38))',
+    selectedBorder: '#22d3ee',
+    selectedText: '#cffafe',
+    glow: 'rgba(34, 211, 238, 0.3)',
+  },
+};
+
+function getPlaystyleTheme(style: string): PlaystyleTheme {
+  return PLAYSTYLE_THEME_MAP[style] || {
+    icon: '⭐',
+    description: 'Adaptive profile playstyle.',
+    baseBg: 'rgba(148, 163, 184, 0.08)',
+    baseBorder: 'rgba(148, 163, 184, 0.34)',
+    baseText: '#cbd5e1',
+    selectedBg: 'linear-gradient(145deg, rgba(71,85,105,0.38), rgba(51,65,85,0.38))',
+    selectedBorder: '#94a3b8',
+    selectedText: '#f8fafc',
+    glow: 'rgba(148, 163, 184, 0.28)',
+  };
+}
+
 // Badge configuration with icons and styles
 type BadgeConfig = {
   icon: string;
@@ -1465,8 +1549,8 @@ export default function ProfilePage() {
           <div className="space-y-6">
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
               <div className="min-w-0">
-                <div className="flex items-start justify-between gap-4 mb-3">
-                  <div className="flex items-center gap-3 min-w-0">
+                <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="relative flex-shrink-0">
                       <img
                         src={user.profileIconId
@@ -1474,7 +1558,7 @@ export default function ProfilePage() {
                           : `https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/29.png`
                         }
                         alt="Summoner Icon"
-                        className="w-16 h-16 rounded-lg border-2 shadow-lg"
+                        className="w-[72px] h-[72px] rounded-xl border-2 shadow-lg"
                         style={{ borderColor: 'var(--accent-primary)' }}
                       />
                       {user.anonymous && (
@@ -1487,32 +1571,44 @@ export default function ProfilePage() {
                       )}
                     </div>
 
-                    {isEditMode ? (
-                      <input
-                        type="text"
-                        value={editedUsername}
-                        onChange={(e) => setEditedUsername(e.target.value)}
-                        className="text-2xl sm:text-3xl font-bold px-3 py-1 rounded border-2 focus:outline-none"
-                        style={{
-                          color: 'var(--accent-primary)',
-                          background: 'var(--bg-input)',
-                          borderColor: 'var(--accent-primary)',
-                          fontFamily: usernameFontFamily || undefined,
-                        }}
-                        placeholder={t('profile.usernamePlaceholder')}
-                      />
-                    ) : (
-                      <h1
-                        className={`text-2xl sm:text-3xl font-bold username-hover-base ${usernameHoverEffectClass}`.trim()}
-                        style={{
-                          color: 'var(--accent-primary)',
-                          fontFamily: usernameFontFamily || undefined,
-                          ...(usernameDecorationStyle || {}),
-                        }}
-                      >
-                        {user.username}
-                      </h1>
-                    )}
+                    <div
+                      className="min-w-0 flex-1 rounded-xl border px-4 py-3"
+                      style={{
+                        background: 'linear-gradient(140deg, rgba(15,23,42,0.72), rgba(30,41,59,0.58))',
+                        borderColor: 'var(--accent-primary-border)',
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
+                      }}
+                    >
+                      <p className="text-[10px] uppercase tracking-[0.18em] mb-1" style={{ color: 'var(--text-secondary)' }}>
+                        In-app username
+                      </p>
+                      {isEditMode ? (
+                        <input
+                          type="text"
+                          value={editedUsername}
+                          onChange={(e) => setEditedUsername(e.target.value)}
+                          className="w-full text-3xl sm:text-4xl font-extrabold px-2 py-1 rounded-lg border-2 focus:outline-none"
+                          style={{
+                            color: 'var(--accent-primary)',
+                            background: 'var(--bg-input)',
+                            borderColor: 'var(--accent-primary)',
+                            fontFamily: usernameFontFamily || undefined,
+                          }}
+                          placeholder={t('profile.usernamePlaceholder')}
+                        />
+                      ) : (
+                        <h1
+                          className={`text-3xl sm:text-4xl font-extrabold leading-tight break-all username-hover-base ${usernameHoverEffectClass}`.trim()}
+                          style={{
+                            color: 'var(--accent-primary)',
+                            fontFamily: usernameFontFamily || undefined,
+                            ...(usernameDecorationStyle || {}),
+                          }}
+                        >
+                          {user.username}
+                        </h1>
+                      )}
+                    </div>
                   </div>
 
                   {!isViewingOther && !isEditMode && (
@@ -1525,8 +1621,12 @@ export default function ProfilePage() {
                           showToast('Failed to copy link', 'error');
                         });
                       }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-80"
-                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)', color: 'var(--text-secondary)' }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-85"
+                      style={{
+                        background: 'linear-gradient(140deg, rgba(51,65,85,0.42), rgba(30,41,59,0.66))',
+                        border: '1px solid var(--accent-primary-border)',
+                        color: 'var(--text-main)',
+                      }}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -1577,9 +1677,9 @@ export default function ProfilePage() {
                   </div>
                 )}
 
-                <div className="mt-4 flex flex-wrap gap-6">
-                  <div>
-                    <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Skill ({user.feedback.length} ratings)</p>
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="rounded-lg border px-3 py-2.5" style={{ background: 'rgba(15,23,42,0.42)', borderColor: 'var(--border-card)' }}>
+                    <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Skill ({user.feedback.length} ratings)</p>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center space-x-1">
                         {[1, 2, 3, 4, 5].map((star) => (
@@ -1597,8 +1697,9 @@ export default function ProfilePage() {
                       <span className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>{user.skillStars}/5</span>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Personality ({user.feedback.length} ratings)</p>
+
+                  <div className="rounded-lg border px-3 py-2.5" style={{ background: 'rgba(15,23,42,0.42)', borderColor: 'var(--border-card)' }}>
+                    <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Personality ({user.feedback.length} ratings)</p>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center space-x-1">
                         {[1, 2, 3, 4, 5].map((moon) => (
@@ -1618,9 +1719,10 @@ export default function ProfilePage() {
                       <span className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>{user.personalityMoons}/5</span>
                     </div>
                   </div>
+
                   {user.reportCount > 0 && (
-                    <div>
-                      <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Status</p>
+                    <div className="rounded-lg border px-3 py-2.5" style={{ background: 'rgba(127,29,29,0.22)', borderColor: 'rgba(239,68,68,0.38)' }}>
+                      <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: '#fca5a5' }}>Status</p>
                       <div className="flex items-center gap-2">
                         {user.reportCount > 3 ? (
                           <span className="text-sm font-medium px-2 py-1 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}>⚠️ Flagged</span>
@@ -1709,59 +1811,74 @@ export default function ProfilePage() {
               <div
                 className="rounded-xl border p-4 sm:p-5"
                 style={{
-                  background: 'var(--bg-input)',
-                  border: '1px solid var(--border-card)',
+                  background: 'linear-gradient(150deg, rgba(15,23,42,0.72), rgba(30,41,59,0.56))',
+                  border: '1px solid var(--accent-primary-border)',
                   boxShadow: 'var(--shadow)',
                 }}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                    {t('profile.bio')}
-                  </p>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--accent-primary)' }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-7 10-7-10" />
+                    </svg>
+                    <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: 'var(--text-main)' }}>
+                      {t('profile.bio')}
+                    </p>
+                  </div>
                   {!isEditMode && (
-                    <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                    <span
+                      className="text-[11px] px-2 py-0.5 rounded-full"
+                      style={{ color: 'var(--accent-primary)', background: 'var(--accent-primary-bg)', border: '1px solid var(--accent-primary-border)' }}
+                    >
                       {(user.bio || '').length}/220
                     </span>
                   )}
                 </div>
 
-                {isEditMode ? (
-                  <>
-                    <textarea
-                      value={editedBio}
-                      onChange={(event) => setEditedBio(event.target.value.slice(0, 220))}
-                      rows={8}
-                      maxLength={220}
-                      className="w-full px-3 py-2 rounded-lg border focus:outline-none"
-                      style={{
-                        background: 'var(--bg-card)',
-                        borderColor: 'var(--border-card)',
-                        color: 'var(--text-main)',
-                      }}
-                      placeholder="Write a short bio."
-                    />
-                    <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
-                      {editedBio.length}/220
+                <div className="rounded-lg border px-3 py-3 min-h-[148px]" style={{ background: 'rgba(15,23,42,0.52)', borderColor: 'var(--border-card)' }}>
+                  {isEditMode ? (
+                    <>
+                      <textarea
+                        value={editedBio}
+                        onChange={(event) => setEditedBio(event.target.value.slice(0, 220))}
+                        rows={8}
+                        maxLength={220}
+                        className="w-full px-3 py-2 rounded-lg border focus:outline-none"
+                        style={{
+                          background: 'var(--bg-card)',
+                          borderColor: 'var(--border-card)',
+                          color: 'var(--text-main)',
+                        }}
+                        placeholder="Write a short bio."
+                      />
+                      <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                        {editedBio.length}/220
+                      </p>
+                    </>
+                  ) : user.bio ? (
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--text-main)' }}>
+                      {user.bio}
                     </p>
-                  </>
-                ) : user.bio ? (
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--text-main)' }}>
-                    {user.bio}
-                  </p>
-                ) : (
-                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                    No bio set yet.
-                  </p>
-                )}
+                  ) : (
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                      No bio set yet.
+                    </p>
+                  )}
+                </div>
 
                 <div className="mt-4 pt-3 border-t" style={{ borderColor: 'var(--border-card)' }}>
                   <div className="flex items-center justify-between text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    <span>Discord DMs</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 4v-4z" />
+                      </svg>
+                      Discord DMs
+                    </span>
                     <span
-                      className="px-2 py-0.5 rounded-full"
+                      className="px-2 py-0.5 rounded-full font-semibold"
                       style={{
                         color: user.discordDmNotifications ? '#86efac' : 'var(--text-muted)',
-                        background: user.discordDmNotifications ? 'var(--accent-success-bg)' : 'var(--bg-card)',
+                        background: user.discordDmNotifications ? 'rgba(34,197,94,0.18)' : 'var(--bg-card)',
                         border: `1px solid ${user.discordDmNotifications ? 'var(--accent-success-border)' : 'var(--border-card)'}`,
                       }}
                     >
@@ -1774,57 +1891,62 @@ export default function ProfilePage() {
               <div
                 className="rounded-xl border p-4 sm:p-5"
                 style={{
-                  background: 'var(--bg-input)',
-                  border: '1px solid var(--border-card)',
+                  background: 'linear-gradient(150deg, rgba(30,41,59,0.7), rgba(15,23,42,0.58))',
+                  border: '1px solid rgba(250,204,21,0.28)',
                   boxShadow: 'var(--shadow)',
                 }}
               >
-                <div className="flex items-center gap-1 mb-3">
-                  <svg className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
-                  <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent-primary)' }}>{t('profile.activity.title')}</span>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <svg className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                    <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent-primary)' }}>{t('profile.activity.title')}</span>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--text-secondary)' }}>
+                    Match Rhythm
+                  </span>
                 </div>
 
                 {user.riotAccounts && user.riotAccounts.length > 0 ? (
                   <>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-lg p-2.5 border" style={{ background: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
-                        <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.24h')}</p>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{user.gamesPerDay || 0}</span>
-                          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.games')}</span>
+                      <div className="rounded-lg p-3 border" style={{ background: 'linear-gradient(140deg, rgba(37,99,235,0.18), rgba(15,23,42,0.45))', borderColor: 'rgba(59,130,246,0.35)' }}>
+                        <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: '#bfdbfe' }}>{t('profile.activity.24h')}</p>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-3xl font-extrabold" style={{ color: '#dbeafe' }}>{user.gamesPerDay || 0}</span>
+                          <span className="text-xs" style={{ color: '#bfdbfe' }}>{t('profile.activity.games')}</span>
                         </div>
                       </div>
-                      <div className="rounded-lg p-2.5 border" style={{ background: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
-                        <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.7d')}</p>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{user.gamesPerWeek || 0}</span>
-                          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.games')}</span>
+                      <div className="rounded-lg p-3 border" style={{ background: 'linear-gradient(140deg, rgba(217,119,6,0.18), rgba(15,23,42,0.45))', borderColor: 'rgba(245,158,11,0.35)' }}>
+                        <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: '#fde68a' }}>{t('profile.activity.7d')}</p>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-3xl font-extrabold" style={{ color: '#fef3c7' }}>{user.gamesPerWeek || 0}</span>
+                          <span className="text-xs" style={{ color: '#fde68a' }}>{t('profile.activity.games')}</span>
                         </div>
                       </div>
                     </div>
 
                     {user.preferredRole && (
                       <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
-                        <div className="flex items-center justify-center gap-2 flex-wrap">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
                           <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
                             {user.secondaryRole ? t('profile.mostPlayedRoles') : t('profile.mostPlayedRole')}
                           </span>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold px-2 py-1 rounded border inline-flex items-center gap-1" style={{ 
-                              background: 'rgba(200, 170, 109, 0.15)', 
-                              color: '#C8AA6D',
-                              borderColor: '#C8AA6D'
+                            <span className="text-xs font-semibold px-2 py-1 rounded-lg border inline-flex items-center gap-1" style={{
+                              background: 'linear-gradient(140deg, rgba(200,170,109,0.22), rgba(120,53,15,0.24))',
+                              color: '#FDE68A',
+                              borderColor: 'rgba(245,158,11,0.45)'
                             }}>
                               {getRoleIcon(user.preferredRole)}
                               {user.preferredRole}
                             </span>
                             {user.secondaryRole && (
-                              <span className="text-xs font-semibold px-2 py-1 rounded border inline-flex items-center gap-1" style={{ 
-                                background: 'rgba(200, 170, 109, 0.12)', 
-                                color: '#C8AA6D',
-                                borderColor: '#C8AA6D'
+                              <span className="text-xs font-semibold px-2 py-1 rounded-lg border inline-flex items-center gap-1" style={{
+                                background: 'linear-gradient(140deg, rgba(99,102,241,0.2), rgba(30,64,175,0.24))',
+                                color: '#BFDBFE',
+                                borderColor: 'rgba(96,165,250,0.45)'
                               }}>
                                 {getRoleIcon(user.secondaryRole)}
                                 {user.secondaryRole}
@@ -1859,12 +1981,15 @@ export default function ProfilePage() {
           {isEditMode ? (
             <div>
               <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>{t('profile.selectUpTo2Playstyles')}</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                 {AVAILABLE_PLAYSTYLES.map((style) => {
                   const isSelected = selectedPlaystyles.includes(style);
+                  const isLocked = !isSelected && selectedPlaystyles.length >= 2;
+                  const theme = getPlaystyleTheme(style);
                   return (
                     <button
                       key={style}
+                      type="button"
                       onClick={() => {
                         if (isSelected) {
                           setSelectedPlaystyles(selectedPlaystyles.filter((s) => s !== style));
@@ -1872,31 +1997,52 @@ export default function ProfilePage() {
                           setSelectedPlaystyles([...selectedPlaystyles, style]);
                         }
                       }}
-                      className="p-3 rounded-lg border-2 font-medium text-sm transition-all"
+                      className="p-3 rounded-lg border text-left transition-all"
                       style={{
-                        background: isSelected ? 'var(--accent-primary-bg)' : 'var(--bg-input)',
-                        borderColor: isSelected ? 'var(--accent-primary)' : 'var(--border-card)',
-                        color: isSelected ? 'var(--accent-primary)' : 'var(--text-secondary)'
+                        background: isSelected ? theme.selectedBg : theme.baseBg,
+                        borderColor: isSelected ? theme.selectedBorder : theme.baseBorder,
+                        color: isSelected ? theme.selectedText : theme.baseText,
+                        boxShadow: isSelected ? `0 10px 20px ${theme.glow}` : 'none',
+                        opacity: isLocked ? 0.72 : 1,
+                        cursor: isLocked ? 'not-allowed' : 'pointer',
                       }}
                     >
-                      {style}
+                      <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                        <span>{theme.icon}</span>
+                        <span>{style}</span>
+                      </span>
+                      <p className="text-[11px] mt-1" style={{ color: isSelected ? theme.selectedText : theme.baseText, opacity: 0.92 }}>
+                        {theme.description}
+                      </p>
                     </button>
                   );
                 })}
               </div>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {user.playstyles.length > 0 ? (
-                user.playstyles.map((style) => (
-                  <span
-                    key={style}
-                    className="px-4 py-2 border rounded-lg font-medium text-sm"
-                    style={{ background: 'var(--accent-primary-bg)', borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
-                  >
-                    {style}
-                  </span>
-                ))
+                user.playstyles.map((style) => {
+                  const theme = getPlaystyleTheme(style);
+                  return (
+                    <div
+                      key={style}
+                      className="px-3 py-2.5 border rounded-lg"
+                      style={{
+                        background: theme.selectedBg,
+                        borderColor: theme.selectedBorder,
+                        boxShadow: `0 10px 20px ${theme.glow}`,
+                      }}
+                    >
+                      <p className="text-sm font-semibold" style={{ color: theme.selectedText }}>
+                        {theme.icon} {style}
+                      </p>
+                      <p className="text-[11px] mt-1" style={{ color: theme.selectedText, opacity: 0.9 }}>
+                        {theme.description}
+                      </p>
+                    </div>
+                  );
+                })
               ) : (
                 <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{t('profile.noPlaystyles')}</p>
               )}
