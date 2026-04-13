@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   FaArrowDown,
@@ -6,50 +6,32 @@ import {
   FaBolt,
   FaCheckCircle,
   FaClock,
-  FaCoins,
-  FaExchangeAlt,
   FaGem,
+  FaMagic,
+  FaPalette,
   FaWallet,
 } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import { useGlobalUI } from '../../api/components/GlobalUI';
 import { getAuthHeader } from '../utils/auth';
+import PrismaticEssenceIcon from '../src/components/PrismaticEssenceIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
-type TradeDirection = 'BUY_PE' | 'SELL_PE';
-type TransactionCurrencyFilter = 'ALL' | 'RIFT_COINS' | 'PRISMATIC_ESSENCE';
+type TransactionCurrencyFilter = 'ALL' | 'PRISMATIC_ESSENCE';
 
 type WalletSummaryResponse = {
   wallet: {
-    riftCoins: number;
     prismaticEssence: number;
-    totalRiftCoinsEarned: number;
-    totalRiftCoinsSpent: number;
+    totalPrismaticEarned: number;
+    totalPrismaticSpent: number;
     updatedAt: string;
   };
-  market: {
-    totalSupplyCap: number;
-    circulatingSupply: number;
-    availableSupply: number;
-    utilizationPct: number;
-    spotBuyPriceRc: number;
-    spotSellPriceRc: number;
-    lastTradePriceRc: number | null;
-    marketCapRc: number;
-    sellSpreadBps: number;
-    basePriceRc: number;
-    slopeRc: number;
-  };
-  portfolio: {
-    prismaticValueInRc: number;
-    totalEstimatedValueRc: number;
-  };
-  economyGuidance: {
-    recommendedPrismaticSupplyCap: number;
-    recommendedStarterRiftCoins: number;
-    recommendedDailyRiftCoinsRange: { min: number; max: number };
-    note: string;
+  progression: {
+    level: number;
+    currentProgress: number;
+    nextLevelAt: number;
+    progressPct: number;
   };
 };
 
@@ -59,42 +41,16 @@ type WalletTransaction = {
   type: string;
   amount: number;
   balanceAfter: number;
-  unitPriceRc?: number | null;
   note?: string | null;
   metadata?: Record<string, any> | null;
   createdAt: string;
-};
-
-type WalletQuote = {
-  direction: TradeDirection;
-  amount: number;
-  canExecute: boolean;
-  reason?: string | null;
-  riftCoinsCost?: number;
-  riftCoinsProceeds?: number;
-  averageUnitPriceRc?: number;
-  postTradeWallet?: {
-    riftCoins: number;
-    prismaticEssence: number;
-  };
-  postTradeMarket?: {
-    circulatingSupply: number;
-    spotBuyPriceRc: number;
-    spotSellPriceRc: number;
-  };
-};
-
-type WalletQuoteResponse = {
-  direction: TradeDirection;
-  amount: number;
-  quote: WalletQuote;
 };
 
 type WalletQuest = {
   key: string;
   title: string;
   description: string;
-  rewardRiftCoins: number;
+  rewardPrismaticEssence: number;
   repeatWindow: 'DAILY' | 'ONE_TIME';
   available: boolean;
   eligible: boolean;
@@ -103,26 +59,36 @@ type WalletQuest = {
   nextClaimAt: string | null;
 };
 
-function formatCompact(value: number) {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-  return value.toString();
-}
+type WalletAction = {
+  key: string;
+  title: string;
+  description: string;
+  category: 'Loot' | 'Cosmetic' | 'Community';
+  costPrismaticEssence: number;
+  repeatable: boolean;
+  owned: boolean;
+  available: boolean;
+  blockedReason: string | null;
+  badgePreview: {
+    key: string;
+    name: string;
+    icon: string;
+  } | null;
+};
 
-function formatSignedAmount(value: number, currency: 'RIFT_COINS' | 'PRISMATIC_ESSENCE') {
+function formatSignedAmount(value: number) {
   const sign = value >= 0 ? '+' : '';
-  const suffix = currency === 'RIFT_COINS' ? 'RC' : 'PE';
-  return `${sign}${value.toLocaleString()} ${suffix}`;
+  return `${sign}${value.toLocaleString()} PE`;
 }
 
 function transactionLabel(type: string) {
   const labelMap: Record<string, string> = {
-    WELCOME_BONUS: 'Welcome Bonus',
+    WELCOME_BONUS: 'Genesis Grant',
     QUEST_REWARD: 'Quest Reward',
-    SHOP_PURCHASE: 'Shop Purchase',
-    CONVERT_BUY_PRISMATIC: 'Buy Prismatic',
-    CONVERT_SELL_PRISMATIC: 'Sell Prismatic',
-    ADMIN_ADJUSTMENT: 'Admin Adjustment',
+    SHOP_PURCHASE: 'Action Purchase',
+    ADMIN_ADJUSTMENT: 'Action Reward',
+    CONVERT_BUY_PRISMATIC: 'Legacy Conversion',
+    CONVERT_SELL_PRISMATIC: 'Legacy Conversion',
   };
 
   return labelMap[type] || type;
@@ -137,13 +103,9 @@ export default function PursePage() {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [quests, setQuests] = useState<WalletQuest[]>([]);
-
-  const [direction, setDirection] = useState<TradeDirection>('BUY_PE');
-  const [amount, setAmount] = useState(25);
-  const [quote, setQuote] = useState<WalletQuote | null>(null);
-  const [quoteLoading, setQuoteLoading] = useState(false);
-  const [tradeLoading, setTradeLoading] = useState(false);
+  const [actions, setActions] = useState<WalletAction[]>([]);
   const [questLoadingMap, setQuestLoadingMap] = useState<Record<string, boolean>>({});
+  const [actionLoadingMap, setActionLoadingMap] = useState<Record<string, boolean>>({});
   const [transactionFilter, setTransactionFilter] = useState<TransactionCurrencyFilter>('ALL');
 
   const authHeaders = useCallback(() => {
@@ -160,7 +122,7 @@ export default function PursePage() {
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
-      throw new Error(data?.error || 'Failed to load wallet summary.');
+      throw new Error(data?.error || 'Failed to load purse summary.');
     }
 
     return data as WalletSummaryResponse;
@@ -174,10 +136,24 @@ export default function PursePage() {
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
-      throw new Error(data?.error || 'Failed to load wallet quests.');
+      throw new Error(data?.error || 'Failed to load quests.');
     }
 
     return (data?.quests || []) as WalletQuest[];
+  }, [authHeaders]);
+
+  const loadActions = useCallback(async () => {
+    const headers = authHeaders();
+    if (!headers) return [] as WalletAction[];
+
+    const res = await fetch(`${API_URL}/api/wallet/actions`, { headers });
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      throw new Error(data?.error || 'Failed to load actions.');
+    }
+
+    return (data?.actions || []) as WalletAction[];
   }, [authHeaders]);
 
   const loadTransactions = useCallback(async (filter: TransactionCurrencyFilter) => {
@@ -185,7 +161,7 @@ export default function PursePage() {
     if (!headers) return [] as WalletTransaction[];
 
     const params = new URLSearchParams({
-      limit: '35',
+      limit: '40',
       offset: '0',
       currency: filter,
     });
@@ -213,9 +189,10 @@ export default function PursePage() {
       setTransactionsLoading(true);
 
       try {
-        const [nextSummary, nextQuests, nextTransactions] = await Promise.all([
+        const [nextSummary, nextQuests, nextActions, nextTransactions] = await Promise.all([
           loadSummary(),
           loadQuests(),
+          loadActions(),
           loadTransactions(transactionFilter),
         ]);
 
@@ -223,6 +200,7 @@ export default function PursePage() {
 
         setSummary(nextSummary);
         setQuests(nextQuests);
+        setActions(nextActions);
         setTransactions(nextTransactions);
       } catch (error: any) {
         if (!active) return;
@@ -240,129 +218,28 @@ export default function PursePage() {
     return () => {
       active = false;
     };
-  }, [user, loadSummary, loadQuests, loadTransactions, transactionFilter, showToast]);
+  }, [user, loadSummary, loadQuests, loadActions, loadTransactions, transactionFilter, showToast]);
 
   useEffect(() => {
     if (!user) return;
 
     const interval = setInterval(async () => {
       try {
-        const [nextSummary, nextQuests] = await Promise.all([loadSummary(), loadQuests()]);
+        const [nextSummary, nextQuests, nextActions] = await Promise.all([
+          loadSummary(),
+          loadQuests(),
+          loadActions(),
+        ]);
         setSummary(nextSummary);
         setQuests(nextQuests);
+        setActions(nextActions);
       } catch {
-        // Silent polling failure
+        // Silent poll failure
       }
     }, 45_000);
 
     return () => clearInterval(interval);
-  }, [user, loadSummary, loadQuests]);
-
-  useEffect(() => {
-    let active = true;
-
-    const fetchQuote = async () => {
-      if (!user || !summary || !Number.isInteger(amount) || amount < 1) {
-        setQuote(null);
-        return;
-      }
-
-      setQuoteLoading(true);
-
-      try {
-        const headers = authHeaders();
-        if (!headers) return;
-
-        const params = new URLSearchParams({
-          direction,
-          amount: String(amount),
-        });
-
-        const res = await fetch(`${API_URL}/api/wallet/quote?${params.toString()}`, { headers });
-        const data = await res.json().catch(() => null);
-
-        if (!res.ok) {
-          throw new Error(data?.error || 'Failed to fetch quote.');
-        }
-
-        if (!active) return;
-        setQuote((data as WalletQuoteResponse).quote);
-      } catch (error: any) {
-        if (!active) return;
-        setQuote({
-          direction,
-          amount,
-          canExecute: false,
-          reason: error?.message || 'Failed to fetch quote.',
-        });
-      } finally {
-        if (active) {
-          setQuoteLoading(false);
-        }
-      }
-    };
-
-    const timeout = setTimeout(fetchQuote, 240);
-    return () => {
-      active = false;
-      clearTimeout(timeout);
-    };
-  }, [amount, direction, user, summary, authHeaders]);
-
-  const maxTradeAmount = useMemo(() => {
-    if (!summary) return 0;
-
-    if (direction === 'BUY_PE') {
-      const maxByCoins = Math.floor(summary.wallet.riftCoins / Math.max(1, summary.market.spotBuyPriceRc));
-      return Math.max(0, Math.min(maxByCoins, summary.market.availableSupply));
-    }
-
-    return Math.max(0, summary.wallet.prismaticEssence);
-  }, [summary, direction]);
-
-  const canTrade = Boolean(quote && quote.canExecute && !tradeLoading && amount > 0);
-
-  const handleTrade = async () => {
-    if (!canTrade || !user) return;
-
-    setTradeLoading(true);
-
-    try {
-      const headers = authHeaders();
-      if (!headers) {
-        throw new Error('Please sign in first.');
-      }
-
-      const res = await fetch(`${API_URL}/api/wallet/convert`, {
-        method: 'POST',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ direction, amount }),
-      });
-
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(data?.error || 'Trade failed.');
-      }
-
-      setSummary(data.summary as WalletSummaryResponse);
-      showToast(direction === 'BUY_PE' ? 'Prismatic Essence purchased successfully.' : 'Prismatic Essence sold successfully.', 'success');
-
-      const [nextTransactions, nextQuests] = await Promise.all([
-        loadTransactions(transactionFilter),
-        loadQuests(),
-      ]);
-
-      setTransactions(nextTransactions);
-      setQuests(nextQuests);
-    } catch (error: any) {
-      showToast(error?.message || 'Trade failed.', 'error');
-    } finally {
-      setTradeLoading(false);
-    }
-  };
+  }, [user, loadSummary, loadQuests, loadActions]);
 
   const handleClaimQuest = async (quest: WalletQuest) => {
     if (!quest.available || !user) return;
@@ -387,14 +264,63 @@ export default function PursePage() {
 
       setSummary(data.summary as WalletSummaryResponse);
       setQuests((data.quests || []) as WalletQuest[]);
-      showToast(`+${quest.rewardRiftCoins.toLocaleString()} RiftCoins claimed!`, 'success');
+      showToast(`+${quest.rewardPrismaticEssence.toLocaleString()} Prismatic Essence claimed!`, 'success');
 
-      const nextTransactions = await loadTransactions(transactionFilter);
+      const [nextTransactions, nextActions] = await Promise.all([
+        loadTransactions(transactionFilter),
+        loadActions(),
+      ]);
       setTransactions(nextTransactions);
+      setActions(nextActions);
     } catch (error: any) {
       showToast(error?.message || 'Failed to claim quest reward.', 'error');
     } finally {
       setQuestLoadingMap((prev) => ({ ...prev, [quest.key]: false }));
+    }
+  };
+
+  const handlePurchaseAction = async (action: WalletAction) => {
+    if (!action.available || !user) return;
+
+    setActionLoadingMap((prev) => ({ ...prev, [action.key]: true }));
+
+    try {
+      const headers = authHeaders();
+      if (!headers) {
+        throw new Error('Please sign in first.');
+      }
+
+      const res = await fetch(`${API_URL}/api/wallet/actions/${action.key}/purchase`, {
+        method: 'POST',
+        headers,
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to execute action.');
+      }
+
+      setSummary(data.summary as WalletSummaryResponse);
+      setActions((data.actions || []) as WalletAction[]);
+
+      const result = data?.result;
+      if (result?.rewardPrismaticEssence > 0) {
+        showToast(
+          `${result.cacheTier || 'Lucky'} cache! +${Number(result.rewardPrismaticEssence).toLocaleString()} PE (${Number(result.netPrismaticEssence).toLocaleString()} net).`,
+          'success'
+        );
+      } else if (result?.badgeGranted) {
+        showToast('Cosmetic unlocked on your profile badges.', 'success');
+      } else {
+        showToast('Action completed.', 'success');
+      }
+
+      const nextTransactions = await loadTransactions(transactionFilter);
+      setTransactions(nextTransactions);
+    } catch (error: any) {
+      showToast(error?.message || 'Failed to execute action.', 'error');
+    } finally {
+      setActionLoadingMap((prev) => ({ ...prev, [action.key]: false }));
     }
   };
 
@@ -404,7 +330,7 @@ export default function PursePage() {
         <div className="max-w-6xl mx-auto flex items-center justify-center py-24">
           <div
             className="h-14 w-14 rounded-full animate-spin border-4 border-t-transparent"
-            style={{ borderColor: 'var(--color-accent-1)', borderTopColor: 'transparent' }}
+            style={{ borderColor: '#67e8f9', borderTopColor: 'transparent' }}
           />
         </div>
       </div>
@@ -414,20 +340,26 @@ export default function PursePage() {
   if (!user) {
     return (
       <div className="min-h-screen px-4 py-10" style={{ background: 'var(--color-bg-primary)' }}>
-        <div className="max-w-2xl mx-auto rounded-2xl border p-8 text-center" style={{
-          borderColor: 'var(--color-border)',
-          background: 'linear-gradient(145deg, rgba(200,170,110,0.08), rgba(59,130,246,0.04))',
-        }}>
-          <h1 className="text-3xl font-bold mb-3" style={{ color: 'var(--color-accent-1)' }}>RiftCoin Purse</h1>
+        <div
+          className="max-w-2xl mx-auto rounded-2xl border p-8 text-center"
+          style={{
+            borderColor: 'var(--color-border)',
+            background: 'linear-gradient(155deg, rgba(34,211,238,0.12), rgba(168,85,247,0.08), rgba(244,114,182,0.1))',
+          }}
+        >
+          <h1 className="text-3xl font-bold mb-3 flex items-center justify-center gap-2" style={{ color: '#93c5fd' }}>
+            <PrismaticEssenceIcon className="text-3xl" />
+            Prismatic Purse
+          </h1>
           <p className="text-sm mb-6" style={{ color: 'var(--color-text-secondary)' }}>
-            Log in to manage your currencies, track your market value, and claim rewards.
+            Log in to claim quests, open caches, and forge exclusive prismatic cosmetics.
           </p>
           <Link
             href="/login"
             className="inline-flex items-center gap-2 px-5 py-3 rounded-lg font-semibold"
             style={{
-              background: 'linear-gradient(135deg, var(--color-accent-1), var(--color-accent-2))',
-              color: 'var(--color-bg-primary)',
+              background: 'linear-gradient(135deg, #22d3ee, #a78bfa, #f472b6)',
+              color: '#0b1220',
             }}
           >
             <FaWallet />
@@ -443,262 +375,109 @@ export default function PursePage() {
       className="min-h-screen px-4 py-8"
       style={{
         background: `
-          radial-gradient(1200px 500px at -10% -10%, rgba(200,170,110,0.15), transparent 58%),
-          radial-gradient(900px 450px at 110% 0%, rgba(56,189,248,0.11), transparent 62%),
+          radial-gradient(1100px 520px at -10% -10%, rgba(34,211,238,0.2), transparent 58%),
+          radial-gradient(900px 500px at 110% 0%, rgba(244,114,182,0.16), transparent 62%),
+          radial-gradient(700px 420px at 50% 100%, rgba(167,139,250,0.14), transparent 68%),
           var(--color-bg-primary)
         `,
       }}
     >
       <div className="max-w-6xl mx-auto space-y-6">
-        <header className="rounded-2xl border p-6" style={{
-          borderColor: 'var(--color-border)',
-          background: 'linear-gradient(150deg, rgba(11,13,18,0.92), rgba(22,27,39,0.86))',
-        }}>
-          <div className="flex flex-wrap items-start justify-between gap-4">
+        <header
+          className="rounded-2xl border p-6"
+          style={{
+            borderColor: 'rgba(125, 211, 252, 0.32)',
+            background: 'linear-gradient(145deg, rgba(12,17,29,0.95), rgba(26,18,39,0.86))',
+            boxShadow: '0 20px 48px rgba(17, 24, 39, 0.42)',
+          }}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                RiftEconomy
+              <p className="text-xs uppercase tracking-[0.22em] mb-2" style={{ color: '#93c5fd' }}>
+                Prismatic Essence
               </p>
-              <h1 className="text-3xl sm:text-4xl font-black mb-2" style={{ color: 'var(--color-accent-1)' }}>
+              <h1 className="text-3xl sm:text-4xl font-black mb-2 flex items-center gap-3" style={{ color: '#e2e8f0' }}>
+                <PrismaticEssenceIcon className="text-4xl" />
                 Purse
               </h1>
               <p className="text-sm max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
-                Manage RiftCoins, trade into Prismatic Essence, and grow your portfolio with a scarcity-based market curve.
+                RiftEssence now runs on one premium currency: Prismatic Essence. Complete quests, open caches, and spend it on unlockables.
               </p>
             </div>
+
             <div className="text-right">
-              <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
-                Estimated Net Value
+              <p className="text-xs uppercase tracking-wide" style={{ color: '#93c5fd' }}>
+                Current Balance
               </p>
-              <p className="text-2xl font-extrabold" style={{ color: 'var(--color-text-primary)' }}>
-                {(summary?.portfolio.totalEstimatedValueRc || 0).toLocaleString()} RC
+              <p className="text-3xl font-black inline-flex items-center gap-2" style={{ color: '#f8fafc' }}>
+                <PrismaticEssenceIcon className="text-3xl" />
+                {(summary?.wallet.prismaticEssence || 0).toLocaleString()} PE
               </p>
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                 Last update: {summary ? new Date(summary.wallet.updatedAt).toLocaleString() : '-'}
               </p>
             </div>
           </div>
+
+          <div className="mt-5 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(148, 163, 184, 0.22)' }}>
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${summary?.progression.progressPct || 0}%`,
+                background: 'linear-gradient(90deg, #22d3ee, #60a5fa, #a78bfa, #f472b6)',
+                transition: 'width 280ms ease',
+              }}
+            />
+          </div>
+          <p className="mt-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            Level {summary?.progression.level || 1} • {summary?.progression.currentProgress.toLocaleString() || 0} / 1,000 PE toward next level
+          </p>
         </header>
 
         <section className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(200,170,110,0.35)', background: 'rgba(200,170,110,0.09)' }}>
+          <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(56,189,248,0.42)', background: 'rgba(56,189,248,0.12)' }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>RiftCoins</span>
-              <FaCoins style={{ color: 'var(--color-accent-1)' }} />
+              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Total Earned</span>
+              <FaArrowUp style={{ color: '#7dd3fc' }} />
             </div>
             <p className="text-3xl font-black" style={{ color: 'var(--color-text-primary)' }}>
-              {(summary?.wallet.riftCoins || 0).toLocaleString()}
+              {(summary?.wallet.totalPrismaticEarned || 0).toLocaleString()}
             </p>
-            <p className="text-xs mt-2" style={{ color: 'var(--color-text-secondary)' }}>
-              Earned: {(summary?.wallet.totalRiftCoinsEarned || 0).toLocaleString()} RC
-            </p>
+            <p className="text-xs mt-2" style={{ color: 'var(--color-text-secondary)' }}>Lifetime Prismatic Essence gained.</p>
           </div>
 
-          <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(59,130,246,0.4)', background: 'rgba(59,130,246,0.09)' }}>
+          <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(244,114,182,0.42)', background: 'rgba(244,114,182,0.12)' }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Prismatic Essence</span>
-              <FaGem style={{ color: '#60a5fa' }} />
+              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Total Spent</span>
+              <FaArrowDown style={{ color: '#f9a8d4' }} />
             </div>
             <p className="text-3xl font-black" style={{ color: 'var(--color-text-primary)' }}>
-              {(summary?.wallet.prismaticEssence || 0).toLocaleString()}
+              {(summary?.wallet.totalPrismaticSpent || 0).toLocaleString()}
             </p>
-            <p className="text-xs mt-2" style={{ color: 'var(--color-text-secondary)' }}>
-              Mark-to-market: {(summary?.portfolio.prismaticValueInRc || 0).toLocaleString()} RC
-            </p>
+            <p className="text-xs mt-2" style={{ color: 'var(--color-text-secondary)' }}>Spent on cosmetics, caches, and community actions.</p>
           </div>
 
-          <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(16,185,129,0.4)', background: 'rgba(16,185,129,0.09)' }}>
+          <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(167,139,250,0.42)', background: 'rgba(167,139,250,0.12)' }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Market Pulse</span>
-              <FaExchangeAlt style={{ color: '#34d399' }} />
+              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Prismatic Level</span>
+              <FaGem style={{ color: '#c4b5fd' }} />
             </div>
             <p className="text-3xl font-black" style={{ color: 'var(--color-text-primary)' }}>
-              {summary ? `${summary.market.utilizationPct}%` : '0%'}
+              L{summary?.progression.level || 1}
             </p>
             <p className="text-xs mt-2" style={{ color: 'var(--color-text-secondary)' }}>
-              Supply utilization ({(summary?.market.circulatingSupply || 0).toLocaleString()} / {(summary?.market.totalSupplyCap || 0).toLocaleString()} PE)
+              {summary?.progression.progressPct || 0}% progress to the next milestone.
             </p>
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.05fr_1fr]">
-          <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(18,22,30,0.86)' }}>
-            <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>Prismatic Market</h2>
-
-            <div className="grid grid-cols-2 gap-3 mb-5">
-              <div className="rounded-lg p-3 border" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-                <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Buy Price</p>
-                <p className="text-lg font-bold" style={{ color: '#93c5fd' }}>{summary?.market.spotBuyPriceRc.toLocaleString()} RC</p>
-              </div>
-              <div className="rounded-lg p-3 border" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-                <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Sell Price</p>
-                <p className="text-lg font-bold" style={{ color: '#34d399' }}>{summary?.market.spotSellPriceRc.toLocaleString()} RC</p>
-              </div>
-              <div className="rounded-lg p-3 border" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-                <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Market Cap</p>
-                <p className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{(summary?.market.marketCapRc || 0).toLocaleString()} RC</p>
-              </div>
-              <div className="rounded-lg p-3 border" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-                <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Available PE</p>
-                <p className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{(summary?.market.availableSupply || 0).toLocaleString()}</p>
-              </div>
-            </div>
-
-            <div className="rounded-xl border p-4" style={{
-              borderColor: 'rgba(200,170,110,0.45)',
-              background: 'linear-gradient(145deg, rgba(200,170,110,0.12), rgba(26,32,48,0.35))',
-            }}>
-              <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--color-text-muted)' }}>
-                Economy Guidance
-              </p>
-              <p className="text-sm mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                Recommended launch supply: {summary?.economyGuidance.recommendedPrismaticSupplyCap.toLocaleString()} PE. Recommended starter wallet: {summary?.economyGuidance.recommendedStarterRiftCoins.toLocaleString()} RC.
-              </p>
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                {summary?.economyGuidance.note}
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(15,20,30,0.9)' }}>
-            <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>Convert Currencies</h2>
-
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => setDirection('BUY_PE')}
-                className="flex-1 px-3 py-2 rounded-lg text-sm font-semibold"
-                style={{
-                  background: direction === 'BUY_PE' ? 'rgba(59,130,246,0.2)' : 'var(--color-bg-tertiary)',
-                  color: direction === 'BUY_PE' ? '#93c5fd' : 'var(--color-text-secondary)',
-                  border: `1px solid ${direction === 'BUY_PE' ? 'rgba(59,130,246,0.45)' : 'var(--color-border)'}`,
-                }}
-              >
-                Buy Prismatic (RC → PE)
-              </button>
-              <button
-                onClick={() => setDirection('SELL_PE')}
-                className="flex-1 px-3 py-2 rounded-lg text-sm font-semibold"
-                style={{
-                  background: direction === 'SELL_PE' ? 'rgba(16,185,129,0.2)' : 'var(--color-bg-tertiary)',
-                  color: direction === 'SELL_PE' ? '#86efac' : 'var(--color-text-secondary)',
-                  border: `1px solid ${direction === 'SELL_PE' ? 'rgba(16,185,129,0.45)' : 'var(--color-border)'}`,
-                }}
-              >
-                Sell Prismatic (PE → RC)
-              </button>
-            </div>
-
-            <label className="block text-sm mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-              Amount ({direction === 'BUY_PE' ? 'PE to buy' : 'PE to sell'})
-            </label>
-            <div className="flex gap-2 mb-3">
-              <input
-                type="number"
-                min={1}
-                max={Math.max(1, maxTradeAmount)}
-                value={Number.isFinite(amount) ? amount : ''}
-                onChange={(event) => {
-                  const parsed = Math.max(1, Number(event.target.value || 0));
-                  setAmount(Number.isFinite(parsed) ? Math.floor(parsed) : 1);
-                }}
-                className="w-full px-4 py-3 rounded-lg"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
-              />
-              <button
-                onClick={() => setAmount(Math.max(1, maxTradeAmount))}
-                className="px-4 py-3 rounded-lg text-sm font-semibold"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-secondary)',
-                }}
-                type="button"
-              >
-                Max
-              </button>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mb-4">
-              {[1, 10, 25, 100].map((chip) => (
-                <button
-                  key={chip}
-                  onClick={() => setAmount((prev) => Math.max(1, prev + chip))}
-                  className="px-3 py-1.5 rounded-full text-xs font-semibold"
-                  style={{
-                    backgroundColor: 'rgba(200,170,110,0.14)',
-                    color: 'var(--color-accent-1)',
-                    border: '1px solid rgba(200,170,110,0.35)',
-                  }}
-                  type="button"
-                >
-                  +{chip}
-                </button>
-              ))}
-            </div>
-
-            <div className="rounded-lg border p-4 mb-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-              {quoteLoading ? (
-                <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Updating quote...</p>
-              ) : quote ? (
-                <>
-                  <div className="flex items-center justify-between text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                    <span>{direction === 'BUY_PE' ? 'Estimated Cost' : 'Estimated Proceeds'}</span>
-                    <strong style={{ color: 'var(--color-text-primary)' }}>
-                      {direction === 'BUY_PE'
-                        ? `${(quote.riftCoinsCost || 0).toLocaleString()} RC`
-                        : `${(quote.riftCoinsProceeds || 0).toLocaleString()} RC`}
-                    </strong>
-                  </div>
-                  <div className="flex items-center justify-between text-sm mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                    <span>Average Trade Price</span>
-                    <strong style={{ color: 'var(--color-text-primary)' }}>
-                      {(quote.averageUnitPriceRc || 0).toLocaleString()} RC / PE
-                    </strong>
-                  </div>
-                  {quote.postTradeWallet && (
-                    <div className="text-xs pt-2 border-t" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
-                      Post-trade: {formatCompact(quote.postTradeWallet.riftCoins)} RC • {formatCompact(quote.postTradeWallet.prismaticEssence)} PE
-                    </div>
-                  )}
-                  {quote.reason && (
-                    <div className="text-xs mt-2" style={{ color: '#fca5a5' }}>{quote.reason}</div>
-                  )}
-                </>
-              ) : (
-                <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Enter an amount to preview trade details.</p>
-              )}
-            </div>
-
-            <button
-              onClick={handleTrade}
-              disabled={!canTrade}
-              className="w-full px-4 py-3 rounded-lg font-semibold flex items-center justify-center gap-2"
-              style={{
-                background: canTrade
-                  ? 'linear-gradient(135deg, var(--color-accent-1), var(--color-accent-2))'
-                  : 'var(--color-bg-tertiary)',
-                color: canTrade ? 'var(--color-bg-primary)' : 'var(--color-text-muted)',
-                opacity: tradeLoading ? 0.8 : 1,
-              }}
-            >
-              {tradeLoading ? 'Processing trade...' : (
-                <>
-                  <FaExchangeAlt />
-                  {direction === 'BUY_PE' ? 'Buy Prismatic Essence' : 'Sell Prismatic Essence'}
-                </>
-              )}
-            </button>
-          </div>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-[0.95fr_1.15fr]">
-          <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(16,20,28,0.88)' }}>
-            <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>RiftCoin Rewards</h2>
-            <div className="space-y-3">
+        <section className="grid gap-6 lg:grid-cols-[1.04fr_0.96fr]">
+          <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(16,20,30,0.9)' }}>
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: '#93c5fd' }}>
+              <FaBolt />
+              Quests
+            </h2>
+            <div className="space-y-3 max-h-[620px] overflow-y-auto pr-1">
               {quests.map((quest) => (
                 <div key={quest.key} className="rounded-lg border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
                   <div className="flex items-start justify-between gap-3 mb-2">
@@ -707,7 +486,10 @@ export default function PursePage() {
                       <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{quest.description}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold" style={{ color: 'var(--color-accent-1)' }}>+{quest.rewardRiftCoins.toLocaleString()} RC</p>
+                      <p className="text-sm font-bold inline-flex items-center gap-1" style={{ color: '#67e8f9' }}>
+                        <PrismaticEssenceIcon />
+                        +{quest.rewardPrismaticEssence.toLocaleString()}
+                      </p>
                       <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
                         {quest.repeatWindow === 'DAILY' ? 'Daily' : 'One-time'}
                       </p>
@@ -743,9 +525,9 @@ export default function PursePage() {
                       disabled={!quest.available || Boolean(questLoadingMap[quest.key])}
                       className="px-3 py-2 rounded-lg text-xs font-semibold"
                       style={{
-                        backgroundColor: quest.available ? 'rgba(34,197,94,0.2)' : 'var(--color-bg-tertiary)',
+                        backgroundColor: quest.available ? 'rgba(34,197,94,0.22)' : 'var(--color-bg-tertiary)',
                         color: quest.available ? '#86efac' : 'var(--color-text-muted)',
-                        border: `1px solid ${quest.available ? 'rgba(34,197,94,0.45)' : 'var(--color-border)'}`,
+                        border: `1px solid ${quest.available ? 'rgba(34,197,94,0.5)' : 'var(--color-border)'}`,
                       }}
                     >
                       {questLoadingMap[quest.key] ? 'Claiming...' : 'Claim'}
@@ -756,74 +538,135 @@ export default function PursePage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(15,20,30,0.88)' }}>
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <h2 className="text-xl font-bold" style={{ color: 'var(--color-accent-1)' }}>Transaction Timeline</h2>
-              <div className="flex gap-2">
-                {(['ALL', 'RIFT_COINS', 'PRISMATIC_ESSENCE'] as TransactionCurrencyFilter[]).map((filterKey) => (
-                  <button
-                    key={filterKey}
-                    onClick={() => setTransactionFilter(filterKey)}
-                    className="px-3 py-1.5 rounded-full text-xs font-semibold"
-                    style={{
-                      backgroundColor: transactionFilter === filterKey ? 'rgba(200,170,110,0.2)' : 'var(--color-bg-tertiary)',
-                      color: transactionFilter === filterKey ? 'var(--color-accent-1)' : 'var(--color-text-secondary)',
-                      border: `1px solid ${transactionFilter === filterKey ? 'rgba(200,170,110,0.45)' : 'var(--color-border)'}`,
-                    }}
-                  >
-                    {filterKey === 'ALL' ? 'All' : filterKey === 'RIFT_COINS' ? 'RiftCoins' : 'Prismatic'}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(14,20,34,0.9)' }}>
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: '#c4b5fd' }}>
+              <FaMagic />
+              Prismatic Actions
+            </h2>
+            <div className="space-y-3 max-h-[620px] overflow-y-auto pr-1">
+              {actions.map((action) => {
+                const categoryIcon = action.category === 'Loot'
+                  ? <FaGem />
+                  : action.category === 'Cosmetic'
+                    ? <FaPalette />
+                    : <FaBolt />;
 
-            <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
-              {transactionsLoading ? (
-                <div className="rounded-lg border p-4" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
-                  Loading transactions...
-                </div>
-              ) : transactions.length === 0 ? (
-                <div className="rounded-lg border p-4" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
-                  No transactions yet.
-                </div>
-              ) : transactions.map((tx) => {
-                const positive = tx.amount >= 0;
                 return (
-                  <div key={tx.id} className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full" style={{
-                            backgroundColor: positive ? 'rgba(34,197,94,0.18)' : 'rgba(239,68,68,0.16)',
-                            color: positive ? '#86efac' : '#fda4af',
-                          }}>
-                            {positive ? <FaArrowUp size={11} /> : <FaArrowDown size={11} />}
-                          </span>
-                          <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
-                            {transactionLabel(tx.type)}
-                          </p>
-                        </div>
-                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          {tx.note || 'No memo'}
+                  <div key={action.key} className="rounded-lg border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div>
+                        <p className="font-semibold text-sm inline-flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
+                          {categoryIcon}
+                          {action.title}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{action.description}</p>
+                        <p className="text-[11px] mt-1" style={{ color: '#93c5fd' }}>
+                          {action.category} {action.repeatable ? '• Repeatable' : '• One-time'}
                         </p>
                       </div>
-
                       <div className="text-right">
-                        <p className="text-sm font-bold" style={{ color: positive ? '#86efac' : '#fda4af' }}>
-                          {formatSignedAmount(tx.amount, tx.currency)}
+                        <p className="text-sm font-bold inline-flex items-center gap-1" style={{ color: '#67e8f9' }}>
+                          <PrismaticEssenceIcon />
+                          {action.costPrismaticEssence.toLocaleString()}
                         </p>
-                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          Balance: {tx.balanceAfter.toLocaleString()} {tx.currency === 'RIFT_COINS' ? 'RC' : 'PE'}
-                        </p>
-                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          {new Date(tx.createdAt).toLocaleString()}
-                        </p>
+                        {action.owned && (
+                          <p className="text-[11px]" style={{ color: '#86efac' }}>Owned</p>
+                        )}
                       </div>
                     </div>
+
+                    {action.blockedReason && (
+                      <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>{action.blockedReason}</p>
+                    )}
+
+                    <button
+                      onClick={() => handlePurchaseAction(action)}
+                      disabled={!action.available || Boolean(actionLoadingMap[action.key])}
+                      className="w-full px-3 py-2 rounded-lg text-xs font-semibold"
+                      style={{
+                        background: action.available
+                          ? 'linear-gradient(135deg, #22d3ee, #a78bfa, #f472b6)'
+                          : 'var(--color-bg-tertiary)',
+                        color: action.available ? '#0b1220' : 'var(--color-text-muted)',
+                        border: `1px solid ${action.available ? 'rgba(125,211,252,0.6)' : 'var(--color-border)'}`,
+                      }}
+                    >
+                      {actionLoadingMap[action.key] ? 'Processing...' : 'Use Action'}
+                    </button>
                   </div>
                 );
               })}
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(15,20,30,0.88)' }}>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 className="text-xl font-bold" style={{ color: '#93c5fd' }}>Transaction Timeline</h2>
+            <div className="flex gap-2">
+              {(['ALL', 'PRISMATIC_ESSENCE'] as TransactionCurrencyFilter[]).map((filterKey) => (
+                <button
+                  key={filterKey}
+                  onClick={() => setTransactionFilter(filterKey)}
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold"
+                  style={{
+                    backgroundColor: transactionFilter === filterKey ? 'rgba(125,211,252,0.2)' : 'var(--color-bg-tertiary)',
+                    color: transactionFilter === filterKey ? '#7dd3fc' : 'var(--color-text-secondary)',
+                    border: `1px solid ${transactionFilter === filterKey ? 'rgba(125,211,252,0.45)' : 'var(--color-border)'}`,
+                  }}
+                >
+                  {filterKey === 'ALL' ? 'All' : 'Prismatic'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+            {transactionsLoading ? (
+              <div className="rounded-lg border p-4" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+                Loading transactions...
+              </div>
+            ) : transactions.length === 0 ? (
+              <div className="rounded-lg border p-4" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+                No transactions yet.
+              </div>
+            ) : transactions.map((tx) => {
+              const positive = tx.amount >= 0;
+              return (
+                <div key={tx.id} className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full" style={{
+                          backgroundColor: positive ? 'rgba(34,197,94,0.18)' : 'rgba(239,68,68,0.16)',
+                          color: positive ? '#86efac' : '#fda4af',
+                        }}>
+                          {positive ? <FaArrowUp size={11} /> : <FaArrowDown size={11} />}
+                        </span>
+                        <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
+                          {transactionLabel(tx.type)}
+                        </p>
+                      </div>
+                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                        {tx.note || 'No memo'}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-sm font-bold" style={{ color: positive ? '#86efac' : '#fda4af' }}>
+                        {formatSignedAmount(tx.amount)}
+                      </p>
+                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                        Balance: {tx.balanceAfter.toLocaleString()} {tx.currency === 'PRISMATIC_ESSENCE' ? 'PE' : 'legacy RC'}
+                      </p>
+                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                        {new Date(tx.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       </div>

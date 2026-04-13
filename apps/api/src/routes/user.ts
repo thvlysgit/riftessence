@@ -781,6 +781,40 @@ export default async function userRoutes(fastify: any) {
     }
   });
 
+  // Update user bio
+  fastify.patch('/bio', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { bio } = request.body as { bio?: string | null };
+
+      if (bio !== null && bio !== undefined && typeof bio !== 'string') {
+        return reply.status(400).send({ error: 'Invalid bio format' });
+      }
+
+      const normalizedBio = typeof bio === 'string' ? bio.trim() : '';
+      if (normalizedBio.length > 220) {
+        return reply.status(400).send({ error: 'Bio must be 220 characters or fewer.' });
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        return reply.status(404).send({ error: 'User not found' });
+      }
+
+      const updated = await prisma.user.update({
+        where: { id: user.id },
+        data: { bio: normalizedBio.length > 0 ? normalizedBio : null },
+      });
+
+      return reply.send({ success: true, bio: updated.bio });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to update bio' });
+    }
+  });
+
   // Toggle anonymous mode
   fastify.patch('/anonymous', async (request: any, reply: any) => {
     try {

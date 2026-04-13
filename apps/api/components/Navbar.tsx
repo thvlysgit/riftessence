@@ -5,11 +5,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { FaCoins } from 'react-icons/fa';
 import { useAuth } from '../../web/contexts/AuthContext';
 import { useTheme } from '../../web/contexts/ThemeContext';
 import { useLanguage } from '../../web/contexts/LanguageContext';
 import { getAuthHeader } from '../../web/utils/auth';
+import PrismaticEssenceIcon from '../../web/src/components/PrismaticEssenceIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -22,7 +22,6 @@ type SearchResult = {
 };
 
 type WalletNavbarSummary = {
-  riftCoins: number;
   prismaticEssence: number;
 };
 
@@ -172,7 +171,7 @@ export default function Navbar() {
     return () => clearInterval(interval);
   }, [user]);
 
-  // Fetch wallet summary for RiftCoins navbar badge
+  // Fetch wallet summary for Prismatic Essence navbar badge
   useEffect(() => {
     if (!user) {
       setWalletSummary(null);
@@ -192,10 +191,8 @@ export default function Navbar() {
 
         if (res.ok) {
           const data = await res.json();
-          const riftCoins = Number(data?.wallet?.riftCoins || 0);
           const prismaticEssence = Number(data?.wallet?.prismaticEssence || 0);
           setWalletSummary({
-            riftCoins: Number.isFinite(riftCoins) ? riftCoins : 0,
             prismaticEssence: Number.isFinite(prismaticEssence) ? prismaticEssence : 0,
           });
         }
@@ -513,12 +510,12 @@ export default function Navbar() {
               </div>
             )}
 
-            {/* RiftCoins Purse */}
+            {/* Prismatic Purse */}
             {user && (
               <Link
                 href="/purse"
                 className="hidden md:flex relative p-2 rounded-lg transition-colors"
-                title={walletSummary ? `Purse • ${walletSummary.riftCoins.toLocaleString()} RC` : 'Purse'}
+                title={walletSummary ? `Purse • ${walletSummary.prismaticEssence.toLocaleString()} PE` : 'Purse'}
                 style={{ color: 'var(--color-text-muted)' }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.color = 'var(--color-accent-1)';
@@ -529,7 +526,7 @@ export default function Navbar() {
                   e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
-                <FaCoins className="w-5 h-5" />
+                <PrismaticEssenceIcon className="w-5 h-5" />
                 {walletSummary && (
                   <span
                     className="absolute -top-1 -right-2 min-w-[22px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full"
@@ -539,7 +536,7 @@ export default function Navbar() {
                       padding: '0 6px',
                     }}
                   >
-                    {formatCompactBalance(walletSummary.riftCoins)}
+                    {formatCompactBalance(walletSummary.prismaticEssence)}
                   </span>
                 )}
               </Link>
@@ -644,7 +641,7 @@ export default function Navbar() {
                         <span>Purse</span>
                         {walletSummary && (
                           <span className="text-xs font-semibold" style={{ color: 'var(--color-accent-1)' }}>
-                            {formatCompactBalance(walletSummary.riftCoins)} RC
+                            {formatCompactBalance(walletSummary.prismaticEssence)} PE
                           </span>
                         )}
                       </div>
@@ -856,7 +853,7 @@ export default function Navbar() {
                   <span>Purse</span>
                   {walletSummary && (
                     <span className="text-xs font-semibold" style={{ color: 'var(--color-accent-1)' }}>
-                      {formatCompactBalance(walletSummary.riftCoins)} RC
+                      {formatCompactBalance(walletSummary.prismaticEssence)} PE
                     </span>
                   )}
                 </div>

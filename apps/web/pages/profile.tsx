@@ -514,6 +514,7 @@ export default function ProfilePage() {
   const [selectedPlaystyles, setSelectedPlaystyles] = useState<string[]>([]);
   const [anonymousMode, setAnonymousMode] = useState(false);
   const [editedUsername, setEditedUsername] = useState<string>('');
+  const [editedBio, setEditedBio] = useState<string>('');
   const [editedLanguages, setEditedLanguages] = useState<string[]>([]);
   const [pendingMainAccountId, setPendingMainAccountId] = useState<string | null>(null);
   const [_championPoolMode, setChampionPoolMode] = useState<'LIST' | 'TIERLIST'>('TIERLIST');
@@ -674,6 +675,7 @@ export default function ProfilePage() {
         setSelectedPlaystyles(data.playstyles || []);
         setAnonymousMode(data.anonymous || false);
         setEditedUsername(data.username || '');
+        setEditedBio(data.bio || '');
         setEditedLanguages(data.languages || []);
         setChampionPoolMode(data.championPoolMode || 'TIERLIST');
         setChampionTierlist(
@@ -698,6 +700,7 @@ export default function ProfilePage() {
             .then(refreshedData => {
               if (refreshedData) {
                 setUser(refreshedData);
+                setEditedBio(refreshedData.bio || '');
                 const updatedMainAccount = refreshedData.riotAccounts.find((acc: RiotAccount) => acc.isMain);
                 setPendingMainAccountId(updatedMainAccount?.id || refreshedData.riotAccounts[0]?.id || null);
               }
@@ -869,6 +872,28 @@ export default function ProfilePage() {
         return;
       }
 
+      // Save bio if changed (only when viewing own profile)
+      try {
+        const normalizedEditedBio = (editedBio || '').trim();
+        const normalizedCurrentBio = (user?.bio || '').trim();
+        if (!isViewingOther && normalizedEditedBio !== normalizedCurrentBio) {
+          const bioRes = await fetch(`${API_URL}/api/user/bio`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            body: JSON.stringify({ bio: normalizedEditedBio }),
+          });
+          if (!bioRes.ok) {
+            const err = await bioRes.json().catch(() => ({ error: 'Failed to update bio' }));
+            throw new Error(err.error || 'Failed to update bio');
+          }
+        }
+      } catch (err: any) {
+        console.error('Bio save error:', err);
+        showToast(`Failed to update bio: ${err.message}`, 'error');
+        setIsSaving(false);
+        return;
+      }
+
       // Save languages if changed (only when viewing own profile)
       try {
         const sortedEditedLangs = [...editedLanguages].sort();
@@ -988,6 +1013,7 @@ export default function ProfilePage() {
         setUser(data);
         setSelectedPlaystyles(data.playstyles || []);
         setEditedUsername(data.username || '');
+        setEditedBio(data.bio || '');
         setEditedLanguages(data.languages || []);
         setChampionPoolMode(data.championPoolMode || 'TIERLIST');
         setChampionTierlist(
@@ -1342,6 +1368,7 @@ export default function ProfilePage() {
               if (isEditMode) {
                 setSelectedPlaystyles(user.playstyles || []);
                 setEditedUsername(user.username || '');
+                setEditedBio(user.bio || '');
                 setEditedLanguages(user.languages || []);
                 const mainAccount = user.riotAccounts.find(acc => acc.isMain);
                 setPendingMainAccountId(mainAccount?.id || user.riotAccounts[0]?.id || null);
@@ -1437,9 +1464,31 @@ export default function ProfilePage() {
                   )}
                 </div>
               )}
-              {user.bio && (
+              {isEditMode ? (
+                <div className="mt-2 max-w-2xl">
+                  <label className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                    {t('profile.bio')}
+                  </label>
+                  <textarea
+                    value={editedBio}
+                    onChange={(event) => setEditedBio(event.target.value.slice(0, 220))}
+                    rows={3}
+                    maxLength={220}
+                    className="w-full mt-1 px-3 py-2 rounded-lg border focus:outline-none"
+                    style={{
+                      background: 'var(--bg-input)',
+                      borderColor: 'var(--border-card)',
+                      color: 'var(--text-main)',
+                    }}
+                    placeholder="Tell players what kind of teammate you are looking for."
+                  />
+                  <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                    {editedBio.length}/220
+                  </p>
+                </div>
+              ) : user.bio ? (
                 <p className="text-sm mt-2" style={{ color: 'var(--text-main)' }}>{user.bio}</p>
-              )}
+              ) : null}
 
               {/* Badges - refined hover visuals with animated tooltip */}
               {user.badges && user.badges.length > 0 && (
