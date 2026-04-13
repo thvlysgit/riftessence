@@ -121,10 +121,7 @@ async function build() {
     const normalizedOrigin = normalizeOrigin(origin);
     if (!normalizedOrigin) return false;
 
-    if (env.NODE_ENV !== 'production') {
-      return developmentOrigins.has(normalizedOrigin) || isLocalOrigin(normalizedOrigin);
-    }
-
+    // Always allow canonical production origins, even if NODE_ENV is misconfigured.
     if (productionOrigins.has(normalizedOrigin)) {
       return true;
     }
@@ -132,10 +129,18 @@ async function build() {
     // Allow trusted subdomains under riftessence.app if needed (e.g. previews).
     try {
       const parsed = new URL(normalizedOrigin);
-      return parsed.protocol === 'https:' && parsed.hostname.endsWith('.riftessence.app');
+      if (parsed.protocol === 'https:' && parsed.hostname.endsWith('.riftessence.app')) {
+        return true;
+      }
     } catch {
-      return false;
+      // Continue with environment-specific checks below.
     }
+
+    if (env.NODE_ENV !== 'production') {
+      return developmentOrigins.has(normalizedOrigin) || isLocalOrigin(normalizedOrigin);
+    }
+
+    return false;
   };
 
   // Register CORS FIRST before any other middleware

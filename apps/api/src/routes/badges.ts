@@ -2,6 +2,13 @@ import { FastifyInstance } from 'fastify';
 import prisma from '../prisma';
 import { requireAdmin } from '../middleware/auth';
 
+const PROTECTED_PRESTIGE_BADGE_KEYS = new Set([
+  'shop_fortune_coin',
+  'shop_oracle_dice',
+  'shop_jackpot_crown',
+  'shop_vault_ascendant',
+]);
+
 /**
  * Badge Management Routes (Admin only)
  * CRUD operations for badge creation, editing, deletion
@@ -46,6 +53,10 @@ export default async function badgeRoutes(fastify: FastifyInstance) {
 
       if (!key || !name) {
         return reply.code(400).send({ error: 'Key and name are required' });
+      }
+
+      if (PROTECTED_PRESTIGE_BADGE_KEYS.has(String(key).trim().toLowerCase())) {
+        return reply.code(403).send({ error: 'This prestige badge key is reserved and managed by the cosmetics system.' });
       }
 
       // Check if badge key already exists
@@ -95,6 +106,19 @@ export default async function badgeRoutes(fastify: FastifyInstance) {
         animation?: string;
       };
 
+      const existingBadge = await prisma.badge.findUnique({
+        where: { id: badgeId },
+        select: { key: true },
+      });
+
+      if (!existingBadge) {
+        return reply.code(404).send({ error: 'Badge not found' });
+      }
+
+      if (PROTECTED_PRESTIGE_BADGE_KEYS.has(existingBadge.key.toLowerCase())) {
+        return reply.code(403).send({ error: 'Prestige shop badges are hardcoded and cannot be edited.' });
+      }
+
       const updateData: any = {};
       if (name !== undefined) updateData.name = name;
       if (description !== undefined) updateData.description = description;
@@ -125,6 +149,19 @@ export default async function badgeRoutes(fastify: FastifyInstance) {
 
     try {
       const { badgeId } = request.params as { badgeId: string };
+
+      const existingBadge = await prisma.badge.findUnique({
+        where: { id: badgeId },
+        select: { key: true },
+      });
+
+      if (!existingBadge) {
+        return reply.code(404).send({ error: 'Badge not found' });
+      }
+
+      if (PROTECTED_PRESTIGE_BADGE_KEYS.has(existingBadge.key.toLowerCase())) {
+        return reply.code(403).send({ error: 'Prestige shop badges are hardcoded and cannot be deleted.' });
+      }
 
       await prisma.badge.delete({
         where: { id: badgeId },

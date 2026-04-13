@@ -4,10 +4,12 @@ import {
   FaBullhorn,
   FaBolt,
   FaCheckCircle,
+  FaCrown,
+  FaDiceD20,
   FaFont,
   FaGem,
   FaPalette,
-  FaStar,
+  FaTrophy,
 } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import { useGlobalUI } from '../../api/components/GlobalUI';
@@ -16,7 +18,7 @@ import PrismaticEssenceIcon from '../src/components/PrismaticEssenceIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
-type CosmeticCategory = 'BADGE' | 'USERNAME_DECORATION' | 'HOVER_EFFECT' | 'VISUAL_EFFECT' | 'FONT';
+type CosmeticCategory = 'BADGE' | 'USERNAME_DECORATION' | 'VISUAL_EFFECT' | 'FONT';
 
 type CosmeticItem = {
   key: string;
@@ -64,7 +66,6 @@ const EMPTY_SHOP: ShopState = {
 const CATEGORY_ORDER: CosmeticCategory[] = [
   'BADGE',
   'USERNAME_DECORATION',
-  'HOVER_EFFECT',
   'VISUAL_EFFECT',
   'FONT',
 ];
@@ -80,13 +81,8 @@ const CATEGORY_META: Record<CosmeticCategory, { label: string; icon: React.React
     icon: <FaPalette />,
     color: '#60A5FA',
   },
-  HOVER_EFFECT: {
-    label: 'Username Hover Effects',
-    icon: <FaStar />,
-    color: '#34D399',
-  },
   VISUAL_EFFECT: {
-    label: 'Visual Effects',
+    label: 'Profile Background Effects',
     icon: <FaBolt />,
     color: '#A78BFA',
   },
@@ -99,10 +95,75 @@ const CATEGORY_META: Record<CosmeticCategory, { label: string; icon: React.React
 
 const ACTIVATABLE_CATEGORIES = new Set<CosmeticCategory>([
   'USERNAME_DECORATION',
-  'HOVER_EFFECT',
   'VISUAL_EFFECT',
   'FONT',
 ]);
+
+const USERNAME_DECORATION_PREVIEW_STYLES: Record<string, React.CSSProperties> = {
+  USERNAME_GILDED_EDGE: {
+    textShadow: '0 0 10px rgba(251, 191, 36, 0.34)',
+    WebkitTextStroke: '0.6px rgba(245, 158, 11, 0.65)',
+  },
+  USERNAME_PRISMATIC_SLASH: {
+    backgroundImage: 'linear-gradient(92deg, #67e8f9, #93c5fd 35%, #a78bfa 68%, #f9a8d4)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 12px rgba(103, 232, 249, 0.28)',
+  },
+  USERNAME_SOLAR_FLARE: {
+    color: '#fde68a',
+    WebkitTextStroke: '0.65px rgba(194, 65, 12, 0.72)',
+    textShadow: '0 0 7px rgba(251, 146, 60, 0.52), 0 0 18px rgba(239, 68, 68, 0.35)',
+    letterSpacing: '0.015em',
+  },
+  USERNAME_VOID_GLASS: {
+    color: '#dbeafe',
+    WebkitTextStroke: '0.55px rgba(99, 102, 241, 0.55)',
+    textShadow: '0 0 8px rgba(96, 165, 250, 0.42), 0 0 20px rgba(147, 51, 234, 0.28)',
+    filter: 'drop-shadow(0 0 6px rgba(59, 130, 246, 0.28))',
+  },
+};
+
+const FONT_PREVIEW_FAMILIES: Record<string, string> = {
+  FONT_ORBITRON: 'Orbitron, "Segoe UI", sans-serif',
+  FONT_CINZEL: 'Cinzel, Georgia, serif',
+  FONT_EXO2: '"Exo 2", "Segoe UI", sans-serif',
+  FONT_RAJDHANI: 'Rajdhani, "Segoe UI", sans-serif',
+  FONT_AUDIOWIDE: 'Audiowide, "Segoe UI", sans-serif',
+  FONT_UNBOUNDED: 'Unbounded, "Segoe UI", sans-serif',
+  FONT_BEBAS_NEUE: '"Bebas Neue", "Segoe UI", sans-serif',
+};
+
+const VISUAL_EFFECT_PREVIEW_CLASSES: Record<string, string> = {
+  VISUAL_STARDUST: 'profile-visual-stardust',
+  VISUAL_SCANLINES: 'profile-visual-scanlines',
+  VISUAL_NEBULA_PULSE: 'profile-visual-nebula-pulse',
+};
+
+const PRESTIGE_BADGE_PREVIEW_META: Record<string, { icon: React.ReactNode; frame: string; glow: string }> = {
+  BADGE_FORTUNE_COIN: {
+    icon: <FaGem />,
+    frame: 'linear-gradient(145deg, rgba(180,83,9,0.5), rgba(249,115,22,0.42))',
+    glow: 'rgba(249,115,22,0.35)',
+  },
+  BADGE_ORACLE_DICE: {
+    icon: <FaDiceD20 />,
+    frame: 'linear-gradient(145deg, rgba(76,29,149,0.54), rgba(168,85,247,0.44))',
+    glow: 'rgba(168,85,247,0.34)',
+  },
+  BADGE_JACKPOT_CROWN: {
+    icon: <FaCrown />,
+    frame: 'linear-gradient(145deg, rgba(146,64,14,0.54), rgba(245,158,11,0.44))',
+    glow: 'rgba(245,158,11,0.34)',
+  },
+  BADGE_VAULT_ASCENDANT: {
+    icon: <FaTrophy />,
+    frame: 'linear-gradient(145deg, rgba(30,41,59,0.62), rgba(147,51,234,0.48))',
+    glow: 'rgba(234,179,8,0.34)',
+  },
+};
 
 export default function CosmeticsPage() {
   const { user } = useAuth();
@@ -177,7 +238,6 @@ export default function CosmeticsPage() {
     const groups: Record<CosmeticCategory, CosmeticItem[]> = {
       BADGE: [],
       USERNAME_DECORATION: [],
-      HOVER_EFFECT: [],
       VISUAL_EFFECT: [],
       FONT: [],
     };
@@ -210,6 +270,70 @@ export default function CosmeticsPage() {
         prismaticEssence: Number(data?.wallet?.prismaticEssence || 0),
       },
     });
+  };
+
+  const renderCosmeticPreview = (item: CosmeticItem) => {
+    if (item.category === 'BADGE') {
+      const meta = PRESTIGE_BADGE_PREVIEW_META[item.key] || {
+        icon: <FaGem />,
+        frame: 'linear-gradient(145deg, rgba(71,85,105,0.6), rgba(51,65,85,0.52))',
+        glow: 'rgba(148,163,184,0.24)',
+      };
+
+      return (
+        <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-card)', background: 'rgba(15,23,42,0.55)' }}>
+          <div
+            className="mx-auto h-14 w-14 rounded-2xl border flex items-center justify-center text-xl"
+            style={{
+              background: meta.frame,
+              borderColor: 'rgba(255,255,255,0.16)',
+              color: '#f8fafc',
+              boxShadow: `0 10px 20px ${meta.glow}`,
+            }}
+          >
+            {meta.icon}
+          </div>
+        </div>
+      );
+    }
+
+    if (item.category === 'USERNAME_DECORATION') {
+      const previewStyle = USERNAME_DECORATION_PREVIEW_STYLES[item.key] || undefined;
+      return (
+        <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-card)', background: 'rgba(15,23,42,0.55)' }}>
+          <p className="text-center text-lg font-bold" style={{ color: 'var(--accent-primary)', ...(previewStyle || {}) }}>
+            RiftEssence
+          </p>
+        </div>
+      );
+    }
+
+    if (item.category === 'VISUAL_EFFECT') {
+      const effectClass = VISUAL_EFFECT_PREVIEW_CLASSES[item.key] || '';
+      return (
+        <div className="rounded-lg border p-2" style={{ borderColor: 'var(--border-card)', background: 'rgba(15,23,42,0.55)' }}>
+          <div
+            className={`profile-card-shell rounded-lg h-16 flex items-center justify-center ${effectClass}`.trim()}
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-card)' }}
+          >
+            <span className="text-xs font-semibold" style={{ color: 'var(--text-main)' }}>Profile Background Preview</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (item.category === 'FONT') {
+      const fontFamily = FONT_PREVIEW_FAMILIES[item.key] || undefined;
+      return (
+        <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-card)', background: 'rgba(15,23,42,0.55)' }}>
+          <p className="text-center text-xl leading-tight" style={{ color: 'var(--text-main)', fontFamily }}>
+            RiftEssence
+          </p>
+        </div>
+      );
+    }
+
+    return null;
   };
 
   const handlePurchase = async (item: CosmeticItem) => {
@@ -272,7 +396,7 @@ export default function CosmeticsPage() {
     }
   };
 
-  const handleDeactivate = async (category: 'ALL' | 'USERNAME_DECORATION' | 'HOVER_EFFECT' | 'VISUAL_EFFECT' | 'FONT') => {
+  const handleDeactivate = async (category: 'ALL' | 'USERNAME_DECORATION' | 'VISUAL_EFFECT' | 'FONT') => {
     if (!user) return;
 
     setDeactivateLoading((prev) => ({ ...prev, [category]: true }));
@@ -415,9 +539,6 @@ export default function CosmeticsPage() {
                 <PrismaticEssenceIcon className="text-3xl" />
                 {shop.wallet.prismaticEssence.toLocaleString()} PE
               </p>
-              <p className="text-sm inline-flex items-center gap-2" style={{ color: '#86efac' }}>
-                <FaBullhorn /> {shop.adCredits.toLocaleString()} ad credit{shop.adCredits === 1 ? '' : 's'}
-              </p>
             </div>
           </div>
         </header>
@@ -446,7 +567,7 @@ export default function CosmeticsPage() {
                 {ACTIVATABLE_CATEGORIES.has(categoryKey) && (
                   <button
                     type="button"
-                    onClick={() => handleDeactivate(categoryKey as 'USERNAME_DECORATION' | 'HOVER_EFFECT' | 'VISUAL_EFFECT' | 'FONT')}
+                    onClick={() => handleDeactivate(categoryKey as 'USERNAME_DECORATION' | 'VISUAL_EFFECT' | 'FONT')}
                     disabled={!items.some((entry) => entry.active) || Boolean(deactivateLoading[categoryKey])}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold"
                     style={{
@@ -472,12 +593,13 @@ export default function CosmeticsPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{item.title}</p>
-                          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{item.description}</p>
                         </div>
                         <p className="text-sm font-bold inline-flex items-center gap-1" style={{ color: 'var(--accent-primary)' }}>
                           <PrismaticEssenceIcon /> {item.costPrismaticEssence.toLocaleString()}
                         </p>
                       </div>
+
+                      {renderCosmeticPreview(item)}
 
                       <div className="flex flex-wrap items-center gap-2 text-[11px]">
                         {item.owned && (

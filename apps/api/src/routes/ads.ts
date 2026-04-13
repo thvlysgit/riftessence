@@ -39,6 +39,14 @@ const VALID_AD_REGIONS = new Set([
   'RU',
 ]);
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function getRequestedAdCredits(startDate: Date, endDate: Date): number {
+  const diffMs = endDate.getTime() - startDate.getTime();
+  if (!Number.isFinite(diffMs) || diffMs <= 0) return 1;
+  return Math.max(1, Math.round(diffMs / MS_PER_DAY));
+}
+
 function truncateForDm(value: string, max = 200): string {
   const trimmed = value.trim();
   if (trimmed.length <= max) return trimmed;
@@ -231,6 +239,7 @@ export default async function adsRoutes(fastify: any) {
 
       const requestedDays = Number(days);
       const durationDays = Number.isFinite(requestedDays) ? Math.max(1, Math.min(14, Math.round(requestedDays))) : 3;
+      const requiredCredits = durationDays;
       const startDate = new Date();
       const endDate = new Date(startDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
@@ -244,14 +253,14 @@ export default async function adsRoutes(fastify: any) {
           throw new Error('User not found.');
         }
 
-        if ((user.adCredits || 0) < 1) {
-          throw new Error('You need at least one adspace credit.');
+        if ((user.adCredits || 0) < requiredCredits) {
+          throw new Error(`Need ${requiredCredits} adspace credits for ${durationDays} day(s).`);
         }
 
         await tx.user.update({
           where: { id: userId },
           data: {
-            adCredits: { decrement: 1 },
+            adCredits: { decrement: requiredCredits },
           },
         });
 
@@ -309,7 +318,8 @@ export default async function adsRoutes(fastify: any) {
       return reply.send({
         success: true,
         ad: requestResult.ad,
-        message: 'Ad request sent. Staff review is required before it goes live.',
+        creditsSpent: requiredCredits,
+        message: `Ad request sent for ${durationDays} day(s). ${requiredCredits} credit(s) were used. Staff review is required before it goes live.`,
       });
     } catch (error: any) {
       const message = typeof error?.message === 'string' ? error.message : null;
@@ -510,6 +520,7 @@ export default async function adsRoutes(fastify: any) {
         .map((ad: any) => ({
           ...ad,
           requesterUsername: creatorMap.get(ad.createdBy)?.username || null,
+          requestedCredits: getRequestedAdCredits(ad.startDate, ad.endDate),
           impressionCount: ad._count.impressions,
           clickCount: ad._count.clicks,
           ctr: ad._count.impressions > 0
@@ -614,6 +625,8 @@ export default async function adsRoutes(fastify: any) {
         return reply.code(400).send({ error: 'Cannot reject an already active ad.' });
       }
 
+      const refundableCredits = getRequestedAdCredits(existing.startDate, existing.endDate);
+
       await prisma.$transaction(async (tx: any) => {
         await tx.ad.delete({ where: { id } });
 
@@ -621,7 +634,7 @@ export default async function adsRoutes(fastify: any) {
           await tx.user.update({
             where: { id: existing.createdBy },
             data: {
-              adCredits: { increment: 1 },
+              adCredits: { increment: refundableCredits },
             },
           });
         }
@@ -630,7 +643,7 @@ export default async function adsRoutes(fastify: any) {
           data: {
             userId: existing.createdBy,
             type: 'ADMIN_TEST',
-            message: `[Ad Request Rejected] "${existing.title}" was not approved.${refundCredit ? ' 1 credit was refunded.' : ''}${reason ? ` Reason: ${String(reason).slice(0, 180)}` : ''}`,
+            message: `[Ad Request Rejected] "${existing.title}" was not approved.${refundCredit ? ` ${refundableCredits} credit${refundableCredits === 1 ? '' : 's'} were refunded.` : ''}${reason ? ` Reason: ${String(reason).slice(0, 180)}` : ''}`,
           },
         });
       });
@@ -639,10 +652,10 @@ export default async function adsRoutes(fastify: any) {
         adminId: userId,
         action: 'AD_DELETED',
         targetId: id,
-        details: { requestRejected: true, refundCredit, reason: reason || null },
+        details: { requestRejected: true, refundCredit, refundedCredits: refundCredit ? refundableCredits : 0, reason: reason || null },
       });
 
-      return reply.send({ success: true, refunded: Boolean(refundCredit) });
+      return reply.send({ success: true, refunded: Boolean(refundCredit), refundedCredits: refundCredit ? refundableCredits : 0 });
     } catch (error: any) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to reject ad request' });

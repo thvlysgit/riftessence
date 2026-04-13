@@ -47,7 +47,20 @@ type AdRequest = {
   createdBy: string;
   createdAt: string;
   requesterUsername?: string | null;
+  requestedCredits?: number;
 };
+
+function getRequestedCredits(requestAd: AdRequest): number {
+  if (Number.isFinite(Number(requestAd.requestedCredits)) && Number(requestAd.requestedCredits) > 0) {
+    return Math.max(1, Math.round(Number(requestAd.requestedCredits)));
+  }
+
+  const start = new Date(requestAd.startDate).getTime();
+  const end = new Date(requestAd.endDate).getTime();
+  const diff = end - start;
+  if (!Number.isFinite(diff) || diff <= 0) return 1;
+  return Math.max(1, Math.round(diff / (24 * 60 * 60 * 1000)));
+}
 
 type AdSettings = {
   duoFeedAdFrequency: number;
@@ -289,24 +302,27 @@ export default function AdsManagementPage() {
     }
   }
 
-  async function handleRejectRequest(adId: string) {
+  async function handleRejectRequest(requestAd: AdRequest) {
+    const creditsToRefund = getRequestedCredits(requestAd);
     const ok = await confirm({
       title: 'Reject Ad Request',
-      message: 'Reject this request and refund 1 ad credit to the requester?',
+      message: `Reject this request and refund ${creditsToRefund} ad credit${creditsToRefund === 1 ? '' : 's'} to the requester?`,
       confirmText: 'Reject',
     });
 
     if (!ok) return;
 
     try {
-      const res = await fetch(`${API_URL}/api/ads/admin/requests/${adId}/reject`, {
+      const res = await fetch(`${API_URL}/api/ads/admin/requests/${requestAd.id}/reject`, {
         method: 'POST',
         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ refundCredit: true }),
       });
 
       if (res.ok) {
-        showToast('Ad request rejected', 'success');
+        const data = await res.json().catch(() => null);
+        const refundedCredits = Number(data?.refundedCredits || creditsToRefund);
+        showToast(`Ad request rejected (${refundedCredits} credit${refundedCredits === 1 ? '' : 's'} refunded)`, 'success');
         loadRequests();
       } else {
         const data = await res.json().catch(() => null);
@@ -677,6 +693,9 @@ export default function AdsManagementPage() {
                           <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
                             Duration: {new Date(requestAd.startDate).toLocaleDateString()} - {new Date(requestAd.endDate).toLocaleDateString()}
                           </span>
+                          <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'rgba(251,191,36,0.16)', color: '#fcd34d', border: '1px solid rgba(251,191,36,0.3)' }}>
+                            Cost: {getRequestedCredits(requestAd)} credit{getRequestedCredits(requestAd) === 1 ? '' : 's'}
+                          </span>
                         </div>
 
                         <div className="mt-4 flex gap-2">
@@ -688,7 +707,7 @@ export default function AdsManagementPage() {
                             Approve & Promote
                           </button>
                           <button
-                            onClick={() => handleRejectRequest(requestAd.id)}
+                            onClick={() => handleRejectRequest(requestAd)}
                             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                             style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}
                           >

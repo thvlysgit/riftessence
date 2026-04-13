@@ -41,6 +41,7 @@ export default function AdspacePage() {
   const [targetRegion, setTargetRegion] = useState<(typeof REGION_OPTIONS)[number]>('ALL');
   const [feed, setFeed] = useState<'all' | 'duo' | 'lft'>('all');
   const [days, setDays] = useState(3);
+  const requiredCredits = Math.max(1, Math.min(14, Math.round(Number(days) || 1)));
 
   const authHeaders = useCallback(() => {
     const headers = getAuthHeader();
@@ -141,8 +142,8 @@ export default function AdspacePage() {
     event.preventDefault();
 
     if (!user) return;
-    if (status.adCredits < 1) {
-      showToast('You need an ad credit first.', 'error');
+    if (status.adCredits < requiredCredits) {
+      showToast(`Need ${requiredCredits} ad credit${requiredCredits === 1 ? '' : 's'} for ${requiredCredits} day${requiredCredits === 1 ? '' : 's'}.`, 'error');
       return;
     }
 
@@ -160,7 +161,7 @@ export default function AdspacePage() {
         targetUrl,
         targetRegion,
         feed: feed === 'all' ? undefined : feed,
-        days,
+        days: requiredCredits,
       };
 
       const res = await fetch(`${API_URL}/api/ads/request-slot`, {
@@ -176,7 +177,8 @@ export default function AdspacePage() {
         throw new Error(data?.error || 'Failed to submit ad request.');
       }
 
-      showToast('Ad request submitted. It will go live after review.', 'success');
+      const spentCredits = Number(data?.creditsSpent || requiredCredits);
+      showToast(`Ad request submitted (${spentCredits} credit${spentCredits === 1 ? '' : 's'} used). It will go live after review.`, 'success');
       setTitle('');
       setDescription('');
       setImageUrl('');
@@ -480,7 +482,10 @@ export default function AdspacePage() {
                     Region: {targetRegion}
                   </span>
                   <span className="px-2 py-0.5 rounded-full" style={{ background: 'rgba(59,130,246,0.14)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.32)' }}>
-                    {days} day{days === 1 ? '' : 's'}
+                    {requiredCredits} day{requiredCredits === 1 ? '' : 's'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full" style={{ background: 'rgba(251,191,36,0.14)', color: '#fcd34d', border: '1px solid rgba(251,191,36,0.34)' }}>
+                    Cost: {requiredCredits} credit{requiredCredits === 1 ? '' : 's'}
                   </span>
                 </div>
               </div>
@@ -489,18 +494,18 @@ export default function AdspacePage() {
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
             <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              1 ad credit is consumed per request.
+              1 ad credit is consumed per day of ad runtime.
             </p>
             <button
               type="submit"
-              disabled={submitting || status.adCredits < 1}
+              disabled={submitting || status.adCredits < requiredCredits}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold"
               style={{
-                background: status.adCredits > 0
+                background: status.adCredits >= requiredCredits
                   ? 'var(--btn-gradient)'
                   : 'var(--color-bg-tertiary)',
-                color: status.adCredits > 0 ? 'var(--btn-gradient-text)' : 'var(--color-text-muted)',
-                border: `1px solid ${status.adCredits > 0 ? 'var(--accent-primary-border)' : 'var(--color-border)'}`,
+                color: status.adCredits >= requiredCredits ? 'var(--btn-gradient-text)' : 'var(--color-text-muted)',
+                border: `1px solid ${status.adCredits >= requiredCredits ? 'var(--accent-primary-border)' : 'var(--color-border)'}`,
               }}
             >
               {submitting ? 'Submitting...' : (

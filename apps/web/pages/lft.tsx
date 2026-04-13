@@ -306,6 +306,10 @@ const USERNAME_FONT_FAMILIES: Record<string, string> = {
   font_orbitron: 'Orbitron, "Segoe UI", sans-serif',
   font_cinzel: 'Cinzel, Georgia, serif',
   font_exo2: '"Exo 2", "Segoe UI", sans-serif',
+  font_rajdhani: 'Rajdhani, "Segoe UI", sans-serif',
+  font_audiowide: 'Audiowide, "Segoe UI", sans-serif',
+  font_unbounded: 'Unbounded, "Segoe UI", sans-serif',
+  font_bebas_neue: '"Bebas Neue", "Segoe UI", sans-serif',
 };
 
 const USERNAME_HOVER_EFFECT_CLASSES: Record<string, string> = {

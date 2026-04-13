@@ -541,6 +541,67 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
   },
 };
 
+const PRESTIGE_BADGE_CONFIG: Record<string, BadgeConfig> = {
+  shop_fortune_coin: {
+    icon: 'gem',
+    description: 'Fortune Sigil I',
+    bgColor: 'linear-gradient(140deg, rgba(180,83,9,0.38), rgba(249,115,22,0.32))',
+    borderColor: '#F97316',
+    textColor: '#FED7AA',
+    hoverBg: 'rgba(249,115,22,0.32)',
+    shape: 'bevel',
+    animation: 'spark',
+  },
+  shop_oracle_dice: {
+    icon: 'dice-d20',
+    description: 'Fortune Sigil II',
+    bgColor: 'linear-gradient(140deg, rgba(76,29,149,0.44), rgba(109,40,217,0.34))',
+    borderColor: '#A855F7',
+    textColor: '#E9D5FF',
+    hoverBg: 'rgba(168,85,247,0.32)',
+    shape: 'soft-hex',
+    animation: 'glint',
+  },
+  shop_jackpot_crown: {
+    icon: 'crown',
+    description: 'Fortune Sigil III',
+    bgColor: 'linear-gradient(140deg, rgba(120,53,15,0.44), rgba(180,83,9,0.36))',
+    borderColor: '#F59E0B',
+    textColor: '#FEF3C7',
+    hoverBg: 'rgba(245,158,11,0.32)',
+    shape: 'crest',
+    animation: 'drift',
+  },
+  shop_vault_ascendant: {
+    icon: 'trophy',
+    description: 'Fortune Sigil IV',
+    bgColor: 'linear-gradient(140deg, rgba(30,41,59,0.62), rgba(76,29,149,0.42))',
+    borderColor: '#EAB308',
+    textColor: '#FEFCE8',
+    hoverBg: 'rgba(234,179,8,0.28)',
+    shape: 'bevel',
+    animation: 'spark',
+  },
+};
+
+const PRESTIGE_BADGE_ALIASES: Record<string, keyof typeof PRESTIGE_BADGE_CONFIG> = {
+  fortunesigili: 'shop_fortune_coin',
+  fortunesigilii: 'shop_oracle_dice',
+  fortunesigiliii: 'shop_jackpot_crown',
+  fortunesigiliv: 'shop_vault_ascendant',
+};
+
+const resolvePrestigeBadgeConfig = (badgeLookupKey: string): BadgeConfig | null => {
+  const normalizedKey = badgeLookupKey.trim().toLowerCase();
+  if (PRESTIGE_BADGE_CONFIG[normalizedKey]) {
+    return PRESTIGE_BADGE_CONFIG[normalizedKey];
+  }
+
+  const compactKey = normalizedKey.replace(/[^a-z0-9]+/g, '');
+  const aliasKey = PRESTIGE_BADGE_ALIASES[compactKey];
+  return aliasKey ? PRESTIGE_BADGE_CONFIG[aliasKey] : null;
+};
+
 const USERNAME_DECORATION_STYLES: Record<string, React.CSSProperties> = {
   username_gilded_edge: {
     textShadow: '0 0 10px rgba(251, 191, 36, 0.34)',
@@ -572,6 +633,10 @@ const USERNAME_FONT_FAMILIES: Record<string, string> = {
   font_orbitron: 'Orbitron, "Segoe UI", sans-serif',
   font_cinzel: 'Cinzel, Georgia, serif',
   font_exo2: '"Exo 2", "Segoe UI", sans-serif',
+  font_rajdhani: 'Rajdhani, "Segoe UI", sans-serif',
+  font_audiowide: 'Audiowide, "Segoe UI", sans-serif',
+  font_unbounded: 'Unbounded, "Segoe UI", sans-serif',
+  font_bebas_neue: '"Bebas Neue", "Segoe UI", sans-serif',
 };
 
 const USERNAME_HOVER_EFFECT_CLASSES: Record<string, string> = {
@@ -1637,7 +1702,8 @@ export default function ProfilePage() {
                     {user.badges.map((badge) => {
                       const badgeLookupKey = typeof badge === 'string' ? badge : (badge.key || badge.name);
                       const badgeDisplayName = typeof badge === 'string' ? badge : (badge.name || badge.key);
-                      const config = badgeConfigs[badgeLookupKey] || BADGE_CONFIG[badgeLookupKey] || {
+                      const prestigeConfig = resolvePrestigeBadgeConfig(badgeLookupKey);
+                      const config = prestigeConfig || badgeConfigs[badgeLookupKey] || badgeConfigs[badgeLookupKey.toLowerCase()] || BADGE_CONFIG[badgeLookupKey] || BADGE_CONFIG[badgeDisplayName] || {
                         icon: 'trophy',
                         bgColor: 'var(--badge-bg)',
                         borderColor: 'var(--badge-border)',
