@@ -41,6 +41,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     payload?.code === 'ACCOUNT_BANNED' || payload?.code === 'IP_BLACKLISTED'
   );
 
+  const isInvalidSessionPayload = (payload: any) => {
+    const code = String(payload?.code || '').toUpperCase();
+    const message = String(payload?.error || '').toLowerCase();
+    return code === 'UNAUTHORIZED'
+      || code === 'TOKEN_EXPIRED'
+      || code === 'INVALID_TOKEN'
+      || message.includes('unauthorized')
+      || message.includes('invalid token')
+      || message.includes('token expired');
+  };
+
   // Load user from token on mount
   useEffect(() => {
     const loadUser = async () => {
@@ -55,9 +66,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
 
-          const res = await fetch(`${API_URL}/api/user/profile`, {
+          const fetchProfile = async () => fetch(`${API_URL}/api/user/profile`, {
             headers: getAuthHeader(),
           });
+
+          let res = await fetchProfile();
+          if (res.status === 401) {
+            const refreshed = await refreshAuthToken(API_URL);
+            if (refreshed) {
+              res = await fetchProfile();
+            }
+          }
+
           if (res.ok) {
             const data = await res.json();
             setUser({
@@ -88,9 +108,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               clearAllAuthState();
               setUser(null);
               router.push('/banned');
-            } else {
-              // Invalid token, clear it
+            } else if (res.status === 401 || (res.status === 403 && isInvalidSessionPayload(payload))) {
+              // Only clear session for explicit auth failures.
               clearAllAuthState();
+              setUser(null);
+            } else {
+              // Keep session token on transient backend/network errors to avoid false disconnects.
+              console.warn('Profile bootstrap failed without auth invalidation.', { status: res.status, payload });
             }
           }
         }
@@ -244,9 +268,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const token = getAuthToken();
       if (!token) return;
 
-      const res = await fetch(`${API_URL}/api/user/profile`, {
+      const fetchProfile = async () => fetch(`${API_URL}/api/user/profile`, {
         headers: getAuthHeader(),
       });
+
+      let res = await fetchProfile();
+      if (res.status === 401) {
+        const refreshed = await refreshAuthToken(API_URL);
+        if (refreshed) {
+          res = await fetchProfile();
+        }
+      }
+
       if (res.ok) {
         const data = await res.json();
         setUser({
@@ -277,6 +310,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearAllAuthState();
           setUser(null);
           router.push('/banned');
+        } else if (res.status === 401 || (res.status === 403 && isInvalidSessionPayload(payload))) {
+          clearAllAuthState();
+          setUser(null);
         }
       }
     } catch (err) {
