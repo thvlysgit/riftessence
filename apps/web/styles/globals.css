@@ -585,105 +585,26 @@ input[type="checkbox"]:checked::after {
   width: 1.2em;
   height: 1.2em;
   line-height: 1;
-  filter: drop-shadow(0 2px 6px rgba(14, 165, 233, 0.45));
+  filter: drop-shadow(0 2px 8px rgba(14, 165, 233, 0.52));
 }
 
-.prismatic-gem,
-.prismatic-gem-aura {
-  position: absolute;
-  inset: 0;
+.prismatic-shard-svg {
   width: 100%;
   height: 100%;
 }
 
-.prismatic-gem {
-  color: #60a5fa;
-  transform: scale(0.97);
+.prismatic-shard-group {
+  transform-origin: 32px 32px;
 }
 
-.prismatic-gem-aura {
-  color: #c084fc;
-  opacity: 0.38;
-  transform: scale(1.2);
-  filter: blur(1px);
+.prismatic-shard-piece {
+  fill: #22d3ee;
+  opacity: 0.98;
 }
 
 .prismatic-glint {
-  position: absolute;
-  width: 0.42em;
-  height: 0.42em;
-  top: -0.08em;
-  right: -0.04em;
-  color: #f8fafc;
-  opacity: 0.85;
+  fill: #e2f4ff;
+  opacity: 0.72;
 }
 
-.prismatic-icon-animated {
-  animation: prismaticFloat 3.2s ease-in-out infinite;
-}
-
-.prismatic-icon-animated .prismatic-gem {
-  animation: prismaticHueShift 4.8s linear infinite, prismaticPulse 2.1s ease-in-out infinite;
-}
-
-.prismatic-icon-animated .prismatic-gem-aura {
-  animation: prismaticHueShift 4.8s linear infinite reverse, prismaticAuraPulse 2.1s ease-in-out infinite;
-}
-
-.prismatic-icon-animated .prismatic-glint {
-  animation: prismaticGlint 1.7s ease-in-out infinite;
-}
-
-@keyframes prismaticFloat {
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-1.8px);
-  }
-}
-
-@keyframes prismaticHueShift {
-  0% {
-    filter: hue-rotate(0deg) saturate(1.05);
-  }
-  100% {
-    filter: hue-rotate(360deg) saturate(1.15);
-  }
-}
-
-@keyframes prismaticPulse {
-  0%,
-  100% {
-    transform: scale(0.97);
-  }
-  50% {
-    transform: scale(1.06);
-  }
-}
-
-@keyframes prismaticAuraPulse {
-  0%,
-  100% {
-    opacity: 0.28;
-    transform: scale(1.16);
-  }
-  50% {
-    opacity: 0.56;
-    transform: scale(1.28);
-  }
-}
-
-@keyframes prismaticGlint {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: translateY(0) scale(0.86);
-  }
-  50% {
-    opacity: 1;
-    transform: translateY(-1px) scale(1.2);
-  }
-}
 

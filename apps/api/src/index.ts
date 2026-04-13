@@ -71,15 +71,60 @@ if (!env.JWT_SECRET) {
 }
 
 async function build() {
+  const configuredOrigins = String(env.ALLOW_ORIGIN || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  const productionOrigins = new Set([
+    'https://riftessence.app',
+    'https://www.riftessence.app',
+    ...configuredOrigins,
+  ]);
+
+  const developmentOrigins = new Set([
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    ...configuredOrigins,
+  ]);
+
+  const isAllowedOrigin = (origin: string | undefined): boolean => {
+    if (!origin) return true; // server-side calls and curl without origin
+
+    if (env.NODE_ENV !== 'production') {
+      return true;
+    }
+
+    if (productionOrigins.has(origin)) {
+      return true;
+    }
+
+    // Allow trusted subdomains under riftessence.app if needed (e.g. previews).
+    try {
+      const parsed = new URL(origin);
+      return parsed.protocol === 'https:' && parsed.hostname.endsWith('.riftessence.app');
+    } catch {
+      return false;
+    }
+  };
+
   // Register CORS FIRST before any other middleware
   await server.register(cors, {
     origin: (origin, cb) => {
-      // Allow all origins in development
-      cb(null, true);
+      if (isAllowedOrigin(origin)) {
+        return cb(null, true);
+      }
+
+      if (env.NODE_ENV !== 'production' && developmentOrigins.has(origin || '')) {
+        return cb(null, true);
+      }
+
+      return cb(new Error('Origin not allowed by CORS'), false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin', 'Accept'],
+    maxAge: 86400,
   });
 
   // Register JWT for secure authentication
