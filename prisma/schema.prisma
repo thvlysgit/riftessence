@@ -116,6 +116,12 @@ model User {
   lastPostCreated DateTime?
   onboardingCompleted Boolean @default(false) // Track if user completed onboarding
   discordDmNotifications Boolean @default(false) // Opt-in: forward in-app chat messages to Discord DMs
+  unlockedCosmetics  String[]  @default([]) // Cosmetic item keys unlocked through PE shop
+  activeUsernameDecoration String?
+  activeHoverEffect  String?
+  activeVisualEffect String?
+  activeNameplateFont String?
+  adCredits          Int       @default(0) // Consumable ad-space request credits
   isBanned       Boolean   @default(false)
   bannedAt       DateTime?
   bannedReason   String?
@@ -328,6 +334,8 @@ enum WalletQuestKey {
   CREATE_FIRST_LFT_POST
   JOIN_FIRST_COMMUNITY
   LINK_DISCORD_ACCOUNT
+  ENABLE_DISCORD_DMS
+  JOIN_SUPPORT_SERVER
   RECEIVE_FIRST_FEEDBACK
   SEND_FIRST_CHAT_MESSAGE
 }

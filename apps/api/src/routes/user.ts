@@ -627,6 +627,12 @@ export default async function userRoutes(fastify: any) {
         discordLinked: !!user.discordAccount,
         discordUsername: user.discordAccount?.username || null,
         discordDmNotifications: user.discordDmNotifications || false,
+        unlockedCosmetics: user.unlockedCosmetics || [],
+        activeUsernameDecoration: user.activeUsernameDecoration || null,
+        activeHoverEffect: user.activeHoverEffect || null,
+        activeVisualEffect: user.activeVisualEffect || null,
+        activeNameplateFont: user.activeNameplateFont || null,
+        adCredits: user.adCredits || 0,
         communities: user.communityMemberships.map((m: any) => ({
           id: m.community.id,
           name: m.community.name,

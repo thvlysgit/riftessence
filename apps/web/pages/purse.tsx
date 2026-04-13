@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {
   FaArrowDown,
   FaArrowUp,
+  FaBullhorn,
   FaBolt,
   FaCheckCircle,
   FaClock,
@@ -401,8 +402,33 @@ export default function PursePage() {
                 Purse
               </h1>
               <p className="text-sm max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
-                RiftEssence now runs on one premium currency: Prismatic Essence. Complete quests, open caches, and spend it on unlockables.
+                Earn PE from quests, then spend it on cosmetics, adspace credits, and quick actions.
               </p>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  href="/cosmetics"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{
+                    background: 'rgba(125,211,252,0.18)',
+                    color: '#93c5fd',
+                    border: '1px solid rgba(125,211,252,0.35)',
+                  }}
+                >
+                  <FaPalette /> Cosmetics Shop
+                </Link>
+                <Link
+                  href="/adspace"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{
+                    background: 'rgba(249, 168, 212, 0.18)',
+                    color: '#f9a8d4',
+                    border: '1px solid rgba(249, 168, 212, 0.35)',
+                  }}
+                >
+                  <FaBullhorn /> Adspace
+                </Link>
+              </div>
             </div>
 
             <div className="text-right">
@@ -541,7 +567,7 @@ export default function PursePage() {
           <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(14,20,34,0.9)' }}>
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: '#c4b5fd' }}>
               <FaMagic />
-              Prismatic Actions
+              Quick Actions
             </h2>
             <div className="space-y-3 max-h-[620px] overflow-y-auto pr-1">
               {actions.map((action) => {

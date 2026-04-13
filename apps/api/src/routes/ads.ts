@@ -17,6 +17,15 @@ function hashIp(ip: string): string {
   return crypto.createHash('sha256').update(ip + 'ad_salt').digest('hex').substring(0, 16);
 }
 
+function isValidHttpUrl(raw: string): boolean {
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export default async function adsRoutes(fastify: any) {
   // GET /api/ads - Get active ads for a feed (public)
   fastify.get('/ads', async (request: any, reply: any) => {
@@ -93,6 +102,105 @@ export default async function adsRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to fetch ad settings' });
+    }
+  });
+
+  // POST /api/ads/request-slot - Submit an ad slot request using one ad credit
+  fastify.post('/ads/request-slot', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { title, description, imageUrl, targetUrl, feed, days } = request.body as {
+        title?: string;
+        description?: string;
+        imageUrl?: string;
+        targetUrl?: string;
+        feed?: string;
+        days?: number;
+      };
+
+      const normalizedTitle = String(title || '').trim();
+      const normalizedImageUrl = String(imageUrl || '').trim();
+      const normalizedTargetUrl = String(targetUrl || '').trim();
+      const normalizedDescription = String(description || '').trim();
+
+      if (!normalizedTitle || normalizedTitle.length < 3 || normalizedTitle.length > 80) {
+        return reply.code(400).send({ error: 'Title must be between 3 and 80 characters.' });
+      }
+
+      if (!isValidHttpUrl(normalizedImageUrl) || !isValidHttpUrl(normalizedTargetUrl)) {
+        return reply.code(400).send({ error: 'imageUrl and targetUrl must be valid http/https URLs.' });
+      }
+
+      const normalizedFeed = String(feed || '').trim().toLowerCase();
+      const targetFeeds = normalizedFeed === 'duo' || normalizedFeed === 'lft' ? [normalizedFeed] : [];
+
+      const requestedDays = Number(days);
+      const durationDays = Number.isFinite(requestedDays) ? Math.max(1, Math.min(14, Math.round(requestedDays))) : 3;
+      const startDate = new Date();
+      const endDate = new Date(startDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+      const ad = await prisma.$transaction(async (tx: any) => {
+        const user = await tx.user.findUnique({
+          where: { id: userId },
+          select: { adCredits: true },
+        });
+
+        if (!user) {
+          throw new Error('User not found.');
+        }
+
+        if ((user.adCredits || 0) < 1) {
+          throw new Error('You need at least one adspace credit.');
+        }
+
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            adCredits: { decrement: 1 },
+          },
+        });
+
+        return tx.ad.create({
+          data: {
+            title: normalizedTitle,
+            description: normalizedDescription || 'Community ad request (pending staff review).',
+            imageUrl: normalizedImageUrl,
+            targetUrl: normalizedTargetUrl,
+            targetFeeds,
+            startDate,
+            endDate,
+            priority: 0,
+            isActive: false,
+            createdBy: userId,
+          },
+          select: {
+            id: true,
+            title: true,
+            targetUrl: true,
+            imageUrl: true,
+            targetFeeds: true,
+            startDate: true,
+            endDate: true,
+            isActive: true,
+            createdAt: true,
+          },
+        });
+      });
+
+      return reply.send({
+        success: true,
+        ad,
+        message: 'Ad request sent. Staff review is required before it goes live.',
+      });
+    } catch (error: any) {
+      const message = typeof error?.message === 'string' ? error.message : null;
+      if (message && message.length < 200) {
+        return reply.code(400).send({ error: message });
+      }
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to submit ad request.' });
     }
   });
 

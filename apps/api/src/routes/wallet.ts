@@ -30,6 +30,19 @@ type WalletRow = {
   updatedAt: Date;
 };
 
+type BadgeGrantConfig = {
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  bgColor: string;
+  borderColor: string;
+  textColor: string;
+  hoverBg: string;
+  shape: string;
+  animation: string;
+};
+
 type QuestDefinition = {
   title: string;
   description: string;
@@ -39,26 +52,26 @@ type QuestDefinition = {
 
 const QUEST_DEFINITIONS = {
   DAILY_CHECKIN: {
-    title: 'Daily Check-In',
-    description: 'Claim a daily burst of Prismatic Essence.',
+    title: 'Daily Login',
+    description: 'Open the purse and claim your daily PE.',
     rewardPrismaticEssence: 120,
     repeatWindow: 'DAILY',
   },
   DAILY_SOCIAL_SPARK: {
-    title: 'Daily Social Spark',
-    description: 'Send a chat message or publish a duo post today.',
+    title: 'Daily Social',
+    description: 'Send one chat message or publish one duo post today.',
     rewardPrismaticEssence: 95,
     repeatWindow: 'DAILY',
   },
   COMPLETE_PROFILE: {
     title: 'Complete Profile',
-    description: 'Add bio, region, primary role, and at least one language.',
+    description: 'Set your bio, region, primary role, and at least one language.',
     rewardPrismaticEssence: 320,
     repeatWindow: 'ONE_TIME',
   },
   CREATE_FIRST_DUO_POST: {
     title: 'Create First Duo Post',
-    description: 'Publish your first LFD duo post.',
+    description: 'Publish your first duo post in LFD.',
     rewardPrismaticEssence: 190,
     repeatWindow: 'ONE_TIME',
   },
@@ -75,9 +88,21 @@ const QUEST_DEFINITIONS = {
     repeatWindow: 'ONE_TIME',
   },
   LINK_DISCORD_ACCOUNT: {
-    title: 'Link Discord Account',
-    description: 'Link your Discord account from profile/settings.',
+    title: 'Authorize Discord Bot',
+    description: 'Link Discord from profile/settings to authorize the bot.',
+    rewardPrismaticEssence: 160,
+    repeatWindow: 'ONE_TIME',
+  },
+  ENABLE_DISCORD_DMS: {
+    title: 'Allow Discord DMs',
+    description: 'Enable Discord DM notifications in settings.',
     rewardPrismaticEssence: 140,
+    repeatWindow: 'ONE_TIME',
+  },
+  JOIN_SUPPORT_SERVER: {
+    title: 'Join Support Server',
+    description: 'Join the official support server/community.',
+    rewardPrismaticEssence: 210,
     repeatWindow: 'ONE_TIME',
   },
   RECEIVE_FIRST_FEEDBACK: {
@@ -97,81 +122,41 @@ const QUEST_DEFINITIONS = {
 type QuestKey = keyof typeof QUEST_DEFINITIONS;
 const QUEST_KEYS = Object.keys(QUEST_DEFINITIONS) as QuestKey[];
 
+const SUPPORT_DISCORD_INVITE_CODE = String(process.env.SUPPORT_DISCORD_INVITE_CODE || 'uypaWqmxx6').toLowerCase();
+const SUPPORT_COMMUNITY_HINTS = String(process.env.SUPPORT_COMMUNITY_HINTS || 'riftessence-support,support')
+  .split(',')
+  .map((entry) => entry.trim().toLowerCase())
+  .filter(Boolean);
+const SUPPORT_DISCORD_SERVER_IDS = new Set(
+  String(process.env.SUPPORT_DISCORD_SERVER_IDS || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+);
+
 type ActionDefinition = {
   title: string;
   description: string;
   costPrismaticEssence: number;
   repeatable: boolean;
-  category: 'Loot' | 'Cosmetic' | 'Community';
-  badgeGrant?: {
-    key: string;
-    name: string;
-    description: string;
-    icon: string;
-    bgColor: string;
-    borderColor: string;
-    textColor: string;
-    hoverBg: string;
-    shape: string;
-    animation: string;
-  };
+  category: 'Loot' | 'Community';
 };
 
 type ActionKey =
   | 'OPEN_PRISMATIC_CACHE'
-  | 'FORGE_AURORA_SIGIL'
-  | 'FORGE_CHROMA_WINGS'
   | 'COMMUNITY_WELL_DONATION';
 
 const ACTION_DEFINITIONS: Record<ActionKey, ActionDefinition> = {
   OPEN_PRISMATIC_CACHE: {
     title: 'Open Prismatic Cache',
-    description: 'Roll for a randomized essence payout. High variance, high hype.',
+    description: 'Spend PE for a random PE payout.',
     costPrismaticEssence: 110,
     repeatable: true,
     category: 'Loot',
   },
-  FORGE_AURORA_SIGIL: {
-    title: 'Forge Aurora Sigil',
-    description: 'Unlock an exclusive profile badge forged from aurora dust.',
-    costPrismaticEssence: 440,
-    repeatable: false,
-    category: 'Cosmetic',
-    badgeGrant: {
-      key: 'prismatic_aurora_sigil',
-      name: 'Prismatic Aurora Sigil',
-      description: 'Forged with condensed aurora essence.',
-      icon: 'atom',
-      bgColor: 'rgba(56, 189, 248, 0.16)',
-      borderColor: '#38BDF8',
-      textColor: '#7DD3FC',
-      hoverBg: 'rgba(56, 189, 248, 0.26)',
-      shape: 'halo',
-      animation: 'spark',
-    },
-  },
-  FORGE_CHROMA_WINGS: {
-    title: 'Forge Chroma Wings',
-    description: 'Unlock a premium rainbow-themed profile badge.',
-    costPrismaticEssence: 680,
-    repeatable: false,
-    category: 'Cosmetic',
-    badgeGrant: {
-      key: 'prismatic_chroma_wings',
-      name: 'Prismatic Chroma Wings',
-      description: 'A rare spectrum-forged crest.',
-      icon: 'magic',
-      bgColor: 'rgba(217, 70, 239, 0.16)',
-      borderColor: '#D946EF',
-      textColor: '#F5D0FE',
-      hoverBg: 'rgba(217, 70, 239, 0.26)',
-      shape: 'soft-hex',
-      animation: 'drift',
-    },
-  },
   COMMUNITY_WELL_DONATION: {
     title: 'Donate To Community Well',
-    description: 'Burn essence to support future community events and seasonal drops.',
+    description: 'Spend PE to support event drops and community pools.',
     costPrismaticEssence: 180,
     repeatable: true,
     category: 'Community',
@@ -179,6 +164,152 @@ const ACTION_DEFINITIONS: Record<ActionKey, ActionDefinition> = {
 };
 
 const ACTION_KEYS = Object.keys(ACTION_DEFINITIONS) as ActionKey[];
+
+type CosmeticCategory = 'BADGE' | 'USERNAME_DECORATION' | 'HOVER_EFFECT' | 'VISUAL_EFFECT' | 'FONT' | 'ADSPACE';
+
+type CosmeticDefinition = {
+  title: string;
+  description: string;
+  category: CosmeticCategory;
+  costPrismaticEssence: number;
+  repeatable: boolean;
+  unlockKey?: string;
+  adCredits?: number;
+  badgeGrant?: BadgeGrantConfig;
+};
+
+const COSMETIC_DEFINITIONS = {
+  BADGE_NOVA_SIGIL: {
+    title: 'Nova Sigil Badge',
+    description: 'Adds a clean luminous badge to your profile.',
+    category: 'BADGE',
+    costPrismaticEssence: 420,
+    repeatable: false,
+    badgeGrant: {
+      key: 'shop_nova_sigil',
+      name: 'Nova Sigil',
+      description: 'Unlocked through the Prismatic shop.',
+      icon: 'star',
+      bgColor: 'rgba(56, 189, 248, 0.16)',
+      borderColor: '#38BDF8',
+      textColor: '#BAE6FD',
+      hoverBg: 'rgba(56, 189, 248, 0.24)',
+      shape: 'squircle',
+      animation: 'glint',
+    },
+  },
+  BADGE_RIFT_SENTINEL: {
+    title: 'Rift Sentinel Badge',
+    description: 'A premium badge with a heavier look.',
+    category: 'BADGE',
+    costPrismaticEssence: 760,
+    repeatable: false,
+    badgeGrant: {
+      key: 'shop_rift_sentinel',
+      name: 'Rift Sentinel',
+      description: 'Unlocked through the Prismatic shop.',
+      icon: 'shield',
+      bgColor: 'rgba(129, 140, 248, 0.18)',
+      borderColor: '#818CF8',
+      textColor: '#C7D2FE',
+      hoverBg: 'rgba(129, 140, 248, 0.26)',
+      shape: 'crest',
+      animation: 'breathe',
+    },
+  },
+  USERNAME_GILDED_EDGE: {
+    title: 'Username: Gilded Edge',
+    description: 'Adds a warm gold edge to your username.',
+    category: 'USERNAME_DECORATION',
+    costPrismaticEssence: 340,
+    repeatable: false,
+    unlockKey: 'username_gilded_edge',
+  },
+  USERNAME_PRISMATIC_SLASH: {
+    title: 'Username: Prismatic Slash',
+    description: 'Adds a bright cyan/indigo split style to your username.',
+    category: 'USERNAME_DECORATION',
+    costPrismaticEssence: 520,
+    repeatable: false,
+    unlockKey: 'username_prismatic_slash',
+  },
+  HOVER_AURORA_RING: {
+    title: 'Hover: Aurora Ring',
+    description: 'Profile card gets an aurora border on hover.',
+    category: 'HOVER_EFFECT',
+    costPrismaticEssence: 460,
+    repeatable: false,
+    unlockKey: 'hover_aurora_ring',
+  },
+  HOVER_EMBER_TRAIL: {
+    title: 'Hover: Ember Trail',
+    description: 'Profile card gets a warm ember edge on hover.',
+    category: 'HOVER_EFFECT',
+    costPrismaticEssence: 590,
+    repeatable: false,
+    unlockKey: 'hover_ember_trail',
+  },
+  VISUAL_STARDUST: {
+    title: 'Visual FX: Stardust',
+    description: 'Adds subtle sparkle texture behind your profile header.',
+    category: 'VISUAL_EFFECT',
+    costPrismaticEssence: 530,
+    repeatable: false,
+    unlockKey: 'visual_stardust',
+  },
+  VISUAL_SCANLINES: {
+    title: 'Visual FX: Scanlines',
+    description: 'Adds a soft scanline sheen on your profile header.',
+    category: 'VISUAL_EFFECT',
+    costPrismaticEssence: 660,
+    repeatable: false,
+    unlockKey: 'visual_scanlines',
+  },
+  FONT_ORBITRON: {
+    title: 'Name Font: Orbitron',
+    description: 'Applies a futuristic font to your username.',
+    category: 'FONT',
+    costPrismaticEssence: 300,
+    repeatable: false,
+    unlockKey: 'font_orbitron',
+  },
+  FONT_CINZEL: {
+    title: 'Name Font: Cinzel',
+    description: 'Applies a serif display style to your username.',
+    category: 'FONT',
+    costPrismaticEssence: 300,
+    repeatable: false,
+    unlockKey: 'font_cinzel',
+  },
+  ADSPACE_SINGLE_SLOT: {
+    title: 'Adspace Credit (x1)',
+    description: 'Use one credit to submit one ad slot request.',
+    category: 'ADSPACE',
+    costPrismaticEssence: 900,
+    repeatable: true,
+    adCredits: 1,
+  },
+  ADSPACE_BUNDLE_SLOT: {
+    title: 'Adspace Credit Pack (x3)',
+    description: 'Three ad slot requests at a lower PE cost per slot.',
+    category: 'ADSPACE',
+    costPrismaticEssence: 2400,
+    repeatable: true,
+    adCredits: 3,
+  },
+} as const satisfies Record<string, CosmeticDefinition>;
+
+type CosmeticItemKey = keyof typeof COSMETIC_DEFINITIONS;
+const COSMETIC_KEYS = Object.keys(COSMETIC_DEFINITIONS) as CosmeticItemKey[];
+
+const ACTIVE_FIELD_BY_CATEGORY = {
+  USERNAME_DECORATION: 'activeUsernameDecoration',
+  HOVER_EFFECT: 'activeHoverEffect',
+  VISUAL_EFFECT: 'activeVisualEffect',
+  FONT: 'activeNameplateFont',
+} as const;
+
+type ActiveCosmeticField = (typeof ACTIVE_FIELD_BY_CATEGORY)[keyof typeof ACTIVE_FIELD_BY_CATEGORY];
 
 const WalletTransactionsQuerySchema = z.object({
   limit: z.preprocess((value) => (value === undefined ? 40 : Number(value)), z.number().int().min(1).max(100)).default(40),
@@ -210,6 +341,51 @@ function isKnownQuestKey(value: string): value is QuestKey {
 
 function isKnownActionKey(value: string): value is ActionKey {
   return (ACTION_KEYS as string[]).includes(value);
+}
+
+function isKnownCosmeticKey(value: string): value is CosmeticItemKey {
+  return (COSMETIC_KEYS as string[]).includes(value);
+}
+
+function hasJoinedSupportServer(memberships: Array<{ community: { slug: string; name: string; inviteLink: string | null; discordServerId: string | null } }>) {
+  return memberships.some((membership) => {
+    const slug = String(membership.community?.slug || '').toLowerCase();
+    const name = String(membership.community?.name || '').toLowerCase();
+    const inviteLink = String(membership.community?.inviteLink || '').toLowerCase();
+    const discordServerId = String(membership.community?.discordServerId || '');
+
+    if (SUPPORT_DISCORD_SERVER_IDS.size > 0 && discordServerId && SUPPORT_DISCORD_SERVER_IDS.has(discordServerId)) {
+      return true;
+    }
+
+    if (SUPPORT_DISCORD_INVITE_CODE && inviteLink.includes(SUPPORT_DISCORD_INVITE_CODE)) {
+      return true;
+    }
+
+    if (name.includes('support')) {
+      return true;
+    }
+
+    return SUPPORT_COMMUNITY_HINTS.some((hint) => slug.includes(hint));
+  });
+}
+
+type UserCosmeticState = {
+  unlockedCosmetics: string[];
+  activeUsernameDecoration: string | null;
+  activeHoverEffect: string | null;
+  activeVisualEffect: string | null;
+  activeNameplateFont: string | null;
+  adCredits: number;
+  badges: Array<{ key: string }>;
+};
+
+function getActiveFieldForCategory(category: CosmeticCategory): ActiveCosmeticField | null {
+  if (category === 'USERNAME_DECORATION') return ACTIVE_FIELD_BY_CATEGORY.USERNAME_DECORATION;
+  if (category === 'HOVER_EFFECT') return ACTIVE_FIELD_BY_CATEGORY.HOVER_EFFECT;
+  if (category === 'VISUAL_EFFECT') return ACTIVE_FIELD_BY_CATEGORY.VISUAL_EFFECT;
+  if (category === 'FONT') return ACTIVE_FIELD_BY_CATEGORY.FONT;
+  return null;
 }
 
 function buildProgression(totalEarned: number) {
@@ -346,7 +522,20 @@ async function loadQuestStatuses(userId: string) {
         region: true,
         primaryRole: true,
         languages: true,
+        discordDmNotifications: true,
         discordAccount: { select: { id: true } },
+        communityMemberships: {
+          select: {
+            community: {
+              select: {
+                slug: true,
+                name: true,
+                inviteLink: true,
+                discordServerId: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             posts: true,
@@ -469,7 +658,34 @@ async function loadQuestStatuses(userId: string) {
         completed = hasClaimedOnce;
         available = eligible && !completed;
         if (!eligible) {
-          reason = 'Link your Discord account first.';
+          reason = 'Link Discord first from profile/settings.';
+        } else if (completed) {
+          reason = 'Already claimed.';
+        }
+        break;
+      }
+
+      case 'ENABLE_DISCORD_DMS': {
+        eligible = Boolean(user.discordAccount) && Boolean(user.discordDmNotifications);
+        completed = hasClaimedOnce;
+        available = eligible && !completed;
+        if (!user.discordAccount) {
+          reason = 'Link Discord before enabling DM notifications.';
+        } else if (!user.discordDmNotifications) {
+          reason = 'Enable Discord DM notifications in settings.';
+        } else if (completed) {
+          reason = 'Already claimed.';
+        }
+        break;
+      }
+
+      case 'JOIN_SUPPORT_SERVER': {
+        const memberships = user.communityMemberships || [];
+        eligible = hasJoinedSupportServer(memberships as any);
+        completed = hasClaimedOnce;
+        available = eligible && !completed;
+        if (!eligible) {
+          reason = 'Join the official support server/community first.';
         } else if (completed) {
           reason = 'Already claimed.';
         }
@@ -521,21 +737,8 @@ async function loadQuestStatuses(userId: string) {
 
 async function buildActionStates(userId: string, wallet?: WalletRow) {
   const walletState = wallet || await ensureWalletState(userId, prisma);
-  const userWithBadges = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      badges: {
-        select: { key: true },
-      },
-    },
-  });
-
-  const ownedBadgeKeys = new Set((userWithBadges?.badges || []).map((badge: any) => badge.key));
-
   return ACTION_KEYS.map((actionKey) => {
     const definition = ACTION_DEFINITIONS[actionKey];
-    const ownsBadge = definition.badgeGrant ? ownedBadgeKeys.has(definition.badgeGrant.key) : false;
-    const blockedByOwnership = Boolean(definition.badgeGrant && !definition.repeatable && ownsBadge);
 
     return {
       key: actionKey,
@@ -544,20 +747,101 @@ async function buildActionStates(userId: string, wallet?: WalletRow) {
       category: definition.category,
       costPrismaticEssence: definition.costPrismaticEssence,
       repeatable: definition.repeatable,
-      owned: ownsBadge,
+      owned: false,
+      available: walletState.prismaticEssence >= definition.costPrismaticEssence,
+      blockedReason: walletState.prismaticEssence < definition.costPrismaticEssence
+        ? `Need ${definition.costPrismaticEssence.toLocaleString()} Prismatic Essence.`
+        : null,
+      badgePreview: null,
+    };
+  });
+}
+
+async function buildCosmeticStates(userId: string, wallet?: WalletRow) {
+  const walletState = wallet || await ensureWalletState(userId, prisma);
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      unlockedCosmetics: true,
+      activeUsernameDecoration: true,
+      activeHoverEffect: true,
+      activeVisualEffect: true,
+      activeNameplateFont: true,
+      adCredits: true,
+      badges: {
+        select: { key: true },
+      },
+    },
+  });
+
+  if (!user) {
+    return {
+      items: [],
+      adCredits: 0,
+      loadout: {
+        activeUsernameDecoration: null,
+        activeHoverEffect: null,
+        activeVisualEffect: null,
+        activeNameplateFont: null,
+      },
+      wallet: {
+        prismaticEssence: walletState.prismaticEssence,
+      },
+    };
+  }
+
+  const unlockedSet = new Set(user.unlockedCosmetics || []);
+  const ownedBadgeKeys = new Set((user.badges || []).map((badge: any) => badge.key));
+
+  const items = COSMETIC_KEYS.map((itemKey) => {
+    const definition = COSMETIC_DEFINITIONS[itemKey] as CosmeticDefinition;
+    const ownsBadge = definition.badgeGrant ? ownedBadgeKeys.has(definition.badgeGrant.key) : false;
+    const ownsUnlock = definition.unlockKey ? unlockedSet.has(definition.unlockKey) : false;
+    const owned = definition.badgeGrant ? ownsBadge : definition.unlockKey ? ownsUnlock : false;
+    const activeField = getActiveFieldForCategory(definition.category);
+    const active = Boolean(activeField && definition.unlockKey && (user as any)[activeField] === definition.unlockKey);
+    const blockedByOwnership = Boolean(!definition.repeatable && owned);
+
+    return {
+      key: itemKey,
+      title: definition.title,
+      description: definition.description,
+      category: definition.category,
+      costPrismaticEssence: definition.costPrismaticEssence,
+      repeatable: definition.repeatable,
+      owned,
+      active,
       available: walletState.prismaticEssence >= definition.costPrismaticEssence && !blockedByOwnership,
       blockedReason: blockedByOwnership
-        ? 'Already unlocked.'
+        ? 'Already owned.'
         : walletState.prismaticEssence < definition.costPrismaticEssence
           ? `Need ${definition.costPrismaticEssence.toLocaleString()} Prismatic Essence.`
           : null,
-      badgePreview: definition.badgeGrant ? {
-        key: definition.badgeGrant.key,
-        name: definition.badgeGrant.name,
-        icon: definition.badgeGrant.icon,
-      } : null,
+      unlockKey: definition.unlockKey || null,
+      adCreditsGrant: definition.adCredits || null,
+      badgePreview: definition.badgeGrant
+        ? {
+            key: definition.badgeGrant.key,
+            name: definition.badgeGrant.name,
+            icon: definition.badgeGrant.icon,
+          }
+        : null,
     };
   });
+
+  return {
+    items,
+    adCredits: user.adCredits || 0,
+    loadout: {
+      activeUsernameDecoration: user.activeUsernameDecoration || null,
+      activeHoverEffect: user.activeHoverEffect || null,
+      activeVisualEffect: user.activeVisualEffect || null,
+      activeNameplateFont: user.activeNameplateFont || null,
+    },
+    wallet: {
+      prismaticEssence: walletState.prismaticEssence,
+    },
+  };
 }
 
 export default async function walletRoutes(fastify: FastifyInstance) {
@@ -766,24 +1050,6 @@ export default async function walletRoutes(fastify: FastifyInstance) {
           throw new Error(`Need ${action.costPrismaticEssence.toLocaleString()} Prismatic Essence.`);
         }
 
-        let ownsBadge = false;
-        if (action.badgeGrant) {
-          const existingBadge = await tx.user.findFirst({
-            where: {
-              id: userId,
-              badges: {
-                some: { key: action.badgeGrant.key },
-              },
-            },
-            select: { id: true },
-          });
-          ownsBadge = Boolean(existingBadge);
-
-          if (!action.repeatable && ownsBadge) {
-            throw new Error('You already unlocked this cosmetic.');
-          }
-        }
-
         let nextBalance = wallet.prismaticEssence - action.costPrismaticEssence;
 
         await tx.wallet.update({
@@ -809,7 +1075,6 @@ export default async function walletRoutes(fastify: FastifyInstance) {
 
         let rewardPrismaticEssence = 0;
         let cacheTier: string | null = null;
-        let badgeGranted = false;
 
         if (actionKey === 'OPEN_PRISMATIC_CACHE') {
           const rewardRoll = rollPrismaticCacheReward();
@@ -842,53 +1107,13 @@ export default async function walletRoutes(fastify: FastifyInstance) {
           });
         }
 
-        if (action.badgeGrant && !ownsBadge) {
-          const badge = await tx.badge.upsert({
-            where: { key: action.badgeGrant.key },
-            update: {
-              name: action.badgeGrant.name,
-              description: action.badgeGrant.description,
-              icon: action.badgeGrant.icon,
-              bgColor: action.badgeGrant.bgColor,
-              borderColor: action.badgeGrant.borderColor,
-              textColor: action.badgeGrant.textColor,
-              hoverBg: action.badgeGrant.hoverBg,
-              shape: action.badgeGrant.shape,
-              animation: action.badgeGrant.animation,
-            },
-            create: {
-              key: action.badgeGrant.key,
-              name: action.badgeGrant.name,
-              description: action.badgeGrant.description,
-              icon: action.badgeGrant.icon,
-              bgColor: action.badgeGrant.bgColor,
-              borderColor: action.badgeGrant.borderColor,
-              textColor: action.badgeGrant.textColor,
-              hoverBg: action.badgeGrant.hoverBg,
-              shape: action.badgeGrant.shape,
-              animation: action.badgeGrant.animation,
-            },
-          });
-
-          await tx.user.update({
-            where: { id: userId },
-            data: {
-              badges: {
-                connect: { id: badge.id },
-              },
-            },
-          });
-
-          badgeGranted = true;
-        }
-
         return {
           actionKey,
           costPrismaticEssence: action.costPrismaticEssence,
           rewardPrismaticEssence,
           netPrismaticEssence: rewardPrismaticEssence - action.costPrismaticEssence,
           cacheTier,
-          badgeGranted,
+          badgeGranted: false,
         };
       });
 
@@ -909,6 +1134,232 @@ export default async function walletRoutes(fastify: FastifyInstance) {
       }
       request.log.error({ err: error }, 'Failed to purchase wallet action');
       return reply.code(500).send({ error: 'Failed to purchase action.' });
+    }
+  });
+
+  fastify.get('/wallet/cosmetics', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const wallet = await ensureWalletState(userId, prisma);
+      const cosmetics = await buildCosmeticStates(userId, wallet);
+
+      return reply.send(cosmetics);
+    } catch (error: any) {
+      request.log.error({ err: error }, 'Failed to load cosmetics shop');
+      return reply.code(500).send({ error: 'Failed to load cosmetics shop.' });
+    }
+  });
+
+  fastify.post('/wallet/cosmetics/:itemKey/purchase', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const rawItemKey = String(request.params?.itemKey || '').toUpperCase();
+      if (!isKnownCosmeticKey(rawItemKey)) {
+        return reply.code(404).send({ error: 'Cosmetic item not found.' });
+      }
+
+      const itemKey = rawItemKey as CosmeticItemKey;
+      const item = COSMETIC_DEFINITIONS[itemKey] as CosmeticDefinition;
+
+      const result = await prisma.$transaction(async (tx: any) => {
+        const wallet = await ensureWalletState(userId, tx);
+        const user = await tx.user.findUnique({
+          where: { id: userId },
+          select: {
+            unlockedCosmetics: true,
+            activeUsernameDecoration: true,
+            activeHoverEffect: true,
+            activeVisualEffect: true,
+            activeNameplateFont: true,
+            badges: { select: { key: true } },
+          },
+        });
+
+        if (!user) {
+          throw new Error('User not found.');
+        }
+
+        const ownsBadge = Boolean(item.badgeGrant && user.badges.some((badge: any) => badge.key === item.badgeGrant?.key));
+        const ownsUnlock = Boolean(item.unlockKey && (user.unlockedCosmetics || []).includes(item.unlockKey));
+        const alreadyOwned = item.badgeGrant ? ownsBadge : item.unlockKey ? ownsUnlock : false;
+
+        if (!item.repeatable && alreadyOwned) {
+          throw new Error('You already own this item.');
+        }
+
+        if (wallet.prismaticEssence < item.costPrismaticEssence) {
+          throw new Error(`Need ${item.costPrismaticEssence.toLocaleString()} Prismatic Essence.`);
+        }
+
+        const nextBalance = wallet.prismaticEssence - item.costPrismaticEssence;
+
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: {
+            prismaticEssence: nextBalance,
+            totalRiftCoinsSpent: { increment: item.costPrismaticEssence },
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            userId,
+            currency: 'PRISMATIC_ESSENCE',
+            type: 'SHOP_PURCHASE',
+            amount: -item.costPrismaticEssence,
+            balanceAfter: nextBalance,
+            note: item.title,
+            metadata: { itemKey, source: 'cosmetics_shop' },
+          },
+        });
+
+        let unlocked = false;
+        let badgeGranted = false;
+        let adCreditsAdded = 0;
+        let autoActivated = false;
+
+        const userUpdateData: any = {};
+        if (item.unlockKey && !ownsUnlock) {
+          userUpdateData.unlockedCosmetics = { push: item.unlockKey };
+          unlocked = true;
+
+          const activeField = getActiveFieldForCategory(item.category);
+          if (activeField && !(user as any)[activeField]) {
+            userUpdateData[activeField] = item.unlockKey;
+            autoActivated = true;
+          }
+        }
+
+        if (item.adCredits && item.adCredits > 0) {
+          userUpdateData.adCredits = { increment: item.adCredits };
+          adCreditsAdded = item.adCredits;
+        }
+
+        if (Object.keys(userUpdateData).length > 0) {
+          await tx.user.update({
+            where: { id: userId },
+            data: userUpdateData,
+          });
+        }
+
+        if (item.badgeGrant && !ownsBadge) {
+          const badge = await tx.badge.upsert({
+            where: { key: item.badgeGrant.key },
+            update: {
+              name: item.badgeGrant.name,
+              description: item.badgeGrant.description,
+              icon: item.badgeGrant.icon,
+              bgColor: item.badgeGrant.bgColor,
+              borderColor: item.badgeGrant.borderColor,
+              textColor: item.badgeGrant.textColor,
+              hoverBg: item.badgeGrant.hoverBg,
+              shape: item.badgeGrant.shape,
+              animation: item.badgeGrant.animation,
+            },
+            create: {
+              key: item.badgeGrant.key,
+              name: item.badgeGrant.name,
+              description: item.badgeGrant.description,
+              icon: item.badgeGrant.icon,
+              bgColor: item.badgeGrant.bgColor,
+              borderColor: item.badgeGrant.borderColor,
+              textColor: item.badgeGrant.textColor,
+              hoverBg: item.badgeGrant.hoverBg,
+              shape: item.badgeGrant.shape,
+              animation: item.badgeGrant.animation,
+            },
+          });
+
+          await tx.user.update({
+            where: { id: userId },
+            data: {
+              badges: {
+                connect: { id: badge.id },
+              },
+            },
+          });
+
+          badgeGranted = true;
+        }
+
+        return {
+          itemKey,
+          costPrismaticEssence: item.costPrismaticEssence,
+          unlocked,
+          badgeGranted,
+          adCreditsAdded,
+          autoActivated,
+        };
+      });
+
+      const [summary, cosmetics] = await Promise.all([
+        buildWalletSummary(userId),
+        buildCosmeticStates(userId),
+      ]);
+
+      return reply.send({
+        success: true,
+        result,
+        summary,
+        ...cosmetics,
+      });
+    } catch (error: any) {
+      if (error?.message && typeof error.message === 'string' && error.message.length < 220) {
+        return reply.code(400).send({ error: error.message });
+      }
+      request.log.error({ err: error }, 'Failed to purchase cosmetic item');
+      return reply.code(500).send({ error: 'Failed to purchase cosmetic item.' });
+    }
+  });
+
+  fastify.post('/wallet/cosmetics/:itemKey/activate', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const rawItemKey = String(request.params?.itemKey || '').toUpperCase();
+      if (!isKnownCosmeticKey(rawItemKey)) {
+        return reply.code(404).send({ error: 'Cosmetic item not found.' });
+      }
+
+      const itemKey = rawItemKey as CosmeticItemKey;
+      const item = COSMETIC_DEFINITIONS[itemKey] as CosmeticDefinition;
+      const activeField = getActiveFieldForCategory(item.category);
+
+      if (!activeField || !item.unlockKey) {
+        return reply.code(400).send({ error: 'This item cannot be activated.' });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { unlockedCosmetics: true },
+      });
+
+      if (!user || !(user.unlockedCosmetics || []).includes(item.unlockKey)) {
+        return reply.code(400).send({ error: 'You need to own this item before activating it.' });
+      }
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          [activeField]: item.unlockKey,
+        } as any,
+      });
+
+      const cosmetics = await buildCosmeticStates(userId);
+      return reply.send({
+        success: true,
+        itemKey,
+        ...cosmetics,
+      });
+    } catch (error: any) {
+      request.log.error({ err: error }, 'Failed to activate cosmetic item');
+      return reply.code(500).send({ error: 'Failed to activate cosmetic item.' });
     }
   });
 }

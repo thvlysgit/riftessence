@@ -348,6 +348,13 @@ type UserProfile = {
   riotAccounts: RiotAccount[];
   discordLinked: boolean;
   discordUsername: string | null;
+  discordDmNotifications?: boolean;
+  unlockedCosmetics?: string[];
+  activeUsernameDecoration?: string | null;
+  activeHoverEffect?: string | null;
+  activeVisualEffect?: string | null;
+  activeNameplateFont?: string | null;
+  adCredits?: number;
   communities: Community[];
   feedback: Feedback[];
 };
@@ -448,6 +455,36 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
     shape: 'crest',
     animation: 'spark',
   },
+};
+
+const USERNAME_DECORATION_STYLES: Record<string, React.CSSProperties> = {
+  username_gilded_edge: {
+    textShadow: '0 0 10px rgba(251, 191, 36, 0.34)',
+    WebkitTextStroke: '0.6px rgba(245, 158, 11, 0.65)',
+  },
+  username_prismatic_slash: {
+    backgroundImage: 'linear-gradient(92deg, #67e8f9, #93c5fd 35%, #a78bfa 68%, #f9a8d4)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 12px rgba(103, 232, 249, 0.28)',
+  },
+};
+
+const USERNAME_FONT_FAMILIES: Record<string, string> = {
+  font_orbitron: 'Orbitron, "Segoe UI", sans-serif',
+  font_cinzel: 'Cinzel, Georgia, serif',
+};
+
+const PROFILE_HOVER_EFFECT_CLASSES: Record<string, string> = {
+  hover_aurora_ring: 'profile-hover-aurora-ring',
+  hover_ember_trail: 'profile-hover-ember-trail',
+};
+
+const PROFILE_VISUAL_EFFECT_CLASSES: Record<string, string> = {
+  visual_stardust: 'profile-visual-stardust',
+  visual_scanlines: 'profile-visual-scanlines',
 };
 
 // Popular League champions for quick selection
@@ -1284,6 +1321,18 @@ export default function ProfilePage() {
 
   // Get main Riot account for display
   const mainAccount = user.riotAccounts.find(acc => acc.isMain) || user.riotAccounts[0];
+  const usernameDecorationStyle = user.activeUsernameDecoration
+    ? USERNAME_DECORATION_STYLES[user.activeUsernameDecoration]
+    : undefined;
+  const usernameFontFamily = user.activeNameplateFont
+    ? USERNAME_FONT_FAMILIES[user.activeNameplateFont]
+    : undefined;
+  const profileHoverEffectClass = user.activeHoverEffect
+    ? PROFILE_HOVER_EFFECT_CLASSES[user.activeHoverEffect] || ''
+    : '';
+  const profileVisualEffectClass = user.activeVisualEffect
+    ? PROFILE_VISUAL_EFFECT_CLASSES[user.activeVisualEffect] || ''
+    : '';
   
   return (
     <div className="min-h-screen py-8 px-4" style={{ background: 'var(--color-bg-primary)' }}>
@@ -1390,10 +1439,13 @@ export default function ProfilePage() {
         </div>
 
         {/* Profile Header */}
-        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
-          <div className="flex flex-col md:flex-row items-start gap-6">
+        <div
+          className={`rounded-xl p-4 sm:p-6 profile-card-shell ${profileHoverEffectClass} ${profileVisualEffectClass}`.trim()}
+          style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}
+        >
+          <div className="flex flex-col lg:flex-row items-start gap-6">
             {/* User Info with Icon */}
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 mb-2">
                 {/* Summoner Icon - next to username */}
                 <div className="relative flex-shrink-0">
@@ -1425,11 +1477,21 @@ export default function ProfilePage() {
                       color: 'var(--accent-primary)',
                       background: 'var(--bg-input)',
                       borderColor: 'var(--accent-primary)',
+                      fontFamily: usernameFontFamily || undefined,
                     }}
                     placeholder={t('profile.usernamePlaceholder')}
                   />
                 ) : (
-                  <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--accent-primary)' }}>{user.username}</h1>
+                  <h1
+                    className="text-2xl sm:text-3xl font-bold"
+                    style={{
+                      color: 'var(--accent-primary)',
+                      fontFamily: usernameFontFamily || undefined,
+                      ...(usernameDecorationStyle || {}),
+                    }}
+                  >
+                    {user.username}
+                  </h1>
                 )}
               </div>
               
@@ -1464,31 +1526,6 @@ export default function ProfilePage() {
                   )}
                 </div>
               )}
-              {isEditMode ? (
-                <div className="mt-2 max-w-2xl">
-                  <label className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                    {t('profile.bio')}
-                  </label>
-                  <textarea
-                    value={editedBio}
-                    onChange={(event) => setEditedBio(event.target.value.slice(0, 220))}
-                    rows={3}
-                    maxLength={220}
-                    className="w-full mt-1 px-3 py-2 rounded-lg border focus:outline-none"
-                    style={{
-                      background: 'var(--bg-input)',
-                      borderColor: 'var(--border-card)',
-                      color: 'var(--text-main)',
-                    }}
-                    placeholder="Tell players what kind of teammate you are looking for."
-                  />
-                  <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
-                    {editedBio.length}/220
-                  </p>
-                </div>
-              ) : user.bio ? (
-                <p className="text-sm mt-2" style={{ color: 'var(--text-main)' }}>{user.bio}</p>
-              ) : null}
 
               {/* Badges - refined hover visuals with animated tooltip */}
               {user.badges && user.badges.length > 0 && (
@@ -1673,6 +1710,56 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
+
+            <aside className="w-full lg:w-[320px]">
+              <div className="rounded-xl border p-4" style={{ background: 'var(--bg-input)', borderColor: 'var(--border-card)' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                    {t('profile.bio')}
+                  </p>
+                  {!isEditMode && (
+                    <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                      {(user.bio || '').length}/220
+                    </span>
+                  )}
+                </div>
+
+                {isEditMode ? (
+                  <>
+                    <textarea
+                      value={editedBio}
+                      onChange={(event) => setEditedBio(event.target.value.slice(0, 220))}
+                      rows={7}
+                      maxLength={220}
+                      className="w-full px-3 py-2 rounded-lg border focus:outline-none"
+                      style={{
+                        background: 'var(--bg-card)',
+                        borderColor: 'var(--border-card)',
+                        color: 'var(--text-main)',
+                      }}
+                      placeholder="Write a short bio."
+                    />
+                    <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                      {editedBio.length}/220
+                    </p>
+                  </>
+                ) : user.bio ? (
+                  <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-main)' }}>
+                    {user.bio}
+                  </p>
+                ) : (
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    No bio set yet.
+                  </p>
+                )}
+              </div>
+
+              {!isViewingOther && (
+                <div className="mt-3 rounded-lg border px-3 py-2 text-xs" style={{ borderColor: 'var(--border-card)', color: 'var(--text-secondary)' }}>
+                  Ad credits: <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{Number(user.adCredits || 0)}</span>
+                </div>
+              )}
+            </aside>
           </div>
         </div>
 
