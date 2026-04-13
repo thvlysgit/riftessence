@@ -7,6 +7,8 @@ import { getAuthHeader } from '../utils/auth';
 import PrismaticEssenceIcon from '../src/components/PrismaticEssenceIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+const AD_CREDIT_UNIT_PRICE = 900;
+const REGION_OPTIONS = ['ALL', 'NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'] as const;
 
 type AdspaceStatus = {
   adCredits: number;
@@ -29,11 +31,14 @@ export default function AdspacePage() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<AdspaceStatus>(EMPTY_STATUS);
   const [submitting, setSubmitting] = useState(false);
+  const [buyingCredits, setBuyingCredits] = useState(false);
+  const [creditQuantity, setCreditQuantity] = useState(1);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [targetUrl, setTargetUrl] = useState('');
+  const [targetRegion, setTargetRegion] = useState<(typeof REGION_OPTIONS)[number]>('ALL');
   const [feed, setFeed] = useState<'all' | 'duo' | 'lft'>('all');
   const [days, setDays] = useState(3);
 
@@ -89,6 +94,49 @@ export default function AdspacePage() {
     };
   }, [user, loadStatus, showToast]);
 
+  const handleBuyCredits = async () => {
+    if (!user) return;
+
+    const quantity = Math.max(1, Math.min(250, Math.round(Number(creditQuantity) || 1)));
+    const totalCost = quantity * AD_CREDIT_UNIT_PRICE;
+
+    if (status.wallet.prismaticEssence < totalCost) {
+      showToast(`Need ${totalCost.toLocaleString()} PE for ${quantity} credit${quantity === 1 ? '' : 's'}.`, 'error');
+      return;
+    }
+
+    setBuyingCredits(true);
+    try {
+      const headers = authHeaders();
+      if (!headers) {
+        throw new Error('Please sign in first.');
+      }
+
+      const res = await fetch(`${API_URL}/api/wallet/adspace/buy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        body: JSON.stringify({ quantity }),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to buy ad credits.');
+      }
+
+      showToast(`Purchased ${quantity} ad credit${quantity === 1 ? '' : 's'} for ${totalCost.toLocaleString()} PE.`, 'success');
+
+      const nextStatus = await loadStatus();
+      setStatus(nextStatus);
+    } catch (error: any) {
+      showToast(error?.message || 'Failed to buy ad credits.', 'error');
+    } finally {
+      setBuyingCredits(false);
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -110,6 +158,7 @@ export default function AdspacePage() {
         description,
         imageUrl,
         targetUrl,
+        targetRegion,
         feed: feed === 'all' ? undefined : feed,
         days,
       };
@@ -132,6 +181,7 @@ export default function AdspacePage() {
       setDescription('');
       setImageUrl('');
       setTargetUrl('');
+      setTargetRegion('ALL');
       setFeed('all');
       setDays(3);
 
@@ -215,16 +265,9 @@ export default function AdspacePage() {
                 Adspace Request
               </h1>
               <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                Spend ad credits to submit ad slots. Requests are reviewed before going live.
+                Buy ad credits here, then spend them to submit ad slots. Requests are reviewed before going live.
               </p>
               <div className="mt-4 flex gap-2 flex-wrap">
-                <Link
-                  href="/cosmetics"
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                  style={{ background: 'var(--accent-primary-bg)', color: 'var(--accent-primary)', border: '1px solid var(--accent-primary-border)' }}
-                >
-                  <FaWallet /> Buy Ad Credits
-                </Link>
                 <Link
                   href="/purse"
                   className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
@@ -232,6 +275,12 @@ export default function AdspacePage() {
                 >
                   <PrismaticEssenceIcon /> Purse
                 </Link>
+                <span
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ background: 'var(--accent-primary-bg)', color: 'var(--accent-primary)', border: '1px solid var(--accent-primary-border)' }}
+                >
+                  <FaWallet /> {AD_CREDIT_UNIT_PRICE.toLocaleString()} PE / credit
+                </span>
               </div>
             </div>
 
@@ -244,6 +293,57 @@ export default function AdspacePage() {
             </div>
           </div>
         </header>
+
+        <section
+          className="rounded-2xl border p-6"
+          style={{ border: '2px solid var(--border-card)', background: 'var(--bg-card)', boxShadow: 'var(--shadow)' }}
+        >
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--accent-primary)' }}>
+                Buy Ad Credits
+              </h2>
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                Fixed pricing: {AD_CREDIT_UNIT_PRICE.toLocaleString()} PE per credit.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="text-sm block">
+                <span className="mb-1 block" style={{ color: 'var(--color-text-secondary)' }}>Quantity</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={250}
+                  value={creditQuantity}
+                  onChange={(e) => setCreditQuantity(Math.max(1, Math.min(250, Number(e.target.value) || 1)))}
+                  className="w-28 rounded-lg px-3 py-2"
+                  style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)', color: 'var(--color-text-primary)' }}
+                />
+              </label>
+
+              <div className="px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)', color: 'var(--color-text-secondary)' }}>
+                Total: <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>
+                  {(Math.max(1, Math.min(250, Number(creditQuantity) || 1)) * AD_CREDIT_UNIT_PRICE).toLocaleString()} PE
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleBuyCredits}
+                disabled={buyingCredits}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{
+                  background: 'var(--btn-gradient)',
+                  color: 'var(--btn-gradient-text)',
+                  border: '1px solid var(--accent-primary-border)',
+                }}
+              >
+                <FaWallet /> {buyingCredits ? 'Buying...' : 'Buy Credits'}
+              </button>
+            </div>
+          </div>
+        </section>
 
         <form
           onSubmit={handleSubmit}
@@ -308,7 +408,7 @@ export default function AdspacePage() {
             />
           </label>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <label className="text-sm block">
               <span className="mb-1 block" style={{ color: 'var(--color-text-secondary)' }}>Feed Target</span>
               <select
@@ -324,6 +424,20 @@ export default function AdspacePage() {
             </label>
 
             <label className="text-sm block">
+              <span className="mb-1 block" style={{ color: 'var(--color-text-secondary)' }}>Target Region</span>
+              <select
+                value={targetRegion}
+                onChange={(e) => setTargetRegion(e.target.value as (typeof REGION_OPTIONS)[number])}
+                className="w-full rounded-lg px-3 py-2"
+                style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)', color: 'var(--color-text-primary)' }}
+              >
+                {REGION_OPTIONS.map((region) => (
+                  <option key={region} value={region}>{region === 'ALL' ? 'All regions' : region}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm block">
               <span className="mb-1 block" style={{ color: 'var(--color-text-secondary)' }}>Duration (days)</span>
               <input
                 type="number"
@@ -335,6 +449,42 @@ export default function AdspacePage() {
                 style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)', color: 'var(--color-text-primary)' }}
               />
             </label>
+          </div>
+
+          <div className="rounded-xl border p-4" style={{ border: '1px solid var(--border-card)', background: 'var(--bg-input)' }}>
+            <p className="text-xs uppercase tracking-wide mb-3" style={{ color: 'var(--text-secondary)' }}>
+              Live Preview
+            </p>
+            <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-card)', background: 'var(--bg-card)' }}>
+              <div className="h-32 sm:h-40" style={{ background: 'var(--color-bg-tertiary)' }}>
+                {imageUrl ? (
+                  <img src={imageUrl} alt="Ad preview" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                    Add an image URL to preview your ad
+                  </div>
+                )}
+              </div>
+              <div className="p-3 space-y-1.5">
+                <p className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                  {title || 'Your ad title'}
+                </p>
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  {description || 'Your ad description will appear here.'}
+                </p>
+                <div className="flex flex-wrap gap-2 text-xs pt-1">
+                  <span className="px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-primary-bg)', color: 'var(--accent-primary)', border: '1px solid var(--accent-primary-border)' }}>
+                    Feed: {feed === 'all' ? 'All' : feed.toUpperCase()}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full" style={{ background: 'rgba(34,197,94,0.14)', color: '#86efac', border: '1px solid rgba(34,197,94,0.35)' }}>
+                    Region: {targetRegion}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full" style={{ background: 'rgba(59,130,246,0.14)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.32)' }}>
+                    {days} day{days === 1 ? '' : 's'}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">

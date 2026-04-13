@@ -1,6 +1,6 @@
 import prisma from '../prisma';
 import { getUserIdFromRequest } from '../middleware/auth';
-import { logAdminAction, AuditActions } from '../utils/auditLog';
+import { logAdminAction } from '../utils/auditLog';
 import crypto from 'crypto';
 
 // Helper to check if user is admin
@@ -26,7 +26,90 @@ function isValidHttpUrl(raw: string): boolean {
   }
 }
 
+const VALID_AD_REGIONS = new Set([
+  'NA',
+  'EUW',
+  'EUNE',
+  'KR',
+  'JP',
+  'OCE',
+  'LAN',
+  'LAS',
+  'BR',
+  'RU',
+]);
+
+function truncateForDm(value: string, max = 200): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 3)}...`;
+}
+
+type CreatorMeta = {
+  username: string;
+  isAdmin: boolean;
+};
+
 export default async function adsRoutes(fastify: any) {
+  const notifyAdminsAboutAdRequest = async (input: {
+    adId: string;
+    requesterId: string;
+    requesterUsername: string;
+    title: string;
+    feedLabel: string;
+    regionLabel: string;
+    durationDays: number;
+  }) => {
+    const admins = await prisma.user.findMany({
+      where: {
+        badges: {
+          some: { key: 'admin' },
+        },
+      },
+      select: {
+        id: true,
+        discordDmNotifications: true,
+        discordAccount: {
+          select: {
+            discordId: true,
+          },
+        },
+      },
+    });
+
+    if (admins.length === 0) return;
+
+    const message = `[Ad Request] ${input.requesterUsername} submitted "${input.title}" (${input.feedLabel}, ${input.regionLabel}, ${input.durationDays}d).`;
+
+    await prisma.notification.createMany({
+      data: admins.map((admin: any) => ({
+        userId: admin.id,
+        type: 'ADMIN_TEST',
+        fromUserId: input.requesterId,
+        message,
+      })),
+    });
+
+    const dmTargets = admins
+      .filter((admin: any) => admin.discordDmNotifications && admin.discordAccount?.discordId)
+      .map((admin: any) => admin.discordAccount.discordId as string);
+
+    if (dmTargets.length === 0) return;
+
+    const dmPreview = truncateForDm(
+      `New ad request from ${input.requesterUsername}: ${input.title} (${input.feedLabel}, ${input.regionLabel}, ${input.durationDays}d).`
+    );
+
+    await prisma.discordDmQueue.createMany({
+      data: dmTargets.map((discordId: string) => ({
+        recipientDiscordId: discordId,
+        senderUsername: input.requesterUsername,
+        messagePreview: dmPreview,
+        conversationId: `ad-request:${input.adId}`,
+      })),
+    });
+  };
+
   // GET /api/ads - Get active ads for a feed (public)
   fastify.get('/ads', async (request: any, reply: any) => {
     try {
@@ -111,13 +194,14 @@ export default async function adsRoutes(fastify: any) {
       const userId = await getUserIdFromRequest(request, reply);
       if (!userId) return;
 
-      const { title, description, imageUrl, targetUrl, feed, days } = request.body as {
+      const { title, description, imageUrl, targetUrl, feed, days, targetRegion } = request.body as {
         title?: string;
         description?: string;
         imageUrl?: string;
         targetUrl?: string;
         feed?: string;
         days?: number;
+        targetRegion?: string;
       };
 
       const normalizedTitle = String(title || '').trim();
@@ -136,15 +220,24 @@ export default async function adsRoutes(fastify: any) {
       const normalizedFeed = String(feed || '').trim().toLowerCase();
       const targetFeeds = normalizedFeed === 'duo' || normalizedFeed === 'lft' ? [normalizedFeed] : [];
 
+      const normalizedRegion = String(targetRegion || '').trim().toUpperCase();
+      const targetRegions = normalizedRegion && normalizedRegion !== 'ALL'
+        ? [normalizedRegion]
+        : [];
+
+      if (targetRegions.length > 0 && !VALID_AD_REGIONS.has(targetRegions[0])) {
+        return reply.code(400).send({ error: 'Invalid target region.' });
+      }
+
       const requestedDays = Number(days);
       const durationDays = Number.isFinite(requestedDays) ? Math.max(1, Math.min(14, Math.round(requestedDays))) : 3;
       const startDate = new Date();
       const endDate = new Date(startDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
-      const ad = await prisma.$transaction(async (tx: any) => {
+      const requestResult = await prisma.$transaction(async (tx: any) => {
         const user = await tx.user.findUnique({
           where: { id: userId },
-          select: { adCredits: true },
+          select: { adCredits: true, username: true },
         });
 
         if (!user) {
@@ -162,12 +255,13 @@ export default async function adsRoutes(fastify: any) {
           },
         });
 
-        return tx.ad.create({
+        const ad = await tx.ad.create({
           data: {
             title: normalizedTitle,
             description: normalizedDescription || 'Community ad request (pending staff review).',
             imageUrl: normalizedImageUrl,
             targetUrl: normalizedTargetUrl,
+            targetRegions: targetRegions as any,
             targetFeeds,
             startDate,
             endDate,
@@ -180,6 +274,7 @@ export default async function adsRoutes(fastify: any) {
             title: true,
             targetUrl: true,
             imageUrl: true,
+            targetRegions: true,
             targetFeeds: true,
             startDate: true,
             endDate: true,
@@ -187,11 +282,33 @@ export default async function adsRoutes(fastify: any) {
             createdAt: true,
           },
         });
+
+        return {
+          ad,
+          requesterUsername: user.username,
+        };
       });
+
+      const feedLabel = targetFeeds.length > 0 ? targetFeeds.join(', ') : 'all feeds';
+      const regionLabel = targetRegions.length > 0 ? targetRegions.join(', ') : 'all regions';
+
+      try {
+        await notifyAdminsAboutAdRequest({
+          adId: requestResult.ad.id,
+          requesterId: userId,
+          requesterUsername: requestResult.requesterUsername,
+          title: normalizedTitle,
+          feedLabel,
+          regionLabel,
+          durationDays,
+        });
+      } catch (notifyError: any) {
+        fastify.log.error(notifyError, 'Failed to dispatch ad request admin notifications');
+      }
 
       return reply.send({
         success: true,
-        ad,
+        ad: requestResult.ad,
         message: 'Ad request sent. Staff review is required before it goes live.',
       });
     } catch (error: any) {
@@ -298,9 +415,35 @@ export default async function adsRoutes(fastify: any) {
           },
         },
       });
+
+      const creatorIds = Array.from(new Set(ads.map((ad: any) => ad.createdBy).filter(Boolean)));
+      const creators = creatorIds.length > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: creatorIds } },
+            select: {
+              id: true,
+              username: true,
+              badges: {
+                select: { key: true },
+              },
+            },
+          })
+        : [];
+
+      const creatorMap = new Map<string, CreatorMeta>(
+        creators.map((creator: any) => [
+          creator.id,
+          {
+            username: creator.username,
+            isAdmin: (creator.badges || []).some((badge: any) => badge.key === 'admin'),
+          },
+        ])
+      );
       
       const formatted = ads.map((ad: any) => ({
         ...ad,
+        createdByUsername: creatorMap.get(ad.createdBy)?.username || null,
+        createdByIsAdmin: Boolean(creatorMap.get(ad.createdBy)?.isAdmin),
         impressionCount: ad._count.impressions,
         clickCount: ad._count.clicks,
         ctr: ad._count.impressions > 0 
@@ -312,6 +455,197 @@ export default async function adsRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to fetch ads' });
+    }
+  });
+
+  // GET /api/ads/admin/requests - Get pending user-submitted ad requests (admin only)
+  fastify.get('/ads/admin/requests', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      if (!(await isAdmin(userId))) {
+        return reply.code(403).send({ error: 'Admin access required' });
+      }
+
+      const ads = await prisma.ad.findMany({
+        where: { isActive: false },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: {
+              impressions: true,
+              clicks: true,
+            },
+          },
+        },
+      });
+
+      const creatorIds = Array.from(new Set(ads.map((ad: any) => ad.createdBy).filter(Boolean)));
+      const creators = creatorIds.length > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: creatorIds } },
+            select: {
+              id: true,
+              username: true,
+              badges: {
+                select: { key: true },
+              },
+            },
+          })
+        : [];
+
+      const creatorMap = new Map<string, CreatorMeta>(
+        creators.map((creator: any) => [
+          creator.id,
+          {
+            username: creator.username,
+            isAdmin: (creator.badges || []).some((badge: any) => badge.key === 'admin'),
+          },
+        ])
+      );
+
+      const requests = ads
+        .filter((ad: any) => !creatorMap.get(ad.createdBy)?.isAdmin)
+        .map((ad: any) => ({
+          ...ad,
+          requesterUsername: creatorMap.get(ad.createdBy)?.username || null,
+          impressionCount: ad._count.impressions,
+          clickCount: ad._count.clicks,
+          ctr: ad._count.impressions > 0
+            ? ((ad._count.clicks / ad._count.impressions) * 100).toFixed(2) + '%'
+            : '0%',
+        }));
+
+      return reply.send({ requests });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to fetch ad requests' });
+    }
+  });
+
+  // POST /api/ads/admin/requests/:id/approve - Promote request to managed ad library (admin only)
+  fastify.post('/ads/admin/requests/:id/approve', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      if (!(await isAdmin(userId))) {
+        return reply.code(403).send({ error: 'Admin access required' });
+      }
+
+      const { id } = request.params as { id: string };
+      const { priority, durationDays } = (request.body || {}) as { priority?: number; durationDays?: number };
+
+      const existing = await prisma.ad.findUnique({ where: { id } });
+      if (!existing) {
+        return reply.code(404).send({ error: 'Ad request not found' });
+      }
+
+      if (existing.isActive) {
+        return reply.code(400).send({ error: 'Ad request is already active.' });
+      }
+
+      const nextStartDate = new Date();
+      const parsedDays = Number(durationDays);
+      const nextDurationDays = Number.isFinite(parsedDays)
+        ? Math.max(1, Math.min(30, Math.round(parsedDays)))
+        : null;
+      const nextEndDate = nextDurationDays
+        ? new Date(nextStartDate.getTime() + nextDurationDays * 24 * 60 * 60 * 1000)
+        : existing.endDate;
+
+      const parsedPriority = Number(priority);
+      const nextPriority = Number.isFinite(parsedPriority)
+        ? Math.max(0, Math.min(100, Math.round(parsedPriority)))
+        : Math.max(1, existing.priority || 0);
+
+      const ad = await prisma.ad.update({
+        where: { id },
+        data: {
+          isActive: true,
+          startDate: nextStartDate,
+          endDate: nextEndDate,
+          priority: nextPriority,
+        },
+      });
+
+      await prisma.notification.create({
+        data: {
+          userId: ad.createdBy,
+          type: 'ADMIN_TEST',
+          message: `[Ad Request Approved] "${ad.title}" is now live in adspace.`,
+        },
+      });
+
+      await logAdminAction({
+        adminId: userId,
+        action: 'AD_UPDATED',
+        targetId: ad.id,
+        details: { requestApproved: true, priority: ad.priority },
+      });
+
+      return reply.send({ success: true, ad });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to approve ad request' });
+    }
+  });
+
+  // POST /api/ads/admin/requests/:id/reject - Reject ad request and optionally refund a credit (admin only)
+  fastify.post('/ads/admin/requests/:id/reject', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      if (!(await isAdmin(userId))) {
+        return reply.code(403).send({ error: 'Admin access required' });
+      }
+
+      const { id } = request.params as { id: string };
+      const { refundCredit = true, reason } = (request.body || {}) as { refundCredit?: boolean; reason?: string };
+
+      const existing = await prisma.ad.findUnique({ where: { id } });
+      if (!existing) {
+        return reply.code(404).send({ error: 'Ad request not found' });
+      }
+
+      if (existing.isActive) {
+        return reply.code(400).send({ error: 'Cannot reject an already active ad.' });
+      }
+
+      await prisma.$transaction(async (tx: any) => {
+        await tx.ad.delete({ where: { id } });
+
+        if (refundCredit) {
+          await tx.user.update({
+            where: { id: existing.createdBy },
+            data: {
+              adCredits: { increment: 1 },
+            },
+          });
+        }
+
+        await tx.notification.create({
+          data: {
+            userId: existing.createdBy,
+            type: 'ADMIN_TEST',
+            message: `[Ad Request Rejected] "${existing.title}" was not approved.${refundCredit ? ' 1 credit was refunded.' : ''}${reason ? ` Reason: ${String(reason).slice(0, 180)}` : ''}`,
+          },
+        });
+      });
+
+      await logAdminAction({
+        adminId: userId,
+        action: 'AD_DELETED',
+        targetId: id,
+        details: { requestRejected: true, refundCredit, reason: reason || null },
+      });
+
+      return reply.send({ success: true, refunded: Boolean(refundCredit) });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to reject ad request' });
     }
   });
 

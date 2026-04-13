@@ -1811,6 +1811,38 @@ async function sendChatDmNotification(dm: {
       return;
     }
 
+    const isAdRequestNotification = typeof dm.conversationId === 'string' && dm.conversationId.startsWith('ad-request:');
+
+    if (isAdRequestNotification) {
+      const embed = new EmbedBuilder()
+        .setColor(0x22c55e)
+        .setTitle('📢 New ad request on RiftEssence')
+        .setDescription(`**${dm.senderUsername}** submitted an ad request for admin review.`)
+        .addFields({
+          name: 'Request Summary',
+          value: dm.messagePreview.length > 180
+            ? dm.messagePreview.substring(0, 180) + '...'
+            : dm.messagePreview,
+        })
+        .addFields({
+          name: '🔗 Review Queue',
+          value: `[Open Admin Ads queue](${APP_URL}/admin/ads)`,
+        })
+        .setFooter({ text: 'You can disable DM notifications in your RiftEssence settings.' })
+        .setTimestamp();
+
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setLabel('Open Admin Ads')
+          .setStyle(ButtonStyle.Link)
+          .setURL(`${APP_URL}/admin/ads`)
+      );
+
+      await user.send({ embeds: [embed], components: [row] });
+      console.log(`✅ Sent ad request DM notification to ${dm.recipientDiscordId}`);
+      return;
+    }
+
     const embed = new EmbedBuilder()
       .setColor(0x0a84ff)
       .setTitle('💬 New message on RiftEssence')

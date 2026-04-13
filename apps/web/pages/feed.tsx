@@ -140,6 +140,52 @@ type Post = {
   championPoolMode?: string | null;
   championList?: string[];
   championTierlist?: { S?: string[]; A?: string[]; B?: string[]; C?: string[] } | null;
+  activeUsernameDecoration?: string | null;
+  activeHoverEffect?: string | null;
+  activeNameplateFont?: string | null;
+};
+
+const USERNAME_DECORATION_STYLES: Record<string, React.CSSProperties> = {
+  username_gilded_edge: {
+    textShadow: '0 0 10px rgba(251, 191, 36, 0.34)',
+    WebkitTextStroke: '0.6px rgba(245, 158, 11, 0.65)',
+  },
+  username_prismatic_slash: {
+    backgroundImage: 'linear-gradient(92deg, #67e8f9, #93c5fd 35%, #a78bfa 68%, #f9a8d4)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 12px rgba(103, 232, 249, 0.28)',
+  },
+  username_solar_flare: {
+    backgroundImage: 'linear-gradient(88deg, #fef08a, #fbbf24 30%, #fb923c 64%, #ef4444)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 12px rgba(251, 146, 60, 0.3)',
+  },
+  username_void_glass: {
+    backgroundImage: 'linear-gradient(90deg, #ddd6fe, #a78bfa 40%, #60a5fa 75%)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 10px rgba(147, 51, 234, 0.32)',
+  },
+};
+
+const USERNAME_FONT_FAMILIES: Record<string, string> = {
+  font_orbitron: 'Orbitron, "Segoe UI", sans-serif',
+  font_cinzel: 'Cinzel, Georgia, serif',
+  font_exo2: '"Exo 2", "Segoe UI", sans-serif',
+};
+
+const USERNAME_HOVER_EFFECT_CLASSES: Record<string, string> = {
+  hover_aurora_ring: 'username-hover-aurora-ring',
+  hover_ember_trail: 'username-hover-ember-trail',
+  hover_eclipse_gleam: 'username-hover-eclipse-gleam',
 };
 
 export default function Feed() {
@@ -1230,6 +1276,15 @@ export default function Feed() {
           >
             {posts.map((post, index) => {
               const ad = getAdForPosition(ads, index, adFrequency, userRegion, undefined, dismissedAdIds);
+              const usernameDecorationStyle = post.activeUsernameDecoration
+                ? USERNAME_DECORATION_STYLES[post.activeUsernameDecoration] || undefined
+                : undefined;
+              const usernameFontFamily = post.activeNameplateFont
+                ? USERNAME_FONT_FAMILIES[post.activeNameplateFont] || undefined
+                : undefined;
+              const usernameHoverClass = post.activeHoverEffect
+                ? USERNAME_HOVER_EFFECT_CLASSES[post.activeHoverEffect] || ''
+                : '';
               return (
                 <React.Fragment key={post.id}>
                   {/* Show ad before this post if applicable */}
@@ -1241,7 +1296,16 @@ export default function Feed() {
                 <div className="flex flex-wrap justify-between items-start mb-4 gap-2">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{post.username}</h3>
+                      <h3
+                        className={`text-xl font-bold username-hover-base ${usernameHoverClass}`.trim()}
+                        style={{
+                          color: 'var(--color-text-primary)',
+                          fontFamily: usernameFontFamily || undefined,
+                          ...(usernameDecorationStyle || {}),
+                        }}
+                      >
+                        {post.username}
+                      </h3>
                       {post.discordUsername && (
                         <span className="discord-chip px-2 py-0.5 rounded text-xs font-semibold border inline-flex items-center gap-1" title={`Discord: ${post.discordUsername}`}>
                           <DiscordIcon className="w-3.5 h-3.5" />

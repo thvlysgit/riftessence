@@ -16,7 +16,7 @@ import PrismaticEssenceIcon from '../src/components/PrismaticEssenceIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
-type CosmeticCategory = 'BADGE' | 'USERNAME_DECORATION' | 'HOVER_EFFECT' | 'VISUAL_EFFECT' | 'FONT' | 'ADSPACE';
+type CosmeticCategory = 'BADGE' | 'USERNAME_DECORATION' | 'HOVER_EFFECT' | 'VISUAL_EFFECT' | 'FONT';
 
 type CosmeticItem = {
   key: string;
@@ -67,7 +67,6 @@ const CATEGORY_ORDER: CosmeticCategory[] = [
   'HOVER_EFFECT',
   'VISUAL_EFFECT',
   'FONT',
-  'ADSPACE',
 ];
 
 const CATEGORY_META: Record<CosmeticCategory, { label: string; icon: React.ReactNode; color: string }> = {
@@ -82,7 +81,7 @@ const CATEGORY_META: Record<CosmeticCategory, { label: string; icon: React.React
     color: '#60A5FA',
   },
   HOVER_EFFECT: {
-    label: 'Hover Effects',
+    label: 'Username Hover Effects',
     icon: <FaStar />,
     color: '#34D399',
   },
@@ -95,11 +94,6 @@ const CATEGORY_META: Record<CosmeticCategory, { label: string; icon: React.React
     label: 'Fonts',
     icon: <FaFont />,
     color: '#F59E0B',
-  },
-  ADSPACE: {
-    label: 'Adspace Credits',
-    icon: <FaBullhorn />,
-    color: '#22C55E',
   },
 };
 
@@ -118,6 +112,7 @@ export default function CosmeticsPage() {
   const [shop, setShop] = useState<ShopState>(EMPTY_SHOP);
   const [purchaseLoading, setPurchaseLoading] = useState<Record<string, boolean>>({});
   const [activateLoading, setActivateLoading] = useState<Record<string, boolean>>({});
+  const [deactivateLoading, setDeactivateLoading] = useState<Record<string, boolean>>({});
 
   const authHeaders = useCallback(() => {
     const headers = getAuthHeader();
@@ -185,7 +180,6 @@ export default function CosmeticsPage() {
       HOVER_EFFECT: [],
       VISUAL_EFFECT: [],
       FONT: [],
-      ADSPACE: [],
     };
 
     shop.items.forEach((item) => {
@@ -194,6 +188,13 @@ export default function CosmeticsPage() {
 
     return groups;
   }, [shop.items]);
+
+  const hasActiveCosmetics = Boolean(
+    shop.loadout.activeUsernameDecoration
+    || shop.loadout.activeHoverEffect
+    || shop.loadout.activeVisualEffect
+    || shop.loadout.activeNameplateFont
+  );
 
   const updateShopFromResponse = (data: any) => {
     setShop({
@@ -268,6 +269,37 @@ export default function CosmeticsPage() {
       showToast(error?.message || 'Activation failed.', 'error');
     } finally {
       setActivateLoading((prev) => ({ ...prev, [item.key]: false }));
+    }
+  };
+
+  const handleDeactivate = async (category: 'ALL' | 'USERNAME_DECORATION' | 'HOVER_EFFECT' | 'VISUAL_EFFECT' | 'FONT') => {
+    if (!user) return;
+
+    setDeactivateLoading((prev) => ({ ...prev, [category]: true }));
+    try {
+      const headers = authHeaders();
+      if (!headers) throw new Error('Please sign in first.');
+
+      const res = await fetch(`${API_URL}/api/wallet/cosmetics/deactivate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        body: JSON.stringify({ category }),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to disable cosmetic.');
+      }
+
+      updateShopFromResponse(data);
+      showToast(category === 'ALL' ? 'All active cosmetics disabled.' : 'Cosmetic disabled.', 'success');
+    } catch (error: any) {
+      showToast(error?.message || 'Failed to disable cosmetic.', 'error');
+    } finally {
+      setDeactivateLoading((prev) => ({ ...prev, [category]: false }));
     }
   };
 
@@ -361,6 +393,19 @@ export default function CosmeticsPage() {
                 >
                   <FaBullhorn /> Use Ad Credits
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => handleDeactivate('ALL')}
+                  disabled={!hasActiveCosmetics || Boolean(deactivateLoading.ALL)}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{
+                    background: hasActiveCosmetics ? 'rgba(239,68,68,0.14)' : 'rgba(148,163,184,0.12)',
+                    color: hasActiveCosmetics ? '#fca5a5' : 'var(--color-text-muted)',
+                    border: hasActiveCosmetics ? '1px solid rgba(239,68,68,0.38)' : '1px solid var(--color-border)',
+                  }}
+                >
+                  {deactivateLoading.ALL ? 'Disabling...' : 'Disable All Active'}
+                </button>
               </div>
             </div>
 
@@ -393,10 +438,27 @@ export default function CosmeticsPage() {
                 boxShadow: 'var(--shadow)',
               }}
             >
-              <h2 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: category.color }}>
-                {category.icon}
-                {category.label}
-              </h2>
+              <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+                <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: category.color }}>
+                  {category.icon}
+                  {category.label}
+                </h2>
+                {ACTIVATABLE_CATEGORIES.has(categoryKey) && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeactivate(categoryKey as 'USERNAME_DECORATION' | 'HOVER_EFFECT' | 'VISUAL_EFFECT' | 'FONT')}
+                    disabled={!items.some((entry) => entry.active) || Boolean(deactivateLoading[categoryKey])}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                    style={{
+                      background: items.some((entry) => entry.active) ? 'rgba(239,68,68,0.14)' : 'rgba(148,163,184,0.12)',
+                      color: items.some((entry) => entry.active) ? '#fca5a5' : 'var(--color-text-muted)',
+                      border: items.some((entry) => entry.active) ? '1px solid rgba(239,68,68,0.38)' : '1px solid var(--color-border)',
+                    }}
+                  >
+                    {deactivateLoading[categoryKey] ? 'Disabling...' : 'Disable Current'}
+                  </button>
+                )}
+              </div>
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {items.map((item) => {

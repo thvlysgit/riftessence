@@ -25,6 +25,49 @@ type WalletNavbarSummary = {
   prismaticEssence: number;
 };
 
+const USERNAME_DECORATION_STYLES: Record<string, React.CSSProperties> = {
+  username_gilded_edge: {
+    textShadow: '0 0 10px rgba(251, 191, 36, 0.34)',
+    WebkitTextStroke: '0.6px rgba(245, 158, 11, 0.65)',
+  },
+  username_prismatic_slash: {
+    backgroundImage: 'linear-gradient(92deg, #67e8f9, #93c5fd 35%, #a78bfa 68%, #f9a8d4)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 12px rgba(103, 232, 249, 0.28)',
+  },
+  username_solar_flare: {
+    backgroundImage: 'linear-gradient(88deg, #fef08a, #fbbf24 30%, #fb923c 64%, #ef4444)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 12px rgba(251, 146, 60, 0.3)',
+  },
+  username_void_glass: {
+    backgroundImage: 'linear-gradient(90deg, #ddd6fe, #a78bfa 40%, #60a5fa 75%)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 10px rgba(147, 51, 234, 0.32)',
+  },
+};
+
+const USERNAME_FONT_FAMILIES: Record<string, string> = {
+  font_orbitron: 'Orbitron, "Segoe UI", sans-serif',
+  font_cinzel: 'Cinzel, Georgia, serif',
+  font_exo2: '"Exo 2", "Segoe UI", sans-serif',
+};
+
+const USERNAME_HOVER_EFFECT_CLASSES: Record<string, string> = {
+  hover_aurora_ring: 'username-hover-aurora-ring',
+  hover_ember_trail: 'username-hover-ember-trail',
+  hover_eclipse_gleam: 'username-hover-eclipse-gleam',
+};
+
 export default function Navbar() {
   const router = useRouter();
   const { user, loading, logout } = useAuth();
@@ -39,6 +82,16 @@ export default function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [walletSummary, setWalletSummary] = useState<WalletNavbarSummary | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  const navbarUsernameDecorationStyle = user?.activeUsernameDecoration
+    ? USERNAME_DECORATION_STYLES[user.activeUsernameDecoration] || undefined
+    : undefined;
+  const navbarUsernameFontFamily = user?.activeNameplateFont
+    ? USERNAME_FONT_FAMILIES[user.activeNameplateFont] || undefined
+    : undefined;
+  const navbarUsernameHoverClass = user?.activeHoverEffect
+    ? USERNAME_HOVER_EFFECT_CLASSES[user.activeHoverEffect] || ''
+    : '';
 
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -613,7 +666,16 @@ export default function Navbar() {
                     </div>
                   )}
                   {/* Username (hidden on mobile) */}
-                  <span className="hidden md:block text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>{user.username}</span>
+                  <span
+                    className={`hidden md:block text-sm font-medium username-hover-base ${navbarUsernameHoverClass}`.trim()}
+                    style={{
+                      color: 'var(--color-text-secondary)',
+                      fontFamily: navbarUsernameFontFamily || undefined,
+                      ...(navbarUsernameDecorationStyle || {}),
+                    }}
+                  >
+                    {user.username}
+                  </span>
                   {/* Dropdown icon */}
                   <svg className="hidden md:block w-4 h-4" style={{ color: 'var(--color-text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

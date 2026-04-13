@@ -29,6 +29,23 @@ const NOTIFICATION_CONFIG: Record<Notification['type'], { icon: string; color: s
   ADMIN_TEST: { icon: '🔔', color: 'var(--accent-info)', title: 'Admin Test' },
 };
 
+function getNotificationConfig(notification: Notification) {
+  if (notification.type === 'ADMIN_TEST') {
+    const message = String(notification.message || '');
+    if (message.startsWith('[Ad Request Approved]')) {
+      return { icon: '✅', color: 'var(--accent-success)', title: 'Ad Request Approved' };
+    }
+    if (message.startsWith('[Ad Request Rejected]')) {
+      return { icon: '❌', color: 'var(--accent-danger)', title: 'Ad Request Rejected' };
+    }
+    if (message.startsWith('[Ad Request]')) {
+      return { icon: '📢', color: 'var(--accent-warning)', title: 'New Ad Request' };
+    }
+  }
+
+  return NOTIFICATION_CONFIG[notification.type];
+}
+
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,7 +156,7 @@ export default function NotificationsPage() {
         ) : (
           <div className="space-y-3">
             {notifications.map(n => {
-              const config = NOTIFICATION_CONFIG[n.type];
+              const config = getNotificationConfig(n);
               return (
                 <div
                   key={n.id}

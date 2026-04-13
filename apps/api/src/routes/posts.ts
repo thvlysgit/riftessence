@@ -89,6 +89,11 @@ export default async function postsRoutes(fastify: any) {
       championPoolMode: author.anonymous ? null : (author.championPoolMode || null),
       championList: author.anonymous ? [] : (author.championList || []),
       championTierlist: author.anonymous ? null : (author.championTierlist || null),
+
+      // Username cosmetic loadout
+      activeUsernameDecoration: author.anonymous ? null : (author.activeUsernameDecoration || null),
+      activeHoverEffect: author.anonymous ? null : (author.activeHoverEffect || null),
+      activeNameplateFont: author.anonymous ? null : (author.activeNameplateFont || null),
     };
   };
 

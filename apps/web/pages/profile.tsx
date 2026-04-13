@@ -470,21 +470,40 @@ const USERNAME_DECORATION_STYLES: Record<string, React.CSSProperties> = {
     WebkitTextFillColor: 'transparent',
     textShadow: '0 0 12px rgba(103, 232, 249, 0.28)',
   },
+  username_solar_flare: {
+    backgroundImage: 'linear-gradient(88deg, #fef08a, #fbbf24 30%, #fb923c 64%, #ef4444)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 12px rgba(251, 146, 60, 0.3)',
+  },
+  username_void_glass: {
+    backgroundImage: 'linear-gradient(90deg, #ddd6fe, #a78bfa 40%, #60a5fa 75%)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 10px rgba(147, 51, 234, 0.32)',
+  },
 };
 
 const USERNAME_FONT_FAMILIES: Record<string, string> = {
   font_orbitron: 'Orbitron, "Segoe UI", sans-serif',
   font_cinzel: 'Cinzel, Georgia, serif',
+  font_exo2: '"Exo 2", "Segoe UI", sans-serif',
 };
 
-const PROFILE_HOVER_EFFECT_CLASSES: Record<string, string> = {
-  hover_aurora_ring: 'profile-hover-aurora-ring',
-  hover_ember_trail: 'profile-hover-ember-trail',
+const USERNAME_HOVER_EFFECT_CLASSES: Record<string, string> = {
+  hover_aurora_ring: 'username-hover-aurora-ring',
+  hover_ember_trail: 'username-hover-ember-trail',
+  hover_eclipse_gleam: 'username-hover-eclipse-gleam',
 };
 
 const PROFILE_VISUAL_EFFECT_CLASSES: Record<string, string> = {
   visual_stardust: 'profile-visual-stardust',
   visual_scanlines: 'profile-visual-scanlines',
+  visual_nebula_pulse: 'profile-visual-nebula-pulse',
 };
 
 // Popular League champions for quick selection
@@ -1327,8 +1346,8 @@ export default function ProfilePage() {
   const usernameFontFamily = user.activeNameplateFont
     ? USERNAME_FONT_FAMILIES[user.activeNameplateFont]
     : undefined;
-  const profileHoverEffectClass = user.activeHoverEffect
-    ? PROFILE_HOVER_EFFECT_CLASSES[user.activeHoverEffect] || ''
+  const usernameHoverEffectClass = user.activeHoverEffect
+    ? USERNAME_HOVER_EFFECT_CLASSES[user.activeHoverEffect] || ''
     : '';
   const profileVisualEffectClass = user.activeVisualEffect
     ? PROFILE_VISUAL_EFFECT_CLASSES[user.activeVisualEffect] || ''
@@ -1440,278 +1459,253 @@ export default function ProfilePage() {
 
         {/* Profile Header */}
         <div
-          className={`rounded-xl p-4 sm:p-6 profile-card-shell ${profileHoverEffectClass} ${profileVisualEffectClass}`.trim()}
+          className={`rounded-xl p-4 sm:p-6 profile-card-shell ${profileVisualEffectClass}`.trim()}
           style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}
         >
-          <div className="flex flex-col lg:flex-row items-start gap-6">
-            {/* User Info with Icon */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 mb-2">
-                {/* Summoner Icon - next to username */}
-                <div className="relative flex-shrink-0">
-                  <img
-                    src={user.profileIconId 
-                      ? `https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/${user.profileIconId}.png`
-                      : `https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/29.png`
-                    }
-                    alt="Summoner Icon"
-                    className="w-16 h-16 rounded-lg border-2 shadow-lg"
-                    style={{ borderColor: 'var(--accent-primary)' }}
-                  />
-                  {user.anonymous && (
-                    <div className="absolute -top-1 -right-1 rounded-full font-bold px-1.5 py-0.5 text-[10px]"
-                      style={{ background: 'var(--accent-danger)', color: 'var(--text-main)' }}>
-                      🕶️
-                    </div>
-                  )}
-                </div>
-                
-                {/* Username */}
-                {isEditMode ? (
-                  <input
-                    type="text"
-                    value={editedUsername}
-                    onChange={(e) => setEditedUsername(e.target.value)}
-                    className="text-2xl sm:text-3xl font-bold px-3 py-1 rounded border-2 focus:outline-none"
-                    style={{
-                      color: 'var(--accent-primary)',
-                      background: 'var(--bg-input)',
-                      borderColor: 'var(--accent-primary)',
-                      fontFamily: usernameFontFamily || undefined,
-                    }}
-                    placeholder={t('profile.usernamePlaceholder')}
-                  />
-                ) : (
-                  <h1
-                    className="text-2xl sm:text-3xl font-bold"
-                    style={{
-                      color: 'var(--accent-primary)',
-                      fontFamily: usernameFontFamily || undefined,
-                      ...(usernameDecorationStyle || {}),
-                    }}
-                  >
-                    {user.username}
-                  </h1>
-                )}
-              </div>
-              
-              {mainAccount && (
-                <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
-                  {mainAccount.gameName}#{mainAccount.tagLine} • {mainAccount.region}
-                </p>
-              )}
-              {user.riotAccounts && user.riotAccounts.length > 0 && (
-                (() => {
-                  const best = getBestAccount(user.riotAccounts);
-                  if (!best) return null;
-                  const rankKey = best.rank || 'UNRANKED';
-                  return (
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('profile.bestRank')}</span>
-                      {getRankBadge(rankKey, best.division || undefined, undefined, rankColor, t)}
-                      {best.winrate !== null && best.winrate !== undefined && getWinrateBadge(best.winrate, t)}
-                    </div>
-                  );
-                })()
-              )}
-              {/* Peak Elo */}
-              {user.peakRank && user.peakRank !== 'UNRANKED' && (
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('profile.peakElo')}</span>
-                  {getRankBadge(user.peakRank, user.peakDivision || undefined, user.peakLp || undefined, rankColor, t)}
-                  {user.peakDate && (
-                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                      ({new Date(user.peakDate).toLocaleDateString()})
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Badges - refined hover visuals with animated tooltip */}
-              {user.badges && user.badges.length > 0 && (
-                <div className="mt-3 flex items-center gap-2 flex-wrap">
-                  {user.badges.map((badge) => {
-                    const badgeLookupKey = typeof badge === 'string' ? badge : (badge.key || badge.name);
-                    const badgeDisplayName = typeof badge === 'string' ? badge : (badge.name || badge.key);
-                    // Try API configs first, then fallback to hardcoded BADGE_CONFIG
-                    const config = badgeConfigs[badgeLookupKey] || BADGE_CONFIG[badgeLookupKey] || {
-                      icon: 'trophy',
-                      bgColor: 'var(--badge-bg)',
-                      borderColor: 'var(--badge-border)',
-                      textColor: 'var(--badge-text)',
-                      hoverBg: 'var(--badge-hover-bg)',
-                      shape: 'squircle',
-                      animation: 'breathe',
-                    };
-                    const badgeKeyNorm = badgeLookupKey.toLowerCase().replace(/\s+/g, '');
-                    const tKey = `profile.badge.${badgeKeyNorm}.desc` as any;
-                    const translatedDesc = t(tKey);
-                    const description = translatedDesc === tKey ? (config.description || badgeDisplayName) : translatedDesc;
-
-                    return (
-                      <LivingBadge
-                        key={typeof badge === 'string' ? badge : badge.id}
-                        badgeKey={badgeLookupKey}
-                        icon={config.icon}
-                        bgColor={config.bgColor}
-                        borderColor={config.borderColor}
-                        textColor={config.textColor}
-                        hoverBg={config.hoverBg}
-                        shape={config.shape}
-                        animation={config.animation}
-                        label={badgeDisplayName}
-                        description={description}
-                        className="w-9 h-9 md:w-10 md:h-10"
-                        iconClassName="w-5 h-5 md:w-6 md:h-6"
-                        tooltipIconClassName="w-4 h-4"
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
+              <div className="min-w-0">
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="relative flex-shrink-0">
+                      <img
+                        src={user.profileIconId
+                          ? `https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/${user.profileIconId}.png`
+                          : `https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/29.png`
+                        }
+                        alt="Summoner Icon"
+                        className="w-16 h-16 rounded-lg border-2 shadow-lg"
+                        style={{ borderColor: 'var(--accent-primary)' }}
                       />
-                    );
-                  })}
-                </div>
-              )}
+                      {user.anonymous && (
+                        <div
+                          className="absolute -top-1 -right-1 rounded-full font-bold px-1.5 py-0.5 text-[10px]"
+                          style={{ background: 'var(--accent-danger)', color: 'var(--text-main)' }}
+                        >
+                          🕶️
+                        </div>
+                      )}
+                    </div>
 
-              {/* Game Activity Stats - Only show if user has linked Riot accounts */}
-              {user.riotAccounts && user.riotAccounts.length > 0 && (
-                <div className="mt-4 rounded-lg p-3" style={{ background: 'var(--gradient-card)', border: '1px solid var(--accent-primary-border)' }}>
-                  <div className="flex items-center gap-1 mb-2">
-                    <svg className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                    <span className="text-xs font-semibold" style={{ color: 'var(--accent-primary)' }}>{t('profile.activity.title')}</span>
+                    {isEditMode ? (
+                      <input
+                        type="text"
+                        value={editedUsername}
+                        onChange={(e) => setEditedUsername(e.target.value)}
+                        className="text-2xl sm:text-3xl font-bold px-3 py-1 rounded border-2 focus:outline-none"
+                        style={{
+                          color: 'var(--accent-primary)',
+                          background: 'var(--bg-input)',
+                          borderColor: 'var(--accent-primary)',
+                          fontFamily: usernameFontFamily || undefined,
+                        }}
+                        placeholder={t('profile.usernamePlaceholder')}
+                      />
+                    ) : (
+                      <h1
+                        className={`text-2xl sm:text-3xl font-bold username-hover-base ${usernameHoverEffectClass}`.trim()}
+                        style={{
+                          color: 'var(--accent-primary)',
+                          fontFamily: usernameFontFamily || undefined,
+                          ...(usernameDecorationStyle || {}),
+                        }}
+                      >
+                        {user.username}
+                      </h1>
+                    )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-lg p-2.5 border" style={{ background: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
-                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.24h')}</p>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{user.gamesPerDay || 0}</span>
-                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.games')}</span>
+
+                  {!isViewingOther && !isEditMode && (
+                    <button
+                      onClick={() => {
+                        const shareUrl = `${window.location.origin}/rate/${user.username}`;
+                        navigator.clipboard.writeText(shareUrl).then(() => {
+                          showToast('Rating page link copied! Share it with players you\'ve met in-game.', 'success');
+                        }).catch(() => {
+                          showToast('Failed to copy link', 'error');
+                        });
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-80"
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)', color: 'var(--text-secondary)' }}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                      Share Rating Page
+                    </button>
+                  )}
+                </div>
+
+                {user.badges && user.badges.length > 0 && (
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    {user.badges.map((badge) => {
+                      const badgeLookupKey = typeof badge === 'string' ? badge : (badge.key || badge.name);
+                      const badgeDisplayName = typeof badge === 'string' ? badge : (badge.name || badge.key);
+                      const config = badgeConfigs[badgeLookupKey] || BADGE_CONFIG[badgeLookupKey] || {
+                        icon: 'trophy',
+                        bgColor: 'var(--badge-bg)',
+                        borderColor: 'var(--badge-border)',
+                        textColor: 'var(--badge-text)',
+                        hoverBg: 'var(--badge-hover-bg)',
+                        shape: 'squircle',
+                        animation: 'breathe',
+                      };
+                      const badgeKeyNorm = badgeLookupKey.toLowerCase().replace(/\s+/g, '');
+                      const tKey = `profile.badge.${badgeKeyNorm}.desc` as any;
+                      const translatedDesc = t(tKey);
+                      const description = translatedDesc === tKey ? (config.description || badgeDisplayName) : translatedDesc;
+
+                      return (
+                        <LivingBadge
+                          key={typeof badge === 'string' ? badge : badge.id}
+                          badgeKey={badgeLookupKey}
+                          icon={config.icon}
+                          bgColor={config.bgColor}
+                          borderColor={config.borderColor}
+                          textColor={config.textColor}
+                          hoverBg={config.hoverBg}
+                          shape={config.shape}
+                          animation={config.animation}
+                          label={badgeDisplayName}
+                          description={description}
+                          className="w-9 h-9 md:w-10 md:h-10"
+                          iconClassName="w-5 h-5 md:w-6 md:h-6"
+                          tooltipIconClassName="w-4 h-4"
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="mt-4 flex flex-wrap gap-6">
+                  <div>
+                    <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Skill ({user.feedback.length} ratings)</p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center space-x-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <svg
+                            key={star}
+                            className="w-5 h-5"
+                            style={{ color: star <= user.skillStars ? 'var(--accent-primary)' : 'var(--text-muted)' }}
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        ))}
+                      </div>
+                      <span className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>{user.skillStars}/5</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Personality ({user.feedback.length} ratings)</p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center space-x-1">
+                        {[1, 2, 3, 4, 5].map((moon) => (
+                          <svg
+                            key={moon}
+                            className="w-5 h-5"
+                            style={{ color: moon <= user.personalityMoons ? 'var(--accent-primary)' : 'var(--text-muted)' }}
+                            fill={moon <= user.personalityMoons ? 'currentColor' : 'none'}
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                          </svg>
+                        ))}
+                      </div>
+                      <span className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>{user.personalityMoons}/5</span>
+                    </div>
+                  </div>
+                  {user.reportCount > 0 && (
+                    <div>
+                      <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Status</p>
+                      <div className="flex items-center gap-2">
+                        {user.reportCount > 3 ? (
+                          <span className="text-sm font-medium px-2 py-1 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}>⚠️ Flagged</span>
+                        ) : (
+                          <>
+                            <span className="text-2xl">💀</span>
+                            <span className="text-sm font-semibold" style={{ color: 'var(--accent-danger)' }}>{user.reportCount} report{user.reportCount !== 1 ? 's' : ''}</span>
+                          </>
+                        )}
                       </div>
                     </div>
-                    <div className="rounded-lg p-2.5 border" style={{ background: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
-                      <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.7d')}</p>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{user.gamesPerWeek || 0}</span>
-                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.games')}</span>
+                  )}
+                </div>
+              </div>
+
+              <aside className="w-full xl:w-auto">
+                <div
+                  className="rounded-xl border p-4 sm:p-5"
+                  style={{
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-card)',
+                    boxShadow: 'var(--shadow)',
+                  }}
+                >
+                  <p className="text-xs uppercase tracking-wide font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>
+                    Competitive Snapshot
+                  </p>
+
+                  <div className="space-y-3">
+                    {mainAccount ? (
+                      <div className="rounded-lg border p-3" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)' }}>
+                        <p className="text-[11px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-secondary)' }}>Riot Main</p>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
+                          {mainAccount.gameName}#{mainAccount.tagLine}
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                          {mainAccount.region}
+                        </p>
                       </div>
+                    ) : (
+                      <div className="rounded-lg border p-3" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)' }}>
+                        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No Riot account linked.</p>
+                      </div>
+                    )}
+
+                    <div className="rounded-lg border p-3" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)' }}>
+                      <p className="text-[11px] uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>{t('profile.bestRank')}</p>
+                      {user.riotAccounts && user.riotAccounts.length > 0 ? (
+                        (() => {
+                          const best = getBestAccount(user.riotAccounts);
+                          if (!best) return <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Unranked</p>;
+                          const rankKey = best.rank || 'UNRANKED';
+                          return (
+                            <div className="flex flex-wrap items-center gap-2">
+                              {getRankBadge(rankKey, best.division || undefined, undefined, rankColor, t)}
+                              {best.winrate !== null && best.winrate !== undefined && getWinrateBadge(best.winrate, t)}
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No ranked data.</p>
+                      )}
                     </div>
-                  </div>
-                  {user.preferredRole && (
-                    <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
-                      <div className="flex items-center justify-center gap-2 flex-wrap">
-                        <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
-                          {user.secondaryRole ? t('profile.mostPlayedRoles') : t('profile.mostPlayedRole')}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-semibold px-2 py-1 rounded border inline-flex items-center gap-1" style={{ 
-                            background: 'rgba(200, 170, 109, 0.15)', 
-                            color: '#C8AA6D',
-                            borderColor: '#C8AA6D'
-                          }}>
-                            {getRoleIcon(user.preferredRole)}
-                            {user.preferredRole}
-                          </span>
-                          {user.secondaryRole && (
-                            <span className="text-xs font-semibold px-2 py-1 rounded border inline-flex items-center gap-1" style={{ 
-                              background: 'rgba(200, 170, 109, 0.12)', 
-                              color: '#C8AA6D',
-                              borderColor: '#C8AA6D'
-                            }}>
-                              {getRoleIcon(user.secondaryRole)}
-                              {user.secondaryRole}
+
+                    <div className="rounded-lg border p-3" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)' }}>
+                      <p className="text-[11px] uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>{t('profile.peakElo')}</p>
+                      {user.peakRank && user.peakRank !== 'UNRANKED' ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {getRankBadge(user.peakRank, user.peakDivision || undefined, user.peakLp || undefined, rankColor, t)}
+                          {user.peakDate && (
+                            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                              {new Date(user.peakDate).toLocaleDateString()}
                             </span>
                           )}
                         </div>
-                      </div>
-                    </div>
-                  )}
-                  <p className="text-[10px] mt-2 text-center" style={{ color: 'var(--text-secondary)' }}>{t('profile.acrossAccounts')}</p>
-                </div>
-              )}
-
-              {/* Ratings */}
-              <div className="mt-4 flex flex-wrap gap-6">
-                <div>
-                  <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Skill ({user.feedback.length} ratings)</p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center space-x-1">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <svg
-                          key={star}
-                          className="w-5 h-5"
-                          style={{ color: star <= user.skillStars ? 'var(--accent-primary)' : 'var(--text-muted)' }}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                    </div>
-                    <span className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>{user.skillStars}/5</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Personality ({user.feedback.length} ratings)</p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center space-x-1">
-                      {[1, 2, 3, 4, 5].map((moon) => (
-                        <svg
-                          key={moon}
-                          className="w-5 h-5"
-                          style={{ color: moon <= user.personalityMoons ? 'var(--accent-primary)' : 'var(--text-muted)' }}
-                          fill={moon <= user.personalityMoons ? 'currentColor' : 'none'}
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          viewBox="0 0 24 24"
-                        >
-                          <path d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
-                        </svg>
-                      ))}
-                    </div>
-                    <span className="text-sm font-semibold" style={{ color: 'var(--accent-primary)' }}>{user.personalityMoons}/5</span>
-                  </div>
-                </div>
-                {user.reportCount > 0 && (
-                  <div>
-                    <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Status</p>
-                    <div className="flex items-center gap-2">
-                      {user.reportCount > 3 ? (
-                        <span className="text-sm font-medium px-2 py-1 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}>⚠️ Flagged</span>
                       ) : (
-                        <>
-                          <span className="text-2xl">💀</span>
-                          <span className="text-sm font-semibold" style={{ color: 'var(--accent-danger)' }}>{user.reportCount} report{user.reportCount !== 1 ? 's' : ''}</span>
-                        </>
+                        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No peak rank recorded.</p>
                       )}
                     </div>
                   </div>
-                )}
-              </div>
-
-              {/* Share Rating Page Button - Only show on own profile */}
-              {!isViewingOther && (
-                <div className="mt-4">
-                  <button
-                    onClick={() => {
-                      const shareUrl = `${window.location.origin}/rate/${user.username}`;
-                      navigator.clipboard.writeText(shareUrl).then(() => {
-                        showToast('Rating page link copied! Share it with players you\'ve met in-game.', 'success');
-                      }).catch(() => {
-                        showToast('Failed to copy link', 'error');
-                      });
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-80"
-                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)', color: 'var(--text-secondary)' }}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                    </svg>
-                    Share Rating Page
-                  </button>
                 </div>
-              )}
+              </aside>
             </div>
 
-            <aside className="w-full lg:w-[320px] xl:w-[340px]">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div
                 className="rounded-xl border p-4 sm:p-5"
                 style={{
@@ -1760,11 +1754,7 @@ export default function ProfilePage() {
                   </p>
                 )}
 
-                <div className="mt-4 pt-3 space-y-2 border-t" style={{ borderColor: 'var(--border-card)' }}>
-                  <div className="flex items-center justify-between text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    <span>Communities</span>
-                    <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{user.communities.length}</span>
-                  </div>
+                <div className="mt-4 pt-3 border-t" style={{ borderColor: 'var(--border-card)' }}>
                   <div className="flex items-center justify-between text-xs" style={{ color: 'var(--text-secondary)' }}>
                     <span>Discord DMs</span>
                     <span
@@ -1778,15 +1768,82 @@ export default function ProfilePage() {
                       {user.discordDmNotifications ? 'On' : 'Off'}
                     </span>
                   </div>
-                  {!isViewingOther && (
-                    <div className="flex items-center justify-between text-xs" style={{ color: 'var(--text-secondary)' }}>
-                      <span>Ad credits</span>
-                      <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{Number(user.adCredits || 0)}</span>
-                    </div>
-                  )}
                 </div>
               </div>
-            </aside>
+
+              <div
+                className="rounded-xl border p-4 sm:p-5"
+                style={{
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-card)',
+                  boxShadow: 'var(--shadow)',
+                }}
+              >
+                <div className="flex items-center gap-1 mb-3">
+                  <svg className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                  <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent-primary)' }}>{t('profile.activity.title')}</span>
+                </div>
+
+                {user.riotAccounts && user.riotAccounts.length > 0 ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-lg p-2.5 border" style={{ background: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
+                        <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.24h')}</p>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{user.gamesPerDay || 0}</span>
+                          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.games')}</span>
+                        </div>
+                      </div>
+                      <div className="rounded-lg p-2.5 border" style={{ background: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
+                        <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.7d')}</p>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{user.gamesPerWeek || 0}</span>
+                          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('profile.activity.games')}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {user.preferredRole && (
+                      <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                        <div className="flex items-center justify-center gap-2 flex-wrap">
+                          <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+                            {user.secondaryRole ? t('profile.mostPlayedRoles') : t('profile.mostPlayedRole')}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold px-2 py-1 rounded border inline-flex items-center gap-1" style={{ 
+                              background: 'rgba(200, 170, 109, 0.15)', 
+                              color: '#C8AA6D',
+                              borderColor: '#C8AA6D'
+                            }}>
+                              {getRoleIcon(user.preferredRole)}
+                              {user.preferredRole}
+                            </span>
+                            {user.secondaryRole && (
+                              <span className="text-xs font-semibold px-2 py-1 rounded border inline-flex items-center gap-1" style={{ 
+                                background: 'rgba(200, 170, 109, 0.12)', 
+                                color: '#C8AA6D',
+                                borderColor: '#C8AA6D'
+                              }}>
+                                {getRoleIcon(user.secondaryRole)}
+                                {user.secondaryRole}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-[10px] mt-2 text-center" style={{ color: 'var(--text-secondary)' }}>{t('profile.acrossAccounts')}</p>
+                  </>
+                ) : (
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    Link a Riot account to unlock activity stats.
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

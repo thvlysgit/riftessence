@@ -165,7 +165,7 @@ const ACTION_DEFINITIONS: Record<ActionKey, ActionDefinition> = {
 
 const ACTION_KEYS = Object.keys(ACTION_DEFINITIONS) as ActionKey[];
 
-type CosmeticCategory = 'BADGE' | 'USERNAME_DECORATION' | 'HOVER_EFFECT' | 'VISUAL_EFFECT' | 'FONT' | 'ADSPACE';
+type CosmeticCategory = 'BADGE' | 'USERNAME_DECORATION' | 'HOVER_EFFECT' | 'VISUAL_EFFECT' | 'FONT';
 
 type CosmeticDefinition = {
   title: string;
@@ -179,81 +179,124 @@ type CosmeticDefinition = {
 };
 
 const COSMETIC_DEFINITIONS = {
-  BADGE_NOVA_SIGIL: {
-    title: 'Nova Sigil Badge',
-    description: 'Adds a clean luminous badge to your profile.',
+  BADGE_FORTUNE_COIN: {
+    title: 'Fortune Coin Badge',
+    description: 'A rare gilded crest for players who stack wealth.',
     category: 'BADGE',
-    costPrismaticEssence: 420,
+    costPrismaticEssence: 2400,
     repeatable: false,
     badgeGrant: {
-      key: 'shop_nova_sigil',
-      name: 'Nova Sigil',
+      key: 'shop_fortune_coin',
+      name: 'Fortune Coin',
       description: 'Unlocked through the Prismatic shop.',
-      icon: 'star',
-      bgColor: 'rgba(56, 189, 248, 0.16)',
-      borderColor: '#38BDF8',
-      textColor: '#BAE6FD',
-      hoverBg: 'rgba(56, 189, 248, 0.24)',
-      shape: 'squircle',
+      icon: 'gem',
+      bgColor: 'rgba(245, 158, 11, 0.2)',
+      borderColor: '#F59E0B',
+      textColor: '#FCD34D',
+      hoverBg: 'rgba(245, 158, 11, 0.28)',
+      shape: 'round',
       animation: 'glint',
     },
   },
-  BADGE_RIFT_SENTINEL: {
-    title: 'Rift Sentinel Badge',
-    description: 'A premium badge with a heavier look.',
+  BADGE_ORACLE_DICE: {
+    title: 'Oracle Dice Badge',
+    description: 'A mythic luckmark whispered to change outcomes.',
     category: 'BADGE',
-    costPrismaticEssence: 760,
+    costPrismaticEssence: 5200,
     repeatable: false,
     badgeGrant: {
-      key: 'shop_rift_sentinel',
-      name: 'Rift Sentinel',
+      key: 'shop_oracle_dice',
+      name: 'Oracle Dice',
       description: 'Unlocked through the Prismatic shop.',
-      icon: 'shield',
-      bgColor: 'rgba(129, 140, 248, 0.18)',
-      borderColor: '#818CF8',
-      textColor: '#C7D2FE',
-      hoverBg: 'rgba(129, 140, 248, 0.26)',
+      icon: 'dice-d20',
+      bgColor: 'rgba(147, 51, 234, 0.2)',
+      borderColor: '#9333EA',
+      textColor: '#DDD6FE',
+      hoverBg: 'rgba(147, 51, 234, 0.3)',
+      shape: 'soft-hex',
+      animation: 'spark',
+    },
+  },
+  BADGE_JACKPOT_CROWN: {
+    title: 'Jackpot Crown Badge',
+    description: 'Ultra-rare badge reserved for top-tier collectors.',
+    category: 'BADGE',
+    costPrismaticEssence: 9800,
+    repeatable: false,
+    badgeGrant: {
+      key: 'shop_jackpot_crown',
+      name: 'Jackpot Crown',
+      description: 'Unlocked through the Prismatic shop.',
+      icon: 'crown',
+      bgColor: 'rgba(251, 191, 36, 0.22)',
+      borderColor: '#FBBF24',
+      textColor: '#FEF08A',
+      hoverBg: 'rgba(251, 191, 36, 0.32)',
       shape: 'crest',
-      animation: 'breathe',
+      animation: 'drift',
     },
   },
   USERNAME_GILDED_EDGE: {
     title: 'Username: Gilded Edge',
-    description: 'Adds a warm gold edge to your username.',
+    description: 'Adds a warm gold edge to your username text.',
     category: 'USERNAME_DECORATION',
-    costPrismaticEssence: 340,
+    costPrismaticEssence: 500,
     repeatable: false,
     unlockKey: 'username_gilded_edge',
   },
   USERNAME_PRISMATIC_SLASH: {
     title: 'Username: Prismatic Slash',
-    description: 'Adds a bright cyan/indigo split style to your username.',
+    description: 'Adds a bright cyan/indigo split style to your username text.',
     category: 'USERNAME_DECORATION',
-    costPrismaticEssence: 520,
+    costPrismaticEssence: 760,
     repeatable: false,
     unlockKey: 'username_prismatic_slash',
   },
+  USERNAME_SOLAR_FLARE: {
+    title: 'Username: Solar Flare',
+    description: 'Paints your username text with a fiery gold-red blend.',
+    category: 'USERNAME_DECORATION',
+    costPrismaticEssence: 980,
+    repeatable: false,
+    unlockKey: 'username_solar_flare',
+  },
+  USERNAME_VOID_GLASS: {
+    title: 'Username: Void Glass',
+    description: 'Adds an icy violet glow with high contrast edges.',
+    category: 'USERNAME_DECORATION',
+    costPrismaticEssence: 1180,
+    repeatable: false,
+    unlockKey: 'username_void_glass',
+  },
   HOVER_AURORA_RING: {
-    title: 'Hover: Aurora Ring',
-    description: 'Profile card gets an aurora border on hover.',
+    title: 'Username Hover: Aurora Ring',
+    description: 'Adds a luminous aurora glow when hovering username text.',
     category: 'HOVER_EFFECT',
-    costPrismaticEssence: 460,
+    costPrismaticEssence: 700,
     repeatable: false,
     unlockKey: 'hover_aurora_ring',
   },
   HOVER_EMBER_TRAIL: {
-    title: 'Hover: Ember Trail',
-    description: 'Profile card gets a warm ember edge on hover.',
+    title: 'Username Hover: Ember Trail',
+    description: 'Adds warm ember trails on username hover.',
     category: 'HOVER_EFFECT',
-    costPrismaticEssence: 590,
+    costPrismaticEssence: 900,
     repeatable: false,
     unlockKey: 'hover_ember_trail',
+  },
+  HOVER_ECLIPSE_GLEAM: {
+    title: 'Username Hover: Eclipse Gleam',
+    description: 'Adds a rare dual-tone shimmer on username hover.',
+    category: 'HOVER_EFFECT',
+    costPrismaticEssence: 1300,
+    repeatable: false,
+    unlockKey: 'hover_eclipse_gleam',
   },
   VISUAL_STARDUST: {
     title: 'Visual FX: Stardust',
     description: 'Adds subtle sparkle texture behind your profile header.',
     category: 'VISUAL_EFFECT',
-    costPrismaticEssence: 530,
+    costPrismaticEssence: 780,
     repeatable: false,
     unlockKey: 'visual_stardust',
   },
@@ -261,15 +304,23 @@ const COSMETIC_DEFINITIONS = {
     title: 'Visual FX: Scanlines',
     description: 'Adds a soft scanline sheen on your profile header.',
     category: 'VISUAL_EFFECT',
-    costPrismaticEssence: 660,
+    costPrismaticEssence: 980,
     repeatable: false,
     unlockKey: 'visual_scanlines',
+  },
+  VISUAL_NEBULA_PULSE: {
+    title: 'Visual FX: Nebula Pulse',
+    description: 'Adds a soft animated nebula wash behind your profile header.',
+    category: 'VISUAL_EFFECT',
+    costPrismaticEssence: 1450,
+    repeatable: false,
+    unlockKey: 'visual_nebula_pulse',
   },
   FONT_ORBITRON: {
     title: 'Name Font: Orbitron',
     description: 'Applies a futuristic font to your username.',
     category: 'FONT',
-    costPrismaticEssence: 300,
+    costPrismaticEssence: 420,
     repeatable: false,
     unlockKey: 'font_orbitron',
   },
@@ -277,27 +328,21 @@ const COSMETIC_DEFINITIONS = {
     title: 'Name Font: Cinzel',
     description: 'Applies a serif display style to your username.',
     category: 'FONT',
-    costPrismaticEssence: 300,
+    costPrismaticEssence: 420,
     repeatable: false,
     unlockKey: 'font_cinzel',
   },
-  ADSPACE_SINGLE_SLOT: {
-    title: 'Adspace Credit (x1)',
-    description: 'Use one credit to submit one ad slot request.',
-    category: 'ADSPACE',
-    costPrismaticEssence: 900,
-    repeatable: true,
-    adCredits: 1,
-  },
-  ADSPACE_BUNDLE_SLOT: {
-    title: 'Adspace Credit Pack (x3)',
-    description: 'Three ad slot requests at a lower PE cost per slot.',
-    category: 'ADSPACE',
-    costPrismaticEssence: 2400,
-    repeatable: true,
-    adCredits: 3,
+  FONT_EXO2: {
+    title: 'Name Font: Exo 2',
+    description: 'Applies a competitive sci-fi font to your username.',
+    category: 'FONT',
+    costPrismaticEssence: 520,
+    repeatable: false,
+    unlockKey: 'font_exo2',
   },
 } as const satisfies Record<string, CosmeticDefinition>;
+
+const ADSPACE_CREDIT_UNIT_PRICE = 900;
 
 type CosmeticItemKey = keyof typeof COSMETIC_DEFINITIONS;
 const COSMETIC_KEYS = Object.keys(COSMETIC_DEFINITIONS) as CosmeticItemKey[];
@@ -315,6 +360,14 @@ const WalletTransactionsQuerySchema = z.object({
   limit: z.preprocess((value) => (value === undefined ? 40 : Number(value)), z.number().int().min(1).max(100)).default(40),
   offset: z.preprocess((value) => (value === undefined ? 0 : Number(value)), z.number().int().min(0)).default(0),
   currency: z.enum(['ALL', 'PRISMATIC_ESSENCE', 'RIFT_COINS']).default('ALL'),
+});
+
+const BuyAdspaceCreditsSchema = z.object({
+  quantity: z.preprocess((value) => (value === undefined ? 1 : Number(value)), z.number().int().min(1).max(250)).default(1),
+});
+
+const DeactivateCosmeticSchema = z.object({
+  category: z.enum(['ALL', 'USERNAME_DECORATION', 'HOVER_EFFECT', 'VISUAL_EFFECT', 'FONT']).default('ALL'),
 });
 
 function getUtcDateKey(date = new Date()) {
@@ -1149,6 +1202,132 @@ export default async function walletRoutes(fastify: FastifyInstance) {
     } catch (error: any) {
       request.log.error({ err: error }, 'Failed to load cosmetics shop');
       return reply.code(500).send({ error: 'Failed to load cosmetics shop.' });
+    }
+  });
+
+  fastify.post('/wallet/adspace/buy', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const validation = validateRequest(BuyAdspaceCreditsSchema, request.body || {});
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid adspace purchase request.', details: validation.errors });
+      }
+
+      const { quantity } = validation.data as { quantity: number };
+      const totalCost = quantity * ADSPACE_CREDIT_UNIT_PRICE;
+
+      const result = await prisma.$transaction(async (tx: any) => {
+        const wallet = await ensureWalletState(userId, tx);
+
+        if (wallet.prismaticEssence < totalCost) {
+          throw new Error(`Need ${totalCost.toLocaleString()} Prismatic Essence.`);
+        }
+
+        const nextBalance = wallet.prismaticEssence - totalCost;
+
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: {
+            prismaticEssence: nextBalance,
+            totalRiftCoinsSpent: { increment: totalCost },
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            userId,
+            currency: 'PRISMATIC_ESSENCE',
+            type: 'SHOP_PURCHASE',
+            amount: -totalCost,
+            balanceAfter: nextBalance,
+            note: `Adspace credits x${quantity}`,
+            metadata: {
+              source: 'adspace_buy',
+              quantity,
+              unitPrice: ADSPACE_CREDIT_UNIT_PRICE,
+            },
+          },
+        });
+
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            adCredits: { increment: quantity },
+          },
+        });
+
+        return {
+          quantity,
+          unitPrice: ADSPACE_CREDIT_UNIT_PRICE,
+          totalCost,
+        };
+      });
+
+      const [summary, cosmetics] = await Promise.all([
+        buildWalletSummary(userId),
+        buildCosmeticStates(userId),
+      ]);
+
+      return reply.send({
+        success: true,
+        result,
+        summary,
+        ...cosmetics,
+      });
+    } catch (error: any) {
+      if (error?.message && typeof error.message === 'string' && error.message.length < 220) {
+        return reply.code(400).send({ error: error.message });
+      }
+      request.log.error({ err: error }, 'Failed to purchase adspace credits');
+      return reply.code(500).send({ error: 'Failed to purchase adspace credits.' });
+    }
+  });
+
+  fastify.post('/wallet/cosmetics/deactivate', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const validation = validateRequest(DeactivateCosmeticSchema, request.body || {});
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid deactivate request.', details: validation.errors });
+      }
+
+      const { category } = validation.data as {
+        category: 'ALL' | 'USERNAME_DECORATION' | 'HOVER_EFFECT' | 'VISUAL_EFFECT' | 'FONT';
+      };
+      const updateData: any = {};
+
+      if (category === 'ALL' || category === 'USERNAME_DECORATION') {
+        updateData.activeUsernameDecoration = null;
+      }
+      if (category === 'ALL' || category === 'HOVER_EFFECT') {
+        updateData.activeHoverEffect = null;
+      }
+      if (category === 'ALL' || category === 'VISUAL_EFFECT') {
+        updateData.activeVisualEffect = null;
+      }
+      if (category === 'ALL' || category === 'FONT') {
+        updateData.activeNameplateFont = null;
+      }
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: updateData,
+      });
+
+      const cosmetics = await buildCosmeticStates(userId);
+      return reply.send({
+        success: true,
+        category,
+        ...cosmetics,
+      });
+    } catch (error: any) {
+      request.log.error({ err: error }, 'Failed to deactivate cosmetic loadout');
+      return reply.code(500).send({ error: 'Failed to deactivate cosmetic loadout.' });
     }
   });
 

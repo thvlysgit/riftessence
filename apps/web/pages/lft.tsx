@@ -245,6 +245,9 @@ type LftPost = {
   isAdmin?: boolean;
   preferredRole?: string | null;
   secondaryRole?: string | null;
+  activeUsernameDecoration?: string | null;
+  activeHoverEffect?: string | null;
+  activeNameplateFont?: string | null;
   
   // TEAM fields
   teamName?: string;
@@ -270,6 +273,49 @@ type LftPost = {
   skills?: string[];
   age?: number;
   availability?: string;
+};
+
+const USERNAME_DECORATION_STYLES: Record<string, React.CSSProperties> = {
+  username_gilded_edge: {
+    textShadow: '0 0 10px rgba(251, 191, 36, 0.34)',
+    WebkitTextStroke: '0.6px rgba(245, 158, 11, 0.65)',
+  },
+  username_prismatic_slash: {
+    backgroundImage: 'linear-gradient(92deg, #67e8f9, #93c5fd 35%, #a78bfa 68%, #f9a8d4)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 12px rgba(103, 232, 249, 0.28)',
+  },
+  username_solar_flare: {
+    backgroundImage: 'linear-gradient(88deg, #fef08a, #fbbf24 30%, #fb923c 64%, #ef4444)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 12px rgba(251, 146, 60, 0.3)',
+  },
+  username_void_glass: {
+    backgroundImage: 'linear-gradient(90deg, #ddd6fe, #a78bfa 40%, #60a5fa 75%)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 10px rgba(147, 51, 234, 0.32)',
+  },
+};
+
+const USERNAME_FONT_FAMILIES: Record<string, string> = {
+  font_orbitron: 'Orbitron, "Segoe UI", sans-serif',
+  font_cinzel: 'Cinzel, Georgia, serif',
+  font_exo2: '"Exo 2", "Segoe UI", sans-serif',
+};
+
+const USERNAME_HOVER_EFFECT_CLASSES: Record<string, string> = {
+  hover_aurora_ring: 'username-hover-aurora-ring',
+  hover_ember_trail: 'username-hover-ember-trail',
+  hover_eclipse_gleam: 'username-hover-eclipse-gleam',
 };
 
 export default function LFTPage() {
@@ -931,6 +977,16 @@ export default function LFTPage() {
                   const heading = isTeam
                     ? (p.teamName || 'Unnamed Team')
                     : (customOtherHeading || p.username || 'Unknown Listing');
+                  const shouldStyleUsernameHeading = !isTeam && !customOtherHeading;
+                  const usernameDecorationStyle = shouldStyleUsernameHeading && p.activeUsernameDecoration
+                    ? USERNAME_DECORATION_STYLES[p.activeUsernameDecoration] || undefined
+                    : undefined;
+                  const usernameFontFamily = shouldStyleUsernameHeading && p.activeNameplateFont
+                    ? USERNAME_FONT_FAMILIES[p.activeNameplateFont] || undefined
+                    : undefined;
+                  const usernameHoverClass = shouldStyleUsernameHeading && p.activeHoverEffect
+                    ? USERNAME_HOVER_EFFECT_CLASSES[p.activeHoverEffect] || ''
+                    : '';
                   const subHeading = isTeam
                     ? 'Team Recruiting'
                     : `${CANDIDATE_TYPE_LABELS[normalizedCandidateType] || normalizedCandidateType} Listing`;
@@ -978,7 +1034,14 @@ export default function LFTPage() {
                                 <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: accentColor }}>
                                   {subHeading}
                                 </p>
-                                <h3 className="text-xl font-bold leading-tight" style={{ color: 'var(--color-text-primary)' }}>
+                                <h3
+                                  className={`text-xl font-bold leading-tight username-hover-base ${usernameHoverClass}`.trim()}
+                                  style={{
+                                    color: 'var(--color-text-primary)',
+                                    fontFamily: usernameFontFamily || undefined,
+                                    ...(usernameDecorationStyle || {}),
+                                  }}
+                                >
                                   {heading}
                                 </h3>
                               </div>

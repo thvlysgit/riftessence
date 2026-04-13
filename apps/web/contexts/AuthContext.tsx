@@ -16,6 +16,9 @@ interface User {
   profileIconId?: number;
   discordLinked?: boolean;
   discordUsername?: string | null;
+  activeUsernameDecoration?: string | null;
+  activeHoverEffect?: string | null;
+  activeNameplateFont?: string | null;
 }
 
 interface AuthContextType {
@@ -74,6 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               profileIconId: data.profileIconId,
               discordLinked: Boolean(data.discordLinked ?? data.discordAccount),
               discordUsername: data.discordUsername || null,
+              activeUsernameDecoration: data.activeUsernameDecoration || null,
+              activeHoverEffect: data.activeHoverEffect || null,
+              activeNameplateFont: data.activeNameplateFont || null,
             });
           } else {
             let payload: any = null;
@@ -158,6 +164,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           profileIconId: data.profileIconId,
           discordLinked: Boolean(data.discordLinked ?? data.discordAccount),
           discordUsername: data.discordUsername || null,
+          activeUsernameDecoration: data.activeUsernameDecoration || null,
+          activeHoverEffect: data.activeHoverEffect || null,
+          activeNameplateFont: data.activeNameplateFont || null,
         });
         return { success: true };
       } else {
@@ -206,6 +215,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           profileIconId: undefined,
           discordLinked: false,
           discordUsername: null,
+          activeUsernameDecoration: null,
+          activeHoverEffect: null,
+          activeNameplateFont: null,
         });
         return { success: true };
       } else {
@@ -248,6 +260,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           profileIconId: data.profileIconId,
           discordLinked: Boolean(data.discordLinked ?? data.discordAccount),
           discordUsername: data.discordUsername || null,
+          activeUsernameDecoration: data.activeUsernameDecoration || null,
+          activeHoverEffect: data.activeHoverEffect || null,
+          activeNameplateFont: data.activeNameplateFont || null,
         });
       } else {
         let payload: any = null;

@@ -27,9 +27,26 @@ type Ad = {
   isActive: boolean;
   createdBy: string;
   createdAt: string;
+  createdByUsername?: string | null;
+  createdByIsAdmin?: boolean;
   impressionCount: number;
   clickCount: number;
   ctr: string;
+};
+
+type AdRequest = {
+  id: string;
+  title: string;
+  description: string | null;
+  imageUrl: string;
+  targetUrl: string;
+  targetRegions: string[];
+  targetFeeds: string[];
+  startDate: string;
+  endDate: string;
+  createdBy: string;
+  createdAt: string;
+  requesterUsername?: string | null;
 };
 
 type AdSettings = {
@@ -41,9 +58,11 @@ export default function AdsManagementPage() {
   const router = useRouter();
   const { showToast, confirm } = useGlobalUI();
   const [ads, setAds] = useState<Ad[]>([]);
+  const [requests, setRequests] = useState<AdRequest[]>([]);
   const [settings, setSettings] = useState<AdSettings>({ duoFeedAdFrequency: 5, lftFeedAdFrequency: 5 });
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [activeTab, setActiveTab] = useState<'managed' | 'requests'>('managed');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
 
@@ -99,6 +118,7 @@ export default function AdsManagementPage() {
   useEffect(() => {
     if (isAdmin === true) {
       loadAds();
+      loadRequests();
       loadSettings();
     }
   }, [isAdmin]);
@@ -117,6 +137,21 @@ export default function AdsManagementPage() {
       showToast('Failed to load ads', 'error');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadRequests() {
+    try {
+      const res = await fetch(`${API_URL}/api/ads/admin/requests`, {
+        headers: getAuthHeader(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRequests(data.requests || []);
+      }
+    } catch (err) {
+      console.error('Failed to load ad requests:', err);
+      showToast('Failed to load ad requests', 'error');
     }
   }
 
@@ -229,6 +264,57 @@ export default function AdsManagementPage() {
     } catch (err) {
       console.error('Failed to toggle ad status:', err);
       showToast('Failed to update ad status', 'error');
+    }
+  }
+
+  async function handleApproveRequest(adId: string) {
+    try {
+      const res = await fetch(`${API_URL}/api/ads/admin/requests/${adId}/approve`, {
+        method: 'POST',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+
+      if (res.ok) {
+        showToast('Ad request promoted to managed ads', 'success');
+        loadRequests();
+        loadAds();
+      } else {
+        const data = await res.json().catch(() => null);
+        showToast(data?.error || 'Failed to approve ad request', 'error');
+      }
+    } catch (err) {
+      console.error('Failed to approve ad request:', err);
+      showToast('Failed to approve ad request', 'error');
+    }
+  }
+
+  async function handleRejectRequest(adId: string) {
+    const ok = await confirm({
+      title: 'Reject Ad Request',
+      message: 'Reject this request and refund 1 ad credit to the requester?',
+      confirmText: 'Reject',
+    });
+
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/ads/admin/requests/${adId}/reject`, {
+        method: 'POST',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refundCredit: true }),
+      });
+
+      if (res.ok) {
+        showToast('Ad request rejected', 'success');
+        loadRequests();
+      } else {
+        const data = await res.json().catch(() => null);
+        showToast(data?.error || 'Failed to reject ad request', 'error');
+      }
+    } catch (err) {
+      console.error('Failed to reject ad request:', err);
+      showToast('Failed to reject ad request', 'error');
     }
   }
 
@@ -383,142 +469,248 @@ export default function AdsManagementPage() {
             </button>
           </div>
 
-          {/* Ads List */}
-          <div className="space-y-4">
-            {ads.length === 0 ? (
-              <div className="text-center py-12 border rounded-xl" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
-                <p style={{ color: 'var(--color-text-muted)' }}>No ads created yet</p>
-              </div>
-            ) : (
-              ads.map((ad) => (
-                <div
-                  key={ad.id}
-                  className="p-6 border rounded-xl"
-                  style={{
-                    background: 'var(--color-bg-secondary)',
-                    borderColor: ad.isActive ? 'var(--color-accent-1)' : 'var(--color-border)',
-                    opacity: ad.isActive ? 1 : 0.6,
-                  }}
-                >
-                  <div className="flex gap-6">
-                    {/* Ad Preview */}
-                    <div className="w-48 h-32 rounded-lg overflow-hidden flex-shrink-0" style={{ background: 'var(--color-bg-tertiary)' }}>
-                      <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" />
-                    </div>
+          <div className="mb-4 flex gap-2">
+            <button
+              onClick={() => setActiveTab('managed')}
+              className="px-4 py-2 rounded-lg text-sm font-semibold"
+              style={{
+                background: activeTab === 'managed' ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
+                color: activeTab === 'managed' ? '#fff' : 'var(--color-text-secondary)',
+              }}
+            >
+              Managed Ads ({ads.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('requests')}
+              className="px-4 py-2 rounded-lg text-sm font-semibold"
+              style={{
+                background: activeTab === 'requests' ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
+                color: activeTab === 'requests' ? '#fff' : 'var(--color-text-secondary)',
+              }}
+            >
+              User Requests ({requests.length})
+            </button>
+          </div>
 
-                    {/* Ad Details */}
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                            {ad.title}
-                          </h3>
-                          {ad.description && (
-                            <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                              {ad.description}
+          {activeTab === 'managed' ? (
+            <div className="space-y-4">
+              {ads.length === 0 ? (
+                <div className="text-center py-12 border rounded-xl" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+                  <p style={{ color: 'var(--color-text-muted)' }}>No ads created yet</p>
+                </div>
+              ) : (
+                ads.map((ad) => (
+                  <div
+                    key={ad.id}
+                    className="p-6 border rounded-xl"
+                    style={{
+                      background: 'var(--color-bg-secondary)',
+                      borderColor: ad.isActive ? 'var(--color-accent-1)' : 'var(--color-border)',
+                      opacity: ad.isActive ? 1 : 0.6,
+                    }}
+                  >
+                    <div className="flex gap-6">
+                      <div className="w-48 h-32 rounded-lg overflow-hidden flex-shrink-0" style={{ background: 'var(--color-bg-tertiary)' }}>
+                        <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" />
+                      </div>
+
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h3 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                              {ad.title}
+                            </h3>
+                            {ad.description && (
+                              <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                                {ad.description}
+                              </p>
+                            )}
+                            {ad.createdByUsername && (
+                              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                                Created by: {ad.createdByUsername}{ad.createdByIsAdmin ? ' (admin)' : ' (user)'}
+                              </p>
+                            )}
+                          </div>
+                          <span
+                            className="px-3 py-1 rounded-full text-xs font-semibold"
+                            style={{
+                              background: ad.isActive ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                              color: ad.isActive ? '#22C55E' : '#EF4444',
+                            }}
+                          >
+                            {ad.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                          <div>
+                            <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                              Impressions
                             </p>
+                            <p className="text-lg font-bold" style={{ color: 'var(--color-accent-1)' }}>
+                              {ad.impressionCount.toLocaleString()}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                              Clicks
+                            </p>
+                            <p className="text-lg font-bold" style={{ color: 'var(--color-accent-1)' }}>
+                              {ad.clickCount.toLocaleString()}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                              CTR
+                            </p>
+                            <p className="text-lg font-bold" style={{ color: 'var(--color-accent-1)' }}>
+                              {ad.ctr}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                              Priority
+                            </p>
+                            <p className="text-lg font-bold" style={{ color: 'var(--color-accent-1)' }}>
+                              {ad.priority}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {ad.targetFeeds.length > 0 && (
+                            <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                              Feeds: {ad.targetFeeds.join(', ')}
+                            </span>
                           )}
-                        </div>
-                        <span
-                          className="px-3 py-1 rounded-full text-xs font-semibold"
-                          style={{
-                            background: ad.isActive ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                            color: ad.isActive ? '#22C55E' : '#EF4444',
-                          }}
-                        >
-                          {ad.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                        <div>
-                          <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
-                            Impressions
-                          </p>
-                          <p className="text-lg font-bold" style={{ color: 'var(--color-accent-1)' }}>
-                            {ad.impressionCount.toLocaleString()}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
-                            Clicks
-                          </p>
-                          <p className="text-lg font-bold" style={{ color: 'var(--color-accent-1)' }}>
-                            {ad.clickCount.toLocaleString()}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
-                            CTR
-                          </p>
-                          <p className="text-lg font-bold" style={{ color: 'var(--color-accent-1)' }}>
-                            {ad.ctr}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
-                            Priority
-                          </p>
-                          <p className="text-lg font-bold" style={{ color: 'var(--color-accent-1)' }}>
-                            {ad.priority}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {ad.targetFeeds.length > 0 && (
+                          {ad.targetRegions.length > 0 && (
+                            <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                              Regions: {ad.targetRegions.join(', ')}
+                            </span>
+                          )}
                           <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
-                            Feeds: {ad.targetFeeds.join(', ')}
+                            {new Date(ad.startDate).toLocaleDateString()} - {new Date(ad.endDate).toLocaleDateString()}
                           </span>
-                        )}
-                        {ad.targetRegions.length > 0 && (
-                          <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
-                            Regions: {ad.targetRegions.join(', ')}
-                          </span>
-                        )}
-                        <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
-                          {new Date(ad.startDate).toLocaleDateString()} - {new Date(ad.endDate).toLocaleDateString()}
-                        </span>
-                      </div>
+                        </div>
 
-                      <div className="mt-4 flex gap-2">
-                        <button
-                          onClick={() => handleToggleActive(ad)}
-                          className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                          style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}
-                        >
-                          {ad.isActive ? 'Deactivate' : 'Activate'}
-                        </button>
-                        <button
-                          onClick={() => openEditModal(ad)}
-                          className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                          style={{ background: 'var(--color-accent-1)', color: '#fff' }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteAd(ad.id)}
-                          className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                          style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}
-                        >
-                          Delete
-                        </button>
-                        <a
-                          href={ad.targetUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                          style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}
-                        >
-                          Visit →
-                        </a>
+                        <div className="mt-4 flex gap-2">
+                          <button
+                            onClick={() => handleToggleActive(ad)}
+                            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}
+                          >
+                            {ad.isActive ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button
+                            onClick={() => openEditModal(ad)}
+                            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            style={{ background: 'var(--color-accent-1)', color: '#fff' }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAd(ad.id)}
+                            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}
+                          >
+                            Delete
+                          </button>
+                          <a
+                            href={ad.targetUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}
+                          >
+                            Visit →
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>
+                ))
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {requests.length === 0 ? (
+                <div className="text-center py-12 border rounded-xl" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+                  <p style={{ color: 'var(--color-text-muted)' }}>No pending user ad requests</p>
                 </div>
-              ))
-            )}
-          </div>
+              ) : (
+                requests.map((requestAd) => (
+                  <div
+                    key={requestAd.id}
+                    className="p-6 border rounded-xl"
+                    style={{ background: 'var(--color-bg-secondary)', borderColor: 'rgba(251, 191, 36, 0.55)' }}
+                  >
+                    <div className="flex gap-6">
+                      <div className="w-48 h-32 rounded-lg overflow-hidden flex-shrink-0" style={{ background: 'var(--color-bg-tertiary)' }}>
+                        <img src={requestAd.imageUrl} alt={requestAd.title} className="w-full h-full object-cover" />
+                      </div>
+
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between gap-4 mb-2">
+                          <div>
+                            <h3 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                              {requestAd.title}
+                            </h3>
+                            <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                              {requestAd.description || 'No description provided.'}
+                            </p>
+                            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                              Requested by: {requestAd.requesterUsername || 'Unknown'} • {new Date(requestAd.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold" style={{ background: 'rgba(251,191,36,0.2)', color: '#fbbf24' }}>
+                            Pending Review
+                          </span>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                            Feeds: {requestAd.targetFeeds.length > 0 ? requestAd.targetFeeds.join(', ') : 'all'}
+                          </span>
+                          <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                            Regions: {requestAd.targetRegions.length > 0 ? requestAd.targetRegions.join(', ') : 'all'}
+                          </span>
+                          <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                            Duration: {new Date(requestAd.startDate).toLocaleDateString()} - {new Date(requestAd.endDate).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 flex gap-2">
+                          <button
+                            onClick={() => handleApproveRequest(requestAd.id)}
+                            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            style={{ background: 'rgba(34, 197, 94, 0.2)', color: '#22C55E' }}
+                          >
+                            Approve & Promote
+                          </button>
+                          <button
+                            onClick={() => handleRejectRequest(requestAd.id)}
+                            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}
+                          >
+                            Reject
+                          </button>
+                          <a
+                            href={requestAd.targetUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}
+                          >
+                            Preview Link →
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </div>
 
