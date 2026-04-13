@@ -2,42 +2,49 @@
  * Utility functions for authentication and token handling
  */
 
+function decodeJwtPayload(token: string): any | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+
+    const base64Url = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padding = '='.repeat((4 - (base64Url.length % 4)) % 4);
+    const payload = atob(base64Url + padding);
+    return JSON.parse(payload);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Extracts the user ID from a JWT token (decoded payload)
  */
 export function getUserIdFromToken(token: string): string | null {
-  try {
-    // JWT format: header.payload.signature
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    
-    // Decode payload (base64url)
-    const payload = JSON.parse(atob(parts[1]));
-    return payload.userId || null;
-  } catch (e) {
-    return null;
-  }
+  const payload = decodeJwtPayload(token);
+  return payload?.userId || null;
 }
 
 /**
  * Checks if JWT token is expired or will expire soon (within 1 hour)
  */
 export function isTokenExpiringSoon(token: string): boolean {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return true;
-    
-    const payload = JSON.parse(atob(parts[1]));
-    if (!payload.exp) return true;
-    
-    const expirationTime = payload.exp * 1000; // Convert to milliseconds
-    const currentTime = Date.now();
-    const oneHour = 60 * 60 * 1000;
-    
-    return (expirationTime - currentTime) < oneHour;
-  } catch (e) {
-    return true;
-  }
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return true;
+
+  const expirationTime = payload.exp * 1000;
+  const currentTime = Date.now();
+  const oneHour = 60 * 60 * 1000;
+
+  return (expirationTime - currentTime) < oneHour;
+}
+
+/**
+ * Checks if JWT token is already expired.
+ */
+export function isTokenExpired(token: string): boolean {
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return true;
+  return (payload.exp * 1000) <= Date.now();
 }
 
 // Global refresh promise to prevent race conditions

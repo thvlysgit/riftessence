@@ -341,6 +341,11 @@ export default async function userRoutes(fastify: any) {
             // Invalid token, will fall through to default behavior
           }
         }
+
+        // Never fall back to arbitrary users when no explicit profile target is provided.
+        if (!targetUserId) {
+          return reply.status(401).send({ error: 'Authentication required' });
+        }
       }
       
       if (targetUserId) {
@@ -373,38 +378,10 @@ export default async function userRoutes(fastify: any) {
             communityMemberships: { include: { community: true } },
           },
         });
-      } else {
-        user = await prisma.user.findFirst({
-          include: {
-            riotAccounts: true,
-            discordAccount: true,
-            badges: true,
-            ratingsReceived: { 
-              take: 10, 
-              orderBy: { createdAt: 'desc' },
-              include: { rater: { select: { username: true } } },
-            },
-            communityMemberships: { include: { community: true } },
-          },
-        });
       }
 
-      // Create a default user if none exists (for development)
       if (!user) {
-        user = await prisma.user.create({
-          data: { username: 'Summoner123', email: 'user@example.com' },
-          include: {
-            riotAccounts: true,
-            discordAccount: true,
-            badges: true,
-            ratingsReceived: { 
-              take: 10, 
-              orderBy: { createdAt: 'desc' },
-              include: { rater: { select: { username: true } } },
-            },
-            communityMemberships: { include: { community: true } },
-          },
-        });
+        return reply.status(404).send({ error: 'User not found' });
       }
 
       if (authenticatedUserId && user.id === authenticatedUserId && !user.password) {

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/router';
-import { getAuthToken, setAuthToken, clearAllAuthState, getAuthHeader, isTokenExpiringSoon, refreshAuthToken } from '../utils/auth';
+import { getAuthToken, setAuthToken, clearAllAuthState, getAuthHeader, isTokenExpiringSoon, isTokenExpired, refreshAuthToken } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -47,16 +47,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const token = getAuthToken();
         if (token) {
-          // Check if token needs refresh
-          if (isTokenExpiringSoon(token)) {
+          // Try refresh when nearing expiry, but do not force logout on transient failures.
+          if (isTokenExpiringSoon(token) && !isTokenExpired(token)) {
             const newToken = await refreshAuthToken(API_URL);
             if (!newToken) {
-              // Refresh failed, clear token and redirect to login
-              clearAllAuthState();
-              setUser(null);
-              router.push('/');
-              setLoading(false);
-              return;
+              console.warn('Token refresh failed during bootstrap; keeping current session token for now.');
             }
           }
 
@@ -111,13 +106,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check token expiration every 10 minutes
     const intervalId = setInterval(async () => {
       const token = getAuthToken();
-      if (token && isTokenExpiringSoon(token)) {
+      if (!token) return;
+
+      if (isTokenExpired(token)) {
+        clearAllAuthState();
+        setUser(null);
+        router.push('/');
+        return;
+      }
+
+      if (isTokenExpiringSoon(token)) {
         const newToken = await refreshAuthToken(API_URL);
         if (!newToken) {
-          // Refresh failed, clear token and redirect to login
-          clearAllAuthState();
-          setUser(null);
-          router.push('/');
+          console.warn('Background token refresh failed; user remains signed in until token expires.');
         }
       }
     }, 10 * 60 * 1000);

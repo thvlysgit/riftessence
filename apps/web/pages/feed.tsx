@@ -159,20 +159,16 @@ const USERNAME_DECORATION_STYLES: Record<string, React.CSSProperties> = {
     textShadow: '0 0 12px rgba(103, 232, 249, 0.28)',
   },
   username_solar_flare: {
-    backgroundImage: 'linear-gradient(88deg, #fef08a, #fbbf24 30%, #fb923c 64%, #ef4444)',
-    WebkitBackgroundClip: 'text',
-    backgroundClip: 'text',
-    color: 'transparent',
-    WebkitTextFillColor: 'transparent',
-    textShadow: '0 0 12px rgba(251, 146, 60, 0.3)',
+    color: '#fde68a',
+    WebkitTextStroke: '0.65px rgba(194, 65, 12, 0.72)',
+    textShadow: '0 0 7px rgba(251, 146, 60, 0.52), 0 0 18px rgba(239, 68, 68, 0.35)',
+    letterSpacing: '0.015em',
   },
   username_void_glass: {
-    backgroundImage: 'linear-gradient(90deg, #ddd6fe, #a78bfa 40%, #60a5fa 75%)',
-    WebkitBackgroundClip: 'text',
-    backgroundClip: 'text',
-    color: 'transparent',
-    WebkitTextFillColor: 'transparent',
-    textShadow: '0 0 10px rgba(147, 51, 234, 0.32)',
+    color: '#dbeafe',
+    WebkitTextStroke: '0.55px rgba(99, 102, 241, 0.55)',
+    textShadow: '0 0 8px rgba(96, 165, 250, 0.42), 0 0 20px rgba(147, 51, 234, 0.28)',
+    filter: 'drop-shadow(0 0 6px rgba(59, 130, 246, 0.28))',
   },
 };
 
