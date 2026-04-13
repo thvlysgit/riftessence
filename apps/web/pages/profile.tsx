@@ -364,7 +364,6 @@ const AVAILABLE_LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Italian'
 
 type PlaystyleTheme = {
   icon: string;
-  description: string;
   baseBg: string;
   baseBorder: string;
   baseText: string;
@@ -376,66 +375,60 @@ type PlaystyleTheme = {
 
 const PLAYSTYLE_THEME_MAP: Record<string, PlaystyleTheme> = {
   'Controlled Chaos': {
-    icon: '🔥',
-    description: 'High-tempo skirmish pressure.',
-    baseBg: 'rgba(249, 115, 22, 0.08)',
-    baseBorder: 'rgba(249, 115, 22, 0.35)',
+    icon: '⚡',
+    baseBg: 'radial-gradient(circle at 16% 18%, rgba(251,146,60,0.26), rgba(220,38,38,0.18) 46%, rgba(120,53,15,0.24) 100%), repeating-linear-gradient(130deg, rgba(255,255,255,0.06) 0 8px, rgba(255,255,255,0) 8px 16px)',
+    baseBorder: 'rgba(249, 115, 22, 0.44)',
     baseText: '#fdba74',
-    selectedBg: 'linear-gradient(145deg, rgba(194,65,12,0.42), rgba(120,53,15,0.4))',
-    selectedBorder: '#f97316',
+    selectedBg: 'radial-gradient(circle at 16% 18%, rgba(251,146,60,0.48), rgba(220,38,38,0.36) 46%, rgba(120,53,15,0.46) 100%), repeating-linear-gradient(130deg, rgba(255,255,255,0.1) 0 8px, rgba(255,255,255,0) 8px 16px)',
+    selectedBorder: '#fb923c',
     selectedText: '#ffedd5',
-    glow: 'rgba(249, 115, 22, 0.32)',
+    glow: 'rgba(249, 115, 22, 0.36)',
   },
   FUNDAMENTALS: {
-    icon: '🧠',
-    description: 'Discipline, spacing, and wave control.',
-    baseBg: 'rgba(59, 130, 246, 0.08)',
-    baseBorder: 'rgba(59, 130, 246, 0.34)',
+    icon: '🧭',
+    baseBg: 'linear-gradient(0deg, rgba(59,130,246,0.1), rgba(30,64,175,0.08)), repeating-linear-gradient(0deg, rgba(147,197,253,0.08) 0 1px, transparent 1px 10px), repeating-linear-gradient(90deg, rgba(147,197,253,0.08) 0 1px, transparent 1px 10px)',
+    baseBorder: 'rgba(59, 130, 246, 0.4)',
     baseText: '#93c5fd',
-    selectedBg: 'linear-gradient(145deg, rgba(37,99,235,0.38), rgba(30,64,175,0.38))',
+    selectedBg: 'linear-gradient(0deg, rgba(37,99,235,0.42), rgba(30,64,175,0.38)), repeating-linear-gradient(0deg, rgba(191,219,254,0.12) 0 1px, transparent 1px 10px), repeating-linear-gradient(90deg, rgba(191,219,254,0.12) 0 1px, transparent 1px 10px)',
     selectedBorder: '#3b82f6',
     selectedText: '#dbeafe',
-    glow: 'rgba(59, 130, 246, 0.28)',
+    glow: 'rgba(59, 130, 246, 0.3)',
   },
   CoinFlips: {
-    icon: '🎲',
-    description: 'Volatile all-ins and hard commits.',
-    baseBg: 'rgba(245, 158, 11, 0.08)',
-    baseBorder: 'rgba(245, 158, 11, 0.34)',
+    icon: '🪙',
+    baseBg: 'conic-gradient(from 210deg at 50% 50%, rgba(245,158,11,0.18), rgba(146,64,14,0.14), rgba(250,204,21,0.16), rgba(245,158,11,0.18))',
+    baseBorder: 'rgba(245, 158, 11, 0.4)',
     baseText: '#fcd34d',
-    selectedBg: 'linear-gradient(145deg, rgba(217,119,6,0.38), rgba(146,64,14,0.38))',
+    selectedBg: 'conic-gradient(from 210deg at 50% 50%, rgba(245,158,11,0.42), rgba(180,83,9,0.4), rgba(250,204,21,0.38), rgba(245,158,11,0.42))',
     selectedBorder: '#f59e0b',
     selectedText: '#fef3c7',
     glow: 'rgba(245, 158, 11, 0.3)',
   },
   Scaling: {
     icon: '📈',
-    description: 'Patience, economy, and late-game spike.',
-    baseBg: 'rgba(139, 92, 246, 0.08)',
-    baseBorder: 'rgba(139, 92, 246, 0.34)',
-    baseText: '#c4b5fd',
-    selectedBg: 'linear-gradient(145deg, rgba(124,58,237,0.38), rgba(91,33,182,0.38))',
-    selectedBorder: '#8b5cf6',
-    selectedText: '#ede9fe',
-    glow: 'rgba(139, 92, 246, 0.3)',
+    baseBg: 'linear-gradient(160deg, rgba(16,185,129,0.16), rgba(5,150,105,0.12) 55%, rgba(4,120,87,0.14)), repeating-linear-gradient(-32deg, rgba(187,247,208,0.14) 0 6px, transparent 6px 14px)',
+    baseBorder: 'rgba(16, 185, 129, 0.44)',
+    baseText: '#6ee7b7',
+    selectedBg: 'linear-gradient(160deg, rgba(16,185,129,0.44), rgba(34,197,94,0.34) 55%, rgba(4,120,87,0.46)), repeating-linear-gradient(-32deg, rgba(187,247,208,0.24) 0 6px, transparent 6px 14px)',
+    selectedBorder: '#10b981',
+    selectedText: '#ecfdf5',
+    glow: 'rgba(16, 185, 129, 0.34)',
   },
   Snowball: {
     icon: '❄️',
-    description: 'Explode early leads into map control.',
-    baseBg: 'rgba(34, 211, 238, 0.08)',
-    baseBorder: 'rgba(34, 211, 238, 0.34)',
+    baseBg: 'radial-gradient(circle at 20% 24%, rgba(255,255,255,0.42) 0 2px, transparent 3px), radial-gradient(circle at 72% 64%, rgba(255,255,255,0.34) 0 2px, transparent 3px), linear-gradient(145deg, rgba(34,211,238,0.16), rgba(30,64,175,0.12))',
+    baseBorder: 'rgba(34, 211, 238, 0.42)',
     baseText: '#67e8f9',
-    selectedBg: 'linear-gradient(145deg, rgba(8,145,178,0.38), rgba(12,74,110,0.38))',
+    selectedBg: 'radial-gradient(circle at 20% 24%, rgba(255,255,255,0.6) 0 2px, transparent 3px), radial-gradient(circle at 72% 64%, rgba(255,255,255,0.5) 0 2px, transparent 3px), linear-gradient(145deg, rgba(8,145,178,0.46), rgba(12,74,110,0.42))',
     selectedBorder: '#22d3ee',
     selectedText: '#cffafe',
-    glow: 'rgba(34, 211, 238, 0.3)',
+    glow: 'rgba(34, 211, 238, 0.34)',
   },
 };
 
 function getPlaystyleTheme(style: string): PlaystyleTheme {
   return PLAYSTYLE_THEME_MAP[style] || {
     icon: '⭐',
-    description: 'Adaptive profile playstyle.',
     baseBg: 'rgba(148, 163, 184, 0.08)',
     baseBorder: 'rgba(148, 163, 184, 0.34)',
     baseText: '#cbd5e1',
@@ -544,47 +537,62 @@ const BADGE_CONFIG: Record<string, BadgeConfig> = {
 const PRESTIGE_BADGE_CONFIG: Record<string, BadgeConfig> = {
   shop_fortune_coin: {
     icon: 'gem',
-    description: 'Fortune Sigil I - Ember Sigil',
+    description: 'Fortune Badge I',
     bgColor: 'linear-gradient(140deg, rgba(146,64,14,0.38), rgba(180,83,9,0.34))',
     borderColor: '#F97316',
     textColor: '#FED7AA',
-    hoverBg: 'rgba(249,115,22,0.28)',
-    shape: 'bevel',
-    animation: 'drift',
+    hoverBg: 'rgba(249, 115, 22, 0.28)',
+    shape: 'round',
+    animation: 'glint',
   },
   shop_oracle_dice: {
     icon: 'gem',
-    description: 'Fortune Sigil II - Ember Sigil Prime',
+    description: 'Fortune Badge II',
     bgColor: 'linear-gradient(140deg, rgba(180,83,9,0.42), rgba(217,119,6,0.36), rgba(234,179,8,0.3))',
     borderColor: '#F59E0B',
     textColor: '#FEF3C7',
-    hoverBg: 'rgba(245,158,11,0.34)',
+    hoverBg: 'rgba(245, 158, 11, 0.32)',
     shape: 'soft-hex',
     animation: 'drift',
   },
   shop_jackpot_crown: {
     icon: 'gem',
-    description: 'Fortune Sigil III - Ember Sigil Sovereign',
+    description: 'Fortune Badge III',
     bgColor: 'linear-gradient(140deg, rgba(180,83,9,0.44), rgba(217,119,6,0.4), rgba(251,191,36,0.34))',
     borderColor: '#FBBF24',
     textColor: '#FEF9C3',
-    hoverBg: 'rgba(251,191,36,0.34)',
+    hoverBg: 'rgba(251, 191, 36, 0.36)',
     shape: 'crest',
     animation: 'spark',
   },
   shop_vault_ascendant: {
     icon: 'gem',
-    description: 'Fortune Sigil IV - Ember Sigil Ascendant',
+    description: 'Fortune Badge IV',
     bgColor: 'linear-gradient(140deg, rgba(146,64,14,0.5), rgba(217,119,6,0.44), rgba(251,191,36,0.38), rgba(168,85,247,0.32))',
     borderColor: '#EAB308',
     textColor: '#FEFCE8',
-    hoverBg: 'rgba(234,179,8,0.42)',
+    hoverBg: 'rgba(234, 179, 8, 0.42)',
     shape: 'bevel',
     animation: 'spark',
   },
 };
 
+const PRESTIGE_BADGE_LABELS: Record<string, string> = {
+  shop_fortune_coin: 'Novice',
+  shop_oracle_dice: 'Advanced',
+  shop_jackpot_crown: 'Expert',
+  shop_vault_ascendant: 'Ascendant',
+};
+
 const PRESTIGE_BADGE_ALIASES: Record<string, keyof typeof PRESTIGE_BADGE_CONFIG> = {
+  novice: 'shop_fortune_coin',
+  advanced: 'shop_oracle_dice',
+  expert: 'shop_jackpot_crown',
+  ascendant: 'shop_vault_ascendant',
+  fortunebadgei: 'shop_fortune_coin',
+  fortunebadgeii: 'shop_oracle_dice',
+  fortunebadgeiii: 'shop_jackpot_crown',
+  fortunebadgeiv: 'shop_vault_ascendant',
   fortunesigili: 'shop_fortune_coin',
   fortunesigiliembersigil: 'shop_fortune_coin',
   fortunesigiliembermark: 'shop_fortune_coin',
@@ -599,15 +607,14 @@ const PRESTIGE_BADGE_ALIASES: Record<string, keyof typeof PRESTIGE_BADGE_CONFIG>
   fortunesigilivascendantcrown: 'shop_vault_ascendant',
 };
 
-const resolvePrestigeBadgeConfig = (badgeLookupKey: string): BadgeConfig | null => {
+const resolvePrestigeBadgeKey = (badgeLookupKey: string): keyof typeof PRESTIGE_BADGE_CONFIG | null => {
   const normalizedKey = badgeLookupKey.trim().toLowerCase();
   if (PRESTIGE_BADGE_CONFIG[normalizedKey]) {
-    return PRESTIGE_BADGE_CONFIG[normalizedKey];
+    return normalizedKey as keyof typeof PRESTIGE_BADGE_CONFIG;
   }
 
   const compactKey = normalizedKey.replace(/[^a-z0-9]+/g, '');
-  const aliasKey = PRESTIGE_BADGE_ALIASES[compactKey];
-  return aliasKey ? PRESTIGE_BADGE_CONFIG[aliasKey] : null;
+  return PRESTIGE_BADGE_ALIASES[compactKey] || null;
 };
 
 const USERNAME_DECORATION_STYLES: Record<string, React.CSSProperties> = {
@@ -1710,7 +1717,8 @@ export default function ProfilePage() {
                     {user.badges.map((badge) => {
                       const badgeLookupKey = typeof badge === 'string' ? badge : (badge.key || badge.name);
                       const badgeDisplayName = typeof badge === 'string' ? badge : (badge.name || badge.key);
-                      const prestigeConfig = resolvePrestigeBadgeConfig(badgeLookupKey);
+                      const prestigeBadgeKey = resolvePrestigeBadgeKey(badgeLookupKey);
+                      const prestigeConfig = prestigeBadgeKey ? PRESTIGE_BADGE_CONFIG[prestigeBadgeKey] : null;
                       const config = prestigeConfig || badgeConfigs[badgeLookupKey] || badgeConfigs[badgeLookupKey.toLowerCase()] || BADGE_CONFIG[badgeLookupKey] || BADGE_CONFIG[badgeDisplayName] || {
                         icon: 'trophy',
                         bgColor: 'var(--badge-bg)',
@@ -1723,7 +1731,10 @@ export default function ProfilePage() {
                       const badgeKeyNorm = badgeLookupKey.toLowerCase().replace(/\s+/g, '');
                       const tKey = `profile.badge.${badgeKeyNorm}.desc` as any;
                       const translatedDesc = t(tKey);
-                      const description = translatedDesc === tKey ? (config.description || badgeDisplayName) : translatedDesc;
+                      const displayLabel = prestigeBadgeKey ? PRESTIGE_BADGE_LABELS[prestigeBadgeKey] : badgeDisplayName;
+                      const description = prestigeConfig
+                        ? (prestigeConfig.description || displayLabel)
+                        : (translatedDesc === tKey ? (config.description || badgeDisplayName) : translatedDesc);
 
                       return (
                         <LivingBadge
@@ -1736,7 +1747,7 @@ export default function ProfilePage() {
                           hoverBg={config.hoverBg}
                           shape={config.shape}
                           animation={config.animation}
-                          label={badgeDisplayName}
+                          label={displayLabel}
                           description={description}
                           className="w-9 h-9 md:w-10 md:h-10"
                           iconClassName="w-5 h-5 md:w-6 md:h-6"
@@ -2078,12 +2089,9 @@ export default function ProfilePage() {
                       }}
                     >
                       <span className="inline-flex items-center gap-2 text-sm font-semibold">
-                        <span>{theme.icon}</span>
+                        <span className="text-base drop-shadow-[0_0_6px_rgba(255,255,255,0.35)]">{theme.icon}</span>
                         <span>{style}</span>
                       </span>
-                      <p className="text-[11px] mt-1" style={{ color: isSelected ? theme.selectedText : theme.baseText, opacity: 0.92 }}>
-                        {theme.description}
-                      </p>
                     </button>
                   );
                 })}
@@ -2106,9 +2114,6 @@ export default function ProfilePage() {
                     >
                       <p className="text-sm font-semibold" style={{ color: theme.selectedText }}>
                         {theme.icon} {style}
-                      </p>
-                      <p className="text-[11px] mt-1" style={{ color: theme.selectedText, opacity: 0.9 }}>
-                        {theme.description}
                       </p>
                     </div>
                   );

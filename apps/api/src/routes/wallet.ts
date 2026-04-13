@@ -182,15 +182,15 @@ type CosmeticDefinition = {
 
 const COSMETIC_DEFINITIONS = {
   BADGE_FORTUNE_COIN: {
-    title: 'Fortune Sigil I - Ember Sigil',
-    description: 'The first forged Ember Sigil, raw and untempered.',
+    title: 'Novice',
+    description: 'Fortune Badge I',
     category: 'BADGE',
     costPrismaticEssence: 2800,
     repeatable: false,
     badgeGrant: {
       key: 'shop_fortune_coin',
-      name: 'Fortune Sigil I - Ember Sigil',
-      description: 'Prestige badge unlocked through the Prismatic shop.',
+      name: 'Novice',
+      description: 'Fortune Badge I',
       icon: 'gem',
       bgColor: 'linear-gradient(140deg, rgba(146,64,14,0.38), rgba(180,83,9,0.34))',
       borderColor: '#F97316',
@@ -201,16 +201,16 @@ const COSMETIC_DEFINITIONS = {
     },
   },
   BADGE_ORACLE_DICE: {
-    title: 'Fortune Sigil II - Ember Sigil Prime',
-    description: 'A refined Ember Sigil with brighter gold channels and cleaner edges.',
+    title: 'Advanced',
+    description: 'Fortune Badge II',
     category: 'BADGE',
     costPrismaticEssence: 5600,
     repeatable: false,
     requiresBadgeKey: 'shop_fortune_coin',
     badgeGrant: {
       key: 'shop_oracle_dice',
-      name: 'Fortune Sigil II - Ember Sigil Prime',
-      description: 'Prestige badge unlocked through the Prismatic shop.',
+      name: 'Advanced',
+      description: 'Fortune Badge II',
       icon: 'gem',
       bgColor: 'linear-gradient(140deg, rgba(180,83,9,0.42), rgba(217,119,6,0.36), rgba(234,179,8,0.3))',
       borderColor: '#F59E0B',
@@ -221,16 +221,16 @@ const COSMETIC_DEFINITIONS = {
     },
   },
   BADGE_JACKPOT_CROWN: {
-    title: 'Fortune Sigil III - Ember Sigil Sovereign',
-    description: 'A sovereign Ember Sigil layered with radiant tri-tone accents.',
+    title: 'Expert',
+    description: 'Fortune Badge III',
     category: 'BADGE',
     costPrismaticEssence: 10400,
     repeatable: false,
     requiresBadgeKey: 'shop_oracle_dice',
     badgeGrant: {
       key: 'shop_jackpot_crown',
-      name: 'Fortune Sigil III - Ember Sigil Sovereign',
-      description: 'Prestige badge unlocked through the Prismatic shop.',
+      name: 'Expert',
+      description: 'Fortune Badge III',
       icon: 'gem',
       bgColor: 'linear-gradient(140deg, rgba(180,83,9,0.44), rgba(217,119,6,0.4), rgba(251,191,36,0.34))',
       borderColor: '#FBBF24',
@@ -241,16 +241,16 @@ const COSMETIC_DEFINITIONS = {
     },
   },
   BADGE_VAULT_ASCENDANT: {
-    title: 'Fortune Sigil IV - Ember Sigil Ascendant',
-    description: 'The apex Ember Sigil, fully awakened with prismatic-gold radiance.',
+    title: 'Ascendant',
+    description: 'Fortune Badge IV',
     category: 'BADGE',
     costPrismaticEssence: 16800,
     repeatable: false,
     requiresBadgeKey: 'shop_jackpot_crown',
     badgeGrant: {
       key: 'shop_vault_ascendant',
-      name: 'Fortune Sigil IV - Ember Sigil Ascendant',
-      description: 'Prestige badge unlocked through the Prismatic shop.',
+      name: 'Ascendant',
+      description: 'Fortune Badge IV',
       icon: 'gem',
       bgColor: 'linear-gradient(140deg, rgba(146,64,14,0.5), rgba(217,119,6,0.44), rgba(251,191,36,0.38), rgba(168,85,247,0.32))',
       borderColor: '#EAB308',
@@ -973,7 +973,7 @@ async function buildCosmeticStates(userId: string, wallet?: WalletRow) {
       blockedReason: blockedByOwnership
         ? 'Already owned.'
         : blockedByRequirement
-          ? `Unlock ${requiredTitle || 'the previous Fortune Sigil'} first.`
+          ? `Unlock ${requiredTitle || 'the previous Fortune Badge'} first.`
         : walletState.prismaticEssence < definition.costPrismaticEssence
           ? `Need ${definition.costPrismaticEssence.toLocaleString()} Prismatic Essence.`
           : null,
@@ -1755,7 +1755,7 @@ export default async function walletRoutes(fastify: FastifyInstance) {
         }
 
         if (item.requiresBadgeKey && !user.badges.some((badge: any) => badge.key === item.requiresBadgeKey)) {
-          const requiredTitle = getCosmeticTitleByBadgeKey(item.requiresBadgeKey) || 'the previous Fortune Sigil';
+          const requiredTitle = getCosmeticTitleByBadgeKey(item.requiresBadgeKey) || 'the previous Fortune Badge';
           throw new Error(`You must unlock ${requiredTitle} first.`);
         }
 

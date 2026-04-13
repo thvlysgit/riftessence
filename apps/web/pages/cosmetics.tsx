@@ -12,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGlobalUI } from '../../api/components/GlobalUI';
 import { getAuthHeader } from '../utils/auth';
 import PrismaticEssenceIcon from '../src/components/PrismaticEssenceIcon';
+import LivingBadge from '../src/components/LivingBadge';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -139,26 +140,67 @@ const VISUAL_EFFECT_PREVIEW_CLASSES: Record<string, string> = {
   VISUAL_NEBULA_PULSE: 'profile-visual-nebula-pulse',
 };
 
-const PRESTIGE_BADGE_PREVIEW_META: Record<string, { icon: React.ReactNode; frame: string; glow: string }> = {
+type PrestigeBadgePreviewConfig = {
+  badgeKey: string;
+  label: string;
+  description: string;
+  icon: string;
+  bgColor: string;
+  borderColor: string;
+  textColor: string;
+  hoverBg: string;
+  shape: string;
+  animation: string;
+};
+
+const PRESTIGE_BADGE_PREVIEW_CONFIG: Record<string, PrestigeBadgePreviewConfig> = {
   BADGE_FORTUNE_COIN: {
-    icon: <FaGem />,
-    frame: 'linear-gradient(145deg, rgba(146,64,14,0.5), rgba(180,83,9,0.42))',
-    glow: 'rgba(249,115,22,0.28)',
+    badgeKey: 'shop_fortune_coin',
+    label: 'Novice',
+    description: 'Fortune Badge I',
+    icon: 'gem',
+    bgColor: 'linear-gradient(140deg, rgba(146,64,14,0.38), rgba(180,83,9,0.34))',
+    borderColor: '#F97316',
+    textColor: '#FED7AA',
+    hoverBg: 'rgba(249, 115, 22, 0.28)',
+    shape: 'round',
+    animation: 'glint',
   },
   BADGE_ORACLE_DICE: {
-    icon: <FaGem />,
-    frame: 'linear-gradient(145deg, rgba(180,83,9,0.52), rgba(217,119,6,0.4), rgba(234,179,8,0.34))',
-    glow: 'rgba(245,158,11,0.34)',
+    badgeKey: 'shop_oracle_dice',
+    label: 'Advanced',
+    description: 'Fortune Badge II',
+    icon: 'gem',
+    bgColor: 'linear-gradient(140deg, rgba(180,83,9,0.42), rgba(217,119,6,0.36), rgba(234,179,8,0.3))',
+    borderColor: '#F59E0B',
+    textColor: '#FEF3C7',
+    hoverBg: 'rgba(245, 158, 11, 0.32)',
+    shape: 'soft-hex',
+    animation: 'drift',
   },
   BADGE_JACKPOT_CROWN: {
-    icon: <FaGem />,
-    frame: 'linear-gradient(145deg, rgba(180,83,9,0.56), rgba(217,119,6,0.44), rgba(251,191,36,0.36))',
-    glow: 'rgba(251,191,36,0.38)',
+    badgeKey: 'shop_jackpot_crown',
+    label: 'Expert',
+    description: 'Fortune Badge III',
+    icon: 'gem',
+    bgColor: 'linear-gradient(140deg, rgba(180,83,9,0.44), rgba(217,119,6,0.4), rgba(251,191,36,0.34))',
+    borderColor: '#FBBF24',
+    textColor: '#FEF9C3',
+    hoverBg: 'rgba(251, 191, 36, 0.36)',
+    shape: 'crest',
+    animation: 'spark',
   },
   BADGE_VAULT_ASCENDANT: {
-    icon: <FaGem />,
-    frame: 'linear-gradient(145deg, rgba(146,64,14,0.6), rgba(217,119,6,0.46), rgba(251,191,36,0.4), rgba(168,85,247,0.34))',
-    glow: 'rgba(234,179,8,0.46)',
+    badgeKey: 'shop_vault_ascendant',
+    label: 'Ascendant',
+    description: 'Fortune Badge IV',
+    icon: 'gem',
+    bgColor: 'linear-gradient(140deg, rgba(146,64,14,0.5), rgba(217,119,6,0.44), rgba(251,191,36,0.38), rgba(168,85,247,0.32))',
+    borderColor: '#EAB308',
+    textColor: '#FEFCE8',
+    hoverBg: 'rgba(234, 179, 8, 0.42)',
+    shape: 'bevel',
+    animation: 'spark',
   },
 };
 
@@ -271,24 +313,37 @@ export default function CosmeticsPage() {
 
   const renderCosmeticPreview = (item: CosmeticItem) => {
     if (item.category === 'BADGE') {
-      const meta = PRESTIGE_BADGE_PREVIEW_META[item.key] || {
-        icon: <FaGem />,
-        frame: 'linear-gradient(145deg, rgba(71,85,105,0.6), rgba(51,65,85,0.52))',
-        glow: 'rgba(148,163,184,0.24)',
+      const config = PRESTIGE_BADGE_PREVIEW_CONFIG[item.key] || {
+        badgeKey: item.badgePreview?.key || item.key.toLowerCase(),
+        label: item.badgePreview?.name || item.title,
+        description: item.description,
+        icon: item.badgePreview?.icon || 'gem',
+        bgColor: 'linear-gradient(145deg, rgba(71,85,105,0.6), rgba(51,65,85,0.52))',
+        borderColor: '#94A3B8',
+        textColor: '#F8FAFC',
+        hoverBg: 'rgba(148,163,184,0.24)',
+        shape: 'squircle',
+        animation: 'breathe',
       };
 
       return (
         <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-card)', background: 'rgba(15,23,42,0.55)' }}>
-          <div
-            className="mx-auto h-14 w-14 rounded-2xl border flex items-center justify-center text-xl"
-            style={{
-              background: meta.frame,
-              borderColor: 'rgba(255,255,255,0.16)',
-              color: '#f8fafc',
-              boxShadow: `0 10px 20px ${meta.glow}`,
-            }}
-          >
-            {meta.icon}
+          <div className="mx-auto flex w-fit">
+            <LivingBadge
+              badgeKey={config.badgeKey}
+              icon={config.icon}
+              bgColor={config.bgColor}
+              borderColor={config.borderColor}
+              textColor={config.textColor}
+              hoverBg={config.hoverBg}
+              shape={config.shape}
+              animation={config.animation}
+              label={config.label}
+              description={config.description}
+              className="w-14 h-14"
+              iconClassName="w-7 h-7"
+              tooltipIconClassName="w-4 h-4"
+            />
           </div>
         </div>
       );

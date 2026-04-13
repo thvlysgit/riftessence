@@ -1,5 +1,32 @@
 import prisma from '../prisma';
 
+type LeaderboardType = 'overall' | 'skill' | 'personality' | 'rank' | 'ingame' | 'prismatic';
+
+const VALID_LEADERBOARD_TYPES = new Set<LeaderboardType>([
+  'overall',
+  'skill',
+  'personality',
+  'rank',
+  'ingame',
+  'prismatic',
+]);
+
+const VALID_RANKS = new Set<string>([
+  'IRON',
+  'BRONZE',
+  'SILVER',
+  'GOLD',
+  'PLATINUM',
+  'EMERALD',
+  'DIAMOND',
+  'MASTER',
+  'GRANDMASTER',
+  'CHALLENGER',
+  'UNRANKED',
+]);
+
+const VALID_DIVISIONS = new Set<string>(['I', 'II', 'III', 'IV']);
+
 // Rank tier values for scoring (higher is better)
 const RANK_VALUES: Record<string, number> = {
   'IRON': 1,
@@ -22,6 +49,50 @@ const DIVISION_VALUES: Record<string, number> = {
   'II': 3,
   'I': 4,
 };
+
+type MainAccountSnapshot = {
+  rank: string | null;
+  division: string | null;
+  lp: number | null;
+  winrate: number | null;
+  region: string | null;
+};
+
+type RatingSnapshot = {
+  skillStars: number;
+  personalityMoons: number;
+  ratingCount: number;
+};
+
+function normalizeLeaderboardType(value: unknown): LeaderboardType {
+  const normalized = String(value || 'overall').toLowerCase();
+  if (VALID_LEADERBOARD_TYPES.has(normalized as LeaderboardType)) {
+    return normalized as LeaderboardType;
+  }
+  return 'overall';
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function roundToOneDecimal(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function normalizeRank(value: unknown): string | null {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (!normalized || !VALID_RANKS.has(normalized)) return null;
+  return normalized;
+}
+
+function normalizeDivision(value: unknown): string | null {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (!normalized || !VALID_DIVISIONS.has(normalized)) return null;
+  return normalized;
+}
 
 function calculateRankScore(rank: string | null, division: string | null, lp: number | null): number {
   if (!rank || rank === 'UNRANKED') return 0;
@@ -75,63 +146,116 @@ export default async function leaderboardRoutes(fastify: any) {
         offset?: number;
       };
 
-      const limitNum = Math.min(Number(limit), 100);
-      const offsetNum = Math.max(0, Number(offset));
+      const activeType = normalizeLeaderboardType(type);
 
-      // Fetch users with all necessary data
-      const users = await prisma.user.findMany({
-        select: {
-          id: true,
-          username: true,
-          verified: true,
-          profileIconId: true,
-          badges: {
-            select: {
-              key: true,
-              name: true,
+      const parsedLimit = Number(limit);
+      const parsedOffset = Number(offset);
+      const limitNum = Number.isFinite(parsedLimit) ? Math.min(Math.max(Math.floor(parsedLimit), 1), 100) : 100;
+      const offsetNum = Number.isFinite(parsedOffset) ? Math.max(0, Math.floor(parsedOffset)) : 0;
+
+      const [users, mainAccountRows] = await Promise.all([
+        prisma.user.findMany({
+          select: {
+            id: true,
+            username: true,
+            verified: true,
+            profileIconId: true,
+            badges: {
+              select: {
+                key: true,
+                name: true,
+              },
+              take: 3,
+            },
+            wallet: {
+              select: {
+                prismaticEssence: true,
+              },
             },
           },
-          wallet: {
-            select: {
-              prismaticEssence: true,
-            },
-          },
-          riotAccounts: {
-            where: { isMain: true },
-            select: {
-              rank: true,
-              division: true,
-              lp: true,
-              winrate: true,
-              region: true,
-            },
-            take: 1,
-          },
-          ratingsReceived: {
-            select: {
-              stars: true,
-              moons: true,
-            },
-          },
-        },
+        }),
+        prisma.$queryRaw<Array<{
+          userId: string | null;
+          rank: string | null;
+          division: string | null;
+          lp: number | null;
+          winrate: number | null;
+          region: string | null;
+        }>>`
+          SELECT DISTINCT ON ("userId")
+            "userId",
+            "rank"::text AS "rank",
+            "division",
+            "lp",
+            "winrate",
+            "region"::text AS "region"
+          FROM "RiotAccount"
+          WHERE "isMain" = true AND "userId" IS NOT NULL
+          ORDER BY "userId", "createdAt" DESC
+        `,
+      ]);
+
+      const mainAccountByUserId = new Map<string, MainAccountSnapshot>();
+      mainAccountRows.forEach((row: {
+        userId: string | null;
+        rank: string | null;
+        division: string | null;
+        lp: number | null;
+        winrate: number | null;
+        region: string | null;
+      }) => {
+        if (!row.userId) return;
+        mainAccountByUserId.set(row.userId, {
+          rank: normalizeRank(row.rank),
+          division: normalizeDivision(row.division),
+          lp: toFiniteNumber(row.lp),
+          winrate: toFiniteNumber(row.winrate),
+          region: row.region ? String(row.region).toUpperCase() : null,
+        });
       });
+
+      let ratingsByUserId = new Map<string, RatingSnapshot>();
+      if (activeType === 'overall' || activeType === 'skill' || activeType === 'personality') {
+        const ratingRows = await prisma.rating.groupBy({
+          by: ['receiverId'],
+          _avg: {
+            stars: true,
+            moons: true,
+          },
+          _count: {
+            _all: true,
+          },
+        });
+
+        ratingsByUserId = new Map(
+          ratingRows.map((row: any) => {
+            const starsAvg = toFiniteNumber(row?._avg?.stars) || 0;
+            const moonsAvg = toFiniteNumber(row?._avg?.moons) || 0;
+            const count = toFiniteNumber(row?._count?._all) || 0;
+            return [
+              row.receiverId,
+              {
+                skillStars: roundToOneDecimal(starsAvg),
+                personalityMoons: roundToOneDecimal(moonsAvg),
+                ratingCount: Math.max(0, Math.floor(count)),
+              },
+            ] as const;
+          }),
+        );
+      }
 
       // Calculate scores for each user
       const usersWithScores = users.map((user: any) => {
-        const mainAccount = user.riotAccounts[0] || null;
-        
-        // Calculate average ratings
-        const ratings = user.ratingsReceived || [];
-        const avgStars = ratings.length > 0
-          ? ratings.reduce((sum: number, r: any) => sum + (r.stars || 0), 0) / ratings.length
-          : 0;
-        const avgMoons = ratings.length > 0
-          ? ratings.reduce((sum: number, r: any) => sum + (r.moons || 0), 0) / ratings.length
-          : 0;
+        const mainAccount = mainAccountByUserId.get(user.id) || null;
+        const ratingSnapshot = ratingsByUserId.get(user.id) || {
+          skillStars: 0,
+          personalityMoons: 0,
+          ratingCount: 0,
+        };
 
-        const skillStars = Math.round(avgStars * 10) / 10; // 1 decimal
-        const personalityMoons = Math.round(avgMoons * 10) / 10;
-        
+        const skillStars = ratingSnapshot.skillStars;
+        const personalityMoons = ratingSnapshot.personalityMoons;
+
         const rank = mainAccount?.rank || null;
         const division = mainAccount?.division || null;
         const lp = mainAccount?.lp || null;
@@ -159,13 +283,13 @@ export default async function leaderboardRoutes(fastify: any) {
           inGameSkillScore,
           overallScore,
           prismaticEssence: user.wallet?.prismaticEssence || 0,
-          ratingCount: ratings.length,
+          ratingCount: ratingSnapshot.ratingCount,
         };
       });
 
       // Filter and sort based on type
       let sorted: typeof usersWithScores = [];
-      switch (type) {
+      switch (activeType) {
         case 'skill':
           sorted = usersWithScores
             .filter((u: any) => u.ratingCount >= 3) // Require at least 3 ratings
