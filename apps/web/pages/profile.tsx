@@ -466,7 +466,7 @@ function renderPlaystyleIllustration(style: string, isSelected: boolean): React.
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeDasharray="8 6"
-          style={{ animation: 'playstyleGraphPulse 3.8s linear infinite' }}
+          style={{ animation: 'playstyleSignalFlow 4.2s linear infinite' }}
         />
         <polyline
           points="28,116 62,108 98,94 134,86 170,70 206,52 242,34 280,18"
@@ -524,30 +524,53 @@ function renderPlaystyleIllustration(style: string, isSelected: boolean): React.
   if (style === 'FUNDAMENTALS') {
     return (
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 300 140" preserveAspectRatio="none" style={{ opacity }}>
-        <g stroke="rgba(147,197,253,0.28)" strokeWidth="1">
-          <line x1="20" y1="22" x2="280" y2="22" />
-          <line x1="20" y1="44" x2="280" y2="44" />
-          <line x1="20" y1="66" x2="280" y2="66" />
-          <line x1="20" y1="88" x2="280" y2="88" />
-          <line x1="20" y1="110" x2="280" y2="110" />
-          <line x1="40" y1="14" x2="40" y2="124" />
-          <line x1="90" y1="14" x2="90" y2="124" />
-          <line x1="140" y1="14" x2="140" y2="124" />
-          <line x1="190" y1="14" x2="190" y2="124" />
-          <line x1="240" y1="14" x2="240" y2="124" />
+        <g stroke="rgba(147,197,253,0.16)" strokeWidth="1">
+          <line x1="18" y1="20" x2="282" y2="20" />
+          <line x1="18" y1="120" x2="282" y2="120" />
+          <line x1="28" y1="14" x2="28" y2="126" />
+          <line x1="272" y1="14" x2="272" y2="126" />
         </g>
-        <circle cx="210" cy="70" r="22" fill="none" stroke="rgba(191,219,254,0.86)" strokeWidth="2.8" />
-        <line x1="188" y1="70" x2="232" y2="70" stroke="rgba(191,219,254,0.86)" strokeWidth="2" />
-        <line x1="210" y1="48" x2="210" y2="92" stroke="rgba(191,219,254,0.86)" strokeWidth="2" />
+        <path
+          d="M44 36 Q92 20 140 36 V112 Q92 96 44 112 Z"
+          fill="rgba(30,64,175,0.18)"
+          stroke="rgba(191,219,254,0.86)"
+          strokeWidth="2.6"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M156 36 Q204 20 252 36 V112 Q204 96 156 112 Z"
+          fill="rgba(30,64,175,0.2)"
+          stroke="rgba(191,219,254,0.86)"
+          strokeWidth="2.6"
+          strokeLinejoin="round"
+        />
+        <line x1="148" y1="32" x2="148" y2="114" stroke="rgba(219,234,254,0.92)" strokeWidth="2.2" />
+        <line x1="152" y1="32" x2="152" y2="114" stroke="rgba(219,234,254,0.92)" strokeWidth="2.2" />
+        <path d="M136 24 H164 V34 H136 Z" fill="rgba(96,165,250,0.72)" stroke="rgba(219,234,254,0.82)" strokeWidth="1.4" />
+        <path d="M146 24 H154 V52 L150 48 L146 52 Z" fill="rgba(59,130,246,0.96)" />
+        <g stroke="rgba(191,219,254,0.74)" strokeWidth="1.8" strokeLinecap="round">
+          <line x1="58" y1="52" x2="126" y2="46" />
+          <line x1="58" y1="64" x2="126" y2="58" />
+          <line x1="58" y1="76" x2="118" y2="72" />
+          <line x1="170" y1="52" x2="238" y2="46" />
+          <line x1="170" y1="64" x2="238" y2="58" />
+          <line x1="170" y1="76" x2="230" y2="72" />
+        </g>
         <polyline
-          points="32,112 84,84 128,94 172,62 220,68 274,34"
+          points="52,98 78,90 104,94 132,84"
           fill="none"
-          stroke="rgba(147,197,253,0.96)"
-          strokeWidth="3.2"
+          stroke="rgba(191,219,254,0.8)"
+          strokeWidth="2.6"
           strokeLinecap="round"
           strokeLinejoin="round"
-          strokeDasharray="7 6"
-          style={{ animation: 'playstyleSignalFlow 4.2s linear infinite' }}
+        />
+        <polyline
+          points="168,98 194,90 220,94 248,84"
+          fill="none"
+          stroke="rgba(191,219,254,0.8)"
+          strokeWidth="2.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
       </svg>
     );
@@ -556,12 +579,16 @@ function renderPlaystyleIllustration(style: string, isSelected: boolean): React.
   if (style === 'CoinFlips') {
     return (
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 300 140" preserveAspectRatio="none" style={{ opacity }}>
-        <circle cx="70" cy="86" r="24" fill="rgba(250,204,21,0.26)" stroke="rgba(245,158,11,0.82)" strokeWidth="3" />
-        <circle cx="70" cy="86" r="15" fill="none" stroke="rgba(254,243,199,0.84)" strokeWidth="2" />
-        <circle cx="230" cy="44" r="22" fill="rgba(250,204,21,0.2)" stroke="rgba(245,158,11,0.76)" strokeWidth="3" />
-        <circle cx="230" cy="44" r="13" fill="none" stroke="rgba(254,243,199,0.78)" strokeWidth="2" />
+        <circle cx="72" cy="98" r="22" fill="rgba(250,204,21,0.24)" stroke="rgba(245,158,11,0.84)" strokeWidth="3" />
+        <circle cx="72" cy="98" r="14" fill="none" stroke="rgba(254,243,199,0.86)" strokeWidth="2" />
+        <text x="72" y="103" textAnchor="middle" fill="rgba(255,237,213,0.92)" fontSize="12" fontWeight="700">H</text>
+        <circle cx="228" cy="52" r="22" fill="rgba(250,204,21,0.22)" stroke="rgba(245,158,11,0.8)" strokeWidth="3" />
+        <circle cx="228" cy="52" r="14" fill="none" stroke="rgba(254,243,199,0.82)" strokeWidth="2" />
+        <text x="228" y="57" textAnchor="middle" fill="rgba(255,237,213,0.9)" fontSize="12" fontWeight="700">T</text>
+        <ellipse cx="150" cy="24" rx="15" ry="6" fill="rgba(250,204,21,0.38)" stroke="rgba(251,191,36,0.9)" strokeWidth="2.4" />
+        <ellipse cx="150" cy="24" rx="9" ry="3" fill="none" stroke="rgba(254,243,199,0.72)" strokeWidth="1.6" />
         <path
-          d="M70 62 Q148 6 230 44"
+          d="M72 76 Q148 4 228 30"
           fill="none"
           stroke="rgba(254,243,199,0.86)"
           strokeWidth="2.5"
@@ -569,9 +596,10 @@ function renderPlaystyleIllustration(style: string, isSelected: boolean): React.
           strokeDasharray="8 6"
           style={{ animation: 'playstyleCoinArc 3.5s linear infinite' }}
         />
-        <path d="M70 106 Q150 134 230 70" fill="none" stroke="rgba(245,158,11,0.72)" strokeWidth="2.4" strokeLinecap="round" />
-        <line x1="150" y1="20" x2="150" y2="120" stroke="rgba(251,191,36,0.6)" strokeWidth="2" strokeDasharray="6 6" />
-        <text x="150" y="34" textAnchor="middle" fill="rgba(255,237,213,0.88)" fontSize="13" fontWeight="700">50/50</text>
+        <path d="M228 30 L238 33 L230 40" fill="none" stroke="rgba(254,243,199,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M72 122 Q148 138 228 74" fill="none" stroke="rgba(245,158,11,0.74)" strokeWidth="2.4" strokeLinecap="round" />
+        <line x1="150" y1="12" x2="150" y2="126" stroke="rgba(251,191,36,0.52)" strokeWidth="1.8" strokeDasharray="6 6" />
+        <text x="150" y="136" textAnchor="middle" fill="rgba(255,237,213,0.86)" fontSize="11" fontWeight="700">Heads or Tails</text>
       </svg>
     );
   }
