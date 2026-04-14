@@ -233,6 +233,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
           badges = badgeRows;
           riotAccountsCount = riotCount;
+          onboardingCompleted = riotCount > 0;
         } catch (fallbackMetaError: any) {
           request.log?.warn?.({
             reqId: request.id,

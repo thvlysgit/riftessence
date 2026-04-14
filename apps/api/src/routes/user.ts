@@ -663,18 +663,31 @@ export default async function userRoutes(fastify: any) {
       
       fastify.log.info({ totalGamesPerDay, totalGamesPerWeek, profileIconId }, 'Total game activity calculated');
 
+      const normalizedPlaystyles = Array.isArray(user.playstyles) ? user.playstyles : [];
+      const normalizedLanguages = Array.isArray(user.languages) ? user.languages : [];
+      const normalizedChampionList = Array.isArray(user.championList) ? user.championList : [];
+      const normalizedUnlockedCosmetics = Array.isArray(user.unlockedCosmetics) ? user.unlockedCosmetics : [];
+      const normalizedChampionTierlist =
+        user.championTierlist && typeof user.championTierlist === 'object'
+          ? user.championTierlist
+          : null;
+      const normalizedOnboardingCompleted =
+        typeof user.onboardingCompleted === 'boolean'
+          ? user.onboardingCompleted
+          : user.riotAccounts.length > 0;
+
       const profileData = {
         id: user.id,
         username: user.username,
         bio: user.bio,
-        anonymous: user.anonymous,
-        playstyles: user.playstyles,
-        primaryRole: user.primaryRole,
-        preferredRole: user.preferredRole, // Auto-detected from match history (most played)
-        secondaryRole: user.secondaryRole, // Auto-detected second most played role
+        anonymous: typeof user.anonymous === 'boolean' ? user.anonymous : false,
+        playstyles: normalizedPlaystyles,
+        primaryRole: user.primaryRole || null,
+        preferredRole: user.preferredRole || null, // Auto-detected from match history (most played)
+        secondaryRole: user.secondaryRole || null, // Auto-detected second most played role
         region: user.region,
         vcPreference: user.vcPreference,
-        languages: user.languages,
+        languages: normalizedLanguages,
         skillStars: Math.round(avgStars),
         personalityMoons: Math.round(avgMoons),
         reportCount: user.reportCount || 0,
@@ -683,10 +696,10 @@ export default async function userRoutes(fastify: any) {
         peakLp: user.peakLp || null,
         peakDate: user.peakDate?.toISOString() || null,
         badges: user.badges.map((b: any) => ({ key: b.key, name: b.name })),
-        championPoolMode: user.championPoolMode,
-        championList: user.championList || [],
-        championTierlist: user.championTierlist || null,
-        onboardingCompleted: user.onboardingCompleted || false,
+        championPoolMode: user.championPoolMode || 'TIERLIST',
+        championList: normalizedChampionList,
+        championTierlist: normalizedChampionTierlist,
+        onboardingCompleted: normalizedOnboardingCompleted,
         gamesPerDay: totalGamesPerDay,
         gamesPerWeek: totalGamesPerWeek,
         profileIconId,
@@ -705,13 +718,13 @@ export default async function userRoutes(fastify: any) {
         })),
         discordLinked: !!user.discordAccount,
         discordUsername: user.discordAccount?.username || null,
-        discordDmNotifications: user.discordDmNotifications || false,
-        unlockedCosmetics: user.unlockedCosmetics || [],
+        discordDmNotifications: !!user.discordDmNotifications,
+        unlockedCosmetics: normalizedUnlockedCosmetics,
         activeUsernameDecoration: user.activeUsernameDecoration || null,
         activeHoverEffect: user.activeHoverEffect || null,
         activeVisualEffect: user.activeVisualEffect || null,
         activeNameplateFont: user.activeNameplateFont || null,
-        adCredits: user.adCredits || 0,
+        adCredits: typeof user.adCredits === 'number' ? user.adCredits : 0,
         communities: user.communityMemberships.map((m: any) => ({
           id: m.community.id,
           name: m.community.name,
@@ -1035,12 +1048,52 @@ export default async function userRoutes(fastify: any) {
         return `${r}.api.riotgames.com`;
       };
 
+      const updateRiotAccountSafely = async (accountId: string, data: any) => {
+        try {
+          await prisma.riotAccount.update({
+            where: { id: accountId },
+            data,
+          });
+        } catch (updateError: any) {
+          if (!isPrismaSchemaMismatchError(updateError)) {
+            throw updateError;
+          }
+
+          const fallbackData: any = {};
+          if (Object.prototype.hasOwnProperty.call(data, 'rank')) fallbackData.rank = data.rank;
+          if (Object.prototype.hasOwnProperty.call(data, 'division')) fallbackData.division = data.division;
+          if (Object.prototype.hasOwnProperty.call(data, 'winrate')) fallbackData.winrate = data.winrate;
+
+          if (Object.keys(fallbackData).length === 0) {
+            return;
+          }
+
+          await prisma.riotAccount.update({
+            where: { id: accountId },
+            data: fallbackData,
+          });
+        }
+      };
+
       // Clear cache to force fresh fetch on next profile load (including role detection)
       for (const acc of user.riotAccounts) {
-        await prisma.riotAccount.update({
-          where: { id: acc.id },
-          data: { lastStatsUpdate: null }, // Clear cache timestamp
-        });
+        try {
+          await prisma.riotAccount.update({
+            where: { id: acc.id },
+            data: { lastStatsUpdate: null }, // Clear cache timestamp
+          });
+        } catch (cacheClearError: any) {
+          if (!isPrismaSchemaMismatchError(cacheClearError)) {
+            throw cacheClearError;
+          }
+
+          fastify.log.warn({
+            reqId: request.id,
+            accountId: acc.id,
+            code: cacheClearError?.code,
+            message: cacheClearError?.message,
+          }, 'Skipping lastStatsUpdate reset due to schema mismatch.');
+        }
       }
 
       for (const acc of user.riotAccounts) {
@@ -1096,9 +1149,11 @@ export default async function userRoutes(fastify: any) {
             }
           }
 
-          await prisma.riotAccount.update({
-            where: { id: acc.id },
-            data: { rank: bestRank as any, division: bestDivision, winrate: bestWinrate, lp: bestLp },
+          await updateRiotAccountSafely(acc.id, {
+            rank: bestRank as any,
+            division: bestDivision,
+            winrate: bestWinrate,
+            lp: bestLp,
           });
         } catch (err) {
           fastify.log.warn({ err }, `Failed to refresh stats for account ${acc.id}`);
@@ -1126,16 +1181,29 @@ export default async function userRoutes(fastify: any) {
         }
         const peakScore = calculateRankScore(updatedUser.peakRank, updatedUser.peakDivision, updatedUser.peakLp);
         if (highestScore > peakScore) {
-          await prisma.user.update({
-            where: { id: userId },
-            data: {
-              peakRank: highestRank as any,
-              peakDivision: highestDiv,
-              peakLp: highestLp,
-              peakDate: new Date(),
-            },
-          });
-          fastify.log.info({ userId, peak: { rank: highestRank, division: highestDiv, lp: highestLp } }, 'New peak elo recorded');
+          try {
+            await prisma.user.update({
+              where: { id: userId },
+              data: {
+                peakRank: highestRank as any,
+                peakDivision: highestDiv,
+                peakLp: highestLp,
+                peakDate: new Date(),
+              },
+            });
+            fastify.log.info({ userId, peak: { rank: highestRank, division: highestDiv, lp: highestLp } }, 'New peak elo recorded');
+          } catch (peakUpdateError: any) {
+            if (!isPrismaSchemaMismatchError(peakUpdateError)) {
+              throw peakUpdateError;
+            }
+
+            fastify.log.warn({
+              reqId: request.id,
+              userId,
+              code: peakUpdateError?.code,
+              message: peakUpdateError?.message,
+            }, 'Skipping peak elo update due to schema mismatch.');
+          }
         }
       }
 
