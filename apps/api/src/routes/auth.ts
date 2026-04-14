@@ -23,6 +23,17 @@ function extractClientIp(request: any): string | null {
   return normalizeClientIp(candidate);
 }
 
+function isPrismaSchemaMismatchError(error: any): boolean {
+  const code = typeof error?.code === 'string' ? error.code : '';
+  if (code === 'P2021' || code === 'P2022') {
+    return true;
+  }
+
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('column') && message.includes('does not exist')
+    || message.includes('relation') && message.includes('does not exist');
+}
+
 export default async function authRoutes(fastify: FastifyInstance) {
   // Register new user with username/email/password
   fastify.post('/register', async (request: any, reply: any) => {
@@ -130,25 +141,59 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
       const { usernameOrEmail, password } = validation.data;
 
-      // Find user by username or email
-      const user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { username: { equals: usernameOrEmail, mode: 'insensitive' } },
-            { email: { equals: usernameOrEmail, mode: 'insensitive' } },
-          ],
-        },
-        include: {
-          badges: true,
-          riotAccounts: true,
-        },
-      });
+      // Find user by username or email.
+      // Fallback avoids hard outages if production schema lags behind code.
+      let user: any = null;
+      let usedLegacySchemaFallback = false;
+
+      try {
+        user = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { username: { equals: usernameOrEmail, mode: 'insensitive' } },
+              { email: { equals: usernameOrEmail, mode: 'insensitive' } },
+            ],
+          },
+          include: {
+            badges: true,
+            riotAccounts: true,
+          },
+        });
+      } catch (queryError: any) {
+        if (!isPrismaSchemaMismatchError(queryError)) {
+          throw queryError;
+        }
+
+        usedLegacySchemaFallback = true;
+        request.log?.error?.({
+          reqId: request.id,
+          code: queryError?.code,
+          message: queryError?.message,
+        }, 'Login fallback activated due to schema mismatch. Run prisma migrate deploy.');
+
+        user = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { username: { equals: usernameOrEmail, mode: 'insensitive' } },
+              { email: { equals: usernameOrEmail, mode: 'insensitive' } },
+            ],
+          },
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            password: true,
+            bio: true,
+            verified: true,
+          },
+        });
+      }
 
       if (!user) return Errors.invalidCredentials(reply, request);
       // SECURITY FIX: Use generic error to prevent user enumeration
       if (!user.password) return Errors.invalidCredentials(reply, request);
 
-      if (user.isBanned) {
+      if (!usedLegacySchemaFallback && user.isBanned) {
         return reply.code(403).send({
           error: 'Your account has been banned.',
           code: 'ACCOUNT_BANNED',
@@ -161,11 +206,39 @@ export default async function authRoutes(fastify: FastifyInstance) {
       if (!isValid) return Errors.invalidCredentials(reply, request);
 
       const clientIp = extractClientIp(request);
-      if (clientIp && user.lastKnownIp !== clientIp) {
+      if (!usedLegacySchemaFallback && clientIp && user.lastKnownIp !== clientIp) {
         await prisma.user.update({
           where: { id: user.id },
           data: { lastKnownIp: clientIp },
         });
+      }
+
+      let badges: Array<{ key: string; name: string }> = [];
+      let riotAccountsCount = 0;
+      let onboardingCompleted = false;
+
+      if (!usedLegacySchemaFallback) {
+        badges = user.badges.map((b: any) => ({ key: b.key, name: b.name }));
+        riotAccountsCount = user.riotAccounts.length;
+        onboardingCompleted = user.onboardingCompleted || false;
+      } else {
+        try {
+          const [badgeRows, riotCount] = await Promise.all([
+            prisma.badge.findMany({
+              where: { userId: user.id },
+              select: { key: true, name: true },
+            }),
+            prisma.riotAccount.count({ where: { userId: user.id } }),
+          ]);
+
+          badges = badgeRows;
+          riotAccountsCount = riotCount;
+        } catch (fallbackMetaError: any) {
+          request.log?.warn?.({
+            reqId: request.id,
+            message: fallbackMetaError?.message,
+          }, 'Login fallback: failed to load badges/riot account count');
+        }
       }
 
       // Generate JWT token
@@ -177,9 +250,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
         email: user.email,
         bio: user.bio,
         verified: user.verified,
-        badges: user.badges.map((b: any) => ({ key: b.key, name: b.name })),
-        riotAccountsCount: user.riotAccounts.length,
-        onboardingCompleted: user.onboardingCompleted || false,
+        badges,
+        riotAccountsCount,
+        onboardingCompleted,
         token,
       });
     } catch (error: any) {
