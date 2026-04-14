@@ -249,3 +249,35 @@ export const PublicMatchupQuerySchema = z.object({
   limit: z.preprocess((val) => Number(val), z.number().min(1).max(100)).default(20),
   offset: z.preprocess((val) => Number(val), z.number().min(0)).default(0),
 });
+
+// ============================================================
+// RANKED 1V1 SCHEMAS
+// ============================================================
+
+export const CreateRankedOneVOneChallengeSchema = z.object({
+  opponentId: z.string().min(1),
+  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU']),
+  lobbyName: z.string().trim().min(3).max(64).optional(),
+  lobbyPassword: z.string().trim().min(4).max(32).optional(),
+});
+
+export const RankedOneVOneListQuerySchema = z.object({
+  status: z.enum(['PENDING', 'ACCEPTED', 'LOBBY_READY', 'COMPLETED', 'CANCELLED', 'EXPIRED']).optional(),
+  limit: z.preprocess((val) => Number(val), z.number().min(1).max(100)).default(20),
+  offset: z.preprocess((val) => Number(val), z.number().min(0)).default(0),
+});
+
+export const CreateRankedOneVOneLobbySchema = z.object({
+  lobbyName: z.string().trim().min(3).max(64).optional(),
+  lobbyPassword: z.string().trim().min(4).max(32).optional(),
+  hostUserId: z.string().min(1).optional(),
+});
+
+export const SyncRankedOneVOneResultSchema = z.object({
+  matchId: z.string().trim().min(1).optional(),
+});
+
+export const RankedOneVOneLeaderboardQuerySchema = z.object({
+  limit: z.preprocess((val) => Number(val), z.number().min(1).max(100)).default(25),
+  offset: z.preprocess((val) => Number(val), z.number().min(0)).default(0),
+});

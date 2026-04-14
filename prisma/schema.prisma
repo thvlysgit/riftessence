@@ -53,6 +53,20 @@ enum MatchResult {
   DRAW
 }
 
+enum RankedOneVOneStatus {
+  PENDING
+  ACCEPTED
+  LOBBY_READY
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum RankedOneVOneResultSource {
+  RIOT_MATCH
+  MANUAL
+}
+
 enum VerificationStatus {
   PENDING
   APPROVED
@@ -131,6 +145,12 @@ model User {
 
   reportCount    Int       @default(0) // Number of accepted reports against this user
 
+  // Ranked 1v1 ladder stats
+  oneVOneRating  Int       @default(1000)
+  oneVOneWins    Int       @default(0)
+  oneVOneLosses  Int       @default(0)
+  oneVOneDraws   Int       @default(0)
+
   // Peak Elo tracking (highest rank ever achieved across all accounts)
   peakRank       Rank?
   peakDivision   String?   // I, II, III, IV (null for Master+)
@@ -184,6 +204,7 @@ model User {
 
   @@index([region, primaryRole, createdAt])
   @@index([isBanned, createdAt])
+  @@index([oneVOneRating])
 }
 
 model RiotAccount {
@@ -451,6 +472,46 @@ model MatchHistory {
   sharedMatchesCount Int     @default(1)
 
   @@index([userId, matchDate])
+}
+
+model RankedOneVOne {
+  id            String                   @id @default(cuid())
+  challengerId  String
+  opponentId    String
+  region        Region
+  status        RankedOneVOneStatus      @default(PENDING)
+
+  // Riot API cannot directly create custom lobbies, so this stores a generated setup template.
+  lobbyName      String?
+  lobbyPassword  String?
+  hostUserId     String?
+  lobbyCreatedAt DateTime?
+
+  acceptedAt   DateTime?
+  completedAt  DateTime?
+  cancelledAt  DateTime?
+
+  matchId      String?                   @unique
+  resultSource RankedOneVOneResultSource?
+  winnerId     String?
+  loserId      String?
+  challengerRatingBefore Int?
+  opponentRatingBefore   Int?
+  challengerRatingDelta  Int?
+  opponentRatingDelta    Int?
+  queueId      Int?
+  gameMode     String?
+  gameType     String?
+  gameStartAt  DateTime?
+  gameEndAt    DateTime?
+
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  @@index([challengerId, createdAt])
+  @@index([opponentId, createdAt])
+  @@index([status, createdAt])
+  @@index([region, createdAt])
 }
 
 model Block {

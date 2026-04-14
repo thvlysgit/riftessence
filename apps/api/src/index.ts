@@ -26,6 +26,7 @@ import badgeRoutes from './routes/badges';
 import rateRoutes from './routes/rate';
 import teamsRoutes from './routes/teams';
 import walletRoutes from './routes/wallet';
+import rankedOneVOneRoutes from './routes/ranked1v1';
 import bcrypt from 'bcryptjs';
 import { env } from './env';
 import { RegisterSchema, LoginSchema, SetPasswordSchema, validateRequest, TurnstileVerifySchema, RatingSchema, BroadcastMessageSchema } from './validation';
@@ -305,6 +306,7 @@ async function build() {
   await server.register(rateRoutes, { prefix: '/api/rate' });
   await server.register(teamsRoutes, { prefix: '/api' });
   await server.register(walletRoutes, { prefix: '/api' });
+  await server.register(rankedOneVOneRoutes, { prefix: '/api' });
 
   // Feedback endpoint
   server.post('/api/feedback', async (request: any, reply: any) => {
