@@ -955,9 +955,45 @@ export default async function rankedOneVOneRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       if (isSchemaOutOfDateError(error)) {
-        return reply.status(503).send({
-          error: 'Ranked 1v1 schema is out of date. Apply database updates and regenerate Prisma client.',
+        const fallbackUserId = (request as any).userId as string | undefined;
+        const fallbackUser = fallbackUserId
+          ? await db.user.findUnique({
+            where: { id: fallbackUserId },
+            select: {
+              id: true,
+              username: true,
+              region: true,
+              discordDmNotifications: true,
+            },
+          }).catch(() => null)
+          : null;
+
+        const verifiedRegions = fallbackUserId
+          ? await getVerifiedRegions(db, fallbackUserId).catch(() => [])
+          : [];
+
+        return reply.send({
+          profile: {
+            userId: fallbackUser?.id || fallbackUserId || 'unknown',
+            username: fallbackUser?.username || 'Unknown',
+            region: fallbackUser?.region || null,
+            rating: 1000,
+            wins: 0,
+            losses: 0,
+            draws: 0,
+            gamesPlayed: 0,
+            winrate: 0,
+            ladderTier: buildLadderTierSnapshot(1000),
+            rankPosition: 0,
+            hasLinkedRiotAccount: verifiedRegions.length > 0,
+            verifiedRegions,
+            discordDmNotifications: Boolean(fallbackUser?.discordDmNotifications),
+          },
+          queue: null,
+          activeChallenge: null,
+          featureDisabled: true,
           code: 'RANKED_1V1_SCHEMA_OUTDATED',
+          message: 'Ranked 1v1 is temporarily unavailable while database migrations are pending.',
         });
       }
       return reply.status(500).send({ error: 'Failed to fetch ranked 1v1 profile' });
@@ -1209,9 +1245,12 @@ export default async function rankedOneVOneRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       if (isSchemaOutOfDateError(error)) {
-        return reply.status(503).send({
-          error: 'Ranked 1v1 schema is out of date. Apply database updates and regenerate Prisma client.',
+        return reply.send({
+          queue: null,
+          activeChallenge: null,
+          featureDisabled: true,
           code: 'RANKED_1V1_SCHEMA_OUTDATED',
+          message: 'Ranked 1v1 is temporarily unavailable while database migrations are pending.',
         });
       }
       return reply.status(500).send({ error: 'Failed to fetch ranked 1v1 queue status' });
@@ -1284,9 +1323,16 @@ export default async function rankedOneVOneRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       if (isSchemaOutOfDateError(error)) {
-        return reply.status(503).send({
-          error: 'Ranked 1v1 schema is out of date. Apply database updates and regenerate Prisma client.',
+        const fallbackLimit = Number((request.query as any)?.limit || 10);
+        const fallbackOffset = Number((request.query as any)?.offset || 0);
+        return reply.send({
+          challenges: [],
+          total: 0,
+          limit: fallbackLimit,
+          offset: fallbackOffset,
+          featureDisabled: true,
           code: 'RANKED_1V1_SCHEMA_OUTDATED',
+          message: 'Ranked 1v1 is temporarily unavailable while database migrations are pending.',
         });
       }
       return reply.status(500).send({ error: 'Failed to fetch ranked 1v1 challenges' });
@@ -2087,9 +2133,16 @@ export default async function rankedOneVOneRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       if (isSchemaOutOfDateError(error)) {
-        return reply.status(503).send({
-          error: 'Ranked 1v1 schema is out of date. Apply database updates and regenerate Prisma client.',
+        const fallbackLimit = Number((request.query as any)?.limit || 25);
+        const fallbackOffset = Number((request.query as any)?.offset || 0);
+        return reply.send({
+          entries: [],
+          total: 0,
+          limit: fallbackLimit,
+          offset: fallbackOffset,
+          featureDisabled: true,
           code: 'RANKED_1V1_SCHEMA_OUTDATED',
+          message: 'Ranked 1v1 is temporarily unavailable while database migrations are pending.',
         });
       }
       return reply.status(500).send({ error: 'Failed to fetch ranked 1v1 leaderboard' });

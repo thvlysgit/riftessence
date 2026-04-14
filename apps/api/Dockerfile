@@ -40,5 +40,5 @@ WORKDIR /app/apps/api
 
 EXPOSE 3333
 
-# apply pending schema migrations, then run the compiled API
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy --schema=/app/prisma/schema.prisma && node dist/index.js"]
+# apply pending schema migrations with retries, then run the compiled API
+CMD ["sh", "-c", "i=0; until pnpm exec prisma migrate deploy --schema=/app/prisma/schema.prisma; do i=$((i+1)); if [ $i -ge 15 ]; then echo 'prisma migrate deploy failed after retries'; exit 1; fi; echo 'Waiting for database, retrying prisma migrate deploy...'; sleep 5; done; node dist/index.js"]

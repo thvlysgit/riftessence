@@ -1024,7 +1024,60 @@ export default async function userRoutes(fastify: any) {
       const userId = await getUserIdFromRequest(request, reply);
       if (!userId) return; // getUserIdFromRequest already sent error response
 
-      const user = await prisma.user.findUnique({ where: { id: userId }, include: { riotAccounts: true } });
+      let user: any = null;
+      let usedLegacySchemaFallback = false;
+
+      try {
+        user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            peakRank: true,
+            peakDivision: true,
+            peakLp: true,
+            riotAccounts: {
+              select: {
+                id: true,
+                summonerName: true,
+                region: true,
+                rank: true,
+                division: true,
+                lp: true,
+              },
+            },
+          },
+        });
+      } catch (userQueryError: any) {
+        if (!isPrismaSchemaMismatchError(userQueryError)) {
+          throw userQueryError;
+        }
+
+        usedLegacySchemaFallback = true;
+        fastify.log.warn({
+          reqId: request.id,
+          userId,
+          code: userQueryError?.code,
+          message: userQueryError?.message,
+        }, 'refresh-riot-stats fallback activated due to schema mismatch.');
+
+        user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            riotAccounts: {
+              select: {
+                id: true,
+                summonerName: true,
+                region: true,
+                rank: true,
+                division: true,
+                lp: true,
+              },
+            },
+          },
+        });
+      }
+
       if (!user) return reply.status(404).send({ error: 'User not found' });
 
       const apiKey = process.env.RIOT_API_KEY;
@@ -1161,10 +1214,40 @@ export default async function userRoutes(fastify: any) {
       }
 
       // Update peak elo if current highest rank is higher than stored peak
-      const updatedUser = await prisma.user.findUnique({
-        where: { id: userId },
-        include: { riotAccounts: true }
-      });
+      let updatedUser: any = null;
+      if (!usedLegacySchemaFallback) {
+        try {
+          updatedUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+              id: true,
+              peakRank: true,
+              peakDivision: true,
+              peakLp: true,
+              riotAccounts: {
+                select: {
+                  rank: true,
+                  division: true,
+                  lp: true,
+                },
+              },
+            },
+          });
+        } catch (updatedUserError: any) {
+          if (!isPrismaSchemaMismatchError(updatedUserError)) {
+            throw updatedUserError;
+          }
+
+          fastify.log.warn({
+            reqId: request.id,
+            userId,
+            code: updatedUserError?.code,
+            message: updatedUserError?.message,
+          }, 'Skipping peak elo refresh lookup due to schema mismatch.');
+          updatedUser = null;
+        }
+      }
+
       if (updatedUser) {
         let highestScore = 0;
         let highestRank: string | null = null;
@@ -1210,6 +1293,13 @@ export default async function userRoutes(fastify: any) {
       return reply.send({ success: true });
     } catch (error: any) {
       fastify.log.error(error);
+      if (isPrismaSchemaMismatchError(error)) {
+        return reply.send({
+          success: true,
+          degraded: true,
+          message: 'Stats refresh partially skipped due to schema mismatch. Run prisma migrate deploy.',
+        });
+      }
       return reply.status(500).send({ error: 'Failed to refresh Riot stats' });
     }
   });

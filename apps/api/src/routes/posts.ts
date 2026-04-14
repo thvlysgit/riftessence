@@ -15,13 +15,15 @@ function isPrismaSchemaMismatchError(error: any): boolean {
 export default async function postsRoutes(fastify: any) {
   // Helper function to format a post for API response
   const formatPost = (post: any, viewerIsAdmin: boolean = false) => {
-    const author: any = post.author;
-    const postingAccount = author.riotAccounts.find((acc: any) => acc.id === post.postingRiotAccountId);
-    const mainAccount = author.riotAccounts.find((acc: any) => acc.isMain) || author.riotAccounts[0];
+    const author: any = post?.author || {};
+    const authorRiotAccounts: any[] = Array.isArray(author.riotAccounts) ? author.riotAccounts : [];
+    const postLanguages: string[] = Array.isArray(post?.languages) ? post.languages : [];
+    const postingAccount = authorRiotAccounts.find((acc: any) => acc.id === post?.postingRiotAccountId);
+    const mainAccount = authorRiotAccounts.find((acc: any) => acc.isMain) || authorRiotAccounts[0];
     const isSameAccount = postingAccount && mainAccount && postingAccount.id === mainAccount.id;
     
     // Calculate average ratings
-    const ratings: any[] = author.ratingsReceived || [];
+    const ratings: any[] = Array.isArray(author.ratingsReceived) ? author.ratingsReceived : [];
     const skillRatings = ratings.filter((r: any) => r.stars !== null && r.stars !== undefined);
     const personalityRatings = ratings.filter((r: any) => r.moons !== null && r.moons !== undefined);
     
@@ -39,7 +41,7 @@ export default async function postsRoutes(fastify: any) {
       role: post.role,
       secondRole: post.secondRole,
       region: post.region,
-      languages: post.languages,
+      languages: postLanguages,
       vcPreference: post.vcPreference,
       duoType: post.duoType,
       
@@ -98,8 +100,8 @@ export default async function postsRoutes(fastify: any) {
 
       // Champion pool (for S/A tier display in feed)
       championPoolMode: author.anonymous ? null : (author.championPoolMode || null),
-      championList: author.anonymous ? [] : (author.championList || []),
-      championTierlist: author.anonymous ? null : (author.championTierlist || null),
+      championList: author.anonymous ? [] : (Array.isArray(author.championList) ? author.championList : []),
+      championTierlist: author.anonymous ? null : (author.championTierlist && typeof author.championTierlist === 'object' ? author.championTierlist : null),
 
       // Username cosmetic loadout
       activeUsernameDecoration: author.anonymous ? null : (author.activeUsernameDecoration || null),
@@ -154,6 +156,74 @@ export default async function postsRoutes(fastify: any) {
       // Type assertions for TypeScript - values are defined after validation
       const limit_final = validLimit ?? 10;
       const offset_final = validOffset ?? 0;
+
+      const legacyPostSelect: any = {
+        id: true,
+        createdAt: true,
+        message: true,
+        role: true,
+        secondRole: true,
+        region: true,
+        languages: true,
+        vcPreference: true,
+        duoType: true,
+        postingRiotAccountId: true,
+        source: true,
+        author: {
+          select: {
+            id: true,
+            username: true,
+            anonymous: true,
+            reportCount: true,
+            preferredRole: true,
+            secondaryRole: true,
+            championPoolMode: true,
+            championList: true,
+            championTierlist: true,
+            activeUsernameDecoration: true,
+            activeHoverEffect: true,
+            activeNameplateFont: true,
+            riotAccounts: {
+              select: {
+                id: true,
+                summonerName: true,
+                region: true,
+                isMain: true,
+                rank: true,
+                division: true,
+                lp: true,
+                winrate: true,
+              },
+            },
+            discordAccount: { select: { username: true } },
+            ratingsReceived: { select: { stars: true, moons: true } },
+          },
+        },
+        community: {
+          select: {
+            id: true,
+            name: true,
+            isPartner: true,
+            inviteLink: true,
+          },
+        },
+      };
+
+      const ultraLegacyPostSelect: any = {
+        id: true,
+        createdAt: true,
+        message: true,
+        role: true,
+        region: true,
+        postingRiotAccountId: true,
+        source: true,
+        author: {
+          select: {
+            id: true,
+            username: true,
+          },
+        },
+      };
       
       // Handle multiple regions
       if (region) {
@@ -185,55 +255,145 @@ export default async function postsRoutes(fastify: any) {
       // Check if viewer is admin
       let viewerIsAdmin = false;
       if (userId) {
-        const viewer = await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } });
-        viewerIsAdmin = (viewer?.badges || []).some((b: any) => b.key === 'admin');
+        try {
+          const viewer = await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } });
+          viewerIsAdmin = (viewer?.badges || []).some((b: any) => b.key === 'admin');
+        } catch (viewerError: any) {
+          if (!isPrismaSchemaMismatchError(viewerError)) {
+            throw viewerError;
+          }
+
+          fastify.log.warn({
+            reqId: request.id,
+            userId,
+            code: viewerError?.code,
+            message: viewerError?.message,
+          }, 'Skipping admin badge check in posts feed due to schema mismatch.');
+        }
       }
 
       // Filter out blocked users - exclude posts from users the viewer has blocked
       // and posts from users who have blocked the viewer
       if (userId) {
-        const blocksResult = await prisma.$queryRaw<Array<{ blockedId: string }>>`
-          SELECT "blockedId" FROM "Block" WHERE "blockerId" = ${userId}
-          UNION
-          SELECT "blockerId" FROM "Block" WHERE "blockedId" = ${userId}
-        `;
-        
-        const blockedUserIds = blocksResult.map((b: any) => b.blockedId);
-        
-        if (blockedUserIds.length > 0) {
-          where.authorId = { notIn: blockedUserIds };
+        try {
+          const blocksResult = await prisma.$queryRaw<Array<{ blockedId: string }>>`
+            SELECT "blockedId" FROM "Block" WHERE "blockerId" = ${userId}
+            UNION
+            SELECT "blockerId" FROM "Block" WHERE "blockedId" = ${userId}
+          `;
+
+          const blockedUserIds = blocksResult.map((b: any) => b.blockedId);
+
+          if (blockedUserIds.length > 0) {
+            where.authorId = { notIn: blockedUserIds };
+          }
+        } catch (blocksError: any) {
+          if (!isPrismaSchemaMismatchError(blocksError)) {
+            throw blocksError;
+          }
+
+          fastify.log.warn({
+            reqId: request.id,
+            userId,
+            code: blocksError?.code,
+            message: blocksError?.message,
+          }, 'Skipping block filter in posts feed due to schema mismatch.');
         }
       }
 
-      // Get total count for pagination info
-      const totalCount = await prisma.post.count({ where });
+      let totalCount = 0;
+      let posts: any[] = [];
+      let usedLegacySchemaFallback = false;
 
-      const posts = await prisma.post.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: offset_final,
-        take: limit_final,
-        include: {
-          author: {
-            include: {
-              riotAccounts: true,
-              discordAccount: true,
-              ratingsReceived: true,
+      try {
+        // Get total count for pagination info
+        totalCount = await prisma.post.count({ where });
+
+        posts = await prisma.post.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip: offset_final,
+          take: limit_final,
+          include: {
+            author: {
+              include: {
+                riotAccounts: true,
+                discordAccount: true,
+                ratingsReceived: true,
+              },
+            },
+            community: {
+              select: {
+                id: true,
+                name: true,
+                isPartner: true,
+                inviteLink: true,
+              },
             },
           },
-          community: {
-            select: {
-              id: true,
-              name: true,
-              isPartner: true,
-              inviteLink: true,
-            },
-          },
-        },
-      });
+        });
+      } catch (postsQueryError: any) {
+        if (!isPrismaSchemaMismatchError(postsQueryError)) {
+          throw postsQueryError;
+        }
+
+        usedLegacySchemaFallback = true;
+        fastify.log.error({
+          reqId: request.id,
+          code: postsQueryError?.code,
+          message: postsQueryError?.message,
+        }, 'Posts feed fallback activated due to schema mismatch. Run prisma migrate deploy.');
+
+        const fallbackWhere: any = {};
+        if (where.region) fallbackWhere.region = where.region;
+        if (where.role) fallbackWhere.role = where.role;
+        if (where.authorId) fallbackWhere.authorId = where.authorId;
+
+        try {
+          totalCount = await prisma.post.count({ where: fallbackWhere });
+        } catch (countFallbackError: any) {
+          if (!isPrismaSchemaMismatchError(countFallbackError)) {
+            throw countFallbackError;
+          }
+          totalCount = 0;
+        }
+
+        try {
+          posts = await prisma.post.findMany({
+            where: fallbackWhere,
+            orderBy: { createdAt: 'desc' },
+            skip: offset_final,
+            take: limit_final,
+            select: legacyPostSelect,
+          });
+        } catch (legacyPostsError: any) {
+          if (!isPrismaSchemaMismatchError(legacyPostsError)) {
+            throw legacyPostsError;
+          }
+
+          posts = await prisma.post.findMany({
+            where: fallbackWhere,
+            orderBy: { createdAt: 'desc' },
+            skip: offset_final,
+            take: limit_final,
+            select: ultraLegacyPostSelect,
+          });
+        }
+
+        if (totalCount === 0) {
+          totalCount = offset_final + posts.length;
+        }
+      }
 
       // Format posts for feed display
       const formattedPosts = posts.map((post: any) => formatPost(post, viewerIsAdmin));
+
+      if (usedLegacySchemaFallback) {
+        fastify.log.warn({
+          reqId: request.id,
+          count: formattedPosts.length,
+        }, 'Posts feed served via legacy schema fallback.');
+      }
 
       return reply.send({ 
         posts: formattedPosts,
