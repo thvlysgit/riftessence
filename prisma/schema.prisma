@@ -67,6 +67,13 @@ enum RankedOneVOneResultSource {
   MANUAL
 }
 
+enum RankedOneVOneStyle {
+  ARAM_STANDARD
+  ARAM_FIRST_BLOOD
+  MID_STANDARD
+  TOP_STANDARD
+}
+
 enum VerificationStatus {
   PENDING
   APPROVED
@@ -474,6 +481,16 @@ model MatchHistory {
   @@index([userId, matchDate])
 }
 
+model RankedOneVOneQueue {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  region    Region
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([region, createdAt])
+}
+
 model RankedOneVOne {
   id            String                   @id @default(cuid())
   challengerId  String
@@ -481,15 +498,30 @@ model RankedOneVOne {
   region        Region
   status        RankedOneVOneStatus      @default(PENDING)
 
+  acceptDeadlineAt       DateTime?
+  challengerAcceptedAt   DateTime?
+  opponentAcceptedAt     DateTime?
+  styleSelectionDeadlineAt DateTime?
+  challengerStyleChoice  RankedOneVOneStyle?
+  opponentStyleChoice    RankedOneVOneStyle?
+  resolvedStyle          RankedOneVOneStyle?
+
   // Riot API cannot directly create custom lobbies, so this stores a generated setup template.
   lobbyName      String?
   lobbyPassword  String?
   hostUserId     String?
+  creatorUserId  String?
+  joinerUserId   String?
   lobbyCreatedAt DateTime?
 
   acceptedAt   DateTime?
+  challengerFinishedAt DateTime?
+  opponentFinishedAt DateTime?
   completedAt  DateTime?
   cancelledAt  DateTime?
+  issueReports Json?
+  forfeitedById String?
+  forfeitReason String?
 
   matchId      String?                   @unique
   resultSource RankedOneVOneResultSource?
@@ -512,6 +544,8 @@ model RankedOneVOne {
   @@index([opponentId, createdAt])
   @@index([status, createdAt])
   @@index([region, createdAt])
+  @@index([acceptDeadlineAt])
+  @@index([styleSelectionDeadlineAt])
 }
 
 model Block {
