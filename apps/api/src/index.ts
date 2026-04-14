@@ -62,6 +62,17 @@ function isBypassBanCheckRoute(pathname: string): boolean {
     || pathname.startsWith('/docs');
 }
 
+function isPrismaSchemaMismatchError(error: any): boolean {
+  const code = typeof error?.code === 'string' ? error.code : '';
+  if (code === 'P2021' || code === 'P2022') {
+    return true;
+  }
+
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('column') && message.includes('does not exist')
+    || message.includes('relation') && message.includes('does not exist');
+}
+
 // Verify JWT_SECRET is properly set before doing anything else
 if (!env.JWT_SECRET) {
   console.error('❌ FATAL: JWT_SECRET environment variable is not set!');
@@ -175,10 +186,24 @@ async function build() {
 
     const clientIp = extractClientIp(request);
     if (clientIp) {
-      const blockedIp = await prisma.ipBlacklist.findFirst({
-        where: { ipAddress: clientIp, active: true },
-        select: { id: true },
-      });
+      let blockedIp: { id: string } | null = null;
+      try {
+        blockedIp = await prisma.ipBlacklist.findFirst({
+          where: { ipAddress: clientIp, active: true },
+          select: { id: true },
+        });
+      } catch (ipBlacklistError: any) {
+        if (!isPrismaSchemaMismatchError(ipBlacklistError)) {
+          throw ipBlacklistError;
+        }
+
+        // Keep API responsive during schema drift; deploy should repair via migrate deploy.
+        request.log?.warn?.({
+          reqId: request.id,
+          code: ipBlacklistError?.code,
+          message: ipBlacklistError?.message,
+        }, 'Skipping IP blacklist check due to schema mismatch. Run prisma migrate deploy.');
+      }
 
       if (blockedIp) {
         return reply.code(403).send({
