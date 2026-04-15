@@ -73,22 +73,6 @@ function isPrismaSchemaMismatchError(error: any): boolean {
     || message.includes('relation') && message.includes('does not exist');
 }
 
-function isPrismaTransientConnectionError(error: any): boolean {
-  const code = String(error?.code || '').toUpperCase();
-  if (code === 'ECONNREFUSED' || code === 'P1001' || code === 'P1017') {
-    return true;
-  }
-
-  const message = String(error?.message || '').toLowerCase();
-  return message.includes('connect econnrefused')
-    || message.includes("can't reach database server")
-    || message.includes('server has closed the connection')
-    || message.includes('connection refused');
-}
-
-const IP_BLACKLIST_FAILOPEN_COOLDOWN_MS = 15000;
-let ipBlacklistFailOpenUntil = 0;
-
 // Verify JWT_SECRET is properly set before doing anything else
 if (!env.JWT_SECRET) {
   console.error('❌ FATAL: JWT_SECRET environment variable is not set!');
@@ -202,35 +186,23 @@ async function build() {
 
     const clientIp = extractClientIp(request);
     if (clientIp) {
-      const now = Date.now();
       let blockedIp: { id: string } | null = null;
-      if (now >= ipBlacklistFailOpenUntil) {
-        try {
-          blockedIp = await prisma.ipBlacklist.findFirst({
-            where: { ipAddress: clientIp, active: true },
-            select: { id: true },
-          });
-        } catch (ipBlacklistError: any) {
-          if (isPrismaSchemaMismatchError(ipBlacklistError)) {
-            // Keep API responsive during schema drift; deploy should repair via migrate deploy.
-            request.log?.warn?.({
-              reqId: request.id,
-              code: ipBlacklistError?.code,
-              message: ipBlacklistError?.message,
-            }, 'Skipping IP blacklist check due to schema mismatch. Run prisma migrate deploy.');
-          } else if (isPrismaTransientConnectionError(ipBlacklistError)) {
-            // Fail open briefly when Prisma engine connectivity flaps to avoid taking down all routes.
-            ipBlacklistFailOpenUntil = now + IP_BLACKLIST_FAILOPEN_COOLDOWN_MS;
-            request.log?.warn?.({
-              reqId: request.id,
-              code: ipBlacklistError?.code,
-              message: ipBlacklistError?.message,
-              failOpenMs: IP_BLACKLIST_FAILOPEN_COOLDOWN_MS,
-            }, 'Skipping IP blacklist check due to transient Prisma connectivity issue.');
-          } else {
-            throw ipBlacklistError;
-          }
+      try {
+        blockedIp = await prisma.ipBlacklist.findFirst({
+          where: { ipAddress: clientIp, active: true },
+          select: { id: true },
+        });
+      } catch (ipBlacklistError: any) {
+        if (!isPrismaSchemaMismatchError(ipBlacklistError)) {
+          throw ipBlacklistError;
         }
+
+        // Keep API responsive during schema drift; deploy should repair via migrate deploy.
+        request.log?.warn?.({
+          reqId: request.id,
+          code: ipBlacklistError?.code,
+          message: ipBlacklistError?.message,
+        }, 'Skipping IP blacklist check due to schema mismatch. Run prisma migrate deploy.');
       }
 
       if (blockedIp) {
