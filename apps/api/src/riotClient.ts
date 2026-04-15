@@ -34,6 +34,67 @@ const REGION_TO_ROUTING: Record<string, string> = {
   RU: 'europe'
 };
 
+function toPositiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  return Math.floor(parsed);
+}
+
+const RIOT_429_MAX_RETRIES = toPositiveInt(process.env.RIOT_429_MAX_RETRIES, 2);
+const RIOT_429_BASE_BACKOFF_MS = toPositiveInt(process.env.RIOT_429_BASE_BACKOFF_MS, 600);
+const RIOT_429_ABORT_THRESHOLD = Math.max(1, toPositiveInt(process.env.RIOT_429_ABORT_THRESHOLD, 3));
+const RIOT_MATCH_LIST_CACHE_TTL_SECONDS = toPositiveInt(process.env.RIOT_MATCH_LIST_CACHE_TTL_SECONDS, 300);
+const RIOT_MATCH_DETAILS_CACHE_TTL_SECONDS = toPositiveInt(process.env.RIOT_MATCH_DETAILS_CACHE_TTL_SECONDS, 21600);
+const RIOT_ROLE_CACHE_TTL_SECONDS = toPositiveInt(process.env.RIOT_ROLE_CACHE_TTL_SECONDS, 21600);
+const RIOT_ACTIVITY_MATCH_SCAN_LIMIT = Math.max(1, toPositiveInt(process.env.RIOT_ACTIVITY_MATCH_SCAN_LIMIT, 40));
+const RIOT_ROLE_MATCH_SCAN_LIMIT = Math.max(1, toPositiveInt(process.env.RIOT_ROLE_MATCH_SCAN_LIMIT, 40));
+
+const roleDetectionInFlight = new Map<string, Promise<{ primary: string | null; secondary: string | null } | null>>();
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseRetryAfterMs(response: Response) {
+  const rawRetryAfter = response.headers.get('Retry-After') || response.headers.get('retry-after');
+  if (!rawRetryAfter) {
+    return 0;
+  }
+
+  const seconds = Number(rawRetryAfter);
+  if (Number.isFinite(seconds) && seconds > 0) {
+    return Math.floor(seconds * 1000);
+  }
+
+  const absoluteDate = Date.parse(rawRetryAfter);
+  if (!Number.isNaN(absoluteDate)) {
+    return Math.max(0, absoluteDate - Date.now());
+  }
+
+  return 0;
+}
+
+async function riotFetchWithBackoff(url: string, apiKey: string, operationName: string): Promise<Response> {
+  let attempt = 0;
+
+  while (true) {
+    const response = await fetch(url, { headers: { 'X-Riot-Token': apiKey } });
+    if (response.status !== 429 || attempt >= RIOT_429_MAX_RETRIES) {
+      return response;
+    }
+
+    attempt += 1;
+    const retryAfterMs = parseRetryAfterMs(response);
+    const fallbackBackoffMs = RIOT_429_BASE_BACKOFF_MS * attempt;
+    const waitMs = Math.max(retryAfterMs, fallbackBackoffMs);
+
+    console.warn(
+      `[Riot API] ${operationName} hit rate limit (429). Retrying in ${waitMs}ms (${attempt}/${RIOT_429_MAX_RETRIES})`
+    );
+    await sleep(waitMs);
+  }
+}
+
 function platformHostForRegion(region: string) {
   const p = REGION_TO_PLATFORM[region as keyof typeof REGION_TO_PLATFORM];
   if (!p) throw new Error(`Unsupported region: ${region}`);
@@ -233,18 +294,27 @@ export async function getProfileIcon(account: RiotAccountRef, bypassCache: boole
  * @returns Array of match IDs
  */
 export async function getRecentMatchIds(puuid: string, region: string, count: number = 100): Promise<string[]> {
+  const normalizedCount = Math.min(count, 100);
+  const cacheKey = `riot:matches:ids:${region}:${puuid}:${normalizedCount}`;
+  const cachedMatchIds = await cacheGet<string[]>(cacheKey);
+  if (cachedMatchIds !== null) {
+    return cachedMatchIds;
+  }
+
   if (process.env.USE_FAKE_RIOT === '1') {
     // Return fake match IDs for testing
-    return Array.from({ length: Math.min(count, 20) }, (_, i) => `FAKE_MATCH_${i}`);
+    const fakeMatchIds = Array.from({ length: Math.min(normalizedCount, 20) }, (_, i) => `FAKE_MATCH_${i}`);
+    await cacheSet(cacheKey, fakeMatchIds, RIOT_MATCH_LIST_CACHE_TTL_SECONDS);
+    return fakeMatchIds;
   }
 
   const apiKey = process.env.RIOT_API_KEY;
   if (!apiKey) throw new Error('Riot API key (RIOT_API_KEY) not set');
 
   const routingHost = routingHostForRegion(region);
-  const matchListUrl = `https://${routingHost}/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=0&count=${Math.min(count, 100)}`;
+  const matchListUrl = `https://${routingHost}/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?start=0&count=${normalizedCount}`;
 
-  const response = await fetch(matchListUrl, { headers: { 'X-Riot-Token': apiKey } });
+  const response = await riotFetchWithBackoff(matchListUrl, apiKey, 'match-list');
   if (!response.ok) {
     const txt = await response.text().catch(() => '');
     const err = new Error(`Riot Match List API error: ${response.status} ${response.statusText} ${txt}`);
@@ -253,6 +323,7 @@ export async function getRecentMatchIds(puuid: string, region: string, count: nu
   }
 
   const matchIds: string[] = await response.json();
+  await cacheSet(cacheKey, matchIds || [], RIOT_MATCH_LIST_CACHE_TTL_SECONDS);
   return matchIds || [];
 }
 
@@ -263,15 +334,23 @@ export async function getRecentMatchIds(puuid: string, region: string, count: nu
  * @returns Match data including timestamps
  */
 export async function getMatchDetails(matchId: string, region: string): Promise<any> {
+  const cacheKey = `riot:match:details:${region}:${matchId}`;
+  const cachedMatchData = await cacheGet<any>(cacheKey);
+  if (cachedMatchData !== null) {
+    return cachedMatchData;
+  }
+
   if (process.env.USE_FAKE_RIOT === '1') {
     // Return fake match data
-    return {
+    const fakeMatchData = {
       info: {
         gameCreation: Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000, // Random time in last 7 days
         gameDuration: 1800,
         queueId: 420, // Fake ranked solo/duo
       },
     };
+    await cacheSet(cacheKey, fakeMatchData, RIOT_MATCH_DETAILS_CACHE_TTL_SECONDS);
+    return fakeMatchData;
   }
 
   const apiKey = process.env.RIOT_API_KEY;
@@ -280,7 +359,7 @@ export async function getMatchDetails(matchId: string, region: string): Promise<
   const routingHost = routingHostForRegion(region);
   const matchUrl = `https://${routingHost}/lol/match/v5/matches/${encodeURIComponent(matchId)}`;
 
-  const response = await fetch(matchUrl, { headers: { 'X-Riot-Token': apiKey } });
+  const response = await riotFetchWithBackoff(matchUrl, apiKey, 'match-details');
   if (!response.ok) {
     const txt = await response.text().catch(() => '');
     const err = new Error(`Riot Match API error: ${response.status} ${response.statusText} ${txt}`);
@@ -288,7 +367,9 @@ export async function getMatchDetails(matchId: string, region: string): Promise<
     throw err;
   }
 
-  return await response.json();
+  const matchData = await response.json();
+  await cacheSet(cacheKey, matchData, RIOT_MATCH_DETAILS_CACHE_TTL_SECONDS);
+  return matchData;
 }
 
 /**
@@ -302,8 +383,11 @@ export async function calculateGameActivity(puuid: string, region: string): Prom
   try {
     // Fetch last 100 matches (Riot API limit per request)
     const matchIds = await getRecentMatchIds(puuid, region, 100);
+    const matchIdsToScan = matchIds.slice(0, RIOT_ACTIVITY_MATCH_SCAN_LIMIT);
     
-    console.log(`[GameActivity] Found ${matchIds.length} recent matches for PUUID ${puuid.substring(0, 8)}...`);
+    console.log(
+      `[GameActivity] Found ${matchIds.length} recent matches for PUUID ${puuid.substring(0, 8)}..., scanning ${matchIdsToScan.length}`
+    );
     
     if (matchIds.length === 0) {
       return { gamesPerDay: 0, gamesPerWeek: 0 };
@@ -317,11 +401,13 @@ export async function calculateGameActivity(puuid: string, region: string): Prom
     let gamesInLastWeek = 0;
     let checkedMatches = 0;
     let rankedMatches = 0;
+    let rateLimitedFailures = 0;
 
     // Process matches to count games in last day and week
-    for (const matchId of matchIds) {
+    for (const matchId of matchIdsToScan) {
       try {
         const matchData = await getMatchDetails(matchId, region);
+        rateLimitedFailures = 0;
         const gameCreation = matchData?.info?.gameCreation;
         const queueId = matchData?.info?.queueId;
         
@@ -358,6 +444,15 @@ export async function calculateGameActivity(puuid: string, region: string): Prom
           break;
         }
       } catch (err) {
+        const status = (err as any)?.status;
+        if (status === 429) {
+          rateLimitedFailures += 1;
+          if (rateLimitedFailures >= RIOT_429_ABORT_THRESHOLD) {
+            console.warn(`[GameActivity] Stopping early after repeated 429 responses`);
+            break;
+          }
+        }
+
         console.log(`[GameActivity] Failed to fetch match ${matchId}:`, err);
         // Skip matches that fail to fetch
         continue;
@@ -402,107 +497,144 @@ function mapLaneToRole(lane: string, role: string): string | null {
  * @returns An object with the two most played roles or null
  */
 export async function detectPreferredRole(puuid: string, region: string): Promise<{ primary: string | null; secondary: string | null } | null> {
-  try {
-    const matchIds = await getRecentMatchIds(puuid, region, 100);
-    
-    console.log(`[RoleDetection] Analyzing ${matchIds.length} matches for PUUID ${puuid.substring(0, 8)}...`);
-    
-    if (matchIds.length === 0) {
-      return null;
-    }
+  const cacheKey = `riot:role-detection:${region}:${puuid}`;
+  const cachedRoles = await cacheGet<{ primary: string | null; secondary: string | null }>(cacheKey);
+  if (cachedRoles !== null) {
+    return cachedRoles;
+  }
 
-    const roleCounts: Record<string, number> = {
-      TOP: 0,
-      JUNGLE: 0,
-      MID: 0,
-      ADC: 0,
-      SUPPORT: 0,
-    };
+  const inFlightKey = `${region}:${puuid}`;
+  const inFlightTask = roleDetectionInFlight.get(inFlightKey);
+  if (inFlightTask) {
+    return await inFlightTask;
+  }
 
-    const rankedRoleCounts: Record<string, number> = {
-      TOP: 0,
-      JUNGLE: 0,
-      MID: 0,
-      ADC: 0,
-      SUPPORT: 0,
-    };
+  const detectionTask = (async () => {
+    try {
+      const matchIds = await getRecentMatchIds(puuid, region, 100);
+      const matchIdsToScan = matchIds.slice(0, RIOT_ROLE_MATCH_SCAN_LIMIT);
 
-    let rankedGamesFound = 0;
-    let totalGamesProcessed = 0;
+      console.log(
+        `[RoleDetection] Analyzing ${matchIds.length} matches for PUUID ${puuid.substring(0, 8)}..., scanning ${matchIdsToScan.length}`
+      );
 
-    for (const matchId of matchIds) {
-      try {
-        const matchData = await getMatchDetails(matchId, region);
-        const queueId = matchData?.info?.queueId;
-        const participants = matchData?.info?.participants || [];
-        
-        // Find player's data in match
-        const playerData = participants.find((p: any) => p.puuid === puuid);
-        if (!playerData) continue;
-
-        const teamPosition = playerData.teamPosition || playerData.individualPosition;
-        const lane = playerData.lane;
-        const detectedRole = mapLaneToRole(teamPosition || lane, playerData.role);
-        
-        if (!detectedRole) continue;
-
-        totalGamesProcessed++;
-
-        // Ranked solo/duo (420) or Ranked Flex (440)
-        if (queueId === 420 || queueId === 440) {
-          rankedRoleCounts[detectedRole]++;
-          rankedGamesFound++;
-          console.log(`[RoleDetection] Ranked game: ${detectedRole} (queueId: ${queueId})`);
-        } else {
-          // Normal games (400, 430) or other modes
-          roleCounts[detectedRole]++;
-          console.log(`[RoleDetection] Normal game: ${detectedRole} (queueId: ${queueId})`);
-        }
-        
-      } catch (err) {
-        console.log(`[RoleDetection] Failed to process match ${matchId}:`, err);
-        continue;
+      if (matchIds.length === 0) {
+        return null;
       }
-    }
 
-    console.log(`[RoleDetection] Processed ${totalGamesProcessed} games (${rankedGamesFound} ranked)`);
-    console.log(`[RoleDetection] Ranked role counts:`, rankedRoleCounts);
-    console.log(`[RoleDetection] All role counts:`, roleCounts);
+      const roleCounts: Record<string, number> = {
+        TOP: 0,
+        JUNGLE: 0,
+        MID: 0,
+        ADC: 0,
+        SUPPORT: 0,
+      };
 
-    // Prioritize ranked games if available
-    const countsToUse = rankedGamesFound >= 3 ? rankedRoleCounts : roleCounts;
-    
-    if (totalGamesProcessed === 0) {
+      const rankedRoleCounts: Record<string, number> = {
+        TOP: 0,
+        JUNGLE: 0,
+        MID: 0,
+        ADC: 0,
+        SUPPORT: 0,
+      };
+
+      let rankedGamesFound = 0;
+      let totalGamesProcessed = 0;
+      let rateLimitedFailures = 0;
+
+      for (const matchId of matchIdsToScan) {
+        try {
+          const matchData = await getMatchDetails(matchId, region);
+          rateLimitedFailures = 0;
+
+          const queueId = matchData?.info?.queueId;
+          const participants = matchData?.info?.participants || [];
+
+          // Find player's data in match
+          const playerData = participants.find((p: any) => p.puuid === puuid);
+          if (!playerData) continue;
+
+          const teamPosition = playerData.teamPosition || playerData.individualPosition;
+          const lane = playerData.lane;
+          const detectedRole = mapLaneToRole(teamPosition || lane, playerData.role);
+
+          if (!detectedRole) continue;
+
+          totalGamesProcessed++;
+
+          // Ranked solo/duo (420) or Ranked Flex (440)
+          if (queueId === 420 || queueId === 440) {
+            rankedRoleCounts[detectedRole]++;
+            rankedGamesFound++;
+            console.log(`[RoleDetection] Ranked game: ${detectedRole} (queueId: ${queueId})`);
+          } else {
+            // Normal games (400, 430) or other modes
+            roleCounts[detectedRole]++;
+            console.log(`[RoleDetection] Normal game: ${detectedRole} (queueId: ${queueId})`);
+          }
+        } catch (err) {
+          const status = (err as any)?.status;
+          if (status === 429) {
+            rateLimitedFailures += 1;
+            if (rateLimitedFailures >= RIOT_429_ABORT_THRESHOLD) {
+              console.warn('[RoleDetection] Stopping early after repeated 429 responses');
+              break;
+            }
+          }
+
+          console.log(`[RoleDetection] Failed to process match ${matchId}:`, err);
+          continue;
+        }
+      }
+
+      console.log(`[RoleDetection] Processed ${totalGamesProcessed} games (${rankedGamesFound} ranked)`);
+      console.log(`[RoleDetection] Ranked role counts:`, rankedRoleCounts);
+      console.log(`[RoleDetection] All role counts:`, roleCounts);
+
+      // Prioritize ranked games if available
+      const countsToUse = rankedGamesFound >= 3 ? rankedRoleCounts : roleCounts;
+
+      if (totalGamesProcessed === 0) {
+        return null;
+      }
+
+      // Find the most played role and second most played role
+      const roleEntries = Object.entries(countsToUse)
+        .filter(([_, count]) => count > 0)
+        .sort(([_a, countA], [_b, countB]) => countB - countA);
+
+      if (roleEntries.length === 0) {
+        return null;
+      }
+
+      const primaryRole = roleEntries[0][0];
+      const primaryCount = roleEntries[0][1];
+      const secondaryRole = roleEntries.length > 1 ? roleEntries[1][0] : null;
+      const secondaryCount = roleEntries.length > 1 ? roleEntries[1][1] : 0;
+
+      console.log(`[RoleDetection] Most played role: ${primaryRole} (${primaryCount} games)`);
+      if (secondaryRole) {
+        console.log(`[RoleDetection] Second most played role: ${secondaryRole} (${secondaryCount} games)`);
+      }
+
+      const detected = {
+        primary: primaryRole,
+        secondary: secondaryRole,
+      };
+
+      await cacheSet(cacheKey, detected, RIOT_ROLE_CACHE_TTL_SECONDS);
+      return detected;
+    } catch (err) {
+      console.log(`[RoleDetection] Error detecting role:`, err);
       return null;
     }
+  })();
 
-    // Find the most played role and second most played role
-    const roleEntries = Object.entries(countsToUse)
-      .filter(([_, count]) => count > 0)
-      .sort(([_a, countA], [_b, countB]) => countB - countA);
-
-    if (roleEntries.length === 0) {
-      return null;
-    }
-
-    const primaryRole = roleEntries[0][0];
-    const primaryCount = roleEntries[0][1];
-    const secondaryRole = roleEntries.length > 1 ? roleEntries[1][0] : null;
-    const secondaryCount = roleEntries.length > 1 ? roleEntries[1][1] : 0;
-
-    console.log(`[RoleDetection] Most played role: ${primaryRole} (${primaryCount} games)`);
-    if (secondaryRole) {
-      console.log(`[RoleDetection] Second most played role: ${secondaryRole} (${secondaryCount} games)`);
-    }
-    
-    return {
-      primary: primaryRole,
-      secondary: secondaryRole,
-    };
-
-  } catch (err) {
-    console.log(`[RoleDetection] Error detecting role:`, err);
-    return null;
+  roleDetectionInFlight.set(inFlightKey, detectionTask);
+  try {
+    return await detectionTask;
+  } finally {
+    roleDetectionInFlight.delete(inFlightKey);
   }
 }
 

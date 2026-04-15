@@ -61,6 +61,61 @@ function isBypassBanCheckRoute(pathname: string): boolean {
     || pathname.startsWith('/docs');
 }
 
+type TimedCacheEntry<T> = {
+  value: T;
+  expiresAt: number;
+};
+
+type AuthBanSnapshot = {
+  id: string;
+  isBanned: boolean;
+  bannedReason: string | null;
+  lastKnownIp: string | null;
+};
+
+function toPositiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+
+  return Math.floor(parsed);
+}
+
+const BAN_CHECK_CACHE_TTL_MS = toPositiveInt(process.env.BAN_CHECK_CACHE_TTL_MS, 15000);
+const BAN_CHECK_CACHE_MAX_ITEMS = Math.max(100, toPositiveInt(process.env.BAN_CHECK_CACHE_MAX_ITEMS, 2000));
+
+const ipBlacklistDecisionCache = new Map<string, TimedCacheEntry<boolean>>();
+const authBanSnapshotCache = new Map<string, TimedCacheEntry<AuthBanSnapshot | null>>();
+
+function readTimedCache<T>(cache: Map<string, TimedCacheEntry<T>>, key: string): T | undefined {
+  const entry = cache.get(key);
+  if (!entry) {
+    return undefined;
+  }
+
+  if (entry.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return undefined;
+  }
+
+  return entry.value;
+}
+
+function writeTimedCache<T>(cache: Map<string, TimedCacheEntry<T>>, key: string, value: T) {
+  if (cache.size >= BAN_CHECK_CACHE_MAX_ITEMS) {
+    const firstKey = cache.keys().next().value;
+    if (typeof firstKey === 'string') {
+      cache.delete(firstKey);
+    }
+  }
+
+  cache.set(key, {
+    value,
+    expiresAt: Date.now() + BAN_CHECK_CACHE_TTL_MS,
+  });
+}
+
 // Verify JWT_SECRET is properly set before doing anything else
 if (!env.JWT_SECRET) {
   console.error('❌ FATAL: JWT_SECRET environment variable is not set!');
@@ -174,12 +229,27 @@ async function build() {
 
     const clientIp = extractClientIp(request);
     if (clientIp) {
-      const blockedIp = await prisma.ipBlacklist.findFirst({
-        where: { ipAddress: clientIp, active: true },
-        select: { id: true },
-      });
+      let isBlockedIp = readTimedCache(ipBlacklistDecisionCache, clientIp);
 
-      if (blockedIp) {
+      if (typeof isBlockedIp === 'undefined') {
+        try {
+          const blockedIp = await prisma.ipBlacklist.findFirst({
+            where: { ipAddress: clientIp, active: true },
+            select: { id: true },
+          });
+
+          isBlockedIp = !!blockedIp;
+          writeTimedCache(ipBlacklistDecisionCache, clientIp, isBlockedIp);
+        } catch (err) {
+          server.log.warn({ err, clientIp }, 'IP blacklist check unavailable');
+          return reply.code(503).send({
+            error: 'Service temporarily unavailable.',
+            code: 'BAN_CHECK_UNAVAILABLE',
+          });
+        }
+      }
+
+      if (isBlockedIp) {
         return reply.code(403).send({
           error: 'Access denied for this IP address.',
           code: 'IP_BLACKLISTED',
@@ -204,15 +274,29 @@ async function build() {
         return;
       }
 
-      const authUser = await prisma.user.findUnique({
-        where: { id: authUserId },
-        select: {
-          id: true,
-          isBanned: true,
-          bannedReason: true,
-          lastKnownIp: true,
-        },
-      });
+      let authUser = readTimedCache(authBanSnapshotCache, authUserId);
+
+      if (typeof authUser === 'undefined') {
+        try {
+          authUser = await prisma.user.findUnique({
+            where: { id: authUserId },
+            select: {
+              id: true,
+              isBanned: true,
+              bannedReason: true,
+              lastKnownIp: true,
+            },
+          });
+
+          writeTimedCache(authBanSnapshotCache, authUserId, authUser || null);
+        } catch (err) {
+          server.log.warn({ err, authUserId }, 'Account ban check unavailable');
+          return reply.code(503).send({
+            error: 'Service temporarily unavailable.',
+            code: 'BAN_CHECK_UNAVAILABLE',
+          });
+        }
+      }
 
       if (!authUser) {
         return reply.code(401).send({ error: 'User not found' });
@@ -227,10 +311,19 @@ async function build() {
       }
 
       if (clientIp && authUser.lastKnownIp !== clientIp) {
-        await prisma.user.update({
-          where: { id: authUserId },
-          data: { lastKnownIp: clientIp },
-        });
+        try {
+          await prisma.user.update({
+            where: { id: authUserId },
+            data: { lastKnownIp: clientIp },
+          });
+
+          writeTimedCache(authBanSnapshotCache, authUserId, {
+            ...authUser,
+            lastKnownIp: clientIp,
+          });
+        } catch (err) {
+          server.log.warn({ err, authUserId }, 'Failed to update lastKnownIp');
+        }
       }
 
       request.userId = authUserId;

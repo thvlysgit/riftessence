@@ -88,20 +88,30 @@ This audit session focused on production reliability and architecture hygiene. T
 - Recommendation:
   - Keep tracked and revisit if edge API surfaces expand.
 
-## 7) API runtime abort on wallet/profile burst (ARM Docker)
+## 7) API runtime abort and query-engine flapping on wallet/profile burst (ARM Docker)
 
 - Severity: High
-- Status: Resolved
+- Status: Mitigated, runtime verification pending
 - Description:
   - API process crashed during concurrent Purse page requests with allocator error `malloc(): unaligned tcache chunk detected`, followed by process abort and restart.
+  - After forcing Prisma binary engine mode, subsequent incident logs showed intermittent `connect ECONNREFUSED 127.0.0.1:<ephemeral-port>` errors from Prisma query engine subprocess restarts under bursty request patterns.
 - Resolution:
   - Forced Prisma engine mode to `binary` for both Prisma client runtime and Prisma CLI.
+  - Added centralized Prisma retry/reconnect middleware for transient engine connectivity failures.
+  - Added short-TTL ban-check caching (IP blacklist and account ban snapshot) to reduce duplicate per-request Prisma queries during UI burst loads.
+  - Added controlled 503 response (`BAN_CHECK_UNAVAILABLE`) when ban-check storage is temporarily unavailable.
+  - Reduced Riot role/activity pressure with match cache, 429 backoff, bounded scan limits, and in-flight role detection dedupe.
+  - Fixed role-detection trigger logic to run only when primary role is missing (prevents repeated expensive detection when secondary is null).
   - Files:
     - apps/api/Dockerfile
     - docker-compose.yml
+  - apps/api/src/prisma.ts
+  - apps/api/src/index.ts
+  - apps/api/src/riotClient.ts
+  - apps/api/src/routes/user.ts
 - Validation:
   - API TypeScript build remains green after patch.
-  - Requires container rebuild/restart for runtime confirmation in target environment.
+  - Requires container rebuild/restart and live traffic verification for runtime confirmation in target environment.
 
 ## Evidence and Validation Commands
 

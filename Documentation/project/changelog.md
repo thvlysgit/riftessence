@@ -4,6 +4,42 @@
 
 ---
 
+## 2026-04-16 - API Resilience Follow-up for Prisma Engine Flapping and Riot 429
+
+### Fix: Prisma Query Engine Self-Healing and Ban-Check Load Reduction
+
+Overview: After the ARM binary-engine stabilization patch, API logs still showed intermittent `PrismaClientKnownRequestError` bursts with `connect ECONNREFUSED 127.0.0.1:<ephemeral-port>`, indicating query-engine subprocess restarts under concurrent load.
+
+Changes:
+
+- Updated [apps/api/src/prisma.ts](apps/api/src/prisma.ts) to add centralized Prisma middleware retry for transient engine errors (`ECONNREFUSED`, `P1001`, `P1002`, `P1017`) with controlled disconnect/reconnect recovery.
+- Updated [apps/api/src/index.ts](apps/api/src/index.ts) to cache ban-check lookups (IP blacklist and account ban snapshot) for a short TTL to avoid repeated duplicate queries per burst request set.
+- Updated [apps/api/src/index.ts](apps/api/src/index.ts) to return a controlled 503 (`BAN_CHECK_UNAVAILABLE`) when ban-check storage is temporarily unavailable instead of uncaught hook failure behavior.
+
+### Fix: Riot Match API Rate-Limit Mitigation for Profile Activity/Role Detection
+
+Overview: Profile refresh paths were repeatedly hitting Riot Match API 429s during role detection/activity updates, creating unnecessary retries and latency spikes.
+
+Changes:
+
+- Updated [apps/api/src/riotClient.ts](apps/api/src/riotClient.ts) with:
+  - 429-aware request backoff with `Retry-After` support.
+  - Match-list and match-details caching.
+  - Detection/activity scan limits for bounded API pressure.
+  - In-flight dedupe and cached output for preferred-role detection.
+- Updated [apps/api/src/routes/user.ts](apps/api/src/routes/user.ts) to trigger preferred-role detection only when primary role is missing (instead of rerunning when secondary role is null).
+
+Validation:
+
+- `pnpm --filter @lfd/api build` passes after the change.
+
+Operational Notes:
+
+- Rebuild and redeploy API container so runtime picks up the updated code.
+- Optional tuning env vars are now available in code defaults (retry attempts/delay and Riot scan/backoff controls) if further production tuning is required.
+
+---
+
 ## 2026-04-16 - API Stability Fix for Purse Page Crash (ARM Docker)
 
 ### Fix: Prisma Engine Runtime Hardening

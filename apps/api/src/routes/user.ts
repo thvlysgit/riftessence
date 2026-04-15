@@ -508,10 +508,10 @@ export default async function userRoutes(fastify: any) {
               totalGamesPerDay += activity.gamesPerDay;
               totalGamesPerWeek += activity.gamesPerWeek;
               
-              // Detect preferred role from match history (only for main account or first account)
-              // Always detect if user is missing preferredRole OR secondaryRole
+              // Detect preferred role from match history only when primary role is missing.
+              // Secondary can remain null and should not retrigger expensive detection each request.
               let detectedRoles = null;
-              if ((acc.isMain || acc.id === mainAccount?.id) && (!user.preferredRole || !user.secondaryRole)) {
+              if ((acc.isMain || acc.id === mainAccount?.id) && !user.preferredRole) {
                 try {
                   detectedRoles = await riotClient.detectPreferredRole(realPuuid, acc.region);
                   if (detectedRoles) {
@@ -534,9 +534,8 @@ export default async function userRoutes(fastify: any) {
                 },
               });
               
-              // Update user's preferred role and secondary role if detected
-              // Update if either role is missing
-              if (detectedRoles && (!user.preferredRole || !user.secondaryRole)) {
+              // Update user's preferred role and secondary role if detection succeeded.
+              if (detectedRoles && !user.preferredRole) {
                 await prisma.user.update({
                   where: { id: user.id },
                   data: { 
