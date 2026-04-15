@@ -1572,10 +1572,12 @@ async function start() {
 }
 
 if (require.main === module) {
-  // Catch any unhandled promise rejections or uncaught exceptions.
-  // Keep process alive on promise rejections to avoid full API outages from non-fatal async errors.
+  // Catch any unhandled promise rejections or uncaught exceptions — log them
+  // and exit so Docker (restart: unless-stopped) can bring the process back up
+  // cleanly rather than leaving it in an unknown state.
   process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Promise Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
   });
 
   process.on('uncaughtException', (err) => {
