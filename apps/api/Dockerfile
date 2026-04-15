@@ -21,10 +21,6 @@ COPY . .
 
 WORKDIR /app
 
-# Prisma library engine can crash on some ARM environments under burst load.
-# Force binary engine so crashes stay isolated from the Node process.
-ENV PRISMA_CLIENT_ENGINE_TYPE=binary
-
 # generate Prisma client at repository root so pnpm's hoisted layout
 # places the generated files where @prisma/client expects them
 RUN npx prisma generate --schema=./prisma/schema.prisma
