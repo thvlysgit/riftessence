@@ -41,6 +41,8 @@ function isPrismaSchemaMismatchError(error: any): boolean {
     || message.includes('relation') && message.includes('does not exist');
 }
 
+const RIOT_REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
+
 export default async function userRoutes(fastify: any) {
   const ensureSingleMainAccount = async (db: any, userId: string) => {
     const accounts = await db.riotAccount.findMany({
@@ -639,13 +641,29 @@ export default async function userRoutes(fastify: any) {
               // Update user's preferred role and secondary role if detected
               // Update if either role is missing
               if (detectedRoles && (!user.preferredRole || !user.secondaryRole)) {
-                await prisma.user.update({
-                  where: { id: user.id },
-                  data: { 
-                    preferredRole: detectedRoles.primary as any,
-                    secondaryRole: detectedRoles.secondary as any,
-                  },
-                });
+                try {
+                  await prisma.user.update({
+                    where: { id: user.id },
+                    data: {
+                      preferredRole: detectedRoles.primary as any,
+                      secondaryRole: detectedRoles.secondary as any,
+                    },
+                    select: {
+                      id: true,
+                    },
+                  });
+                } catch (roleUpdateError: any) {
+                  if (!isPrismaSchemaMismatchError(roleUpdateError)) {
+                    throw roleUpdateError;
+                  }
+
+                  fastify.log.warn({
+                    reqId: request.id,
+                    userId: user.id,
+                    code: roleUpdateError?.code,
+                    message: roleUpdateError?.message,
+                  }, 'Skipping preferred-role persistence due to schema mismatch.');
+                }
                 user.preferredRole = detectedRoles.primary as any;
                 user.secondaryRole = detectedRoles.secondary as any;
               }
@@ -1043,6 +1061,7 @@ export default async function userRoutes(fastify: any) {
                 rank: true,
                 division: true,
                 lp: true,
+                lastStatsUpdate: true,
               },
             },
           },
@@ -1072,6 +1091,7 @@ export default async function userRoutes(fastify: any) {
                 rank: true,
                 division: true,
                 lp: true,
+                lastStatsUpdate: true,
               },
             },
           },
@@ -1079,6 +1099,25 @@ export default async function userRoutes(fastify: any) {
       }
 
       if (!user) return reply.status(404).send({ error: 'User not found' });
+
+      const now = Date.now();
+      const mostRecentStatsUpdateMs = user.riotAccounts.reduce((latest: number, acc: any) => {
+        const updatedAt = acc?.lastStatsUpdate ? new Date(acc.lastStatsUpdate).getTime() : 0;
+        return Number.isFinite(updatedAt) && updatedAt > latest ? updatedAt : latest;
+      }, 0);
+
+      if (mostRecentStatsUpdateMs > 0) {
+        const elapsedMs = now - mostRecentStatsUpdateMs;
+        if (elapsedMs >= 0 && elapsedMs < RIOT_REFRESH_COOLDOWN_MS) {
+          const retryAfterSeconds = Math.ceil((RIOT_REFRESH_COOLDOWN_MS - elapsedMs) / 1000);
+          return reply.send({
+            success: true,
+            skipped: true,
+            reason: 'refresh_cooldown',
+            retryAfterSeconds,
+          });
+        }
+      }
 
       const apiKey = process.env.RIOT_API_KEY;
       if (!apiKey) return reply.status(500).send({ error: 'Riot API key not configured' });
@@ -1127,27 +1166,6 @@ export default async function userRoutes(fastify: any) {
           });
         }
       };
-
-      // Clear cache to force fresh fetch on next profile load (including role detection)
-      for (const acc of user.riotAccounts) {
-        try {
-          await prisma.riotAccount.update({
-            where: { id: acc.id },
-            data: { lastStatsUpdate: null }, // Clear cache timestamp
-          });
-        } catch (cacheClearError: any) {
-          if (!isPrismaSchemaMismatchError(cacheClearError)) {
-            throw cacheClearError;
-          }
-
-          fastify.log.warn({
-            reqId: request.id,
-            accountId: acc.id,
-            code: cacheClearError?.code,
-            message: cacheClearError?.message,
-          }, 'Skipping lastStatsUpdate reset due to schema mismatch.');
-        }
-      }
 
       for (const acc of user.riotAccounts) {
         try {
