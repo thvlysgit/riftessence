@@ -41,8 +41,8 @@ export default function OnboardingWizard() {
   const [discordLoading, setDiscordLoading] = useState(false);
 
   // Check if onboarding should be shown
+  const shouldShow = user && !user.onboardingCompleted;
   const hasRiotAccount = (user?.riotAccountsCount || 0) > 0;
-  const shouldShow = user && !user.onboardingCompleted && !hasRiotAccount;
   const hasDiscordLinked = !!user?.discordLinked;
   
   // Hide wizard on authenticate page so user can link their account

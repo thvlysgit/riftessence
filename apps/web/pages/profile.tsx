@@ -359,75 +359,6 @@ type UserProfile = {
   feedback: Feedback[];
 };
 
-function normalizeChampionTierlist(value: any): { S: string[]; A: string[]; B: string[]; C: string[] } {
-  if (!value || typeof value !== 'object') {
-    return { S: [], A: [], B: [], C: [] };
-  }
-
-  return {
-    S: Array.isArray(value.S) ? value.S : [],
-    A: Array.isArray(value.A) ? value.A : [],
-    B: Array.isArray(value.B) ? value.B : [],
-    C: Array.isArray(value.C) ? value.C : [],
-  };
-}
-
-function normalizeProfilePayload(raw: any): UserProfile {
-  const riotAccounts = Array.isArray(raw?.riotAccounts) ? raw.riotAccounts : [];
-
-  return {
-    id: String(raw?.id || ''),
-    username: String(raw?.username || ''),
-    bio: raw?.bio ?? null,
-    anonymous: !!raw?.anonymous,
-    playstyles: Array.isArray(raw?.playstyles) ? raw.playstyles : [],
-    primaryRole: raw?.primaryRole || null,
-    preferredRole: raw?.preferredRole || null,
-    secondaryRole: raw?.secondaryRole || null,
-    region: raw?.region || null,
-    vcPreference: raw?.vcPreference || null,
-    languages: Array.isArray(raw?.languages) ? raw.languages : [],
-    skillStars: Number.isFinite(Number(raw?.skillStars)) ? Number(raw.skillStars) : 0,
-    personalityMoons: Number.isFinite(Number(raw?.personalityMoons)) ? Number(raw.personalityMoons) : 0,
-    reportCount: Number.isFinite(Number(raw?.reportCount)) ? Number(raw.reportCount) : 0,
-    peakRank: raw?.peakRank || null,
-    peakDivision: raw?.peakDivision || null,
-    peakLp: Number.isFinite(Number(raw?.peakLp)) ? Number(raw.peakLp) : null,
-    peakDate: raw?.peakDate || null,
-    badges: Array.isArray(raw?.badges) ? raw.badges : [],
-    championPoolMode: raw?.championPoolMode === 'LIST' ? 'LIST' : 'TIERLIST',
-    championList: Array.isArray(raw?.championList) ? raw.championList : [],
-    championTierlist: normalizeChampionTierlist(raw?.championTierlist),
-    gamesPerDay: Number.isFinite(Number(raw?.gamesPerDay)) ? Number(raw.gamesPerDay) : 0,
-    gamesPerWeek: Number.isFinite(Number(raw?.gamesPerWeek)) ? Number(raw.gamesPerWeek) : 0,
-    profileIconId: Number.isFinite(Number(raw?.profileIconId)) ? Number(raw.profileIconId) : undefined,
-    riotAccounts: riotAccounts.map((acc: any) => ({
-      id: String(acc?.id || ''),
-      gameName: String(acc?.gameName || acc?.summonerName || 'Unknown'),
-      tagLine: String(acc?.tagLine || ''),
-      region: String(acc?.region || ''),
-      isMain: !!acc?.isMain,
-      verified: !!acc?.verified,
-      hidden: !!acc?.hidden,
-      rank: acc?.rank || 'UNRANKED',
-      division: acc?.division || null,
-      winrate: Number.isFinite(Number(acc?.winrate)) ? Number(acc.winrate) : null,
-      profileIconId: Number.isFinite(Number(acc?.profileIconId)) ? Number(acc.profileIconId) : undefined,
-    })),
-    discordLinked: !!raw?.discordLinked,
-    discordUsername: raw?.discordUsername || null,
-    discordDmNotifications: !!raw?.discordDmNotifications,
-    unlockedCosmetics: Array.isArray(raw?.unlockedCosmetics) ? raw.unlockedCosmetics : [],
-    activeUsernameDecoration: raw?.activeUsernameDecoration || null,
-    activeHoverEffect: raw?.activeHoverEffect || null,
-    activeVisualEffect: raw?.activeVisualEffect || null,
-    activeNameplateFont: raw?.activeNameplateFont || null,
-    adCredits: Number.isFinite(Number(raw?.adCredits)) ? Number(raw.adCredits) : 0,
-    communities: Array.isArray(raw?.communities) ? raw.communities : [],
-    feedback: Array.isArray(raw?.feedback) ? raw.feedback : [],
-  };
-}
-
 const AVAILABLE_PLAYSTYLES = ['Controlled Chaos', 'FUNDAMENTALS', 'CoinFlips', 'Scaling', 'Snowball'];
 const AVAILABLE_LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Polish', 'Russian', 'Turkish', 'Korean', 'Japanese', 'Chinese'];
 
@@ -1146,19 +1077,27 @@ export default function ProfilePage() {
           throw new Error('Failed to fetch profile');
         }
         const data = await initialResponse.json();
-        const normalizedData = normalizeProfilePayload(data);
         
         // PERFORMANCE FIX: Render UI immediately with cached data
-        setUser(normalizedData);
-        setSelectedPlaystyles(normalizedData.playstyles);
-        setAnonymousMode(normalizedData.anonymous);
-        setEditedUsername(normalizedData.username);
-        setEditedBio(normalizedData.bio || '');
-        setEditedLanguages(normalizedData.languages);
-        setChampionPoolMode(normalizedData.championPoolMode || 'TIERLIST');
-        setChampionTierlist(normalizedData.championTierlist || { S: [], A: [], B: [], C: [] });
-        const initialMainAccount = normalizedData.riotAccounts.find((acc: RiotAccount) => acc.isMain);
-        setPendingMainAccountId(initialMainAccount?.id || normalizedData.riotAccounts[0]?.id || null);
+        setUser(data);
+        setSelectedPlaystyles(data.playstyles || []);
+        setAnonymousMode(data.anonymous || false);
+        setEditedUsername(data.username || '');
+        setEditedBio(data.bio || '');
+        setEditedLanguages(data.languages || []);
+        setChampionPoolMode(data.championPoolMode || 'TIERLIST');
+        setChampionTierlist(
+          data.championTierlist && typeof data.championTierlist === 'object'
+            ? {
+                S: Array.isArray(data.championTierlist.S) ? data.championTierlist.S : [],
+                A: Array.isArray(data.championTierlist.A) ? data.championTierlist.A : [],
+                B: Array.isArray(data.championTierlist.B) ? data.championTierlist.B : [],
+                C: Array.isArray(data.championTierlist.C) ? data.championTierlist.C : [],
+              }
+            : { S: [], A: [], B: [], C: [] }
+        );
+        const initialMainAccount = data.riotAccounts.find((acc: RiotAccount) => acc.isMain);
+        setPendingMainAccountId(initialMainAccount?.id || data.riotAccounts[0]?.id || null);
         setLoading(false);
         
         // Step 2: Refresh Riot stats in background (non-blocking)
@@ -1168,11 +1107,10 @@ export default function ProfilePage() {
             .then(res => res.ok ? res.json() : null)
             .then(refreshedData => {
               if (refreshedData) {
-                const normalizedRefreshedData = normalizeProfilePayload(refreshedData);
-                setUser(normalizedRefreshedData);
-                setEditedBio(normalizedRefreshedData.bio || '');
-                const updatedMainAccount = normalizedRefreshedData.riotAccounts.find((acc: RiotAccount) => acc.isMain);
-                setPendingMainAccountId(updatedMainAccount?.id || normalizedRefreshedData.riotAccounts[0]?.id || null);
+                setUser(refreshedData);
+                setEditedBio(refreshedData.bio || '');
+                const updatedMainAccount = refreshedData.riotAccounts.find((acc: RiotAccount) => acc.isMain);
+                setPendingMainAccountId(updatedMainAccount?.id || refreshedData.riotAccounts[0]?.id || null);
               }
             })
             .catch(() => {}); // Silently fail background refresh
@@ -1480,16 +1418,24 @@ export default function ProfilePage() {
       });
       if (profileResponse.ok) {
         const data = await profileResponse.json();
-        const normalizedData = normalizeProfilePayload(data);
-        setUser(normalizedData);
-        setSelectedPlaystyles(normalizedData.playstyles);
-        setEditedUsername(normalizedData.username);
-        setEditedBio(normalizedData.bio || '');
-        setEditedLanguages(normalizedData.languages);
-        setChampionPoolMode(normalizedData.championPoolMode || 'TIERLIST');
-        setChampionTierlist(normalizedData.championTierlist || { S: [], A: [], B: [], C: [] });
-        const mainAccount = normalizedData.riotAccounts.find((acc: RiotAccount) => acc.isMain);
-        setPendingMainAccountId(mainAccount?.id || normalizedData.riotAccounts[0]?.id || null);
+        setUser(data);
+        setSelectedPlaystyles(data.playstyles || []);
+        setEditedUsername(data.username || '');
+        setEditedBio(data.bio || '');
+        setEditedLanguages(data.languages || []);
+        setChampionPoolMode(data.championPoolMode || 'TIERLIST');
+        setChampionTierlist(
+          data.championTierlist && typeof data.championTierlist === 'object'
+            ? {
+                S: Array.isArray(data.championTierlist.S) ? data.championTierlist.S : [],
+                A: Array.isArray(data.championTierlist.A) ? data.championTierlist.A : [],
+                B: Array.isArray(data.championTierlist.B) ? data.championTierlist.B : [],
+                C: Array.isArray(data.championTierlist.C) ? data.championTierlist.C : [],
+              }
+            : { S: [], A: [], B: [], C: [] }
+        );
+        const mainAccount = data.riotAccounts.find((acc: RiotAccount) => acc.isMain);
+        setPendingMainAccountId(mainAccount?.id || data.riotAccounts[0]?.id || null);
       }
 
       setIsEditMode(false);
@@ -1572,10 +1518,9 @@ export default function ProfilePage() {
       });
       if (profileResponse.ok) {
         const data = await profileResponse.json();
-        const normalizedData = normalizeProfilePayload(data);
-        setUser(normalizedData);
-        const mainAccount = normalizedData.riotAccounts.find((acc: RiotAccount) => acc.isMain);
-        setPendingMainAccountId(mainAccount?.id || normalizedData.riotAccounts[0]?.id || null);
+        setUser(data);
+        const mainAccount = data.riotAccounts.find((acc: RiotAccount) => acc.isMain);
+        setPendingMainAccountId(mainAccount?.id || data.riotAccounts[0]?.id || null);
       }
     } catch (err: any) {
       console.error('Error removing account:', err);
@@ -2874,7 +2819,7 @@ export default function ProfilePage() {
                       });
                       if (profileResponse.ok) {
                         const data = await profileResponse.json();
-                        setUser(normalizeProfilePayload(data));
+                        setUser(data);
                       }
                     } catch (err: any) {
                       console.error('Error unlinking Discord:', err);
