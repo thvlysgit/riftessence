@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { getUserIdFromToken, getAuthHeader } from '../../utils/auth';
-import { useGlobalUI } from '../../../api/components/GlobalUI';
+import { useGlobalUI } from '@components/GlobalUI';
 import { DiscordIcon } from '../../src/components/DiscordBrand';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';

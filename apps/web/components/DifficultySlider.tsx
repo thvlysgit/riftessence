@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLanguage } from '../../web/contexts/LanguageContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 type DifficultyLevel = 
   | 'FREE_WIN' 

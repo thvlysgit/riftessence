@@ -1,6 +1,77 @@
 # Changelog
 
-> Last updated: 2026-03-04
+> Last updated: 2026-04-16
+
+---
+
+## 2026-04-16 - API Stability Fix for Purse Page Crash (ARM Docker)
+
+### Fix: Prisma Engine Runtime Hardening
+
+Overview: Resolved a runtime crash observed while loading Purse-related endpoints in ARM Docker deployments. The API process aborted with allocator errors (`malloc(): unaligned tcache chunk detected`) during concurrent wallet/profile requests.
+
+Changes:
+
+- Updated [apps/api/Dockerfile](apps/api/Dockerfile) to force Prisma client engine mode to `binary` in runtime container environment.
+- Updated [docker-compose.yml](docker-compose.yml) API service environment to set `PRISMA_CLIENT_ENGINE_TYPE` default to `binary`.
+
+Validation:
+
+- `pnpm --filter @lfd/api build` passes after the change.
+
+Operational Notes:
+
+- Rebuild and restart API container so new environment and image settings take effect.
+- This targets known ARM allocator instability patterns with Prisma library engine under load.
+
+---
+
+## 2026-04-16 - AI Workflow and Audit Documentation System
+
+### Added: Dated Audit Record
+
+Overview: Added a canonical audit snapshot to preserve the latest verified findings from the production stability and architecture cleanup session.
+
+Changes:
+
+- Added [Documentation/analysis/2026-04-16-audit-findings.md](Documentation/analysis/2026-04-16-audit-findings.md)
+- Updated [Documentation/analysis/codebase-audit.md](Documentation/analysis/codebase-audit.md) with pointer to latest dated findings
+
+### Added: AI Vibe Coding Workflow Guide
+
+Overview: Added a repeatable agent-first workflow for planning, implementation, review, documentation sync, and release validation.
+
+Changes:
+
+- Added [Documentation/guides/ai-vibe-workflow.md](Documentation/guides/ai-vibe-workflow.md)
+- Updated [Documentation/README.md](Documentation/README.md) navigation for new guide and audit record
+
+### Added: New Specialized Agents and Workspace Instructions
+
+Overview: Added three new custom agents plus workspace-level Copilot instructions to keep docs live and enforce validation cadence during vibe coding.
+
+Changes:
+
+- Added [.github/agents/VibePlanner.agent.md](.github/agents/VibePlanner.agent.md)
+- Added [.github/agents/DocsKeeper.agent.md](.github/agents/DocsKeeper.agent.md)
+- Added [.github/agents/OpsPilot.agent.md](.github/agents/OpsPilot.agent.md)
+- Updated [.github/agents/DocumentationManager.agent.md](.github/agents/DocumentationManager.agent.md) with one-prompt and no-assumption orchestration mode
+- Added [.github/copilot-instructions.md](.github/copilot-instructions.md)
+
+### Added: RiftFlow v1 Brand-New Agent System and One-Command Prompt
+
+Overview: Introduced a fresh agent system independent of legacy flow, with a single slash command for end-to-end vibe coding.
+
+Changes:
+
+- Added [.github/agents/RiftConductor.agent.md](.github/agents/RiftConductor.agent.md)
+- Added [.github/agents/RiftScope.agent.md](.github/agents/RiftScope.agent.md)
+- Added [.github/agents/RiftShip.agent.md](.github/agents/RiftShip.agent.md)
+- Added [.github/agents/RiftLedger.agent.md](.github/agents/RiftLedger.agent.md)
+- Added [.github/agents/RiftSRE.agent.md](.github/agents/RiftSRE.agent.md)
+- Added [.github/prompts/vibe-build.prompt.md](.github/prompts/vibe-build.prompt.md)
+- Updated [Documentation/guides/ai-vibe-workflow.md](Documentation/guides/ai-vibe-workflow.md) to make RiftFlow v1 the preferred system
+- Updated [.github/copilot-instructions.md](.github/copilot-instructions.md) with preferred /vibe-build and @RiftConductor entrypoint
 
 ---
 

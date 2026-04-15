@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { useLanguage } from '../../web/contexts/LanguageContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface NoAccessProps {
   title?: string;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLanguage } from '../../web/contexts/LanguageContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export interface FeedbackModalProps {
   username: string;

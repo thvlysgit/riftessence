@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import SEOHead from '../../../api/components/SEOHead';
+import SEOHead from '@components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAuthHeader, getAuthToken } from '../../utils/auth';
-import NoAccess from '../../../api/components/NoAccess';
-import { useGlobalUI } from '../../../api/components/GlobalUI';
-import { CreateTeamLftModal } from '../../../api/components/CreateTeamLftModal';
+import NoAccess from '@components/NoAccess';
+import { useGlobalUI } from '@components/GlobalUI';
+import { CreateTeamLftModal } from '@components/CreateTeamLftModal';
 import { DiscordIcon } from '../../src/components/DiscordBrand';
 
 interface TeamMember {

@@ -38,6 +38,11 @@ RUN npx prisma generate --schema=./prisma/schema.prisma
 
 WORKDIR /app/apps/api
 
+# ARM stability hardening: force Prisma to use the binary engine.
+# The default library engine has shown allocator crashes under load
+# (e.g. malloc/tcache errors) on some ARM Docker hosts.
+ENV PRISMA_CLIENT_ENGINE_TYPE=binary
+
 EXPOSE 3333
 
 # apply pending schema migrations, then run the compiled API

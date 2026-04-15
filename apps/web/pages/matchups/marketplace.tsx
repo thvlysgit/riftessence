@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
-import SEOHead from '../../../api/components/SEOHead';
+import SEOHead from '@components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { useGlobalUI } from '../../../api/components/GlobalUI';
-import { LoadingSpinner } from '../../../api/components/LoadingSpinner';
+import { useGlobalUI } from '@components/GlobalUI';
+import { LoadingSpinner } from '@components/LoadingSpinner';
 import { getChampionIconUrl } from '../../utils/championData';
 import { getAuthHeader } from '../../utils/auth';
 

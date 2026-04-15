@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import SEOHead from '../../../api/components/SEOHead';
+import SEOHead from '@components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAuthToken } from '../../utils/auth';
-import NoAccess from '../../../api/components/NoAccess';
+import NoAccess from '@components/NoAccess';
 
 interface TeamMember {
   userId: string;

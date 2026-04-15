@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { getChampionIconUrl } from '../../../web/utils/championData';
+import { getChampionIconUrl } from '../../utils/championData';
 
 interface ChampionPoolProps {
   championList: string[];

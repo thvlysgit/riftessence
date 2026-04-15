@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useGlobalUI } from '../../api/components/GlobalUI';
+import { useGlobalUI } from '@components/GlobalUI';
 import Link from 'next/link';
 import { getAuthToken, getUserIdFromToken } from '../utils/auth';
 

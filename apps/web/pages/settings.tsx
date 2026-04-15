@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme, ThemeContext } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { LoadingSpinner } from '../../api/components/LoadingSpinner';
+import { LoadingSpinner } from '@components/LoadingSpinner';
 import { getAuthHeader } from '../utils/auth';
 import { DiscordIcon } from '../src/components/DiscordBrand';
 

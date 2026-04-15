@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import SEOHead from '../../../api/components/SEOHead';
+import SEOHead from '@components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { useGlobalUI } from '../../../api/components/GlobalUI';
-import { LoadingSpinner } from '../../../api/components/LoadingSpinner';
-import { MatchupCard, Matchup } from '../../../api/components/MatchupCard';
+import { useGlobalUI } from '@components/GlobalUI';
+import { LoadingSpinner } from '@components/LoadingSpinner';
+import { MatchupCard, Matchup } from '@components/MatchupCard';
 import { getAuthHeader } from '../../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';

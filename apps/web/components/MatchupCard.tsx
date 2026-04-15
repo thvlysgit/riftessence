@@ -1,8 +1,8 @@
 import React from 'react';
 import Image from 'next/image';
-import { useLanguage } from '../../web/contexts/LanguageContext';
-import { useAuth } from '../../web/contexts/AuthContext';
-import { getChampionIconUrl } from '../../web/utils/championData';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
+import { getChampionIconUrl } from '../utils/championData';
 
 type DifficultyLevel = 
   | 'FREE_WIN' 

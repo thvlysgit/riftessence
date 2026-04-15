@@ -3,12 +3,12 @@ import '../styles/globals.css';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
 import Script from 'next/script';
-import Navbar from '../../api/components/Navbar';
-import Footer from '../../api/components/Footer';
-import OnboardingWizard from '../../api/components/OnboardingWizard';
-import BugReportButton from '../../api/components/BugReportButton'; // TODO: TEMPORARY - Remove after bug reporting period
-import ChatWidget from '../../api/components/ChatWidget';
-import { GlobalUIProvider } from '../../api/components/GlobalUI';
+import Navbar from '@components/Navbar';
+import Footer from '@components/Footer';
+import OnboardingWizard from '@components/OnboardingWizard';
+import BugReportButton from '@components/BugReportButton'; // TODO: TEMPORARY - Remove after bug reporting period
+import ChatWidget from '@components/ChatWidget';
+import { GlobalUIProvider } from '@components/GlobalUI';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ThemeProvider } from '../contexts/ThemeContext';

@@ -9,7 +9,7 @@ import {
   FaPalette,
 } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
-import { useGlobalUI } from '../../api/components/GlobalUI';
+import { useGlobalUI } from '@components/GlobalUI';
 import { getAuthHeader } from '../utils/auth';
 import PrismaticEssenceIcon from '../src/components/PrismaticEssenceIcon';
 import LivingBadge from '../src/components/LivingBadge';

@@ -46,6 +46,7 @@ services:
       DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
       NODE_ENV: ${NODE_ENV:-development}
+      PRISMA_CLIENT_ENGINE_TYPE: ${PRISMA_CLIENT_ENGINE_TYPE:-binary}
     depends_on:
       - db
       - redis

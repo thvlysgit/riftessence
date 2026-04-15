@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { FaBullhorn, FaCheckCircle, FaExternalLinkAlt, FaImage, FaLink, FaPen, FaWallet } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
-import { useGlobalUI } from '../../api/components/GlobalUI';
+import { useGlobalUI } from '@components/GlobalUI';
 import { getAuthHeader } from '../utils/auth';
 import PrismaticEssenceIcon from '../src/components/PrismaticEssenceIcon';
 

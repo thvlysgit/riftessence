@@ -1,7 +1,16 @@
 # Codebase Audit
 
-> Last updated: 2026-02-11  
+> Last updated: 2026-04-16  
 > Source: `COMPREHENSIVE_CODEBASE_ANALYSIS.md` (root-level, legacy)
+
+## Latest Session Audit
+
+- See [2026-04-16 Audit Findings](2026-04-16-audit-findings.md) for the latest verified audit record.
+- Highlights from that session:
+	- Architecture boundary cleanup completed for web component ownership.
+	- Web production build regression resolved and validated.
+	- API and web build/type checks passing.
+	- Follow-up risks tracked for TS config deprecations and polling optimization.
 
 ## Overall Grade: 6.25/10 (B-)
 

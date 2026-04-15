@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import SEOHead from '../../../api/components/SEOHead';
+import SEOHead from '@components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAuthToken } from '../../utils/auth';
-import NoAccess from '../../../api/components/NoAccess';
+import NoAccess from '@components/NoAccess';
 import { DiscordIcon } from '../../src/components/DiscordBrand';
 
 type MentionMode = 'EVERYONE' | 'ROLE' | 'TEAM_ROLE_MAP';

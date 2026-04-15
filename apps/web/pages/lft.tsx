@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import SEOHead from '../../api/components/SEOHead';
-import { LoadingSpinner } from '../../api/components/LoadingSpinner';
+import SEOHead from '@components/SEOHead';
+import { LoadingSpinner } from '@components/LoadingSpinner';
 import { CreatePlayerLftModal } from '../components/CreatePlayerLftModal';
-import { useGlobalUI } from '../../api/components/GlobalUI';
+import { useGlobalUI } from '@components/GlobalUI';
 import { useChat } from '../contexts/ChatContext';
 import { getAuthHeader, getAuthToken, getUserIdFromToken } from '../utils/auth';
 import { getChampionIconUrl } from '../utils/championData';
 import { DiscordIcon } from '../src/components/DiscordBrand';
-import NoAccess from '../../api/components/NoAccess';
-import { AdSpot, useAds, getAdForPosition } from '../../api/components/AdSpot';
+import NoAccess from '@components/NoAccess';
+import { AdSpot, useAds, getAdForPosition } from '@components/AdSpot';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 const REGIONS = ['ALL', 'NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];

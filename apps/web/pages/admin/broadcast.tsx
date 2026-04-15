@@ -8,7 +8,7 @@ import Link from 'next/link';
 import Head from 'next/head';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { useGlobalUI } from '../../../api/components/GlobalUI';
+import { useGlobalUI } from '@components/GlobalUI';
 import { getAuthHeader } from '../../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';

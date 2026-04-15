@@ -1,6 +1,6 @@
 # RiftEssence Documentation
 
-> Last updated: 2026-02-16
+> Last updated: 2026-04-16
 
 Central documentation hub for the RiftEssence project. This is the single source of truth — all project knowledge is organized here.
 
@@ -39,11 +39,13 @@ Central documentation hub for the RiftEssence project. This is the single source
 - [Patterns](guides/patterns.md) — Established code patterns with examples
 - [Anti-Patterns](guides/anti-patterns.md) — What to avoid and why
 - [Testing](guides/testing.md) — Test setup, conventions, coverage gaps
+- [AI Vibe Workflow](guides/ai-vibe-workflow.md) — Agent-first build loop for rapid delivery with live documentation sync
 - [Beta Marketing Messages](guides/beta-marketing-messages.md) — Discord announcements, social media posts (French)
 - [OG Image Generation](guides/og-image-generation.md) — How to create the Open Graph preview image
 
 ### Analysis
 - [Codebase Audit](analysis/codebase-audit.md) — Quality scores, known issues, improvement roadmap
+- [2026-04-16 Audit Findings](analysis/2026-04-16-audit-findings.md) — Latest production stability and architecture boundary audit
 
 ---
 

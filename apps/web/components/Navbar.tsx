@@ -5,11 +5,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useAuth } from '../../web/contexts/AuthContext';
-import { useTheme } from '../../web/contexts/ThemeContext';
-import { useLanguage } from '../../web/contexts/LanguageContext';
-import { getAuthHeader } from '../../web/utils/auth';
-import PrismaticEssenceIcon from '../../web/src/components/PrismaticEssenceIcon';
+import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getAuthHeader } from '../utils/auth';
+import PrismaticEssenceIcon from '../src/components/PrismaticEssenceIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 

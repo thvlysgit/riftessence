@@ -18,6 +18,12 @@ const nextConfig = {
       },
     ],
   },
+  webpack: (config) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = config.resolve.alias || {};
+    config.resolve.alias['client-only'] = require('path').resolve(__dirname, 'src/shims/client-only.js');
+    return config;
+  },
 };
 
 module.exports = nextConfig;

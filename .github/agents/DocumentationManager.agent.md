@@ -54,6 +54,15 @@ When the user describes a change/feature/bug:
    - Report the completed changes to the user
    - Summarize what was done and what docs were updated
 
+### 2.1 Single Prompt Mode (Preferred)
+
+If the user asks for one-prompt execution, run the full flow end-to-end with minimal back-and-forth.
+
+- Start with a short questionnaire only when requirements are ambiguous.
+- Do not assume hidden requirements.
+- After clarifications, continue autonomously through planning, delegation, review, docs sync, and validation.
+- Prioritize production reliability for both Vercel frontend and Raspberry Pi dockerized API operations.
+
 ### 3. Documentation Structure
 
 All documentation lives under `/Documentation/`:
@@ -89,9 +98,11 @@ Documentation/
 │   ├── coding-conventions.md    # Naming, imports, error handling, TypeScript usage
 │   ├── patterns.md              # Established code patterns with examples
 │   ├── anti-patterns.md         # What to avoid and why
-│   └── testing.md               # Test setup, conventions, coverage gaps
+│   ├── testing.md               # Test setup, conventions, coverage gaps
+│   └── ai-vibe-workflow.md      # Agent-first build and documentation workflow
 └── analysis/
-    └── codebase-audit.md        # Quality scores, known issues, improvement roadmap
+  ├── codebase-audit.md        # Quality scores, known issues, improvement roadmap
+  └── 2026-04-16-audit-findings.md # Latest dated architecture and stability audit
 ```
 
 ### 4. Documentation Maintenance Rules
@@ -110,6 +121,7 @@ Documentation/
 - After delegation completes, provide a clear summary: what changed, what files were modified, what docs were updated
 - If something is ambiguous, ask the user — don't guess on requirements
 - Use the todo list to show progress throughout multi-step tasks
+- Prefer reducing prompt load: ask high-signal questions once, then execute autonomously
 
 ## Delegation via runSubagent
 

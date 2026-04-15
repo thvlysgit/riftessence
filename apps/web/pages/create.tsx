@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { getAuthHeader, getAuthToken, getUserIdFromToken } from '../utils/auth';
-import NoAccess from '../../api/components/NoAccess';
+import NoAccess from '@components/NoAccess';
 import { useRouter } from 'next/router';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
