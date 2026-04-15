@@ -1,5 +1,0 @@
-ALTER TABLE "User"
-ADD COLUMN IF NOT EXISTS "oneVOneRating" INTEGER NOT NULL DEFAULT 1000;
-
-CREATE INDEX IF NOT EXISTS "User_oneVOneRating_idx"
-ON "User"("oneVOneRating");
