@@ -30,17 +30,6 @@ function calculateRankScore(rank: string | null, division: string | null, lp: nu
   return baseScore + (DIVISION_VALUES[division || 'IV'] || 0) * 100;
 }
 
-function isPrismaSchemaMismatchError(error: any): boolean {
-  const code = typeof error?.code === 'string' ? error.code : '';
-  if (code === 'P2021' || code === 'P2022') {
-    return true;
-  }
-
-  const message = String(error?.message || '').toLowerCase();
-  return message.includes('column') && message.includes('does not exist')
-    || message.includes('relation') && message.includes('does not exist');
-}
-
 export default async function userRoutes(fastify: any) {
   const ensureSingleMainAccount = async (db: any, userId: string) => {
     const accounts = await db.riotAccount.findMany({
@@ -335,60 +324,9 @@ export default async function userRoutes(fastify: any) {
       const { userId, username, includeHidden } = (request.query as { userId?: string; username?: string; includeHidden?: string }) || {};
       const shouldIncludeHidden = includeHidden === 'true';
 
-      const fullProfileInclude = {
-        riotAccounts: true,
-        discordAccount: true,
-        badges: true,
-        ratingsReceived: {
-          take: 10,
-          orderBy: { createdAt: 'desc' as const },
-          include: { rater: { select: { username: true } } },
-        },
-        communityMemberships: { include: { community: true } },
-      };
-
-      const legacyProfileSelect = {
-        id: true,
-        username: true,
-        bio: true,
-        region: true,
-        vcPreference: true,
-        languages: true,
-        password: true,
-        riotAccounts: {
-          select: {
-            id: true,
-            summonerName: true,
-            region: true,
-            puuid: true,
-          },
-        },
-        discordAccount: {
-          select: {
-            username: true,
-          },
-        },
-      };
-
-      const ultraLegacyProfileSelect = {
-        id: true,
-        username: true,
-        password: true,
-        bio: true,
-        region: true,
-        riotAccounts: {
-          select: {
-            id: true,
-            summonerName: true,
-            region: true,
-          },
-        },
-      };
-
-      let user: any;
+      let user;
       let authenticatedUserId: string | null = null;
       let targetUserId = userId;
-      let usedLegacySchemaFallback = false;
       
       // If no userId or username provided, try to get from JWT token
       if (!userId && !username) {
@@ -409,82 +347,42 @@ export default async function userRoutes(fastify: any) {
           return reply.status(401).send({ error: 'Authentication required' });
         }
       }
-
-      try {
-        if (targetUserId) {
-          user = await prisma.user.findUnique({
-            where: { id: targetUserId },
-            include: fullProfileInclude,
-          });
-        } else if (username) {
-          user = await prisma.user.findUnique({
-            where: { username },
-            include: fullProfileInclude,
-          });
-        }
-      } catch (profileQueryError: any) {
-        if (!isPrismaSchemaMismatchError(profileQueryError)) {
-          throw profileQueryError;
-        }
-
-        usedLegacySchemaFallback = true;
-        fastify.log.error({
-          reqId: request.id,
-          code: profileQueryError?.code,
-          message: profileQueryError?.message,
-        }, 'Profile fallback activated due to schema mismatch. Run prisma migrate deploy.');
-
-        try {
-          if (targetUserId) {
-            user = await prisma.user.findUnique({
-              where: { id: targetUserId },
-              select: legacyProfileSelect,
-            });
-          } else if (username) {
-            user = await prisma.user.findUnique({
-              where: { username },
-              select: legacyProfileSelect,
-            });
-          }
-        } catch (legacyProfileError: any) {
-          if (!isPrismaSchemaMismatchError(legacyProfileError)) {
-            throw legacyProfileError;
-          }
-
-          fastify.log.error({
-            reqId: request.id,
-            code: legacyProfileError?.code,
-            message: legacyProfileError?.message,
-          }, 'Profile ultra-legacy fallback activated due to deeper schema mismatch.');
-
-          if (targetUserId) {
-            user = await prisma.user.findUnique({
-              where: { id: targetUserId },
-              select: ultraLegacyProfileSelect,
-            });
-          } else if (username) {
-            user = await prisma.user.findUnique({
-              where: { username },
-              select: ultraLegacyProfileSelect,
-            });
-          }
-        }
+      
+      if (targetUserId) {
+        user = await prisma.user.findUnique({
+          where: { id: targetUserId },
+          include: {
+            riotAccounts: true,
+            discordAccount: true,
+            badges: true,
+            ratingsReceived: { 
+              take: 10, 
+              orderBy: { createdAt: 'desc' },
+              include: { rater: { select: { username: true } } },
+            },
+            communityMemberships: { include: { community: true } },
+          },
+        });
+      } else if (username) {
+        user = await prisma.user.findUnique({
+          where: { username },
+          include: {
+            riotAccounts: true,
+            discordAccount: true,
+            badges: true,
+            ratingsReceived: { 
+              take: 10, 
+              orderBy: { createdAt: 'desc' },
+              include: { rater: { select: { username: true } } },
+            },
+            communityMemberships: { include: { community: true } },
+          },
+        });
       }
 
       if (!user) {
         return reply.status(404).send({ error: 'User not found' });
       }
-
-      if (usedLegacySchemaFallback) {
-        user.badges = [];
-        user.ratingsReceived = [];
-        user.communityMemberships = [];
-      }
-
-      user.riotAccounts = user.riotAccounts || [];
-      user.badges = user.badges || [];
-      user.ratingsReceived = user.ratingsReceived || [];
-      user.communityMemberships = user.communityMemberships || [];
 
       if (authenticatedUserId && user.id === authenticatedUserId && !user.password) {
         try {

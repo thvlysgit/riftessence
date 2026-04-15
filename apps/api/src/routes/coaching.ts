@@ -1,16 +1,5 @@
 import prisma from '../prisma';
 
-function isPrismaSchemaMismatchError(error: any): boolean {
-  const code = typeof error?.code === 'string' ? error.code : '';
-  if (code === 'P2021' || code === 'P2022') {
-    return true;
-  }
-
-  const message = String(error?.message || '').toLowerCase();
-  return message.includes('column') && message.includes('does not exist')
-    || message.includes('relation') && message.includes('does not exist');
-}
-
 export default async function coachingRoutes(fastify: any) {
   // Helper to extract userId from JWT (duplicated for route isolation)
   const getUserIdFromRequest = async (request: any, reply: any): Promise<string | null> => {
@@ -61,98 +50,41 @@ export default async function coachingRoutes(fastify: any) {
       // Viewer admin status (used by frontend to conditionally show admin controls)
       let viewerIsAdmin = false;
       if (userId) {
-        try {
-          const viewer = await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } });
-          viewerIsAdmin = (viewer?.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin');
-        } catch (viewerError: any) {
-          if (!isPrismaSchemaMismatchError(viewerError)) {
-            throw viewerError;
-          }
-          fastify.log.warn({
-            reqId: request.id,
-            code: viewerError?.code,
-            message: viewerError?.message,
-          }, 'Coaching posts fallback: could not load viewer badges due to schema mismatch');
-          viewerIsAdmin = false;
-        }
+        const viewer = await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } });
+        viewerIsAdmin = (viewer?.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin');
       }
 
       // Filter out blocked users - exclude posts from users the viewer has blocked
       // and posts from users who have blocked the viewer (bidirectional blocking)
       if (userId) {
-        try {
-          const blocksResult = await prisma.$queryRaw<Array<{ blockedId: string }>>`
-            SELECT "blockedId" FROM "Block" WHERE "blockerId" = ${userId}
-            UNION
-            SELECT "blockerId" FROM "Block" WHERE "blockedId" = ${userId}
-          `;
-
-          const blockedUserIds = blocksResult.map((b: any) => b.blockedId);
-
-          if (blockedUserIds.length > 0) {
-            where.authorId = { notIn: blockedUserIds };
-          }
-        } catch (blockError: any) {
-          if (!isPrismaSchemaMismatchError(blockError)) {
-            throw blockError;
-          }
-          fastify.log.warn({
-            reqId: request.id,
-            code: blockError?.code,
-            message: blockError?.message,
-          }, 'Coaching posts fallback: skipping block filter due to schema mismatch');
+        const blocksResult = await prisma.$queryRaw<Array<{ blockedId: string }>>`
+          SELECT "blockedId" FROM "Block" WHERE "blockerId" = ${userId}
+          UNION
+          SELECT "blockerId" FROM "Block" WHERE "blockedId" = ${userId}
+        `;
+        
+        const blockedUserIds = blocksResult.map((b: any) => b.blockedId);
+        
+        if (blockedUserIds.length > 0) {
+          where.authorId = { notIn: blockedUserIds };
         }
       }
 
-      let posts: any[] = [];
-      let usedLegacySchemaFallback = false;
-
-      try {
-        posts = await prisma.coachingPost.findMany({
-          where,
-          orderBy: { createdAt: 'desc' },
-          include: {
-            author: {
-              select: {
-                id: true,
-                username: true,
-                discordAccount: {
-                  select: { username: true }
-                }
-              },
+      const posts = await prisma.coachingPost.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              discordAccount: {
+                select: { username: true }
+              }
             },
           },
-        });
-      } catch (postsError: any) {
-        if (!isPrismaSchemaMismatchError(postsError)) {
-          throw postsError;
-        }
-
-        usedLegacySchemaFallback = true;
-        fastify.log.error({
-          reqId: request.id,
-          code: postsError?.code,
-          message: postsError?.message,
-        }, 'Coaching posts fallback activated due to schema mismatch. Run prisma migrate deploy.');
-
-        posts = await prisma.coachingPost.findMany({
-          where,
-          orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            type: true,
-            createdAt: true,
-            region: true,
-            authorId: true,
-            author: {
-              select: {
-                id: true,
-                username: true,
-              },
-            },
-          },
-        });
-      }
+        },
+      });
 
       // Format posts for frontend
       const formatted = posts.map((post: any) => ({
@@ -160,17 +92,17 @@ export default async function coachingRoutes(fastify: any) {
         type: post.type,
         createdAt: post.createdAt,
         region: post.region,
-        authorId: post.author?.id || post.authorId,
+        authorId: post.author.id,
         username: post.author.username,
-        discordUsername: usedLegacySchemaFallback ? null : (post.author?.discordAccount?.username || null),
+        discordUsername: post.author?.discordAccount?.username || null,
         discordTag: post.discordTag,
         isAdmin: viewerIsAdmin,
         
         // Common fields
-        roles: post.roles || [],
-        languages: post.languages || [],
-        availability: post.availability || null,
-        details: post.details || null,
+        roles: post.roles,
+        languages: post.languages,
+        availability: post.availability,
+        details: post.details,
         
         // Offering-specific fields
         ...(post.type === 'OFFERING' && {
