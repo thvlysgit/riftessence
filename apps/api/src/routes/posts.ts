@@ -1,17 +1,6 @@
 import prisma from '../prisma';
 import { CreatePostSchema, validateRequest, PaginationSchema } from '../validation';
 
-function isPrismaSchemaMismatchError(error: any): boolean {
-  const code = typeof error?.code === 'string' ? error.code : '';
-  if (code === 'P2021' || code === 'P2022') {
-    return true;
-  }
-
-  const message = String(error?.message || '').toLowerCase();
-  return message.includes('column') && message.includes('does not exist')
-    || message.includes('relation') && message.includes('does not exist');
-}
-
 export default async function postsRoutes(fastify: any) {
   // Helper function to format a post for API response
   const formatPost = (post: any, viewerIsAdmin: boolean = false) => {
@@ -417,56 +406,18 @@ export default async function postsRoutes(fastify: any) {
         return reply.status(400).send({ error: 'Missing userId' });
       }
 
-      let notifications: any[] = [];
-      let usedLegacySchemaFallback = false;
-
-      try {
-        notifications = await prisma.notification.findMany({
-          where: { userId },
-          orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            userId: true,
-            type: true,
-            fromUserId: true,
-            postId: true,
-            message: true,
-            read: true,
-            createdAt: true,
-          },
-        });
-      } catch (notifError: any) {
-        if (!isPrismaSchemaMismatchError(notifError)) {
-          throw notifError;
-        }
-
-        usedLegacySchemaFallback = true;
-        fastify.log.error({
-          reqId: request.id,
-          code: notifError?.code,
-          message: notifError?.message,
-        }, 'Notifications fallback activated due to schema mismatch. Run prisma migrate deploy.');
-
-        notifications = await prisma.notification.findMany({
-          where: { userId },
-          orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            userId: true,
-            message: true,
-            read: true,
-            createdAt: true,
-          },
-        });
-      }
+      const notifications = await prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+      });
 
       // Enrich notifications with sender info
       const enriched = await Promise.all(notifications.map(async (notif: any) => {
         let sender = null;
-        if (!usedLegacySchemaFallback && notif.fromUserId) {
+        if (notif.fromUserId) {
           sender = await prisma.user.findUnique({
             where: { id: notif.fromUserId },
-            select: { username: true },
+            include: { riotAccounts: true, discordAccount: true },
           });
         }
 
