@@ -2,6 +2,11 @@ FROM --platform=linux/arm64 node:20-bookworm-slim
 
 WORKDIR /app
 
+# ARM stability hardening: force Prisma to use binary engine everywhere
+# (generation time, migrate CLI, and runtime client).
+ENV PRISMA_CLIENT_ENGINE_TYPE=binary
+ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
+
 # Install build tools for native modules like bcrypt
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
@@ -37,11 +42,6 @@ RUN pnpm exec tsc -p apps/api/tsconfig.json
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
 WORKDIR /app/apps/api
-
-# ARM stability hardening: force Prisma to use the binary engine.
-# The default library engine has shown allocator crashes under load
-# (e.g. malloc/tcache errors) on some ARM Docker hosts.
-ENV PRISMA_CLIENT_ENGINE_TYPE=binary
 
 EXPOSE 3333
 

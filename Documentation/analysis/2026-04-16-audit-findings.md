@@ -95,7 +95,7 @@ This audit session focused on production reliability and architecture hygiene. T
 - Description:
   - API process crashed during concurrent Purse page requests with allocator error `malloc(): unaligned tcache chunk detected`, followed by process abort and restart.
 - Resolution:
-  - Forced Prisma client engine mode to `binary` in API container runtime and compose API env default.
+  - Forced Prisma engine mode to `binary` for both Prisma client runtime and Prisma CLI.
   - Files:
     - apps/api/Dockerfile
     - docker-compose.yml

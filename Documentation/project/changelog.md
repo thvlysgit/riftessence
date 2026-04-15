@@ -12,8 +12,8 @@ Overview: Resolved a runtime crash observed while loading Purse-related endpoint
 
 Changes:
 
-- Updated [apps/api/Dockerfile](apps/api/Dockerfile) to force Prisma client engine mode to `binary` in runtime container environment.
-- Updated [docker-compose.yml](docker-compose.yml) API service environment to set `PRISMA_CLIENT_ENGINE_TYPE` default to `binary`.
+- Updated [apps/api/Dockerfile](apps/api/Dockerfile) to force Prisma engine mode to `binary` for both client runtime and CLI operations during build/runtime.
+- Updated [docker-compose.yml](docker-compose.yml) API service environment to pin both `PRISMA_CLIENT_ENGINE_TYPE` and `PRISMA_CLI_QUERY_ENGINE_TYPE` to `binary`.
 
 Validation:
 
