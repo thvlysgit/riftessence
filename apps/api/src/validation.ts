@@ -281,20 +281,3 @@ export const RankedOneVOneLeaderboardQuerySchema = z.object({
   limit: z.preprocess((val) => Number(val), z.number().min(1).max(100)).default(25),
   offset: z.preprocess((val) => Number(val), z.number().min(0)).default(0),
 });
-
-export const RankedOneVOneQueueJoinSchema = z.object({
-  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU']),
-});
-
-export const RankedOneVOneStyleChoiceSchema = z.object({
-  style: z.enum(['ARAM_STANDARD', 'ARAM_FIRST_BLOOD', 'MID_STANDARD', 'TOP_STANDARD']),
-});
-
-export const RankedOneVOneGiveUpSchema = z.object({
-  reason: z.string().trim().min(5).max(300).optional(),
-});
-
-export const RankedOneVOneIssueReportSchema = z.object({
-  reason: z.string().trim().min(10).max(600),
-  evidenceUrls: z.array(z.string().trim().url()).max(5).default([]),
-});

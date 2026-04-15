@@ -357,7 +357,6 @@ export default function Navbar() {
             {/* Desktop Navigation Links */}
             <div className="hidden md:flex items-center space-x-1">
               <NavLink href="/feed">LFD</NavLink>
-              <NavLink href="/1v1">1v1 Arena</NavLink>
 
               {/* Teams Dropdown */}
               <div className="relative" ref={teamsMenuRef}>
@@ -899,7 +898,6 @@ export default function Navbar() {
             
             {/* Mobile Navigation Links */}
             <MobileNavLink href="/feed">LFD</MobileNavLink>
-            <MobileNavLink href="/1v1">1v1 Arena</MobileNavLink>
             <div className="px-4 py-1">
               <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>Teams</p>
             </div>

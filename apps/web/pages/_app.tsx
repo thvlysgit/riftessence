@@ -32,7 +32,6 @@ const ROUTE_TITLES: Record<string, string> = {
   '/profile': 'Profile | RiftEssence',
   '/settings': 'Settings | RiftEssence',
   '/notifications': 'Notifications | RiftEssence',
-  '/1v1': 'Ranked 1v1 Arena | RiftEssence',
   '/purse': 'Purse | RiftEssence',
   '/leaderboards': 'Leaderboards | RiftEssence',
   '/communities': 'Communities | RiftEssence',
