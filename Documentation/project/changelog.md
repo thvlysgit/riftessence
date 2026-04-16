@@ -4,6 +4,35 @@
 
 ---
 
+## 2026-04-17 - Typography Consistency and Theme Hydration Safety
+
+### Objective: Keep Theme Personality Visual Without Font Drift and Reduce First-Render Route Instability
+
+Overview: Applied a follow-up adjustment so theme switching no longer changes global heading/body typography, and switched theme state bootstrapping to a hydration-safe initialization path.
+
+Changes:
+
+- Updated [apps/web/styles/globals.css](apps/web/styles/globals.css):
+  - Added a global `[data-theme]` typography override so all themes share the same `--font-body` and heading token set.
+  - Preserved theme personality differences through color, shell motif, and ambient motion tokens.
+- Updated [apps/web/contexts/ThemeContext.tsx](apps/web/contexts/ThemeContext.tsx):
+  - Restored server-safe initial state (`classic`) and moved localStorage rehydration to mount effect.
+  - Avoided client/server first-render divergence that can contribute to route-level hydration instability.
+- Updated [Documentation/frontend/theming.md](Documentation/frontend/theming.md):
+  - Documented globally consistent typography behavior.
+
+Validation:
+
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/web lint` passes.
+- `pnpm --filter @lfd/web build` passes.
+- Runtime smoke check passes:
+  - `pnpm --filter @lfd/web exec next start -p 4010`
+  - `Invoke-WebRequest http://localhost:4010/profile` returns `200`
+  - `Invoke-WebRequest http://localhost:4010/profile/testuser` returns `200`
+
+---
+
 ## 2026-04-16 - Theming Documentation Parity Follow-up
 
 ### Objective: Keep Documentation Aligned With Implemented Theme Runtime Paths

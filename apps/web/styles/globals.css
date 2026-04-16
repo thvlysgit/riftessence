@@ -269,6 +269,15 @@
   --theme-ambient-animation: themeAmbientShadow 21s ease-in-out infinite;
 }
 
+/* Keep typography stable across themes; only visual personality layers should vary. */
+[data-theme] {
+  --font-body: 'Exo 2', 'Segoe UI', Tahoma, sans-serif;
+  --font-heading: 'Cinzel', Georgia, serif;
+  --font-heading-weight: 700;
+  --font-heading-transform: none;
+  --font-heading-tracking: 0.01em;
+}
+
 .app-theme-shell {
   position: relative;
   min-height: 100%;

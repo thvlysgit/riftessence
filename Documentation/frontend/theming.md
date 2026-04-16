@@ -1,6 +1,6 @@
 # Theming System
 
-> Last updated: 2026-04-16  
+> Last updated: 2026-04-17  
 > Source: `apps/web/utils/themeRegistry.ts`, `apps/web/contexts/ThemeContext.tsx`, `apps/web/pages/_document.tsx`, `apps/web/pages/_app.tsx`, `apps/web/styles/globals.css`  
 > Guide: `apps/web/utils/README-theming.md`
 
@@ -32,19 +32,20 @@ This removes drift between first paint and hydrated state and ensures all 9 them
 Theme personality is now implemented through four layers that do not alter UX flow or IA:
 
 1. **Color and component tokens** via CSS variables
-2. **Heading typography tokens** (theme-specific heading font system only)
+2. **Shared typography tokens** (global heading/body font system)
 3. **Global shell motifs** via app wrapper background and overlay layers
 4. **Ambient motion signatures** with strict `prefers-reduced-motion` handling
 
-Body typography remains constant across themes (`--font-body`). Heading typography changes by theme (`--font-heading`, `--font-heading-weight`, `--font-heading-transform`, `--font-heading-tracking`).
+Body and heading typography remain constant across themes (`--font-body`, `--font-heading`, `--font-heading-weight`, `--font-heading-transform`, `--font-heading-tracking`).
 
 ## Runtime Behavior
 
-1. `ThemeContext` resolves theme from `localStorage` key `lfd_theme`.
-2. CSS variable map is applied to `document.documentElement`.
-3. `data-theme` is updated on root and drives theme-specific shell/motion/typography selectors.
-4. `_document` applies the same variable map before React hydration to avoid flash/mismatch.
-5. App shell updates browser `theme-color` meta to match active accent.
+1. `ThemeContext` starts from the default theme for hydration-safe first render.
+2. On mount, `ThemeContext` resolves theme from `localStorage` key `lfd_theme`.
+3. CSS variable map is applied to `document.documentElement`.
+4. `data-theme` is updated on root and drives theme-specific shell/motion selectors.
+5. `_document` applies the same variable map before React hydration to avoid flash/mismatch.
+6. App shell updates browser `theme-color` meta to match active accent.
 
 ## Key CSS Variables
 

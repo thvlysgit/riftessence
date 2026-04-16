@@ -32,7 +32,14 @@ const getInitialTheme = (): ThemeName => {
 };
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [currentTheme, setCurrentTheme] = useState<ThemeName>(() => getInitialTheme());
+  const [currentTheme, setCurrentTheme] = useState<ThemeName>(DEFAULT_THEME_NAME);
+
+  useEffect(() => {
+    const savedTheme = getInitialTheme();
+    if (savedTheme !== DEFAULT_THEME_NAME) {
+      setCurrentTheme(savedTheme);
+    }
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
