@@ -1,65 +1,98 @@
 # Theming System
 
-> Last updated: 2026-02-12  
-> Source: `apps/web/contexts/ThemeContext.tsx`, `apps/web/styles/globals.css`  
+> Last updated: 2026-04-16  
+> Source: `apps/web/utils/themeRegistry.ts`, `apps/web/contexts/ThemeContext.tsx`, `apps/web/pages/_document.tsx`, `apps/web/pages/_app.tsx`, `apps/web/styles/globals.css`  
 > Guide: `apps/web/utils/README-theming.md`
 
-## 9 Themes
+## Architecture
 
-1. **Classic Dark** (`classic`) — Gold/dark (LoL-inspired, `#C8AA6E` accent)
-2. **Arcane Pastel** (`arcane-pastel`) — Light purple/pink pastels
-3. **Nightshade** (`nightshade`) — Deep blue/purple dark
-4. **Infernal Ember** (`infernal-ember`) — Red/orange dark
-5. **Radiant Light** (`radiant-light`) — Clean white/blue light theme
-6. **Ocean Depths** (`ocean-depths`) — Deep navy/teal oceanic theme with cyan accents
-7. **Forest Mystic** (`forest-mystic`) — Nature-inspired dark green with lime/emerald accents
-8. **Sunset Blaze** (`sunset-blaze`) — Warm orange/brown sunset with gold accents
-9. **Shadow Assassin** (`shadow-assassin`) — Ultra-dark purple/black stealth theme with violet accents
+The web app now uses a shared theme registry for both pre-hydration and runtime theme application.
 
-## Custom Loading Animations
+- Source of truth for theme definitions: `apps/web/utils/themeRegistry.ts`
+- Runtime provider and persistence: `apps/web/contexts/ThemeContext.tsx`
+- First-paint pre-hydration bootstrap: `apps/web/pages/_document.tsx`
+- Global shell visuals, typography, and ambient motion: `apps/web/styles/globals.css`
 
-Each theme has a unique loading spinner animation in `LoadingSpinner` component (`apps/web/components/LoadingSpinner.tsx`):
+This removes drift between first paint and hydrated state and ensures all 9 themes are available consistently.
 
-- **Classic Dark** — Gold spinning circle with pulse
-- **Arcane Pastel** — Magic ring with sparkle fade
-- **Nightshade** — Pulsing moon with twinkling stars
-- **Infernal Ember** — Flickering animated flames
-- **Radiant Light** — Simple spinning circle
-- **Ocean Depths** — Swirling water vortex with rising bubbles
-- **Forest Mystic** — Rotating leaves with floating motion
-- **Sunset Blaze** — Pulsing sun with rotating rays
-- **Shadow Assassin** — Swirling smoke with spiral rotation
+## Theme Catalog
 
-Settings page displays scaled previews of each spinner to help users visualize the complete theme experience.
+1. **Classic Dark** (`classic`) - codex-inspired dark gold
+2. **Arcane Pastel** (`arcane-pastel`) - airy magical pastel glow
+3. **Nightshade** (`nightshade`) - neon tactical dark
+4. **Infernal Ember** (`infernal-ember`) - molten ember intensity
+5. **Radiant Light** (`radiant-light`) - clean high-clarity daylight
+6. **Ocean Depths** (`ocean-depths`) - deep marine cyan atmosphere
+7. **Forest Mystic** (`forest-mystic`) - organic verdant enchantment
+8. **Sunset Blaze** (`sunset-blaze`) - warm cinematic dusk energy
+9. **Shadow Assassin** (`shadow-assassin`) - stealth matte violet-black
 
-## How It Works
+## Personality Layers
 
-Theme selection in `ThemeContext` sets CSS variables on `document.documentElement`. All themed UI reads these variables. Theme selection persists to `localStorage`.
+Theme personality is now implemented through four layers that do not alter UX flow or IA:
 
-## CSS Variables
+1. **Color and component tokens** via CSS variables
+2. **Heading typography tokens** (theme-specific heading font system only)
+3. **Global shell motifs** via app wrapper background and overlay layers
+4. **Ambient motion signatures** with strict `prefers-reduced-motion` handling
 
-### Colors
-- `--color-bg-primary` / `--color-bg-secondary` / `--color-bg-tertiary`
-- `--color-text-primary` / `--color-text-secondary` / `--color-text-muted`
-- `--color-accent-1` / `--color-accent-2` / `--color-accent-3`
-- `--color-border` / `--color-border-hover`
-- `--color-success` / `--color-error` / `--color-warning`
+Body typography remains constant across themes (`--font-body`). Heading typography changes by theme (`--font-heading`, `--font-heading-weight`, `--font-heading-transform`, `--font-heading-tracking`).
 
-### Styling
-- `--border-radius` — e.g., `8px`, `16px`
-- `--border-width` — e.g., `1px`, `2px`
-- `--shadow` — Box shadow value
+## Runtime Behavior
 
-## Utility Classes (from `globals.css`)
+1. `ThemeContext` resolves theme from `localStorage` key `lfd_theme`.
+2. CSS variable map is applied to `document.documentElement`.
+3. `data-theme` is updated on root and drives theme-specific shell/motion/typography selectors.
+4. `_document` applies the same variable map before React hydration to avoid flash/mismatch.
+5. App shell updates browser `theme-color` meta to match active accent.
 
-`.bg-primary`, `.bg-secondary`, `.bg-tertiary`, `.text-primary`, `.text-secondary`, `.text-muted`, `.text-accent`, `.border-themed`, `.card`, `.btn-primary`, `.btn-secondary`, `.input-themed`
+## Key CSS Variables
 
-## Usage Rules
+Core tokens:
 
-1. **NEVER** hardcode colors for theme-aware elements (`bg-gray-800`, `text-[#C8AA6E]`)
-2. Use CSS variables via `style={{ }}` or utility classes
-3. Hover states: use `onMouseEnter`/`onMouseLeave` event handlers
-4. Tailwind for layout/spacing only (non-color classes are fine)
-5. Exception: Status/rank colors that are NOT theme-dependent
+- `--color-bg-primary`, `--color-bg-secondary`, `--color-bg-tertiary`
+- `--color-text-primary`, `--color-text-secondary`, `--color-text-muted`
+- `--color-accent-1`, `--color-accent-2`, `--color-accent-3`
+- `--color-border`, `--color-border-hover`
+- `--color-success`, `--color-error`, `--color-warning`
 
-See `apps/web/utils/README-theming.md` for detailed conversion guide with examples.
+Derived tokens:
+
+- `--accent-primary-bg`, `--accent-primary-border`
+- `--btn-gradient`, `--btn-gradient-text`, `--btn-disabled-bg`
+- `--gradient-card`, `--theme-outline-glow`, `--theme-soft-highlight`
+
+Personality tokens:
+
+- `--font-body`, `--font-heading`, `--font-heading-weight`
+- `--font-heading-transform`, `--font-heading-tracking`
+- `--theme-shell-gradient`, `--theme-shell-overlay`, `--theme-surface-motif`
+- `--theme-motif-opacity`, `--theme-shell-border-glow`, `--theme-shell-shadow`
+- `--theme-ambient-opacity`, `--theme-ambient-animation`
+
+## Shell Classes
+
+Global shell wrappers:
+
+- `.app-theme-shell`
+- `.app-theme-content`
+
+Reusable section variants:
+
+- `.theme-section-shell`
+- `.theme-section-shell-soft`
+- `.theme-section-shell-strong`
+
+These classes are visual-only wrappers and should not change interaction semantics.
+
+## Accessibility and Motion
+
+- Ambient and decorative motion is disabled under `prefers-reduced-motion`.
+- Theme overlays are non-interactive (`pointer-events: none`) and stay behind content.
+- Contrast-sensitive tokens remain in theme color maps and should be tested when adding new accents.
+
+## Implementation Notes
+
+- Onboarding now exposes all 9 themes with translated labels.
+- Settings uses themed shell panels for stronger visual identity while preserving existing layout.
+- Loading spinner per-theme variants remain in `apps/web/components/LoadingSpinner.tsx`.

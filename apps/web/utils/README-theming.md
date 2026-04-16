@@ -1,7 +1,9 @@
 # Theming Guide for RiftEssence
 
 ## Overview
-The app now uses a **CSS variables** approach for theming. All themes are defined in `contexts/ThemeContext.tsx` and CSS variables are set on the document root.
+The app uses a **CSS variables** approach for theming. Theme definitions live in `utils/themeRegistry.ts`, and CSS variables are applied on `document.documentElement`.
+
+As of 2026-04-16, the single source of truth for theme definitions is `utils/themeRegistry.ts`. `ThemeContext` and `_document` both consume this registry to keep first paint and hydrated theme state in sync.
 
 ## Available CSS Variables
 
@@ -190,6 +192,10 @@ onMouseLeave={(e) => {
 3. **Nightshade** - Deep purples and dark blues
 4. **Infernal Ember** - Warm reds and oranges
 5. **Radiant Light** - Light mode with warm tones
+6. **Ocean Depths** - Deep ocean blues with cyan accents
+7. **Forest Mystic** - Dark natural greens with vivid emerald highlights
+8. **Sunset Blaze** - Warm dusk oranges and golds
+9. **Shadow Assassin** - Ultra-dark violet-black stealth style
 
 ## Priority Pages to Convert
 

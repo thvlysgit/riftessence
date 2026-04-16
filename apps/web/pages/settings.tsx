@@ -147,7 +147,7 @@ export default function SettingsPage() {
         <h1 className="text-3xl font-bold mb-6" style={{ color: 'var(--color-accent-1)' }}>{t('settings.title')}</h1>
 
         {/* Language Selection */}
-        <div className="border rounded-xl p-6 mb-6" style={{ 
+        <div className="border rounded-xl p-6 mb-6 theme-section-shell theme-section-shell-soft" style={{ 
           backgroundColor: 'var(--color-bg-secondary)', 
           borderColor: 'var(--color-border)',
           borderRadius: 'var(--border-radius)'
@@ -189,7 +189,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Theme Selection */}
-        <div className="border rounded-xl p-6 mb-6" style={{ 
+        <div className="border rounded-xl p-6 mb-6 theme-section-shell theme-section-shell-soft" style={{ 
           backgroundColor: 'var(--color-bg-secondary)', 
           borderColor: 'var(--color-border)',
           borderRadius: 'var(--border-radius)'
@@ -256,7 +256,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Account Info */}
-        <div className="border rounded-xl p-6 mb-6" style={{ 
+        <div className="border rounded-xl p-6 mb-6 theme-section-shell theme-section-shell-soft" style={{ 
           backgroundColor: 'var(--color-bg-secondary)', 
           borderColor: 'var(--color-border)',
           borderRadius: 'var(--border-radius)'
@@ -287,7 +287,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Discord DM Notifications */}
-        <div className="border rounded-xl p-6 mb-6" style={{
+        <div className="border rounded-xl p-6 mb-6 theme-section-shell theme-section-shell-soft" style={{
           backgroundColor: 'var(--color-bg-secondary)',
           borderColor: 'var(--color-border)',
           borderRadius: 'var(--border-radius)'
@@ -403,7 +403,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Set/Change Password */}
-        <div className="border rounded-xl p-6 mb-6" style={{ 
+        <div className="border rounded-xl p-6 mb-6 theme-section-shell theme-section-shell-soft" style={{ 
           backgroundColor: 'var(--color-bg-secondary)', 
           borderColor: 'var(--color-border)',
           borderRadius: 'var(--border-radius)'

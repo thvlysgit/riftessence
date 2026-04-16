@@ -591,6 +591,14 @@ export type TranslationKey =
   | 'onboarding.themeNightshadeDesc'
   | 'onboarding.themeRadiantLight'
   | 'onboarding.themeRadiantLightDesc'
+  | 'onboarding.themeOceanDepths'
+  | 'onboarding.themeOceanDepthsDesc'
+  | 'onboarding.themeForestMystic'
+  | 'onboarding.themeForestMysticDesc'
+  | 'onboarding.themeSunsetBlaze'
+  | 'onboarding.themeSunsetBlazeDesc'
+  | 'onboarding.themeShadowAssassin'
+  | 'onboarding.themeShadowAssassinDesc'
   
   // Report Modal (additional)
   | 'report.reasonRequired'
@@ -1255,6 +1263,14 @@ export const translations: Record<LanguageCode, Translations> = {
     'onboarding.themeNightshadeDesc': 'Dark and mysterious',
     'onboarding.themeRadiantLight': 'Radiant Light',
     'onboarding.themeRadiantLightDesc': 'Bright and uplifting',
+    'onboarding.themeOceanDepths': 'Ocean Depths',
+    'onboarding.themeOceanDepthsDesc': 'Deep and adaptive',
+    'onboarding.themeForestMystic': 'Forest Mystic',
+    'onboarding.themeForestMysticDesc': 'Organic and calm',
+    'onboarding.themeSunsetBlaze': 'Sunset Blaze',
+    'onboarding.themeSunsetBlazeDesc': 'Warm and cinematic',
+    'onboarding.themeShadowAssassin': 'Shadow Assassin',
+    'onboarding.themeShadowAssassinDesc': 'Minimal and lethal',
     
     // Report Modal (additional)
     'report.reasonRequired': 'Please provide a reason for the report.',
@@ -1916,6 +1932,14 @@ export const translations: Record<LanguageCode, Translations> = {
     'onboarding.themeNightshadeDesc': 'Sombre et mystérieux',
     'onboarding.themeRadiantLight': 'Lumière radieuse',
     'onboarding.themeRadiantLightDesc': 'Lumineux et inspirant',
+    'onboarding.themeOceanDepths': 'Abysses Océaniques',
+    'onboarding.themeOceanDepthsDesc': 'Profond et adaptatif',
+    'onboarding.themeForestMystic': 'Forêt Mystique',
+    'onboarding.themeForestMysticDesc': 'Organique et apaisant',
+    'onboarding.themeSunsetBlaze': 'Brasier du Couchant',
+    'onboarding.themeSunsetBlazeDesc': 'Chaleureux et cinématique',
+    'onboarding.themeShadowAssassin': 'Assassin des Ombres',
+    'onboarding.themeShadowAssassinDesc': 'Minimaliste et mortel',
     
     // Report Modal (additional)
     'report.reasonRequired': 'Veuillez fournir une raison pour le signalement.',

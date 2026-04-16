@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme, type ThemeName } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useGlobalUI } from './GlobalUI';
 import { getAuthHeader } from '../utils/auth';
@@ -13,6 +13,11 @@ const THEMES = [
   { key: 'infernal-ember', nameKey: 'onboarding.themeInfernalEmber', descKey: 'onboarding.themeInfernalEmberDesc' },
   { key: 'arcane-pastel', nameKey: 'onboarding.themeArcanePastel', descKey: 'onboarding.themeArcanePastelDesc' },
   { key: 'nightshade', nameKey: 'onboarding.themeNightshade', descKey: 'onboarding.themeNightshadeDesc' },
+  { key: 'radiant-light', nameKey: 'onboarding.themeRadiantLight', descKey: 'onboarding.themeRadiantLightDesc' },
+  { key: 'ocean-depths', nameKey: 'onboarding.themeOceanDepths', descKey: 'onboarding.themeOceanDepthsDesc' },
+  { key: 'forest-mystic', nameKey: 'onboarding.themeForestMystic', descKey: 'onboarding.themeForestMysticDesc' },
+  { key: 'sunset-blaze', nameKey: 'onboarding.themeSunsetBlaze', descKey: 'onboarding.themeSunsetBlazeDesc' },
+  { key: 'shadow-assassin', nameKey: 'onboarding.themeShadowAssassin', descKey: 'onboarding.themeShadowAssassinDesc' },
 ] as const;
 
 const LANGUAGES = [
@@ -36,7 +41,7 @@ export default function OnboardingWizard() {
   const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
-  const [selectedTheme, setSelectedTheme] = useState(theme.name);
+  const [selectedTheme, setSelectedTheme] = useState<ThemeName>(theme.name);
   const [saving, setSaving] = useState(false);
   const [discordLoading, setDiscordLoading] = useState(false);
 
@@ -337,11 +342,11 @@ export default function OnboardingWizard() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {THEMES.map(themeItem => (
                 <button
                   key={themeItem.key}
-                  onClick={() => setSelectedTheme(themeItem.key as any)}
+                  onClick={() => setSelectedTheme(themeItem.key)}
                   className="p-4 text-left border transition-all rounded"
                   style={{
                     backgroundColor: selectedTheme === themeItem.key 
@@ -380,7 +385,7 @@ export default function OnboardingWizard() {
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)' }}
     >
       <div 
-        className="w-full max-w-lg rounded-xl shadow-2xl"
+        className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl theme-section-shell theme-section-shell-strong"
         style={{
           backgroundColor: 'var(--color-bg-secondary)',
           border: '1px solid var(--color-border)',

@@ -19,6 +19,22 @@ This audit session focused on production reliability and architecture hygiene. T
 
 ## Findings
 
+## 0) Theme parity and personality drift between first paint and runtime
+
+- Severity: Medium
+- Status: Resolved
+- Description:
+  - Theme definitions were split across runtime and pre-hydration paths, and onboarding only exposed a subset of available themes.
+  - This created inconsistent first paint behavior and limited personality differentiation across user-selectable themes.
+- Resolution:
+  - Introduced a shared theme registry consumed by both runtime context and `_document` bootstrap.
+  - Expanded onboarding theme selection to all 9 themes.
+  - Added global shell motif, heading typography, and ambient motion tokens with reduced-motion safeguards.
+- Validation:
+  - `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+  - `pnpm --filter @lfd/web lint` passes.
+  - `pnpm --filter @lfd/web build` passes.
+
 ## 1) Web to API component boundary drift
 
 - Severity: High

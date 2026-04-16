@@ -4,6 +4,80 @@
 
 ---
 
+## 2026-04-16 - Theming Documentation Parity Follow-up
+
+### Objective: Keep Documentation Aligned With Implemented Theme Runtime Paths
+
+Overview: Performed a documentation-only parity pass on frontend theming references and corrected stale/omitted references discovered after the 9-theme rollout.
+
+Changes:
+
+- Updated [Documentation/frontend/theming.md](Documentation/frontend/theming.md):
+  - Added `apps/web/pages/_app.tsx` to the source-of-truth file list for runtime `theme-color` sync behavior.
+- Updated [Documentation/frontend/components.md](Documentation/frontend/components.md):
+  - Updated theme support wording from 5 themes to 9 themes for CSS-variable-based component theming.
+- Updated [Documentation/frontend/pages.md](Documentation/frontend/pages.md):
+  - Refreshed `_app.tsx` page inventory summary to include themed shell frame and runtime `theme-color` synchronization responsibilities.
+- Updated [Documentation/README.md](Documentation/README.md):
+  - Updated Theming navigation summary from 5 themes to 9 themes and registry/parity model.
+- Updated [Documentation/project/overview.md](Documentation/project/overview.md):
+  - Updated current-state key fact from 5 themes to 9 themes.
+
+Validation:
+
+- Verified documentation statements against implementation in `apps/web/utils/themeRegistry.ts`, `apps/web/contexts/ThemeContext.tsx`, `apps/web/pages/_document.tsx`, `apps/web/pages/_app.tsx`, and `apps/web/styles/globals.css`.
+
+---
+
+## 2026-04-16 - Web Theme Personality Expansion and 9-Theme Parity
+
+### Objective: Make Every Theme Feel Distinct Without UX Drift
+
+Overview: Expanded visual personality across all 9 themes with synchronized first-paint/runtime theming, theme-specific heading typography, global shell motifs, and per-theme ambient motion signatures while keeping existing user flows and page structure unchanged.
+
+Changes:
+
+- Added [apps/web/utils/themeRegistry.ts](apps/web/utils/themeRegistry.ts):
+  - Centralized 9-theme registry and canonical theme order.
+  - Shared CSS variable generation for both SSR bootstrap and client runtime.
+  - Shared root variable application helper and theme name resolution.
+- Updated [apps/web/contexts/ThemeContext.tsx](apps/web/contexts/ThemeContext.tsx):
+  - Replaced inline theme map with registry-backed source of truth.
+  - Applied theme via shared helper and root `data-theme` synchronization.
+- Updated [apps/web/pages/_document.tsx](apps/web/pages/_document.tsx):
+  - Replaced partial hardcoded pre-hydration map with full registry-backed variable bootstrap.
+  - Ensured first paint supports all 9 themes consistently.
+- Updated [apps/web/pages/_app.tsx](apps/web/pages/_app.tsx):
+  - Added themed app shell wrapper (`app-theme-shell` / `app-theme-content`).
+  - Added runtime sync for `theme-color` meta tag per active theme.
+- Updated [apps/web/styles/globals.css](apps/web/styles/globals.css):
+  - Added theme personality tokens for headings, shell motifs, and ambient motion.
+  - Added per-theme selectors for all 9 themes.
+  - Added section shell variants and reduced-motion fallbacks.
+- Updated [apps/web/components/OnboardingWizard.tsx](apps/web/components/OnboardingWizard.tsx):
+  - Expanded theme picker to all 9 themes.
+  - Applied shell styling and responsive grid adjustments.
+- Updated [apps/web/translations/index.ts](apps/web/translations/index.ts):
+  - Added onboarding translation keys and values for newly exposed themes (EN/FR).
+- Updated [apps/web/pages/settings.tsx](apps/web/pages/settings.tsx):
+  - Applied shell variant classes to settings panels.
+- Updated documentation:
+  - [Documentation/frontend/theming.md](Documentation/frontend/theming.md)
+  - [apps/web/utils/README-theming.md](apps/web/utils/README-theming.md)
+
+Validation:
+
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/web lint` passes (no lint errors).
+- `pnpm --filter @lfd/web build` passes and completes static generation.
+
+Operational Notes:
+
+- Next.js lint still reports the existing advisory about Next plugin detection; no blocking errors.
+- Ambient and decorative theme motion now respects `prefers-reduced-motion` globally.
+
+---
+
 ## 2026-04-16 - Prisma 5.22.0 Upgrade Alignment and Compatibility Validation
 
 ### Objective: Upgrade Prisma Safely Without Functional Regressions

@@ -1,13 +1,13 @@
 # Frontend Pages
 
-> Last updated: 2026-03-02  
+> Last updated: 2026-04-16  
 > All pages in `apps/web/pages/`
 
 ## Page Inventory
 
 | Page File | Route | Purpose |
 |-----------|-------|---------|
-| `_app.tsx` | — | App wrapper (QueryClient, Theme, Language, Auth, GlobalUI providers, Vercel Analytics), Navbar, Footer, OnboardingWizard |
+| `_app.tsx` | — | App wrapper (QueryClient, Theme, Language, Auth, GlobalUI providers, Vercel Analytics), themed shell frame (`app-theme-shell`), runtime `theme-color` meta sync, Navbar, Footer, OnboardingWizard |
 | `index.tsx` | `/` | Home/landing page |
 | `feed.tsx` | `/feed` | LFD (Looking for Duo) feed with filters (regions, roles, languages, VC, rank, etc.) |
 | `create.tsx` | `/create` | Create new duo post |

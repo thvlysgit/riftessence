@@ -1,6 +1,6 @@
 # Frontend Components
 
-> Last updated: 2026-02-15
+> Last updated: 2026-04-16
 
 ## Top-Level Components (`apps/web/components/`)
 
@@ -59,7 +59,7 @@ The `ChatWidget` component (`apps/web/components/ChatWidget.tsx`) provides a flo
   - **Conversation polling**: Updates conversation list every 5 seconds when widget is open
   - **Unread count polling**: Updates global unread count every 10 seconds via `/api/chat/unread-count`
   - Optimized: Only updates UI when changes detected (prevents unnecessary re-renders)
-- **Themed styling** — Uses CSS variables for consistent theming across all 5 themes
+- **Themed styling** — Uses CSS variables for consistent theming across all 9 themes
 - **Visual polish** — Hover effects, shadows, glows, pulse animations, and hierarchical layout
 
 **Helper Components (internal):**

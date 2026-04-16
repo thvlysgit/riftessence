@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { ReactNode, useEffect } from 'react';
 import '../styles/globals.css';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
@@ -11,7 +11,7 @@ import ChatWidget from '@components/ChatWidget';
 import { GlobalUIProvider } from '@components/GlobalUI';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../contexts/AuthContext';
-import { ThemeProvider } from '../contexts/ThemeContext';
+import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { LanguageProvider } from '../contexts/LanguageContext';
 import { ChatProvider } from '../contexts/ChatContext';
 import { trackNewVisitor } from '../utils/analytics';
@@ -19,6 +19,23 @@ import { Analytics } from '@vercel/analytics/react';
 
 const queryClient = new QueryClient();
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+
+function ThemedAppFrame({ children }: { children: ReactNode }) {
+  const { theme } = useTheme();
+
+  useEffect(() => {
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeColorMeta) {
+      themeColorMeta.setAttribute('content', theme.colors.accent1);
+    }
+  }, [theme.colors.accent1]);
+
+  return (
+    <div className="app-theme-shell">
+      <div className="app-theme-content">{children}</div>
+    </div>
+  );
+}
 
 // Route → browser tab title map. Dynamic pages override via document.title in useEffect.
 const ROUTE_TITLES: Record<string, string> = {
@@ -136,9 +153,6 @@ export default function App({ Component, pageProps, router }: AppProps) {
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="alternate icon" type="image/png" href="/favicon.png" />
         
-        {/* Theme Color for Mobile Browsers */}
-        <meta name="theme-color" content="#C8AA6E" />
-        
         {/* Structured Data (JSON-LD) for SEO */}
         <script
           type="application/ld+json"
@@ -169,21 +183,23 @@ export default function App({ Component, pageProps, router }: AppProps) {
       />
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <LanguageProvider>
-            <AuthProvider>
-              <ChatProvider>
-                <GlobalUIProvider>
-                  <OnboardingWizard />
-                  <Navbar />
-                  <BugReportButton /> {/* TODO: TEMPORARY - Remove after bug reporting period */}
-                  <ChatWidget />
-                  <Component {...pageProps} />
-                  <Footer />
-                  <Analytics />
-                </GlobalUIProvider>
-              </ChatProvider>
-            </AuthProvider>
-          </LanguageProvider>
+          <ThemedAppFrame>
+            <LanguageProvider>
+              <AuthProvider>
+                <ChatProvider>
+                  <GlobalUIProvider>
+                    <OnboardingWizard />
+                    <Navbar />
+                    <BugReportButton /> {/* TODO: TEMPORARY - Remove after bug reporting period */}
+                    <ChatWidget />
+                    <Component {...pageProps} />
+                    <Footer />
+                    <Analytics />
+                  </GlobalUIProvider>
+                </ChatProvider>
+              </AuthProvider>
+            </LanguageProvider>
+          </ThemedAppFrame>
         </ThemeProvider>
       </QueryClientProvider>
     </>

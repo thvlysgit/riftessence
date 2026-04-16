@@ -47,7 +47,7 @@ prisma/       → Central database schema + migrations
 
 - API runs on port 3333, frontend uses `NEXT_PUBLIC_API_URL` env var
 - Frontend is primarily client-side, with selected SSR metadata flows where needed
-- 5 themes: Classic Dark, Arcane Pastel, Nightshade, Infernal Ember, Radiant Light
+- 9 themes: Classic Dark, Arcane Pastel, Nightshade, Infernal Ember, Radiant Light, Ocean Depths, Forest Mystic, Sunset Blaze, Shadow Assassin
 - 2 languages: English (en) and French (fr)
 - Admin detection: `user.badges.some(b => b.key === 'admin')`
 - All IDs are `cuid()` strings
