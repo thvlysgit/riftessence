@@ -37,6 +37,7 @@ Theme personality is now implemented through four layers that do not alter UX fl
 4. **Ambient motion signatures** with strict `prefers-reduced-motion` handling
 
 Body and heading typography remain constant across themes (`--font-body`, `--font-heading`, `--font-heading-weight`, `--font-heading-transform`, `--font-heading-tracking`).
+The current global stack is a standard system family (`Segoe UI`, `Tahoma`, `Geneva`, `Verdana`, `sans-serif`) for consistent rendering and zero theme-specific font drift.
 
 ## Runtime Behavior
 

@@ -31,6 +31,43 @@ function toPositiveInt(value: string | undefined, fallback: number) {
   return Math.floor(parsed);
 }
 
+function toIsoDateString(value: unknown): string | null {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString();
+}
+
+function resolveRiotIdentityParts(account: {
+  summonerName?: string | null;
+  gameName?: string | null;
+  tagLine?: string | null;
+  region?: string | null;
+}) {
+  const summonerName = typeof account.summonerName === 'string' ? account.summonerName : '';
+
+  if (summonerName.includes('#')) {
+    const [gameNamePart, tagLinePart] = summonerName.split('#', 2);
+    return {
+      gameName: gameNamePart || account.gameName || 'Unknown',
+      tagLine: tagLinePart || account.tagLine || account.region || 'NA1',
+    };
+  }
+
+  return {
+    gameName: account.gameName || summonerName || 'Unknown',
+    tagLine: account.tagLine || account.region || 'NA1',
+  };
+}
+
 const PROFILE_ROUTE_RESPONSE_CACHE_TTL_SECONDS = toPositiveInt(process.env.PROFILE_ROUTE_RESPONSE_CACHE_TTL_SECONDS, 8);
 const PROFILE_ROUTE_USER_CACHE_TTL_SECONDS = toPositiveInt(process.env.PROFILE_ROUTE_USER_CACHE_TTL_SECONDS, 12);
 const PASSWORD_REMINDER_CHECK_CACHE_TTL_SECONDS = toPositiveInt(process.env.PASSWORD_REMINDER_CHECK_CACHE_TTL_SECONDS, 900);
@@ -508,8 +545,7 @@ export default async function userRoutes(fastify: any) {
               let realPuuid = acc.puuid;
               let fetchedIconId = null;
               try {
-                const gameName = acc.summonerName.split('#')[0] || acc.summonerName;
-                const tagLine = acc.summonerName.split('#')[1] || acc.region;
+                const { gameName, tagLine } = resolveRiotIdentityParts(acc);
                 const routingHost = acc.region === 'NA' ? 'americas.api.riotgames.com' :
                                      ['EUW', 'EUNE'].includes(acc.region) ? 'europe.api.riotgames.com' :
                                      ['KR', 'JP'].includes(acc.region) ? 'asia.api.riotgames.com' :
@@ -613,8 +649,10 @@ export default async function userRoutes(fastify: any) {
         peakRank: user.peakRank || null,
         peakDivision: user.peakDivision || null,
         peakLp: user.peakLp || null,
-        peakDate: user.peakDate?.toISOString() || null,
-        badges: user.badges.map((b: any) => ({ key: b.key, name: b.name })),
+        peakDate: toIsoDateString(user.peakDate),
+        badges: (Array.isArray(user.badges) ? user.badges : [])
+          .filter((b: any) => b?.key && b?.name)
+          .map((b: any) => ({ key: b.key, name: b.name })),
         championPoolMode: user.championPoolMode,
         championList: user.championList || [],
         championTierlist: user.championTierlist || null,
@@ -622,19 +660,22 @@ export default async function userRoutes(fastify: any) {
         gamesPerDay: totalGamesPerDay,
         gamesPerWeek: totalGamesPerWeek,
         profileIconId,
-        riotAccounts: user.riotAccounts.map((acc: any, index: number) => ({
-          id: acc.id,
-          gameName: acc.summonerName.split('#')[0] || acc.summonerName,
-          tagLine: acc.summonerName.split('#')[1] || acc.region,
-          region: acc.region,
-          isMain: acc.isMain || false, // Use actual isMain field from database
-          verified: acc.verified,
-          hidden: acc.hidden || false,
-          rank: acc.rank || 'UNRANKED',
-          division: acc.division || null,
-          winrate: acc.winrate || null,
-          profileIconId: acc.isMain || index === 0 ? profileIconId : null,
-        })),
+        riotAccounts: (Array.isArray(user.riotAccounts) ? user.riotAccounts : []).map((acc: any, index: number) => {
+          const riotIdentity = resolveRiotIdentityParts(acc);
+          return {
+            id: acc.id,
+            gameName: riotIdentity.gameName,
+            tagLine: riotIdentity.tagLine,
+            region: acc.region,
+            isMain: acc.isMain || false, // Use actual isMain field from database
+            verified: acc.verified,
+            hidden: acc.hidden || false,
+            rank: acc.rank || 'UNRANKED',
+            division: acc.division || null,
+            winrate: acc.winrate || null,
+            profileIconId: acc.isMain || index === 0 ? profileIconId : null,
+          };
+        }),
         discordLinked: !!user.discordAccount,
         discordUsername: user.discordAccount?.username || null,
         discordDmNotifications: user.discordDmNotifications || false,
@@ -644,19 +685,24 @@ export default async function userRoutes(fastify: any) {
         activeVisualEffect: user.activeVisualEffect || null,
         activeNameplateFont: user.activeNameplateFont || null,
         adCredits: user.adCredits || 0,
-        communities: user.communityMemberships.map((m: any) => ({
-          id: m.community.id,
-          name: m.community.name,
-          role: m.role,
-        })),
-        feedback: user.ratingsReceived.map((r: any) => ({
-          id: r.id,
-          stars: r.stars,
-          moons: r.moons,
-          comment: r.comment,
-          date: r.createdAt.toISOString().split('T')[0],
-          raterUsername: r.rater?.username || 'Anonymous',
-        })),
+        communities: (Array.isArray(user.communityMemberships) ? user.communityMemberships : [])
+          .filter((m: any) => m?.community?.id && m?.community?.name)
+          .map((m: any) => ({
+            id: m.community.id,
+            name: m.community.name,
+            role: m.role,
+          })),
+        feedback: (Array.isArray(user.ratingsReceived) ? user.ratingsReceived : []).map((r: any) => {
+          const feedbackDate = toIsoDateString(r?.createdAt);
+          return {
+            id: r.id,
+            stars: r.stars,
+            moons: r.moons,
+            comment: r.comment,
+            date: feedbackDate ? feedbackDate.split('T')[0] : '',
+            raterUsername: r.rater?.username || 'Anonymous',
+          };
+        }),
       };
 
       if (PROFILE_ROUTE_RESPONSE_CACHE_TTL_SECONDS > 0) {
@@ -665,7 +711,12 @@ export default async function userRoutes(fastify: any) {
 
       return reply.send(profileData);
     } catch (error: any) {
-      fastify.log.error(error);
+      fastify.log.error({
+        message: error?.message,
+        code: error?.code,
+        meta: error?.meta,
+        stack: error?.stack,
+      }, 'Failed to fetch profile');
       return reply.status(500).send({ error: 'Failed to fetch profile' });
     }
   });

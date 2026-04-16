@@ -4,6 +4,36 @@
 
 ---
 
+## 2026-04-17 - Profile 500 Hardening and Global Standard Font Lock
+
+### Objective: Eliminate Profile Bootstrap 500s From Cache/Data Shape Drift and Keep Typography Fully Uniform
+
+Overview: Hardened `/api/user/profile` response serialization against Redis JSON date-shape differences and legacy/null account/community fields that could crash profile bootstrap, and switched all theme typography to a single standard system stack.
+
+Changes:
+
+- Updated [apps/api/src/routes/user.ts](apps/api/src/routes/user.ts):
+  - Added date-safe serialization helper so cached string dates no longer throw on `.toISOString()`.
+  - Added resilient Riot identity parsing for accounts with incomplete legacy name/tag fields.
+  - Added defensive filtering for malformed/null badge/community entries.
+  - Kept response schema stable while preventing whole-route failure on recoverable data irregularities.
+  - Improved `/api/user/profile` error logging payload for faster production diagnosis.
+- Updated [apps/web/styles/globals.css](apps/web/styles/globals.css):
+  - Removed external custom webfont import.
+  - Locked body and heading tokens to one standard system font stack across all themes.
+- Updated [Documentation/frontend/theming.md](Documentation/frontend/theming.md):
+  - Documented the standard system font stack behavior.
+
+Validation:
+
+- Pending: run API build and web validation plus runtime profile route smoke check.
+
+Operational Notes:
+
+- Production API service must be rebuilt/restarted to pick up the `/api/user/profile` hardening.
+
+---
+
 ## 2026-04-17 - Typography Consistency and Theme Hydration Safety
 
 ### Objective: Keep Theme Personality Visual Without Font Drift and Reduce First-Render Route Instability
