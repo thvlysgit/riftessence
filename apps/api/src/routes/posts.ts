@@ -1,5 +1,17 @@
 import prisma from '../prisma';
 import { CreatePostSchema, validateRequest, PaginationSchema } from '../validation';
+import { getOrSetCache } from '../utils/requestCache';
+
+function toPositiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+
+  return Math.floor(parsed);
+}
+
+const NOTIFICATIONS_CACHE_TTL_SECONDS = toPositiveInt(process.env.NOTIFICATIONS_CACHE_TTL_SECONDS, 6);
 
 export default async function postsRoutes(fastify: any) {
   // Helper function to format a post for API response
@@ -406,29 +418,46 @@ export default async function postsRoutes(fastify: any) {
         return reply.status(400).send({ error: 'Missing userId' });
       }
 
-      const notifications = await prisma.notification.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
+      const cacheKey = `api:notifications:list:v1:user:${userId}`;
+      const payload = await getOrSetCache(cacheKey, NOTIFICATIONS_CACHE_TTL_SECONDS, async () => {
+        const notifications = await prisma.notification.findMany({
+          where: { userId },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        const senderIds = Array.from(
+          new Set(
+            notifications
+              .map((notif: any) => notif.fromUserId)
+              .filter((id: any) => typeof id === 'string' && id.length > 0)
+          )
+        );
+
+        const senders = senderIds.length > 0
+          ? await prisma.user.findMany({
+              where: { id: { in: senderIds } },
+              select: { id: true, username: true },
+            })
+          : [];
+
+        const senderById = new Map<string, { id: string; username: string }>(
+          senders.map((sender: any) => [sender.id, { id: sender.id, username: sender.username }])
+        );
+
+        const enriched = notifications.map((notif: any) => {
+          const sender = notif.fromUserId ? senderById.get(notif.fromUserId) : null;
+
+          return {
+            ...notif,
+            senderUsername: sender?.username || null,
+            senderProfileLink: sender ? `/profile?username=${encodeURIComponent(sender.username)}` : null,
+          };
+        });
+
+        return { notifications: enriched };
       });
 
-      // Enrich notifications with sender info
-      const enriched = await Promise.all(notifications.map(async (notif: any) => {
-        let sender = null;
-        if (notif.fromUserId) {
-          sender = await prisma.user.findUnique({
-            where: { id: notif.fromUserId },
-            include: { riotAccounts: true, discordAccount: true },
-          });
-        }
-
-        return {
-          ...notif,
-          senderUsername: sender?.username || null,
-          senderProfileLink: sender ? `/profile?username=${encodeURIComponent(sender.username)}` : null,
-        };
-      }));
-
-      return { notifications: enriched };
+      return payload;
     } catch (error) {
       fastify.log.error('Error fetching notifications:', error);
       return reply.status(500).send({ error: 'Failed to fetch notifications' });

@@ -3,6 +3,7 @@ import * as riotClient from '../riotClient';
 import { createHash } from 'crypto';
 import { VerifyRiotSchema, validateRequest } from '../validation';
 import { cacheGet, cacheSet } from '../utils/cache';
+import { getOrSetCache } from '../utils/requestCache';
 import { getUserIdFromRequest } from '../middleware/auth';
 
 // Temporary fallback PUUID generator until real Riot PUUID retrieval is implemented.
@@ -20,6 +21,19 @@ const RANK_VALUES: Record<string, number> = {
   'EMERALD': 6, 'DIAMOND': 7, 'MASTER': 8, 'GRANDMASTER': 9, 'CHALLENGER': 10, 'UNRANKED': 0,
 };
 const DIVISION_VALUES: Record<string, number> = { 'IV': 1, 'III': 2, 'II': 3, 'I': 4 };
+
+function toPositiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+
+  return Math.floor(parsed);
+}
+
+const PROFILE_ROUTE_RESPONSE_CACHE_TTL_SECONDS = toPositiveInt(process.env.PROFILE_ROUTE_RESPONSE_CACHE_TTL_SECONDS, 8);
+const PROFILE_ROUTE_USER_CACHE_TTL_SECONDS = toPositiveInt(process.env.PROFILE_ROUTE_USER_CACHE_TTL_SECONDS, 12);
+const PASSWORD_REMINDER_CHECK_CACHE_TTL_SECONDS = toPositiveInt(process.env.PASSWORD_REMINDER_CHECK_CACHE_TTL_SECONDS, 900);
 
 function calculateRankScore(rank: string | null, division: string | null, lp: number | null): number {
   if (!rank || rank === 'UNRANKED') return 0;
@@ -324,7 +338,6 @@ export default async function userRoutes(fastify: any) {
       const { userId, username, includeHidden } = (request.query as { userId?: string; username?: string; includeHidden?: string }) || {};
       const shouldIncludeHidden = includeHidden === 'true';
 
-      let user;
       let authenticatedUserId: string | null = null;
       let targetUserId = userId;
       
@@ -347,38 +360,52 @@ export default async function userRoutes(fastify: any) {
           return reply.status(401).send({ error: 'Authentication required' });
         }
       }
-      
-      if (targetUserId) {
-        user = await prisma.user.findUnique({
-          where: { id: targetUserId },
-          include: {
-            riotAccounts: true,
-            discordAccount: true,
-            badges: true,
-            ratingsReceived: { 
-              take: 10, 
-              orderBy: { createdAt: 'desc' },
-              include: { rater: { select: { username: true } } },
-            },
-            communityMemberships: { include: { community: true } },
-          },
-        });
-      } else if (username) {
-        user = await prisma.user.findUnique({
-          where: { username },
-          include: {
-            riotAccounts: true,
-            discordAccount: true,
-            badges: true,
-            ratingsReceived: { 
-              take: 10, 
-              orderBy: { createdAt: 'desc' },
-              include: { rater: { select: { username: true } } },
-            },
-            communityMemberships: { include: { community: true } },
-          },
-        });
+
+      const profileTargetKey = targetUserId
+        ? `id:${targetUserId}`
+        : `username:${String(username || '').trim().toLowerCase()}`;
+      const profileResponseCacheKey = [
+        'api:user:profile:response:v1',
+        profileTargetKey,
+        `viewer:${authenticatedUserId || 'anon'}`,
+        `includeHidden:${shouldIncludeHidden ? '1' : '0'}`,
+      ].join(':');
+
+      const cachedProfile = await cacheGet<any>(profileResponseCacheKey);
+      if (cachedProfile !== null) {
+        return reply.send(cachedProfile);
       }
+
+      const profileInclude = {
+        riotAccounts: true,
+        discordAccount: true,
+        badges: true,
+        ratingsReceived: {
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+          include: { rater: { select: { username: true } } },
+        },
+        communityMemberships: { include: { community: true } },
+      } as const;
+
+      const profileUserCacheKey = `api:user:profile:user:v1:${profileTargetKey}`;
+      const user = await getOrSetCache(profileUserCacheKey, PROFILE_ROUTE_USER_CACHE_TTL_SECONDS, async () => {
+        if (targetUserId) {
+          return await prisma.user.findUnique({
+            where: { id: targetUserId },
+            include: profileInclude,
+          });
+        }
+
+        if (username) {
+          return await prisma.user.findUnique({
+            where: { username },
+            include: profileInclude,
+          });
+        }
+
+        return null;
+      }, { cacheNull: false });
 
       if (!user) {
         return reply.status(404).send({ error: 'User not found' });
@@ -397,23 +424,31 @@ export default async function userRoutes(fastify: any) {
             0
           ));
 
-          const existingReminder = await prisma.notification.findFirst({
-            where: {
-              userId: user.id,
-              type: 'PASSWORD_SETUP_REMINDER',
-              createdAt: { gte: startOfUtcDay },
-            },
-            select: { id: true },
-          });
+          const dayKey = startOfUtcDay.toISOString().slice(0, 10);
+          const reminderCheckCacheKey = `api:user:password-reminder:checked:${user.id}:${dayKey}`;
+          const reminderRecentlyChecked = await cacheGet<boolean>(reminderCheckCacheKey);
 
-          if (!existingReminder) {
-            await prisma.notification.create({
-              data: {
+          if (!reminderRecentlyChecked) {
+            const existingReminder = await prisma.notification.findFirst({
+              where: {
                 userId: user.id,
                 type: 'PASSWORD_SETUP_REMINDER',
-                message: 'Set a password to log back in quickly with username + password only. No email is required, and you can skip the Riot authentication flow next time.',
+                createdAt: { gte: startOfUtcDay },
               },
+              select: { id: true },
             });
+
+            if (!existingReminder) {
+              await prisma.notification.create({
+                data: {
+                  userId: user.id,
+                  type: 'PASSWORD_SETUP_REMINDER',
+                  message: 'Set a password to log back in quickly with username + password only. No email is required, and you can skip the Riot authentication flow next time.',
+                },
+              });
+            }
+
+            await cacheSet(reminderCheckCacheKey, true, PASSWORD_REMINDER_CHECK_CACHE_TTL_SECONDS);
           }
         } catch (reminderError: any) {
           fastify.log.warn({ err: reminderError, userId: user.id }, 'Could not create daily password setup reminder notification');
@@ -623,6 +658,10 @@ export default async function userRoutes(fastify: any) {
           raterUsername: r.rater?.username || 'Anonymous',
         })),
       };
+
+      if (PROFILE_ROUTE_RESPONSE_CACHE_TTL_SECONDS > 0) {
+        await cacheSet(profileResponseCacheKey, profileData, PROFILE_ROUTE_RESPONSE_CACHE_TTL_SECONDS);
+      }
 
       return reply.send(profileData);
     } catch (error: any) {

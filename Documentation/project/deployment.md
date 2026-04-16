@@ -1,6 +1,6 @@
 # Deployment
 
-> Last updated: 2026-02-11
+> Last updated: 2026-04-16
 
 See also:
 - Root-level `HEROKU_DEPLOYMENT.md` (legacy — to be consolidated here)
@@ -22,8 +22,13 @@ Configuration in `Procfile` and `app.json`:
 
 ## Docker
 
-- `docker-compose.yml` — 3 services: db (PostgreSQL 15), redis (Redis 7), api
-- `apps/api/Dockerfile` — Node 20 base, pnpm via corepack, prisma generate, TypeScript build
+- `docker-compose.yml` — 4 services: db (PostgreSQL 15), redis (Redis 7), api, discord-bot
+- `apps/api/Dockerfile` — Node 20 base, pnpm via corepack, Prisma client generation, TypeScript build
+- API runtime defaults include Prisma engine and pressure controls:
+	- Binary engine mode (`PRISMA_CLIENT_ENGINE_TYPE`, `PRISMA_CLI_QUERY_ENGINE_TYPE`)
+	- Query retry/connect/concurrency controls (`PRISMA_QUERY_RETRY_ATTEMPTS`, `PRISMA_QUERY_RETRY_DELAY_MS`, `PRISMA_ENGINE_CONNECT_COOLDOWN_MS`, `PRISMA_MAX_CONCURRENT_QUERIES`)
+	- Route cache TTL controls for hot endpoints
+- Discord bot runtime defaults include stagger-friendly poll interval env vars (`DISCORD_LFT_POLL_INTERVAL_MS`, `DISCORD_DM_POLL_INTERVAL_MS`, `DISCORD_TEAM_EVENT_POLL_INTERVAL_MS`, `DISCORD_ROLE_FORWARDING_POLL_INTERVAL_MS`)
 
 ## CI/CD
 

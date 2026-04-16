@@ -2337,6 +2337,35 @@ async function handleTeamEventButton(interaction: ButtonInteraction) {
 // Bot Events
 // ============================================================
 
+function startGuardedPollLoop(name: string, pollFn: () => Promise<void>, intervalMs: number, initialDelayMs: number) {
+  let running = false;
+  const safeIntervalMs = Math.max(5000, intervalMs);
+  const safeInitialDelayMs = Math.max(0, initialDelayMs);
+
+  const tick = async () => {
+    if (running) {
+      console.warn(`⏭️ Skipping ${name} poll tick because a previous run is still in progress`);
+      return;
+    }
+
+    running = true;
+    try {
+      await pollFn();
+    } catch (error: any) {
+      console.error(`❌ Unhandled error in ${name} poll loop:`, error?.message || error);
+    } finally {
+      running = false;
+    }
+  };
+
+  setTimeout(() => {
+    void tick();
+    setInterval(() => {
+      void tick();
+    }, safeIntervalMs);
+  }, safeInitialDelayMs);
+}
+
 client.once(Events.ClientReady, async (c) => {
   console.log(`✅ Bot logged in as ${c.user.tag}`);
   client.user?.setActivity('RiftEssence | /setup', { type: ActivityType.Playing });
@@ -2350,24 +2379,24 @@ client.once(Events.ClientReady, async (c) => {
 
   // Start polling for outgoing duo posts
   console.log(`🔄 Starting duo post poll (interval: ${POLL_INTERVAL_MS}ms)`);
-  setInterval(pollOutgoingPosts, POLL_INTERVAL_MS);
+  startGuardedPollLoop('duo post', pollOutgoingPosts, POLL_INTERVAL_MS, 1500);
 
   // Start polling for outgoing LFT posts
   const LFT_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_LFT_POLL_INTERVAL_MS || '30000', 10);
   console.log(`🔄 Starting LFT post poll (interval: ${LFT_POLL_INTERVAL_MS}ms)`);
-  setInterval(pollOutgoingLftPosts, LFT_POLL_INTERVAL_MS);
+  startGuardedPollLoop('LFT post', pollOutgoingLftPosts, LFT_POLL_INTERVAL_MS, 6500);
 
   // Start polling for DM notifications
   console.log(`📨 Starting DM notification poll (interval: ${DM_POLL_INTERVAL_MS}ms)`);
-  setInterval(pollDmQueue, DM_POLL_INTERVAL_MS);
+  startGuardedPollLoop('DM queue', pollDmQueue, DM_POLL_INTERVAL_MS, 12000);
 
   // Start polling for team event notifications
   console.log(`📅 Starting team event poll (interval: ${TEAM_EVENT_POLL_INTERVAL_MS}ms)`);
-  setInterval(pollTeamEventNotifications, TEAM_EVENT_POLL_INTERVAL_MS);
+  startGuardedPollLoop('team event', pollTeamEventNotifications, TEAM_EVENT_POLL_INTERVAL_MS, 18000);
 
   // Start polling for Discord role forwarding sync
   console.log(`🏷️ Starting role forwarding sync poll (interval: ${ROLE_FORWARDING_POLL_INTERVAL_MS}ms)`);
-  setInterval(pollRoleForwardingSync, ROLE_FORWARDING_POLL_INTERVAL_MS);
+  startGuardedPollLoop('role forwarding sync', pollRoleForwardingSync, ROLE_FORWARDING_POLL_INTERVAL_MS, 24000);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../prisma';
 import { requireAdmin } from '../middleware/auth';
+import { getOrSetCache } from '../utils/requestCache';
 
 const PROTECTED_PRESTIGE_BADGE_KEYS = new Set([
   'shop_fortune_coin',
@@ -8,6 +9,17 @@ const PROTECTED_PRESTIGE_BADGE_KEYS = new Set([
   'shop_jackpot_crown',
   'shop_vault_ascendant',
 ]);
+
+function toPositiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+
+  return Math.floor(parsed);
+}
+
+const BADGES_CACHE_TTL_SECONDS = toPositiveInt(process.env.BADGES_CACHE_TTL_SECONDS, 180);
 
 /**
  * Badge Management Routes (Admin only)
@@ -17,15 +29,20 @@ export default async function badgeRoutes(fastify: FastifyInstance) {
   // Get all badges
   fastify.get('/', async (request: any, reply: any) => {
     try {
-      const badges = await prisma.badge.findMany({
-        orderBy: { name: 'asc' },
-        include: {
-          _count: {
-            select: { users: true }
+      const payload = await getOrSetCache('api:badges:list:v1', BADGES_CACHE_TTL_SECONDS, async () => {
+        const badges = await prisma.badge.findMany({
+          orderBy: { name: 'asc' },
+          include: {
+            _count: {
+              select: { users: true }
+            }
           }
-        }
+        });
+
+        return { badges };
       });
-      return reply.send({ badges });
+
+      return reply.send(payload);
     } catch (error: any) {
       request.log?.error(error);
       return reply.code(500).send({ error: 'Failed to fetch badges' });

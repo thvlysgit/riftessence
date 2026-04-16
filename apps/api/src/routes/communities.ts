@@ -1,5 +1,23 @@
 import prisma from '../prisma';
 import { getUserIdFromRequest } from '../middleware/auth';
+import { getOrSetCache } from '../utils/requestCache';
+
+function toPositiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+
+  return Math.floor(parsed);
+}
+
+const COMMUNITY_LIST_CACHE_TTL_SECONDS = toPositiveInt(process.env.COMMUNITY_LIST_CACHE_TTL_SECONDS, 20);
+
+function normalizeQueryArray(value: any) {
+  if (!value) return '';
+  const arr = Array.isArray(value) ? value : [value];
+  return arr.map((entry) => String(entry).trim()).filter(Boolean).sort().join(',');
+}
 
 export default async function communitiesRoutes(fastify: any) {
   // Helper to extract userId from JWT (duplicated for route isolation)
@@ -32,61 +50,75 @@ export default async function communitiesRoutes(fastify: any) {
   fastify.get('/communities', async (request: any, reply: any) => {
     try {
       const { region, isPartner, search, discordServerId, limit } = (request.query || {}) as any;
-      const where: any = {};
-
       const parsedLimit = Number.parseInt(String(limit), 10);
       const take = Number.isNaN(parsedLimit) || parsedLimit <= 0 ? undefined : Math.min(parsedLimit, 500);
-      
-      // Search by Discord server ID (bot integration)
-      if (discordServerId) {
-        where.discordServerId = discordServerId;
-      }
-      
-      if (region) {
-        const regions = Array.isArray(region) ? region : [region];
-        where.regions = { hasSome: regions };
-      }
-      
-      if (isPartner === 'true') {
-        where.isPartner = true;
-      }
-      
-      if (search) {
-        where.OR = [
-          { name: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } },
-        ];
-      }
 
-      const communities = await prisma.community.findMany({
-        where,
-        take,
-        orderBy: [
-          { isPartner: 'desc' },
-          { createdAt: 'desc' },
-        ],
-        include: {
-          _count: {
-            select: { memberships: true, posts: true },
+      const regionsKey = normalizeQueryArray(region);
+      const cacheKey = [
+        'api:communities:list:v1',
+        `regions=${regionsKey || 'all'}`,
+        `partner=${isPartner === 'true' ? '1' : '0'}`,
+        `search=${String(search || '').trim().toLowerCase() || '-'}`,
+        `discordServerId=${String(discordServerId || '').trim() || '-'}`,
+        `take=${typeof take === 'number' ? String(take) : 'all'}`,
+      ].join(':');
+
+      const payload = await getOrSetCache(cacheKey, COMMUNITY_LIST_CACHE_TTL_SECONDS, async () => {
+        const where: any = {};
+
+        // Search by Discord server ID (bot integration)
+        if (discordServerId) {
+          where.discordServerId = discordServerId;
+        }
+
+        if (region) {
+          const regions = Array.isArray(region) ? region : [region];
+          where.regions = { hasSome: regions };
+        }
+
+        if (isPartner === 'true') {
+          where.isPartner = true;
+        }
+
+        if (search) {
+          where.OR = [
+            { name: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+          ];
+        }
+
+        const communities = await prisma.community.findMany({
+          where,
+          take,
+          orderBy: [
+            { isPartner: 'desc' },
+            { createdAt: 'desc' },
+          ],
+          include: {
+            _count: {
+              select: { memberships: true, posts: true },
+            },
           },
-        },
+        });
+
+        const formatted = communities.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          slug: c.slug,
+          description: c.description,
+          language: c.language,
+          regions: c.regions,
+          inviteLink: c.inviteLink,
+          isPartner: c.isPartner,
+          memberCount: c._count.memberships,
+          postCount: c._count.posts,
+          createdAt: c.createdAt,
+        }));
+
+        return { communities: formatted };
       });
 
-      const formatted = communities.map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        slug: c.slug,
-        description: c.description,
-        language: c.language,
-        regions: c.regions,
-        inviteLink: c.inviteLink,
-        isPartner: c.isPartner,
-        memberCount: c._count.memberships,
-        postCount: c._count.posts,
-        createdAt: c.createdAt,
-      }));
-
-      return reply.send({ communities: formatted });
+      return reply.send(payload);
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch communities' });

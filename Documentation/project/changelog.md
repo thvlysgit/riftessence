@@ -4,6 +4,115 @@
 
 ---
 
+## 2026-04-16 - Prisma 5.22.0 Upgrade Alignment and Compatibility Validation
+
+### Objective: Upgrade Prisma Safely Without Functional Regressions
+
+Overview: Upgraded Prisma tooling and client dependencies to 5.22.0 and aligned all workspace Prisma client consumers to the same major version to avoid mixed engine/client behavior.
+
+Changes:
+
+- Updated [package.json](package.json):
+  - `prisma` upgraded to `^5.22.0`.
+  - `@prisma/client` upgraded to `5.22.0`.
+- Updated [packages/types/package.json](packages/types/package.json):
+  - `@prisma/client` upgraded from `^4.15.0` to `^5.22.0`.
+- Updated [pnpm-lock.yaml](pnpm-lock.yaml):
+  - Removed remaining Prisma 4.x graph references.
+  - Locked all Prisma engine/client packages to 5.22.0.
+- Regenerated Prisma client from [prisma/schema.prisma](prisma/schema.prisma).
+
+Validation:
+
+- `pnpm prisma generate --schema=prisma/schema.prisma` passes and generates Prisma Client `v5.22.0`.
+- `pnpm --filter @lfd/types build` passes.
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm -C discord-bot build` passes.
+
+Operational Notes:
+
+- Runtime verification is still required on Raspberry Pi Docker deployment after rebuilding images.
+
+---
+
+## 2026-04-16 - Database Performance Hardening Slice (Read-Path Optimization)
+
+### Objective: Maximize DB Efficiency Under Real UI Burst Patterns
+
+Overview: This slice focuses specifically on reducing database query volume and read amplification in hot endpoints, independent of the Prisma engine stability patches. Goal: materially improve throughput headroom and lower crash pressure as a secondary effect.
+
+Changes:
+
+- Added [apps/api/src/utils/requestCache.ts](apps/api/src/utils/requestCache.ts):
+  - Single-flight cache loader to coalesce concurrent identical requests.
+  - Shared `getOrSetCache` helper for short-lived read-path caching.
+- Updated [apps/api/src/routes/user.ts](apps/api/src/routes/user.ts):
+  - Added short-lived cached user-profile core lookup.
+  - Added short-lived cached full profile response payload.
+  - Added cached guard around daily password-reminder existence checks to avoid repeated notification table reads.
+- Updated [apps/api/src/routes/communities.ts](apps/api/src/routes/communities.ts):
+  - Added normalized-query keyed cache for community list endpoint.
+- Updated [apps/api/src/routes/badges.ts](apps/api/src/routes/badges.ts):
+  - Added cached badge-list response for highly repeated static reads.
+- Updated [apps/api/src/routes/posts.ts](apps/api/src/routes/posts.ts):
+  - Replaced N+1 sender lookups in `/api/notifications` with batched sender fetch.
+  - Added short-lived cache for notification list payload.
+- Updated [apps/api/src/routes/chat.ts](apps/api/src/routes/chat.ts):
+  - Replaced full conversation scan in `/api/chat/unread-count` with aggregate sums.
+  - Added short-lived per-user unread-count cache.
+- Updated [docker-compose.yml](docker-compose.yml):
+  - Tuned default Postgres Prisma pool URL (`connection_limit`, `pool_timeout`).
+  - Added runtime env defaults for the new route cache TTL controls.
+
+Validation:
+
+- `pnpm --filter @lfd/api build` passes after the optimization slice.
+
+Operational Notes:
+
+- Rebuild and restart API container to apply runtime defaults and optimized code paths.
+- These changes target DB pressure reduction first; improved crash behavior is expected as a secondary effect but must still be runtime-verified.
+
+---
+
+## 2026-04-16 - API Stability Follow-up: Prisma Socket Flap Mitigation and Poll Smoothing
+
+### Fix: Prisma Retry Behavior and Query Pressure Control
+
+Overview: Production logs still showed intermittent Prisma query-engine socket failures (`ECONNREFUSED 127.0.0.1:<port>`, `other side closed`) during concurrent route bursts.
+
+Changes:
+
+- Updated [apps/api/src/prisma.ts](apps/api/src/prisma.ts):
+  - Expanded transient retry classification to include `UND_ERR_SOCKET` and socket-close patterns.
+  - Replaced aggressive disconnect/reconnect reset behavior with connection-only recovery to avoid cascading in-flight query failures.
+  - Added capped concurrent Prisma query execution with queueing (`PRISMA_MAX_CONCURRENT_QUERIES`) to reduce engine pressure spikes.
+  - Increased default retry budget and added incremental retry delay.
+
+### Fix: Discord Bot Poll Burst Smoothing
+
+Overview: Bot polling loops were starting together and generating synchronized DB-heavy request bursts.
+
+Changes:
+
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Added guarded poll loop scheduler to prevent overlapping poll executions.
+  - Staggered startup delays for poll loops so requests are spread over time.
+- Updated [docker-compose.yml](docker-compose.yml):
+  - Added safer default intervals for `DISCORD_LFT_POLL_INTERVAL_MS`, `DISCORD_DM_POLL_INTERVAL_MS`, and `DISCORD_TEAM_EVENT_POLL_INTERVAL_MS`.
+  - Added runtime tuning env defaults for Prisma resilience controls and ban-check cache TTL.
+
+Validation:
+
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm -C discord-bot build` passes.
+
+Operational Notes:
+
+- Rebuild and restart both `api` and `discord-bot` services so updated runtime defaults and bot scheduler changes are applied.
+
+---
+
 ## 2026-04-16 - API Resilience Follow-up for Prisma Engine Flapping and Riot 429
 
 ### Fix: Prisma Query Engine Self-Healing and Ban-Check Load Reduction

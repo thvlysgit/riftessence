@@ -1,6 +1,6 @@
 # Project Overview
 
-> Last updated: 2026-03-02
+> Last updated: 2026-04-16
 
 ## What is RiftEssence?
 
@@ -18,10 +18,10 @@ RiftEssence is a League of Legends LFD (Looking For Duo) platform with social ra
 | Frontend | Next.js (Pages Router) | 14.0.0 |
 | UI Library | React | 18.2.0 |
 | Styling | Tailwind CSS + CSS Variables | ^3.4.18 |
-| Data Fetching | TanStack React Query | ^5.90.11 |
-| Analytics | Vercel Analytics | ^1.4.1 |
+| Data Fetching | TanStack React Query | ^4.36.1 |
+| Analytics | Vercel Analytics | ^1.6.1 |
 | Backend | Fastify | ^4.0.0 |
-| ORM | Prisma Client | 4.16.2 |
+| ORM | Prisma Client | 5.22.0 |
 | Database | PostgreSQL | 15 |
 | Cache | Redis | 7 (optional) |
 | Auth | @fastify/jwt + bcryptjs | Bearer tokens, 7-day expiry |
@@ -46,7 +46,7 @@ prisma/       → Central database schema + migrations
 ## Key Facts
 
 - API runs on port 3333, frontend uses `NEXT_PUBLIC_API_URL` env var
-- Frontend is client-side only — no SSR, no getServerSideProps
+- Frontend is primarily client-side, with selected SSR metadata flows where needed
 - 5 themes: Classic Dark, Arcane Pastel, Nightshade, Infernal Ember, Radiant Light
 - 2 languages: English (en) and French (fr)
 - Admin detection: `user.badges.some(b => b.key === 'admin')`

@@ -98,26 +98,48 @@ This audit session focused on production reliability and architecture hygiene. T
 - Resolution:
   - Forced Prisma engine mode to `binary` for both Prisma client runtime and Prisma CLI.
   - Added centralized Prisma retry/reconnect middleware for transient engine connectivity failures.
+  - Reworked Prisma retry strategy to avoid forced disconnect storms, added socket-close retry support, and introduced capped concurrent Prisma query execution.
+  - Upgraded Prisma dependencies to 5.22.0 and aligned workspace Prisma client consumers to the same major version.
+  - Removed mixed Prisma 4.x and 5.x lockfile resolution state.
+  - Added shared single-flight request cache utility for hot read endpoints.
+  - Added route-level short-TTL caching on profile, communities list, badges list, notifications list, and chat unread count.
+  - Replaced notifications endpoint N+1 sender lookups with batched sender fetch.
+  - Replaced chat unread-count full-row scan with aggregate queries.
   - Added short-TTL ban-check caching (IP blacklist and account ban snapshot) to reduce duplicate per-request Prisma queries during UI burst loads.
   - Added controlled 503 response (`BAN_CHECK_UNAVAILABLE`) when ban-check storage is temporarily unavailable.
   - Reduced Riot role/activity pressure with match cache, 429 backoff, bounded scan limits, and in-flight role detection dedupe.
   - Fixed role-detection trigger logic to run only when primary role is missing (prevents repeated expensive detection when secondary is null).
+  - Smoothed Discord bot API polling load with staggered, non-overlapping poll loops and safer poll interval defaults.
   - Files:
     - apps/api/Dockerfile
     - docker-compose.yml
-  - apps/api/src/prisma.ts
-  - apps/api/src/index.ts
-  - apps/api/src/riotClient.ts
-  - apps/api/src/routes/user.ts
+    - apps/api/src/prisma.ts
+    - apps/api/src/index.ts
+    - apps/api/src/riotClient.ts
+    - apps/api/src/routes/user.ts
+    - apps/api/src/routes/communities.ts
+    - apps/api/src/routes/badges.ts
+    - apps/api/src/routes/posts.ts
+    - apps/api/src/routes/chat.ts
+    - apps/api/src/utils/requestCache.ts
+    - package.json
+    - packages/types/package.json
+    - pnpm-lock.yaml
 - Validation:
+  - Prisma client generation succeeds on 5.22.0.
+  - Types package build remains green after dependency alignment.
   - API TypeScript build remains green after patch.
+  - Discord bot TypeScript build remains green after patch.
   - Requires container rebuild/restart and live traffic verification for runtime confirmation in target environment.
 
 ## Evidence and Validation Commands
 
 - pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit
 - pnpm --filter @lfd/web build
+- pnpm prisma generate --schema=prisma/schema.prisma
+- pnpm --filter @lfd/types build
 - pnpm --filter @lfd/api build
+- pnpm -C discord-bot build
 
 ## Implementation Delta (This Audit Session)
 
@@ -126,6 +148,11 @@ This audit session focused on production reliability and architecture hygiene. T
 - Updated root alias in tsconfig paths
 - Removed old API-owned component directory
 - Added webpack alias and shim for stable production build
+- Hardened Prisma retry/connect flow and added capped query concurrency handling.
+- Added single-flight and short-TTL caching for hot read endpoints.
+- Reduced notification and unread-count query amplification (N+1 removal and aggregate counts).
+- Smoothed Discord poller load profile with non-overlapping staggered loops.
+- Upgraded and aligned Prisma dependencies to 5.22.0 across workspace consumers.
 
 ## Recommended Next Actions
 

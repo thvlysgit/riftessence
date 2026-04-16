@@ -4,6 +4,18 @@ import { getUserIdFromRequest } from '../middleware/auth';
 import { Errors } from '../middleware/errors';
 import { z } from 'zod';
 import { validateRequest } from '../validation';
+import { getOrSetCache } from '../utils/requestCache';
+
+function toPositiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+
+  return Math.floor(parsed);
+}
+
+const CHAT_UNREAD_COUNT_CACHE_TTL_SECONDS = toPositiveInt(process.env.CHAT_UNREAD_COUNT_CACHE_TTL_SECONDS, 3);
 
 // Validation schemas
 const SendMessageSchema = z.object({
@@ -339,25 +351,29 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       const userId = await getUserIdFromRequest(request, reply);
       if (!userId) return;
 
-      const conversations = await prisma.conversation.findMany({
-        where: {
-          OR: [
-            { user1Id: userId },
-            { user2Id: userId },
-          ],
-        },
-        select: {
-          user1Id: true,
-          user1UnreadCount: true,
-          user2UnreadCount: true,
-        },
-      });
+      const payload = await getOrSetCache(
+        `api:chat:unread-count:v1:user:${userId}`,
+        CHAT_UNREAD_COUNT_CACHE_TTL_SECONDS,
+        async () => {
+          const [user1Aggregate, user2Aggregate] = await Promise.all([
+            prisma.conversation.aggregate({
+              where: { user1Id: userId },
+              _sum: { user1UnreadCount: true },
+            }),
+            prisma.conversation.aggregate({
+              where: { user2Id: userId },
+              _sum: { user2UnreadCount: true },
+            }),
+          ]);
 
-      const totalUnread = conversations.reduce((sum: number, conv: any) => {
-        return sum + (conv.user1Id === userId ? conv.user1UnreadCount : conv.user2UnreadCount);
-      }, 0);
+          const totalUnread = (user1Aggregate._sum.user1UnreadCount || 0)
+            + (user2Aggregate._sum.user2UnreadCount || 0);
 
-      return reply.send({ unreadCount: totalUnread });
+          return { unreadCount: totalUnread };
+        }
+      );
+
+      return reply.send(payload);
     } catch (error: any) {
       Errors.serverError(reply, request, 'get unread count', error);
     }

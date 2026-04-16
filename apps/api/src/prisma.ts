@@ -2,7 +2,7 @@
 // is not yet available. We export a single default `prisma` object.
 const globalAny: any = global;
 
-const RETRYABLE_PRISMA_CODES = new Set(['ECONNREFUSED', 'P1001', 'P1002', 'P1017']);
+const RETRYABLE_PRISMA_CODES = new Set(['ECONNREFUSED', 'P1001', 'P1002', 'P1017', 'UND_ERR_SOCKET']);
 
 function toPositiveInt(value: string | undefined, fallback: number) {
 	const parsed = Number(value);
@@ -10,12 +10,15 @@ function toPositiveInt(value: string | undefined, fallback: number) {
 	return Math.floor(parsed);
 }
 
-const PRISMA_QUERY_RETRY_ATTEMPTS = toPositiveInt(process.env.PRISMA_QUERY_RETRY_ATTEMPTS, 1);
-const PRISMA_QUERY_RETRY_DELAY_MS = toPositiveInt(process.env.PRISMA_QUERY_RETRY_DELAY_MS, 120);
-const PRISMA_ENGINE_RESET_COOLDOWN_MS = toPositiveInt(process.env.PRISMA_ENGINE_RESET_COOLDOWN_MS, 500);
+const PRISMA_QUERY_RETRY_ATTEMPTS = toPositiveInt(process.env.PRISMA_QUERY_RETRY_ATTEMPTS, 2);
+const PRISMA_QUERY_RETRY_DELAY_MS = toPositiveInt(process.env.PRISMA_QUERY_RETRY_DELAY_MS, 180);
+const PRISMA_ENGINE_CONNECT_COOLDOWN_MS = toPositiveInt(process.env.PRISMA_ENGINE_CONNECT_COOLDOWN_MS, 500);
+const PRISMA_MAX_CONCURRENT_QUERIES = Math.max(1, toPositiveInt(process.env.PRISMA_MAX_CONCURRENT_QUERIES, 12));
 
-let lastEngineResetAt = 0;
-let engineResetPromise: Promise<void> | null = null;
+let lastEngineConnectAt = 0;
+let engineConnectPromise: Promise<void> | null = null;
+let activeQueryCount = 0;
+const queryWaitQueue: Array<() => void> = [];
 
 // In-memory fake for quick local testing when USE_FAKE_DB=1 is set.
 function createFakePrisma() {
@@ -54,51 +57,77 @@ function isRetryablePrismaEngineError(error: any) {
 	}
 
 	const message = String(error.message || '');
-	return message.includes('connect ECONNREFUSED 127.0.0.1:');
+	return message.includes('connect ECONNREFUSED 127.0.0.1:')
+		|| message.includes('other side closed')
+		|| message.includes('socket hang up');
 }
 
 function sleep(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function resetPrismaEngine(client: any) {
-	if (!client || typeof client.$disconnect !== 'function' || typeof client.$connect !== 'function') {
+function nextRetryDelayMs(attempt: number) {
+	if (PRISMA_QUERY_RETRY_DELAY_MS <= 0) {
+		return 0;
+	}
+
+	return PRISMA_QUERY_RETRY_DELAY_MS * attempt;
+}
+
+function releasePrismaQuerySlot() {
+	activeQueryCount = Math.max(0, activeQueryCount - 1);
+	const next = queryWaitQueue.shift();
+	if (next) {
+		next();
+	}
+}
+
+async function acquirePrismaQuerySlot() {
+	if (PRISMA_MAX_CONCURRENT_QUERIES <= 0) {
+		return () => {};
+	}
+
+	if (activeQueryCount < PRISMA_MAX_CONCURRENT_QUERIES) {
+		activeQueryCount += 1;
+		return releasePrismaQuerySlot;
+	}
+
+	await new Promise<void>((resolve) => {
+		queryWaitQueue.push(resolve);
+	});
+
+	activeQueryCount += 1;
+	return releasePrismaQuerySlot;
+}
+
+async function ensurePrismaEngineConnected(client: any) {
+	if (!client || typeof client.$connect !== 'function') {
 		return;
 	}
 
 	const now = Date.now();
-	if (engineResetPromise) {
-		await engineResetPromise;
+	if (engineConnectPromise) {
+		await engineConnectPromise;
 		return;
 	}
 
-	if (now - lastEngineResetAt < PRISMA_ENGINE_RESET_COOLDOWN_MS) {
+	if (now - lastEngineConnectAt < PRISMA_ENGINE_CONNECT_COOLDOWN_MS) {
 		return;
 	}
 
-	engineResetPromise = (async () => {
-		lastEngineResetAt = Date.now();
-		try {
-			await client.$disconnect();
-		} catch {
-			// Best effort disconnect when the engine has already crashed.
-		}
-
-		if (PRISMA_QUERY_RETRY_DELAY_MS > 0) {
-			await sleep(PRISMA_QUERY_RETRY_DELAY_MS);
-		}
-
+	engineConnectPromise = (async () => {
+		lastEngineConnectAt = Date.now();
 		try {
 			await client.$connect();
 		} catch (error: any) {
-			console.warn('[Prisma] Failed to reconnect query engine:', error?.message || error);
+			console.warn('[Prisma] Failed to ensure query engine connection:', error?.message || error);
 		}
 	})();
 
 	try {
-		await engineResetPromise;
+		await engineConnectPromise;
 	} finally {
-		engineResetPromise = null;
+		engineConnectPromise = null;
 	}
 }
 
@@ -112,25 +141,35 @@ function installPrismaRetryMiddleware(client: any) {
 	}
 
 	client.$use(async (params: any, next: any) => {
-		let attempt = 0;
+		const release = await acquirePrismaQuerySlot();
+		try {
+			let attempt = 0;
 
-		while (true) {
-			try {
-				return await next(params);
-			} catch (error: any) {
-				if (!isRetryablePrismaEngineError(error) || attempt >= PRISMA_QUERY_RETRY_ATTEMPTS) {
-					throw error;
+			while (true) {
+				try {
+					return await next(params);
+				} catch (error: any) {
+					if (!isRetryablePrismaEngineError(error) || attempt >= PRISMA_QUERY_RETRY_ATTEMPTS) {
+						throw error;
+					}
+
+					attempt += 1;
+					const model = params?.model || 'raw';
+					const action = params?.action || 'query';
+					console.warn(
+						`[Prisma] Retryable engine error on ${model}.${action}. Retrying (${attempt}/${PRISMA_QUERY_RETRY_ATTEMPTS})`
+					);
+
+					const retryDelayMs = nextRetryDelayMs(attempt);
+					if (retryDelayMs > 0) {
+						await sleep(retryDelayMs);
+					}
+
+					await ensurePrismaEngineConnected(client);
 				}
-
-				attempt += 1;
-				const model = params?.model || 'raw';
-				const action = params?.action || 'query';
-				console.warn(
-					`[Prisma] Retryable engine error on ${model}.${action}. Retrying (${attempt}/${PRISMA_QUERY_RETRY_ATTEMPTS})`
-				);
-
-				await resetPrismaEngine(client);
 			}
+		} finally {
+			release();
 		}
 	});
 
