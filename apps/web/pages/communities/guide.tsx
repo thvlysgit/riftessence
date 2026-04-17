@@ -679,7 +679,7 @@ export default function CommunityGuidePage() {
                         border: '1px solid rgba(88, 101, 242, 0.36)',
                       }}
                     >
-                      {isLfdPreview ? '@Thvlys' : '@Vortex'}
+                      {isLfdPreview ? '@Thvlys' : '@thvlys'}
                     </div>
 
                     <div
@@ -696,7 +696,7 @@ export default function CommunityGuidePage() {
                       }}
                     >
                       <div style={{ color: '#60a5fa', fontSize: 'clamp(22px, 4vw, 30px)', fontWeight: 700, lineHeight: 1.1, marginBottom: 8 }}>
-                        {isLfdPreview ? 'Duo • thvlys' : 'Player LFT • Vortex'}
+                        {isLfdPreview ? 'Duo • thvlys' : 'Player LFT • thvlys'}
                       </div>
 
                       <div
@@ -709,7 +709,7 @@ export default function CommunityGuidePage() {
                       >
                         {isLfdPreview
                           ? 'cherche duo pour la soirée !'
-                          : 'Consistent ADC looking for a serious team. Comfortable with structured scrim blocks and VOD review.'}
+                          : 'I am looking for a serious team with a coach available, open to changing champion pool!'}
                       </div>
 
                       {isLfdPreview ? (
@@ -722,11 +722,11 @@ export default function CommunityGuidePage() {
                         </>
                       ) : (
                         <>
-                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>👤 <strong>Vortex</strong></div>
-                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>📍 <strong>EUW</strong> • 🏹 ADC</div>
-                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>🥇 GOLD II • 🧩 Experience: Moderate</div>
-                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>📅 Availability: Weekdays + Weekends</div>
-                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>🈯 English, French</div>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>👤 <strong>thvlys</strong></div>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>📍 <strong>EUW</strong> • 🛡 SUPPORT</div>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>💎 DIAMOND IV • 🧩 Experienced</div>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>🗓 Four Times A Week</div>
+                          <div style={{ fontSize: 14, color: '#f2f3f5', lineHeight: 1.35 }}>🈯 English</div>
                         </>
                       )}
                       <div style={{ marginTop: 2, fontSize: 14, color: '#60a5fa' }}>↗ open in app</div>

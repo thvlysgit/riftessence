@@ -1887,6 +1887,8 @@ async function sendChatDmNotification(dm: {
 // ============================================================
 
 const TEAM_EVENT_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_TEAM_EVENT_POLL_INTERVAL_MS || '15000', 10);
+const TEAM_REMINDER_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_TEAM_REMINDER_POLL_INTERVAL_MS || '15000', 10);
+const TEAM_CHANNEL_PING_COOLDOWN_MS = 60 * 60 * 1000;
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   SCRIM: '⚔️ Scrim',
@@ -1904,13 +1906,19 @@ const EVENT_TYPE_COLORS: Record<string, number> = {
   TEAM_MEETING: 0x8B5CF6, // Purple
 };
 
-type TeamEventNotification = {
+type TeamEventMember = {
   id: string;
+  username: string;
+  role: string;
+  discordId: string | null;
+  dmEnabled?: boolean;
+};
+
+type TeamEventDeliveryPayload = {
   teamId: string;
   teamName: string;
   teamTag: string | null;
   webhookUrl: string | null;
-  notifyEnabled: boolean;
   eventId: string;
   eventTitle: string;
   eventType: string;
@@ -1919,15 +1927,75 @@ type TeamEventNotification = {
   description: string | null;
   enemyLink: string | null;
   concernedMemberIds: string[];
-  notificationType: string;
-  triggeredBy: string;
   mentionMode: 'EVERYONE' | 'ROLE' | 'TEAM_ROLE_MAP' | string;
   mentionRoleId: string | null;
   roleMentions: Record<string, string>;
-  members: Array<{ id: string; username: string; role: string; discordId: string | null; dmEnabled?: boolean }>;
+  pingRecurrenceEnabled: boolean;
+  lastChannelPingAt: string | null;
+  members: TeamEventMember[];
+};
+
+type TeamEventNotification = TeamEventDeliveryPayload & {
+  id: string;
+  notifyEnabled: boolean;
+  notificationType: string;
+  triggeredBy: string;
+};
+
+type TeamEventReminder = TeamEventDeliveryPayload & {
+  id: string;
+  reminderMinutes: number;
+  remindAt: string;
 };
 
 const TEAM_EVENT_WEBHOOK_REGEX = /discord(?:app)?\.com\/api\/webhooks\/([^/]+)\/([^/?]+)/i;
+const teamLastChannelPingCache = new Map<string, number>();
+
+function parseIsoDateToMs(value: string | null | undefined): number | null {
+  if (!value || typeof value !== 'string') {
+    return null;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function syncTeamLastPingCache(teamId: string, lastChannelPingAt: string | null | undefined) {
+  const parsed = parseIsoDateToMs(lastChannelPingAt);
+  if (parsed === null) {
+    return;
+  }
+  const existing = teamLastChannelPingCache.get(teamId) || 0;
+  if (parsed > existing) {
+    teamLastChannelPingCache.set(teamId, parsed);
+  }
+}
+
+function resolveMentionForDispatch(
+  notification: TeamEventDeliveryPayload,
+  rawMentionContent: string,
+): { content: string; mentionAllowed: boolean; throttled: boolean } {
+  const mention = rawMentionContent.trim();
+  if (!mention) {
+    return { content: '', mentionAllowed: false, throttled: false };
+  }
+
+  syncTeamLastPingCache(notification.teamId, notification.lastChannelPingAt);
+
+  if (notification.pingRecurrenceEnabled !== false) {
+    return { content: mention, mentionAllowed: true, throttled: false };
+  }
+
+  const lastPingAt = teamLastChannelPingCache.get(notification.teamId);
+  if (typeof lastPingAt === 'number' && Date.now() - lastPingAt < TEAM_CHANNEL_PING_COOLDOWN_MS) {
+    return { content: '', mentionAllowed: false, throttled: true };
+  }
+
+  return { content: mention, mentionAllowed: true, throttled: false };
+}
+
+function recordChannelMentionDispatch(teamId: string) {
+  teamLastChannelPingCache.set(teamId, Date.now());
+}
 
 function buildTeamEventEmbed(notification: TeamEventNotification, teamDisplay: string) {
   const scheduledDate = new Date(notification.scheduledAt);
@@ -2021,7 +2089,7 @@ function normalizeRoleId(raw: string | null | undefined): string | null {
   return /^\d{6,30}$/.test(roleId) ? roleId : null;
 }
 
-function getConcernedMembers(notification: TeamEventNotification) {
+function getConcernedMembers(notification: TeamEventDeliveryPayload) {
   const explicitConcerned = Array.isArray(notification.concernedMemberIds)
     ? notification.concernedMemberIds.filter((id) => typeof id === 'string' && id.length > 0)
     : [];
@@ -2035,8 +2103,8 @@ function getConcernedMembers(notification: TeamEventNotification) {
 }
 
 function buildMentionContent(
-  notification: TeamEventNotification,
-  concernedMembers: Array<{ id: string; username: string; role: string; discordId: string | null; dmEnabled?: boolean }>
+  notification: TeamEventDeliveryPayload,
+  concernedMembers: TeamEventMember[]
 ): string {
   const mode = (notification.mentionMode || 'EVERYONE').toUpperCase();
 
@@ -2065,35 +2133,116 @@ function buildMentionContent(
   return '@everyone';
 }
 
-function buildTeamEventComponents(notification: TeamEventNotification): ActionRowBuilder<ButtonBuilder>[] {
-  if (notification.notificationType === 'DELETED') {
-    return [];
+function formatReminderLead(reminderMinutes: number): string {
+  const safeMinutes = Math.max(1, Math.floor(reminderMinutes));
+  if (safeMinutes < 60) {
+    return `${safeMinutes} minute${safeMinutes === 1 ? '' : 's'}`;
   }
 
+  const hours = Math.floor(safeMinutes / 60);
+  const minutes = safeMinutes % 60;
+  if (minutes === 0) {
+    return `${hours} hour${hours === 1 ? '' : 's'}`;
+  }
+
+  return `${hours} hour${hours === 1 ? '' : 's'} ${minutes} minute${minutes === 1 ? '' : 's'}`;
+}
+
+function buildTeamEventReminderEmbed(reminder: TeamEventReminder, teamDisplay: string) {
+  const scheduledDate = new Date(reminder.scheduledAt);
+  const typeLabel = EVENT_TYPE_LABELS[reminder.eventType] || reminder.eventType;
+  const color = EVENT_TYPE_COLORS[reminder.eventType] || 0xC8AA6E;
+  const leadTime = formatReminderLead(reminder.reminderMinutes);
+
+  const embed = new EmbedBuilder()
+    .setTitle(`⏰ Reminder: ${reminder.eventTitle}`)
+    .setDescription(`**${teamDisplay}** - ${typeLabel}`)
+    .setColor(color)
+    .setTimestamp();
+
+  const fields: Array<{ name: string; value: string; inline: boolean }> = [];
+  fields.push({
+    name: '⏳ Starts In',
+    value: leadTime,
+    inline: true,
+  });
+
+  fields.push({
+    name: '📅 Starts At',
+    value: scheduledDate.toLocaleString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    }),
+    inline: true,
+  });
+
+  if (reminder.duration) {
+    fields.push({
+      name: '⏱️ Duration',
+      value: `${reminder.duration} minutes`,
+      inline: true,
+    });
+  }
+
+  if (reminder.description) {
+    fields.push({
+      name: '📝 Description',
+      value: reminder.description.substring(0, 200),
+      inline: false,
+    });
+  }
+
+  if (reminder.enemyLink) {
+    const linkUrl = reminder.enemyLink.startsWith('http') ? reminder.enemyLink : `https://${reminder.enemyLink}`;
+    fields.push({
+      name: '🎯 Enemy Team',
+      value: `[View Link](${linkUrl})`,
+      inline: false,
+    });
+  }
+
+  embed.addFields(fields);
+  embed.setFooter({ text: `Reminder sent ${leadTime} before start • ${teamDisplay}` });
+  return embed;
+}
+
+function buildTeamEventActionComponents(teamId: string, eventId: string): ActionRowBuilder<ButtonBuilder>[] {
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(`team_event_present_${notification.eventId}`)
+      .setCustomId(`team_event_present_${eventId}`)
       .setLabel('✅ Present')
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
-      .setCustomId(`team_event_absent_${notification.eventId}`)
+      .setCustomId(`team_event_absent_${eventId}`)
       .setLabel('❌ Absent')
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
-      .setCustomId(`team_event_unsure_${notification.eventId}`)
+      .setCustomId(`team_event_unsure_${eventId}`)
       .setLabel('❓ Unsure')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setLabel('View on RiftEssence')
       .setStyle(ButtonStyle.Link)
-      .setURL(`${APP_URL}/teams/${notification.teamId}`)
+      .setURL(`${APP_URL}/teams/${teamId}`)
   );
 
   return [row];
 }
 
+function buildTeamEventComponents(notification: TeamEventNotification): ActionRowBuilder<ButtonBuilder>[] {
+  if (notification.notificationType === 'DELETED') {
+    return [];
+  }
+
+  return buildTeamEventActionComponents(notification.teamId, notification.eventId);
+}
+
 async function sendTeamEventChannelNotification(
-  notification: TeamEventNotification,
+  notification: TeamEventDeliveryPayload,
   content: string,
   embed: EmbedBuilder,
   components: ActionRowBuilder<ButtonBuilder>[]
@@ -2158,8 +2307,8 @@ async function sendTeamEventChannelNotification(
 }
 
 async function sendTeamEventDmNotification(
-  member: { id: string; username: string; role: string; discordId: string | null; dmEnabled?: boolean },
-  notification: TeamEventNotification,
+  member: TeamEventMember,
+  notification: { eventTitle: string },
   embed: EmbedBuilder,
   components: ActionRowBuilder<ButtonBuilder>[]
 ): Promise<boolean> {
@@ -2212,6 +2361,27 @@ async function pollTeamEventNotifications() {
   }
 }
 
+async function pollTeamEventReminders() {
+  try {
+    const result = await apiRequest('/api/discord/team-event-reminders');
+    if (!result.ok) {
+      console.error('❌ Failed to poll team event reminders:', result.data.error);
+      return;
+    }
+
+    const reminders = Array.isArray(result.data?.reminders) ? result.data.reminders : [];
+    if (reminders.length === 0) return;
+
+    console.log(`⏰ Found ${reminders.length} due team event reminders`);
+
+    for (const reminder of reminders) {
+      await sendTeamEventReminder(reminder);
+    }
+  } catch (error: any) {
+    console.error('❌ Error polling team event reminders:', error.message);
+  }
+}
+
 async function sendTeamEventNotification(notification: TeamEventNotification) {
   if (!notification.notifyEnabled) {
     const markSkipped = await apiRequest(`/api/discord/team-events/${notification.id}/processed`, 'PATCH');
@@ -2227,17 +2397,27 @@ async function sendTeamEventNotification(notification: TeamEventNotification) {
   const components = buildTeamEventComponents(notification);
   const concernedMembers = getConcernedMembers(notification);
   const mentionContent = buildMentionContent(notification, concernedMembers);
+  const mentionDispatch = resolveMentionForDispatch(notification, mentionContent);
 
   if (notification.concernedMemberIds?.length > 0 && concernedMembers.length === 0) {
     console.warn(`⚠️ Team event ${notification.eventId} has explicit concernedMemberIds but no matching active members`);
   }
 
+  if (mentionDispatch.throttled) {
+    console.log(`🔕 Team ${notification.teamName} mention throttled (ping recurrence disabled, last ping < 1h)`);
+  }
+
   let channelSent = false;
+  let channelMentionSent = false;
   let channelMessageId: string | undefined;
   if (notification.webhookUrl) {
-    const channelResult = await sendTeamEventChannelNotification(notification, mentionContent, embed, components);
+    const channelResult = await sendTeamEventChannelNotification(notification, mentionDispatch.content, embed, components);
     channelSent = channelResult.sent;
     channelMessageId = channelResult.messageId;
+    if (channelSent && mentionDispatch.mentionAllowed) {
+      channelMentionSent = true;
+      recordChannelMentionDispatch(notification.teamId);
+    }
   } else {
     console.log(`ℹ️ Team ${notification.teamName} has no channel webhook configured; DM-only delivery path will be used`);
   }
@@ -2267,14 +2447,81 @@ async function sendTeamEventNotification(notification: TeamEventNotification) {
     console.warn(`⚠️ Team event notification ${notification.id} had no successful deliveries`);
   }
 
-  const markResult = await apiRequest(`/api/discord/team-events/${notification.id}/processed`, 'PATCH');
+  const markResult = await apiRequest(
+    `/api/discord/team-events/${notification.id}/processed`,
+    'PATCH',
+    channelMentionSent ? { recordPing: true } : undefined
+  );
   if (!markResult.ok) {
     console.error(`❌ Failed to mark team notification ${notification.id} as processed after delivery attempts`);
     return;
   }
 
   console.log(
-    `✅ Processed team notification ${notification.id} (channelSent=${channelSent}, dmSent=${dmSentCount}/${dmTargets.length})`
+    `✅ Processed team notification ${notification.id} (channelSent=${channelSent}, channelMention=${channelMentionSent}, dmSent=${dmSentCount}/${dmTargets.length})`
+  );
+}
+
+async function sendTeamEventReminder(reminder: TeamEventReminder) {
+  const teamDisplay = reminder.teamTag ? `[${reminder.teamTag}] ${reminder.teamName}` : reminder.teamName;
+  const embed = buildTeamEventReminderEmbed(reminder, teamDisplay);
+  const components = buildTeamEventActionComponents(reminder.teamId, reminder.eventId);
+  const concernedMembers = getConcernedMembers(reminder);
+  const mentionContent = buildMentionContent(reminder, concernedMembers);
+  const mentionDispatch = resolveMentionForDispatch(reminder, mentionContent);
+
+  if (reminder.concernedMemberIds?.length > 0 && concernedMembers.length === 0) {
+    console.warn(`⚠️ Team event reminder ${reminder.id} has explicit concernedMemberIds but no matching active members`);
+  }
+
+  if (mentionDispatch.throttled) {
+    console.log(`🔕 Team ${reminder.teamName} reminder mention throttled (ping recurrence disabled, last ping < 1h)`);
+  }
+
+  let channelSent = false;
+  let channelMentionSent = false;
+  if (reminder.webhookUrl) {
+    const channelResult = await sendTeamEventChannelNotification(reminder, mentionDispatch.content, embed, components);
+    channelSent = channelResult.sent;
+    if (channelSent && mentionDispatch.mentionAllowed) {
+      channelMentionSent = true;
+      recordChannelMentionDispatch(reminder.teamId);
+    }
+  } else {
+    console.log(`ℹ️ Team ${reminder.teamName} has no channel webhook configured; reminder DM-only delivery path will be used`);
+  }
+
+  const dmTargets = concernedMembers.filter((member) => Boolean(member.discordId && member.dmEnabled));
+  let dmSentCount = 0;
+
+  for (const member of dmTargets) {
+    const sent = await sendTeamEventDmNotification(member, reminder, embed, components);
+    if (sent) {
+      dmSentCount += 1;
+    }
+  }
+
+  if (dmTargets.length === 0) {
+    console.log(`ℹ️ No eligible reminder DM recipients for team ${reminder.teamName} (concerned + linked + opted-in)`);
+  }
+
+  if (!channelSent && dmSentCount === 0) {
+    console.warn(`⚠️ Team event reminder ${reminder.id} had no successful deliveries`);
+  }
+
+  const markResult = await apiRequest(
+    `/api/discord/team-event-reminders/${reminder.id}/processed`,
+    'PATCH',
+    channelMentionSent ? { recordPing: true } : undefined
+  );
+
+  if (!markResult.ok) {
+    console.error(`❌ Failed to mark reminder ${reminder.id} as processed after delivery attempts`);
+    return;
+  }
+
+  console.log(
+    `✅ Processed team reminder ${reminder.id} (channelSent=${channelSent}, channelMention=${channelMentionSent}, dmSent=${dmSentCount}/${dmTargets.length})`
   );
 }
 
@@ -2393,6 +2640,10 @@ client.once(Events.ClientReady, async (c) => {
   // Start polling for team event notifications
   console.log(`📅 Starting team event poll (interval: ${TEAM_EVENT_POLL_INTERVAL_MS}ms)`);
   startGuardedPollLoop('team event', pollTeamEventNotifications, TEAM_EVENT_POLL_INTERVAL_MS, 18000);
+
+  // Start polling for team event reminders
+  console.log(`⏰ Starting team reminder poll (interval: ${TEAM_REMINDER_POLL_INTERVAL_MS}ms)`);
+  startGuardedPollLoop('team reminder', pollTeamEventReminders, TEAM_REMINDER_POLL_INTERVAL_MS, 21000);
 
   // Start polling for Discord role forwarding sync
   console.log(`🏷️ Starting role forwarding sync poll (interval: ${ROLE_FORWARDING_POLL_INTERVAL_MS}ms)`);

@@ -11,6 +11,8 @@ type MentionMode = 'EVERYONE' | 'ROLE' | 'TEAM_ROLE_MAP';
 
 const DISCORD_BOT_INVITE_URL = 'https://discord.com/oauth2/authorize?client_id=1363678859471491312&scope=bot%20applications.commands&permissions=2147863617';
 const TEAM_ROLE_OPTIONS = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS', 'MANAGER', 'COACH'] as const;
+const REMINDER_DELAY_OPTIONS = [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440] as const;
+const MAX_REMINDER_DELAY_SELECTIONS = 8;
 const TEAM_ROLE_LABELS: Record<(typeof TEAM_ROLE_OPTIONS)[number], string> = {
   TOP: 'Top Lane',
   JGL: 'Jungle',
@@ -30,6 +32,39 @@ const normalizeDiscordRoleId = (raw: string): string | null => {
   return /^\d{6,30}$/.test(roleId) ? roleId : null;
 };
 
+const sanitizeReminderDelays = (raw: unknown): number[] => {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  const allowed = new Set<number>(REMINDER_DELAY_OPTIONS);
+  const unique = new Set<number>();
+
+  for (const value of raw) {
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed)) continue;
+    if (!allowed.has(parsed)) continue;
+    unique.add(parsed);
+  }
+
+  return Array.from(unique).sort((a, b) => a - b);
+};
+
+const formatReminderDelayLabel = (minutes: number): string => {
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return `${hours}h`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}m`;
+};
+
 interface Team {
   id: string;
   name: string;
@@ -45,6 +80,9 @@ interface DiscordSettings {
   mentionMode: MentionMode;
   mentionRoleId: string | null;
   roleMentions: Record<string, string>;
+  pingRecurrence: boolean;
+  remindersEnabled: boolean;
+  reminderDelaysMinutes: number[];
   webhookValid?: boolean;
   channelName?: string;
   guildName?: string;
@@ -69,6 +107,9 @@ const DiscordSettingsPage: React.FC = () => {
   const [mentionMode, setMentionMode] = useState<MentionMode>('EVERYONE');
   const [mentionRoleId, setMentionRoleId] = useState('');
   const [roleMentions, setRoleMentions] = useState<Record<string, string>>({});
+  const [pingRecurrence, setPingRecurrence] = useState(true);
+  const [remindersEnabled, setRemindersEnabled] = useState(false);
+  const [reminderDelaysMinutes, setReminderDelaysMinutes] = useState<number[]>([]);
   const [discordDmEnabled, setDiscordDmEnabled] = useState(false);
   const [discordUsername, setDiscordUsername] = useState<string | null>(null);
 
@@ -143,6 +184,7 @@ const DiscordSettingsPage: React.FC = () => {
           const fetchedMentionMode: MentionMode = data.mentionMode === 'ROLE' || data.mentionMode === 'TEAM_ROLE_MAP'
             ? data.mentionMode
             : 'EVERYONE';
+          const fetchedReminderDelays = sanitizeReminderDelays(data.reminderDelaysMinutes);
 
           setSettings(data);
           setWebhookUrl(data.webhookUrl || '');
@@ -155,6 +197,9 @@ const DiscordSettingsPage: React.FC = () => {
               ? data.roleMentions
               : {}
           );
+          setPingRecurrence(data.pingRecurrence ?? true);
+          setRemindersEnabled(data.remindersEnabled ?? false);
+          setReminderDelaysMinutes(fetchedReminderDelays);
         }
       } catch (err) {
         console.error('Failed to fetch Discord settings:', err);
@@ -202,6 +247,13 @@ const DiscordSettingsPage: React.FC = () => {
         return;
       }
     }
+
+    const sanitizedReminderDelays = sanitizeReminderDelays(reminderDelaysMinutes);
+    if (remindersEnabled && sanitizedReminderDelays.length === 0) {
+      setError('Choose at least one reminder delay when reminders are enabled.');
+      setSaving(false);
+      return;
+    }
     
     try {
       const res = await fetch(`${apiUrl}/api/teams/${selectedTeamId}/discord`, {
@@ -217,6 +269,9 @@ const DiscordSettingsPage: React.FC = () => {
           mentionMode,
           mentionRoleId: mentionMode === 'ROLE' ? (normalizedMentionRoleId || null) : null,
           roleMentions: mentionMode === 'TEAM_ROLE_MAP' ? sanitizedRoleMentions : {},
+          pingRecurrence,
+          remindersEnabled,
+          reminderDelaysMinutes: sanitizedReminderDelays,
         })
       });
       
@@ -235,6 +290,9 @@ const DiscordSettingsPage: React.FC = () => {
           ? data.roleMentions
           : {}
       );
+      setPingRecurrence(data.pingRecurrence ?? true);
+      setRemindersEnabled(data.remindersEnabled ?? false);
+      setReminderDelaysMinutes(sanitizeReminderDelays(data.reminderDelaysMinutes));
       setSuccess('Discord settings saved successfully!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -303,6 +361,9 @@ const DiscordSettingsPage: React.FC = () => {
         setWebhookUrl('');
         setNotifyEvents(true);
         setNotifyMembers(false);
+        setPingRecurrence(true);
+        setRemindersEnabled(false);
+        setReminderDelaysMinutes([]);
         setSuccess('Webhook removed');
         setTimeout(() => setSuccess(null), 3000);
       }
@@ -373,6 +434,26 @@ const DiscordSettingsPage: React.FC = () => {
 
   const selectedTeam = teams.find(t => t.id === selectedTeamId);
   const isDiscordLinked = Boolean(user?.discordLinked || discordUsername);
+
+  const toggleReminderDelay = (delay: number) => {
+    const alreadySelected = reminderDelaysMinutes.includes(delay);
+    if (!alreadySelected && reminderDelaysMinutes.length >= MAX_REMINDER_DELAY_SELECTIONS) {
+      setError(`You can select up to ${MAX_REMINDER_DELAY_SELECTIONS} reminder delays.`);
+      return;
+    }
+
+    if (error && error.includes('reminder delay')) {
+      setError(null);
+    }
+
+    setReminderDelaysMinutes((prev) => {
+      if (prev.includes(delay)) {
+        return prev.filter((value) => value !== delay);
+      }
+      return [...prev, delay].sort((a, b) => a - b);
+    });
+  };
+
   const roleMapMentions = TEAM_ROLE_OPTIONS
     .map((role) => {
       const normalized = normalizeDiscordRoleId(roleMentions[role] || '');
@@ -388,6 +469,12 @@ const DiscordSettingsPage: React.FC = () => {
           return normalized ? [`<@&${normalized}>`] : ['@role'];
         })()
       : roleMapMentions;
+
+  const selectedReminderLabels = reminderDelaysMinutes
+    .slice()
+    .sort((a, b) => a - b)
+    .map((delay) => formatReminderDelayLabel(delay));
+  const reminderSelectionLimitReached = reminderDelaysMinutes.length >= MAX_REMINDER_DELAY_SELECTIONS;
 
   return (
     <>
@@ -758,6 +845,107 @@ const DiscordSettingsPage: React.FC = () => {
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* Ping recurrence */}
+                  <div className="pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                    <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--color-text-primary)' }}>
+                      Ping Recurrence
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setPingRecurrence(!pingRecurrence)}
+                      className="flex items-center gap-3 w-full text-left"
+                    >
+                      <div
+                        className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${pingRecurrence ? 'bg-[#5865F2]' : 'bg-gray-600'}`}
+                      >
+                        <div
+                          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all duration-200 ${pingRecurrence ? 'left-[22px]' : 'left-0.5'}`}
+                        />
+                      </div>
+                      <div>
+                        <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                          {pingRecurrence ? 'Allow pings on every notification' : 'Limit pings to once per hour'}
+                        </span>
+                        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                          When disabled, messages still send every time but role/everyone pings are throttled to once per hour per team channel.
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Event reminders */}
+                  <div className="pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                    <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--color-text-primary)' }}>
+                      Pre-Event Reminders
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRemindersEnabled((prev) => {
+                          const next = !prev;
+                          if (next) {
+                            setReminderDelaysMinutes((existing) => (existing.length > 0 ? existing : [30]));
+                          }
+                          return next;
+                        });
+                      }}
+                      className="flex items-center gap-3 w-full text-left"
+                    >
+                      <div
+                        className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${remindersEnabled ? 'bg-[#5865F2]' : 'bg-gray-600'}`}
+                      >
+                        <div
+                          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all duration-200 ${remindersEnabled ? 'left-[22px]' : 'left-0.5'}`}
+                        />
+                      </div>
+                      <div>
+                        <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                          {remindersEnabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                          Sends reminders to the Discord channel and DMs (for linked members with DM opt-in) before event start.
+                        </p>
+                      </div>
+                    </button>
+
+                    {remindersEnabled && (
+                      <div className="mt-3">
+                        <p className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                          Choose one or multiple lead times (max {MAX_REMINDER_DELAY_SELECTIONS}):
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                          {REMINDER_DELAY_OPTIONS.map((delay) => {
+                            const isSelected = reminderDelaysMinutes.includes(delay);
+                            const isDisabled = !isSelected && reminderSelectionLimitReached;
+                            return (
+                              <button
+                                key={delay}
+                                type="button"
+                                disabled={isDisabled}
+                                onClick={() => toggleReminderDelay(delay)}
+                                className="px-3 py-2 rounded-lg border text-sm font-medium transition-all"
+                                style={{
+                                  backgroundColor: isSelected ? 'rgba(88, 101, 242, 0.2)' : 'var(--color-bg-tertiary)',
+                                  borderColor: isSelected ? 'rgba(88, 101, 242, 0.5)' : 'var(--color-border)',
+                                  color: isSelected ? '#dee0fc' : 'var(--color-text-primary)',
+                                  opacity: isDisabled ? 0.55 : 1,
+                                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                }}
+                              >
+                                {formatReminderDelayLabel(delay)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                          {selectedReminderLabels.length > 0
+                            ? `Selected: ${selectedReminderLabels.join(', ')}`
+                            : 'Select at least one delay to enable reminders.'}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Action Buttons */}

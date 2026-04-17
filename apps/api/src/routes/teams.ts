@@ -12,6 +12,9 @@ const PLAYER_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS'] as const;
 const STAFF_ROLES = ['MANAGER', 'COACH'] as const;
 const TEAM_EVENT_TYPES = ['SCRIM', 'PRACTICE', 'VOD_REVIEW', 'TOURNAMENT', 'TEAM_MEETING'] as const;
 const DISCORD_MENTION_MODES = ['EVERYONE', 'ROLE', 'TEAM_ROLE_MAP'] as const;
+const MIN_TEAM_REMINDER_MINUTES = 5;
+const MAX_TEAM_REMINDER_MINUTES = 7 * 24 * 60;
+const MAX_TEAM_REMINDER_OPTIONS = 8;
 
 export default async function teamsRoutes(fastify: any) {
   const isSchemaOutOfDateError = (error: any) => {
@@ -48,6 +51,158 @@ export default async function teamsRoutes(fastify: any) {
       }
     }
     return result;
+  };
+
+  const normalizeStoredReminderDelays = (raw: any): number[] => {
+    if (!Array.isArray(raw)) return [];
+
+    const unique = new Set<number>();
+    for (const entry of raw) {
+      const parsed = typeof entry === 'number' ? entry : parseInt(String(entry), 10);
+      if (!Number.isInteger(parsed)) continue;
+      if (parsed < MIN_TEAM_REMINDER_MINUTES || parsed > MAX_TEAM_REMINDER_MINUTES) continue;
+      unique.add(parsed);
+    }
+
+    return Array.from(unique).sort((a, b) => a - b);
+  };
+
+  const sanitizeReminderDelayMinutes = (raw: any): { value: number[]; error: string | null } => {
+    if (!Array.isArray(raw)) {
+      return { value: [], error: 'reminderDelaysMinutes must be an array of minutes' };
+    }
+
+    if (raw.length > MAX_TEAM_REMINDER_OPTIONS) {
+      return {
+        value: [],
+        error: `You can configure up to ${MAX_TEAM_REMINDER_OPTIONS} reminder delays`,
+      };
+    }
+
+    const unique = new Set<number>();
+    for (const entry of raw) {
+      const parsed = typeof entry === 'number' ? entry : parseInt(String(entry), 10);
+      if (!Number.isInteger(parsed)) {
+        return { value: [], error: 'Reminder delays must be whole minutes' };
+      }
+
+      if (parsed < MIN_TEAM_REMINDER_MINUTES || parsed > MAX_TEAM_REMINDER_MINUTES) {
+        return {
+          value: [],
+          error: `Reminder delays must be between ${MIN_TEAM_REMINDER_MINUTES} and ${MAX_TEAM_REMINDER_MINUTES} minutes`,
+        };
+      }
+
+      unique.add(parsed);
+    }
+
+    return { value: Array.from(unique).sort((a, b) => a - b), error: null };
+  };
+
+  const areNumberArraysEqual = (a: number[], b: number[]): boolean => {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i += 1) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  };
+
+  const buildReminderRowsForEvent = (params: {
+    teamId: string;
+    eventId: string;
+    scheduledAt: Date;
+    reminderDelaysMinutes: number[];
+  }) => {
+    const nowMs = Date.now();
+    const rows: Array<{ teamId: string; eventId: string; reminderMinutes: number; remindAt: Date }> = [];
+
+    for (const reminderMinutes of params.reminderDelaysMinutes) {
+      const remindAtMs = params.scheduledAt.getTime() - reminderMinutes * 60 * 1000;
+      if (remindAtMs <= nowMs) continue;
+
+      rows.push({
+        teamId: params.teamId,
+        eventId: params.eventId,
+        reminderMinutes,
+        remindAt: new Date(remindAtMs),
+      });
+    }
+
+    return rows;
+  };
+
+  const queueEventReminders = async (params: {
+    teamId: string;
+    eventId: string;
+    scheduledAt: Date;
+    remindersEnabled: boolean;
+    reminderDelaysMinutes: number[];
+  }) => {
+    await prisma.teamEventReminder.deleteMany({
+      where: { eventId: params.eventId },
+    });
+
+    if (!params.remindersEnabled || params.reminderDelaysMinutes.length === 0) {
+      return;
+    }
+
+    const rows = buildReminderRowsForEvent(params);
+    if (rows.length === 0) {
+      return;
+    }
+
+    await prisma.teamEventReminder.createMany({
+      data: rows,
+      skipDuplicates: true,
+    });
+  };
+
+  const rebuildUpcomingTeamReminders = async (params: {
+    teamId: string;
+    remindersEnabled: boolean;
+    reminderDelaysMinutes: number[];
+  }) => {
+    const upcomingEvents = await prisma.teamEvent.findMany({
+      where: {
+        teamId: params.teamId,
+        scheduledAt: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        scheduledAt: true,
+      },
+      take: 500,
+    });
+
+    const upcomingEventIds = upcomingEvents.map((event: { id: string; scheduledAt: Date }) => event.id);
+    if (upcomingEventIds.length > 0) {
+      await prisma.teamEventReminder.deleteMany({
+        where: {
+          teamId: params.teamId,
+          eventId: { in: upcomingEventIds },
+        },
+      });
+    }
+
+    if (!params.remindersEnabled || params.reminderDelaysMinutes.length === 0) {
+      return;
+    }
+
+    const rows = upcomingEvents.flatMap((event: { id: string; scheduledAt: Date }) => buildReminderRowsForEvent({
+      teamId: params.teamId,
+      eventId: event.id,
+      scheduledAt: event.scheduledAt,
+      reminderDelaysMinutes: params.reminderDelaysMinutes,
+    }));
+
+    if (rows.length === 0) {
+      return;
+    }
+
+    await prisma.teamEventReminder.createMany({
+      data: rows,
+      skipDuplicates: true,
+    });
   };
 
   const normalizeConcernedMemberIds = async (teamId: string, raw: any): Promise<{ value: string[]; error: string | null }> => {
@@ -1047,7 +1202,14 @@ export default async function teamsRoutes(fastify: any) {
       // Get team info for Discord notification
       const team = await prisma.team.findUnique({
         where: { id },
-        select: { name: true, tag: true, discordWebhookUrl: true, discordNotifyEvents: true }
+        select: {
+          name: true,
+          tag: true,
+          discordWebhookUrl: true,
+          discordNotifyEvents: true,
+          discordRemindersEnabled: true,
+          discordReminderDelaysMinutes: true,
+        }
       });
 
       const event = await prisma.teamEvent.create({
@@ -1097,6 +1259,14 @@ export default async function teamsRoutes(fastify: any) {
           }
         });
       }
+
+      await queueEventReminders({
+        teamId: id,
+        eventId: event.id,
+        scheduledAt: scheduledDate,
+        remindersEnabled: Boolean(team?.discordRemindersEnabled),
+        reminderDelaysMinutes: normalizeStoredReminderDelays(team?.discordReminderDelaysMinutes),
+      });
 
       return reply.status(201).send({ success: true, event });
     } catch (error: any) {
@@ -1182,7 +1352,14 @@ export default async function teamsRoutes(fastify: any) {
       // Queue Discord notification if configured
       const team = await prisma.team.findUnique({
         where: { id },
-        select: { name: true, tag: true, discordWebhookUrl: true, discordNotifyEvents: true }
+        select: {
+          name: true,
+          tag: true,
+          discordWebhookUrl: true,
+          discordNotifyEvents: true,
+          discordRemindersEnabled: true,
+          discordReminderDelaysMinutes: true,
+        }
       });
       
       if (team?.discordNotifyEvents) {
@@ -1207,6 +1384,14 @@ export default async function teamsRoutes(fastify: any) {
           }
         });
       }
+
+      await queueEventReminders({
+        teamId: id,
+        eventId: updated.id,
+        scheduledAt: updated.scheduledAt,
+        remindersEnabled: Boolean(team?.discordRemindersEnabled),
+        reminderDelaysMinutes: normalizeStoredReminderDelays(team?.discordReminderDelaysMinutes),
+      });
 
       return reply.send({ success: true, event: updated });
     } catch (error: any) {
@@ -1340,6 +1525,9 @@ export default async function teamsRoutes(fastify: any) {
           discordMentionMode: true,
           discordMentionRoleId: true,
           discordRoleMentions: true,
+          discordPingRecurrence: true,
+          discordRemindersEnabled: true,
+          discordReminderDelaysMinutes: true,
         }
       });
 
@@ -1372,6 +1560,9 @@ export default async function teamsRoutes(fastify: any) {
         roleMentions: (team.discordRoleMentions && typeof team.discordRoleMentions === 'object' && !Array.isArray(team.discordRoleMentions))
           ? team.discordRoleMentions
           : {},
+        pingRecurrence: Boolean(team.discordPingRecurrence),
+        remindersEnabled: Boolean(team.discordRemindersEnabled),
+        reminderDelaysMinutes: normalizeStoredReminderDelays(team.discordReminderDelaysMinutes),
         webhookValid,
         channelName,
         guildName,
@@ -1389,17 +1580,77 @@ export default async function teamsRoutes(fastify: any) {
       if (!userId) return;
 
       const { id } = request.params as any;
-      const { webhookUrl, notifyEvents, notifyMembers, mentionMode, mentionRoleId, roleMentions } = request.body as any;
+      const {
+        webhookUrl,
+        notifyEvents,
+        notifyMembers,
+        mentionMode,
+        mentionRoleId,
+        roleMentions,
+        pingRecurrence,
+        remindersEnabled,
+        reminderDelaysMinutes,
+      } = request.body as any;
 
       // Only team owner can configure Discord
       if (!await isTeamOwner(userId, id)) {
         return reply.status(403).send({ error: 'Only team owner can configure Discord' });
       }
 
+      const existingTeam = await prisma.team.findUnique({
+        where: { id },
+        select: {
+          discordWebhookUrl: true,
+          discordNotifyEvents: true,
+          discordNotifyMembers: true,
+          discordMentionMode: true,
+          discordMentionRoleId: true,
+          discordRoleMentions: true,
+          discordPingRecurrence: true,
+          discordRemindersEnabled: true,
+          discordReminderDelaysMinutes: true,
+        },
+      });
+
+      if (!existingTeam) {
+        return reply.status(404).send({ error: 'Team not found' });
+      }
+
       const updateData: any = {};
       let channelName: string | undefined;
       let guildName: string | undefined;
       let webhookValid = false;
+
+      const reminderDelaysProvided = Object.prototype.hasOwnProperty.call(request.body || {}, 'reminderDelaysMinutes');
+      let normalizedReminderDelaysFromPayload: number[] | undefined;
+
+      if (reminderDelaysProvided) {
+        const normalizedReminderDelays = sanitizeReminderDelayMinutes(reminderDelaysMinutes);
+        if (normalizedReminderDelays.error) {
+          return reply.status(400).send({ error: normalizedReminderDelays.error });
+        }
+
+        normalizedReminderDelaysFromPayload = normalizedReminderDelays.value;
+        updateData.discordReminderDelaysMinutes = normalizedReminderDelays.value;
+      }
+
+      if (typeof remindersEnabled === 'boolean') {
+        updateData.discordRemindersEnabled = remindersEnabled;
+      }
+
+      if (typeof pingRecurrence === 'boolean') {
+        updateData.discordPingRecurrence = pingRecurrence;
+      }
+
+      const existingReminderDelays = normalizeStoredReminderDelays(existingTeam.discordReminderDelaysMinutes);
+      const nextReminderDelays = normalizedReminderDelaysFromPayload ?? existingReminderDelays;
+      const nextRemindersEnabled = typeof remindersEnabled === 'boolean'
+        ? remindersEnabled
+        : Boolean(existingTeam.discordRemindersEnabled);
+
+      if (nextRemindersEnabled && nextReminderDelays.length === 0) {
+        return reply.status(400).send({ error: 'Select at least one reminder delay when reminders are enabled' });
+      }
 
       // If webhook URL provided, validate and save it
       if (webhookUrl !== undefined) {
@@ -1443,6 +1694,10 @@ export default async function teamsRoutes(fastify: any) {
         updateData.discordRoleMentions = sanitizeRoleMentionMap(roleMentions);
       }
 
+      const reminderConfigChanged =
+        nextRemindersEnabled !== Boolean(existingTeam.discordRemindersEnabled)
+        || !areNumberArraysEqual(nextReminderDelays, existingReminderDelays);
+
       const team = await prisma.team.update({
         where: { id },
         data: updateData,
@@ -1455,8 +1710,19 @@ export default async function teamsRoutes(fastify: any) {
           discordMentionMode: true,
           discordMentionRoleId: true,
           discordRoleMentions: true,
+          discordPingRecurrence: true,
+          discordRemindersEnabled: true,
+          discordReminderDelaysMinutes: true,
         }
       });
+
+      if (reminderConfigChanged) {
+        await rebuildUpcomingTeamReminders({
+          teamId: id,
+          remindersEnabled: nextRemindersEnabled,
+          reminderDelaysMinutes: nextReminderDelays,
+        });
+      }
 
       return reply.send({
         success: true,
@@ -1468,6 +1734,9 @@ export default async function teamsRoutes(fastify: any) {
         roleMentions: (team.discordRoleMentions && typeof team.discordRoleMentions === 'object' && !Array.isArray(team.discordRoleMentions))
           ? team.discordRoleMentions
           : {},
+        pingRecurrence: Boolean(team.discordPingRecurrence),
+        remindersEnabled: Boolean(team.discordRemindersEnabled),
+        reminderDelaysMinutes: normalizeStoredReminderDelays(team.discordReminderDelaysMinutes),
         webhookValid: team.discordWebhookUrl ? webhookValid : undefined,
         channelName,
         guildName,
@@ -1491,14 +1760,23 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(403).send({ error: 'Only team owner can configure Discord' });
       }
 
-      await prisma.team.update({
-        where: { id },
-        data: {
-          discordWebhookUrl: null,
-          discordNotifyEvents: true,
-          discordNotifyMembers: false,
-        }
-      });
+      await prisma.$transaction([
+        prisma.team.update({
+          where: { id },
+          data: {
+            discordWebhookUrl: null,
+            discordNotifyEvents: true,
+            discordNotifyMembers: false,
+            discordPingRecurrence: true,
+            discordLastChannelPingAt: null,
+            discordRemindersEnabled: false,
+            discordReminderDelaysMinutes: [],
+          }
+        }),
+        prisma.teamEventReminder.deleteMany({
+          where: { teamId: id, processed: false },
+        })
+      ]);
 
       return reply.send({ success: true, message: 'Discord webhook removed' });
     } catch (error: any) {

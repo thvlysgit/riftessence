@@ -1,6 +1,6 @@
 # Backend Integrations
 
-> Last updated: 2026-02-11
+> Last updated: 2026-04-17
 
 ## Riot Games API
 
@@ -45,3 +45,18 @@ The Discord bot (standalone service) communicates with the API via REST:
 - Bot bearer token via `DISCORD_BOT_API_KEY`
 - Post mirroring: bot polls API every 60s for new posts → embeds in Discord
 - Message ingestion: bot monitors registered channels → creates posts via API
+
+### Team Event and Reminder Delivery
+
+- Team schedule mutations enqueue bot work items in database-backed queues:
+	- `TeamEventNotification` for created/updated/deleted event notifications
+	- `TeamEventReminder` for due reminder fanout before event start
+- Team-level Discord delivery settings are managed in `apps/api/src/routes/teams.ts` and consumed by the bot:
+	- `pingRecurrence` (when disabled, channel mentions are throttled to once/hour)
+	- `remindersEnabled` + `reminderDelaysMinutes` (multiple lead-time reminders)
+- Bot polling endpoints:
+	- `GET /api/discord/team-events`
+	- `PATCH /api/discord/team-events/:id/processed`
+	- `GET /api/discord/team-event-reminders`
+	- `PATCH /api/discord/team-event-reminders/:id/processed`
+- `PATCH .../processed` accepts `recordPing` for channel mention sends so the API can persist `discordLastChannelPingAt` and enforce recurrence rules consistently across event notifications and reminder notifications.

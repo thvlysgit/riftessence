@@ -37,6 +37,44 @@ interface Team {
 }
 
 const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
+const DEFAULT_TEAM_REGION = 'NA';
+
+type ProfileRegionPayload = {
+  region?: string | null;
+  riotAccounts?: Array<{ region?: string | null; isMain?: boolean }>;
+};
+
+function normalizeTeamRegion(region: unknown): string | null {
+  if (typeof region !== 'string') {
+    return null;
+  }
+
+  const normalized = region.trim().toUpperCase();
+  return REGIONS.includes(normalized) ? normalized : null;
+}
+
+function resolvePreferredTeamRegion(profile: ProfileRegionPayload): string {
+  const profileRegion = normalizeTeamRegion(profile.region);
+  if (profileRegion) {
+    return profileRegion;
+  }
+
+  const accounts = Array.isArray(profile.riotAccounts) ? profile.riotAccounts : [];
+  const mainAccount = accounts.find((acc) => acc?.isMain);
+  const mainRegion = normalizeTeamRegion(mainAccount?.region);
+  if (mainRegion) {
+    return mainRegion;
+  }
+
+  for (const account of accounts) {
+    const accountRegion = normalizeTeamRegion(account?.region);
+    if (accountRegion) {
+      return accountRegion;
+    }
+  }
+
+  return DEFAULT_TEAM_REGION;
+}
 
 const TeamsDashboardPage: React.FC = () => {
   const router = useRouter();
@@ -48,7 +86,8 @@ const TeamsDashboardPage: React.FC = () => {
   
   // Create team modal
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: '', tag: '', description: '', region: 'NA' });
+  const [preferredRegion, setPreferredRegion] = useState<string>(DEFAULT_TEAM_REGION);
+  const [createForm, setCreateForm] = useState({ name: '', tag: '', description: '', region: DEFAULT_TEAM_REGION });
   const [creating, setCreating] = useState(false);
   const [showTeamLftModal, setShowTeamLftModal] = useState(false);
   
@@ -90,6 +129,52 @@ const TeamsDashboardPage: React.FC = () => {
     if (token) loadData();
   }, []);
 
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token || !user) return;
+
+    let cancelled = false;
+
+    const fetchPreferredRegion = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/api/user/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) {
+          return;
+        }
+
+        const profile = (await res.json()) as ProfileRegionPayload;
+        const resolvedRegion = resolvePreferredTeamRegion(profile);
+
+        if (cancelled) {
+          return;
+        }
+
+        setPreferredRegion(resolvedRegion);
+        setCreateForm((prev) => {
+          const currentRegion = normalizeTeamRegion(prev.region);
+          if (currentRegion && currentRegion !== DEFAULT_TEAM_REGION) {
+            return prev;
+          }
+          if (currentRegion === resolvedRegion) {
+            return prev;
+          }
+          return { ...prev, region: resolvedRegion };
+        });
+      } catch (regionError) {
+        console.error('Failed to resolve preferred team region:', regionError);
+      }
+    };
+
+    void fetchPreferredRegion();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiUrl, user?.id]);
+
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = getAuthToken();
@@ -117,7 +202,7 @@ const TeamsDashboardPage: React.FC = () => {
       
       if (res.ok) {
         setShowCreateModal(false);
-        setCreateForm({ name: '', tag: '', description: '', region: 'NA' });
+        setCreateForm({ name: '', tag: '', description: '', region: preferredRegion });
         await fetchTeams();
       } else {
         setError(data.error || 'Failed to create team');

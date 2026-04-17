@@ -966,6 +966,10 @@ model Team {
   discordMentionMode    String    @default("EVERYONE") // EVERYONE | ROLE | TEAM_ROLE_MAP
   discordMentionRoleId  String?   // Specific Discord role ID when mention mode is ROLE
   discordRoleMentions   Json?     // Map of TeamRole -> Discord role ID when mode is TEAM_ROLE_MAP
+  discordPingRecurrence Boolean   @default(true) // When disabled, channel pings are throttled to once per hour
+  discordLastChannelPingAt DateTime? // Last time a mention ping was included in channel notification
+  discordRemindersEnabled Boolean @default(false) // Enable pre-event reminder notifications
+  discordReminderDelaysMinutes Int[] @default([]) // Reminder delays before event start
   
   // Owner (team creator)
   owner       User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
@@ -976,6 +980,7 @@ model Team {
   pendingSpots TeamPendingSpot[]
   events      TeamEvent[]
   notifications TeamEventNotification[]
+  eventReminders TeamEventReminder[]
   
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -1047,6 +1052,7 @@ model TeamEvent {
   // Relations
   attendances TeamEventAttendance[]
   assignedCoaches TeamEventCoach[]  // For VOD Review events
+  reminders   TeamEventReminder[]
   
   @@index([teamId, scheduledAt])
   @@index([createdBy])
@@ -1101,4 +1107,22 @@ model TeamEventNotification {
   
   @@index([processed, createdAt])
   @@index([teamId])
+}
+
+// Queue for pre-event reminder notifications (bot pulls due reminders)
+model TeamEventReminder {
+  id              String   @id @default(cuid())
+  team            Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId          String
+  event           TeamEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId         String
+  reminderMinutes Int
+  remindAt        DateTime
+  createdAt       DateTime @default(now())
+  processed       Boolean  @default(false)
+
+  @@unique([eventId, reminderMinutes])
+  @@index([processed, remindAt])
+  @@index([teamId, processed])
+  @@index([eventId])
 }

@@ -1,6 +1,56 @@
 # Changelog
 
-> Last updated: 2026-04-16
+> Last updated: 2026-04-17
+
+---
+
+## 2026-04-17 - Team Region Preselect, Discord Ping Recurrence, and Team Event Reminders
+
+### Objective: Improve Team Setup Defaults and Make Discord Team Delivery More Controllable
+
+Overview: Added user-region-aware preselection in Team creation, introduced configurable Discord ping recurrence and pre-event reminders (channel + DM fanout), and aligned Communities guide LFT preview content between in-app and Discord mirror examples.
+
+Changes:
+
+- Updated [apps/web/pages/teams/dashboard.tsx](apps/web/pages/teams/dashboard.tsx):
+  - Team creation region now defaults to the signed-in user profile region (or first valid linked Riot account region) instead of hardcoded `NA`.
+- Updated [prisma/schema.prisma](prisma/schema.prisma):
+  - Added team Discord recurrence/reminder settings fields.
+  - Added `TeamEventReminder` model for due reminder queue processing.
+- Added [prisma/migrations/20260417143000_add_team_discord_ping_recurrence_and_reminders/migration.sql](prisma/migrations/20260417143000_add_team_discord_ping_recurrence_and_reminders/migration.sql):
+  - Database migration for new team Discord recurrence/reminder columns and reminder queue table.
+- Updated [apps/api/src/routes/teams.ts](apps/api/src/routes/teams.ts):
+  - Discord settings GET/POST/DELETE now support `pingRecurrence`, `remindersEnabled`, and `reminderDelaysMinutes`.
+  - Added validation/sanitization for reminder delays and queue rebuild logic for upcoming events.
+  - Event create/update now (re)queue reminder records according to team settings.
+- Updated [apps/api/src/routes/discordFeed.ts](apps/api/src/routes/discordFeed.ts):
+  - Team-event payload now includes ping recurrence state and last ping timestamp.
+  - Added reminder polling and processed endpoints for the bot.
+  - Processed endpoints can persist ping timestamp when mention ping was actually sent.
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Enforced once-per-hour channel mention throttling when ping recurrence is disabled.
+  - Added due reminder polling/delivery loop for channel + DM reminder fanout.
+  - Added reminder embed formatting and processed acknowledgment with optional ping recording.
+- Updated [apps/web/pages/teams/discord.tsx](apps/web/pages/teams/discord.tsx):
+  - Added Discord settings controls for ping recurrence and multi-delay pre-event reminders.
+  - Added reminder delay selection UI and save-time validation.
+- Updated [apps/web/pages/communities/guide.tsx](apps/web/pages/communities/guide.tsx):
+  - Fixed LFT mirroring preview inconsistency so Discord mirror content matches RiftEssence card persona/content.
+- Updated [Documentation/backend/integrations.md](Documentation/backend/integrations.md):
+  - Documented team event/reminder bot delivery and new bot-facing reminder endpoints.
+
+Validation:
+
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/web build` passes.
+- `pnpm prisma generate` passes.
+- `pnpm build` passes in `discord-bot` directory.
+
+Operational Notes:
+
+- Apply the new Prisma migration before deploying API/bot changes.
+- Rebuild and redeploy both API and Discord bot services so reminder queue endpoints and runtime pollers are active.
 
 ---
 
@@ -26,7 +76,11 @@ Changes:
 
 Validation:
 
-- Pending: run API build and web validation plus runtime profile route smoke check.
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/web lint` passes.
+- `pnpm --filter @lfd/web build` passes.
+- Local API runtime boot passes (`pnpm --filter @lfd/api start`), but endpoint smoke checks returned `503` in this environment because local DB host `db:5432` is unavailable.
 
 Operational Notes:
 

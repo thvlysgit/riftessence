@@ -1238,6 +1238,8 @@ export default async function discordFeedRoutes(fastify: any) {
               discordMentionMode: true,
               discordMentionRoleId: true,
               discordRoleMentions: true,
+              discordPingRecurrence: true,
+              discordLastChannelPingAt: true,
               members: {
                 include: {
                   user: {
@@ -1279,6 +1281,8 @@ export default async function discordFeedRoutes(fastify: any) {
         roleMentions: (n.team.discordRoleMentions && typeof n.team.discordRoleMentions === 'object' && !Array.isArray(n.team.discordRoleMentions))
           ? n.team.discordRoleMentions
           : {},
+        pingRecurrenceEnabled: Boolean(n.team.discordPingRecurrence),
+        lastChannelPingAt: n.team.discordLastChannelPingAt,
         createdAt: n.createdAt,
         members: n.team.members.map((m: any) => ({
           id: m.user.id,
@@ -1300,16 +1304,147 @@ export default async function discordFeedRoutes(fastify: any) {
   fastify.patch('/discord/team-events/:id/processed', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
     try {
       const { id } = request.params as { id: string };
+      const payload = request.body && typeof request.body === 'object' ? request.body : {};
+      const { recordPing } = payload as { recordPing?: boolean };
 
-      await prisma.teamEventNotification.update({
+      const updated = await prisma.teamEventNotification.update({
         where: { id },
         data: { processed: true },
+        select: { teamId: true },
       });
+
+      if (recordPing) {
+        await prisma.team.update({
+          where: { id: updated.teamId },
+          data: { discordLastChannelPingAt: new Date() },
+        });
+      }
 
       return reply.send({ success: true });
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to mark notification as processed' });
+    }
+  });
+
+  // GET /api/discord/team-event-reminders - Get due team event reminders (bot only)
+  fastify.get('/discord/team-event-reminders', { preHandler: validateBotAuth }, async (_request: any, reply: any) => {
+    try {
+      const reminders = await prisma.teamEventReminder.findMany({
+        where: {
+          processed: false,
+          remindAt: { lte: new Date() },
+          team: { discordRemindersEnabled: true },
+        },
+        orderBy: { remindAt: 'asc' },
+        take: 50,
+        include: {
+          event: {
+            select: {
+              id: true,
+              title: true,
+              type: true,
+              description: true,
+              scheduledAt: true,
+              duration: true,
+              enemyMultigg: true,
+              concernedMemberIds: true,
+            },
+          },
+          team: {
+            select: {
+              id: true,
+              name: true,
+              tag: true,
+              discordWebhookUrl: true,
+              discordMentionMode: true,
+              discordMentionRoleId: true,
+              discordRoleMentions: true,
+              discordPingRecurrence: true,
+              discordLastChannelPingAt: true,
+              members: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      username: true,
+                      discordDmNotifications: true,
+                      discordAccount: {
+                        select: { discordId: true }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      const formatted = reminders.map((n: any) => ({
+        id: n.id,
+        teamId: n.teamId,
+        teamName: n.team.name,
+        teamTag: n.team.tag,
+        webhookUrl: n.team.discordWebhookUrl,
+        eventId: n.eventId,
+        eventTitle: n.event.title,
+        eventType: n.event.type,
+        scheduledAt: n.event.scheduledAt,
+        duration: n.event.duration,
+        description: n.event.description,
+        enemyLink: n.event.enemyMultigg,
+        reminderMinutes: n.reminderMinutes,
+        remindAt: n.remindAt,
+        concernedMemberIds: Array.isArray(n.event.concernedMemberIds) ? n.event.concernedMemberIds : [],
+        mentionMode: n.team.discordMentionMode || 'EVERYONE',
+        mentionRoleId: n.team.discordMentionRoleId || null,
+        roleMentions: (n.team.discordRoleMentions && typeof n.team.discordRoleMentions === 'object' && !Array.isArray(n.team.discordRoleMentions))
+          ? n.team.discordRoleMentions
+          : {},
+        pingRecurrenceEnabled: Boolean(n.team.discordPingRecurrence),
+        lastChannelPingAt: n.team.discordLastChannelPingAt,
+        createdAt: n.createdAt,
+        members: n.team.members.map((m: any) => ({
+          id: m.user.id,
+          username: m.user.username,
+          role: m.role,
+          discordId: m.user.discordAccount?.discordId || null,
+          dmEnabled: Boolean(m.user.discordDmNotifications && m.user.discordAccount?.discordId)
+        }))
+      }));
+
+      return reply.send({ reminders: formatted });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch due team event reminders' });
+    }
+  });
+
+  // PATCH /api/discord/team-event-reminders/:id/processed - Mark reminder as processed (bot only)
+  fastify.patch('/discord/team-event-reminders/:id/processed', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { id } = request.params as { id: string };
+      const payload = request.body && typeof request.body === 'object' ? request.body : {};
+      const { recordPing } = payload as { recordPing?: boolean };
+
+      const updated = await prisma.teamEventReminder.update({
+        where: { id },
+        data: { processed: true },
+        select: { teamId: true },
+      });
+
+      if (recordPing) {
+        await prisma.team.update({
+          where: { id: updated.teamId },
+          data: { discordLastChannelPingAt: new Date() },
+        });
+      }
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to mark reminder as processed' });
     }
   });
 
