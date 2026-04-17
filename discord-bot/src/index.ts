@@ -1914,6 +1914,11 @@ type TeamEventMember = {
   dmEnabled?: boolean;
 };
 
+type TeamEventAttendance = {
+  userId: string;
+  status: string;
+};
+
 type TeamEventDeliveryPayload = {
   teamId: string;
   teamName: string;
@@ -1946,6 +1951,14 @@ type TeamEventReminder = TeamEventDeliveryPayload & {
   id: string;
   reminderMinutes: number;
   remindAt: string;
+  attendances?: TeamEventAttendance[];
+};
+
+type ReminderAvailabilityBuckets = {
+  present: TeamEventMember[];
+  absent: TeamEventMember[];
+  unsure: TeamEventMember[];
+  noResponse: TeamEventMember[];
 };
 
 const TEAM_EVENT_WEBHOOK_REGEX = /discord(?:app)?\.com\/api\/webhooks\/([^/]+)\/([^/?]+)/i;
@@ -2102,6 +2115,77 @@ function getConcernedMembers(notification: TeamEventDeliveryPayload) {
   return notification.members.filter((member) => idSet.has(member.id));
 }
 
+function normalizeAttendanceStatus(raw: string | null | undefined): 'PRESENT' | 'ABSENT' | 'UNSURE' | null {
+  if (!raw || typeof raw !== 'string') return null;
+  const normalized = raw.toUpperCase();
+  if (normalized === 'PRESENT' || normalized === 'ABSENT' || normalized === 'UNSURE') {
+    return normalized;
+  }
+  return null;
+}
+
+function summarizeReminderAvailability(
+  reminder: TeamEventReminder,
+  concernedMembers: TeamEventMember[]
+): ReminderAvailabilityBuckets {
+  const statusByUserId = new Map<string, 'PRESENT' | 'ABSENT' | 'UNSURE'>();
+
+  if (Array.isArray(reminder.attendances)) {
+    for (const attendance of reminder.attendances) {
+      const status = normalizeAttendanceStatus(attendance?.status);
+      if (!status || !attendance?.userId) continue;
+      statusByUserId.set(attendance.userId, status);
+    }
+  }
+
+  const buckets: ReminderAvailabilityBuckets = {
+    present: [],
+    absent: [],
+    unsure: [],
+    noResponse: [],
+  };
+
+  for (const member of concernedMembers) {
+    const status = statusByUserId.get(member.id);
+    if (status === 'PRESENT') {
+      buckets.present.push(member);
+    } else if (status === 'ABSENT') {
+      buckets.absent.push(member);
+    } else if (status === 'UNSURE') {
+      buckets.unsure.push(member);
+    } else {
+      buckets.noResponse.push(member);
+    }
+  }
+
+  return buckets;
+}
+
+function formatAvailabilityNames(members: TeamEventMember[], maxShown = 20): string {
+  if (!members.length) {
+    return 'None';
+  }
+
+  const names = members
+    .map((member) => member.username)
+    .filter((name) => typeof name === 'string' && name.trim().length > 0);
+
+  if (names.length <= maxShown) {
+    return names.join(', ');
+  }
+
+  const remaining = names.length - maxShown;
+  return `${names.slice(0, maxShown).join(', ')}, +${remaining} more`;
+}
+
+function buildReminderDmPrompt(member: TeamEventMember, availability: ReminderAvailabilityBuckets): string | null {
+  if (availability.noResponse.some((entry) => entry.id === member.id)) {
+    return 'You have not responded to this event yet. Please tap Present, Absent, or Unsure below.';
+  }
+
+  return null;
+}
+
 function buildMentionContent(
   notification: TeamEventDeliveryPayload,
   concernedMembers: TeamEventMember[]
@@ -2148,7 +2232,11 @@ function formatReminderLead(reminderMinutes: number): string {
   return `${hours} hour${hours === 1 ? '' : 's'} ${minutes} minute${minutes === 1 ? '' : 's'}`;
 }
 
-function buildTeamEventReminderEmbed(reminder: TeamEventReminder, teamDisplay: string) {
+function buildTeamEventReminderEmbed(
+  reminder: TeamEventReminder,
+  teamDisplay: string,
+  availability: ReminderAvailabilityBuckets
+) {
   const scheduledDate = new Date(reminder.scheduledAt);
   const typeLabel = EVENT_TYPE_LABELS[reminder.eventType] || reminder.eventType;
   const color = EVENT_TYPE_COLORS[reminder.eventType] || 0xC8AA6E;
@@ -2204,6 +2292,30 @@ function buildTeamEventReminderEmbed(reminder: TeamEventReminder, teamDisplay: s
       inline: false,
     });
   }
+
+  fields.push({
+    name: '✅ Present',
+    value: formatAvailabilityNames(availability.present),
+    inline: false,
+  });
+
+  fields.push({
+    name: '❌ Absent',
+    value: formatAvailabilityNames(availability.absent),
+    inline: false,
+  });
+
+  fields.push({
+    name: '❓ Unsure',
+    value: formatAvailabilityNames(availability.unsure),
+    inline: false,
+  });
+
+  fields.push({
+    name: '⏳ No Response',
+    value: formatAvailabilityNames(availability.noResponse),
+    inline: false,
+  });
 
   embed.addFields(fields);
   embed.setFooter({ text: `Reminder sent ${leadTime} before start • ${teamDisplay}` });
@@ -2310,7 +2422,8 @@ async function sendTeamEventDmNotification(
   member: TeamEventMember,
   notification: { eventTitle: string },
   embed: EmbedBuilder,
-  components: ActionRowBuilder<ButtonBuilder>[]
+  components: ActionRowBuilder<ButtonBuilder>[],
+  dmPrompt?: string | null
 ): Promise<boolean> {
   if (!member.discordId || !member.dmEnabled) {
     return false;
@@ -2324,6 +2437,7 @@ async function sendTeamEventDmNotification(
     }
 
     await user.send({
+      content: dmPrompt || undefined,
       embeds: [embed],
       components,
     });
@@ -2464,9 +2578,10 @@ async function sendTeamEventNotification(notification: TeamEventNotification) {
 
 async function sendTeamEventReminder(reminder: TeamEventReminder) {
   const teamDisplay = reminder.teamTag ? `[${reminder.teamTag}] ${reminder.teamName}` : reminder.teamName;
-  const embed = buildTeamEventReminderEmbed(reminder, teamDisplay);
-  const components = buildTeamEventActionComponents(reminder.teamId, reminder.eventId);
   const concernedMembers = getConcernedMembers(reminder);
+  const availability = summarizeReminderAvailability(reminder, concernedMembers);
+  const embed = buildTeamEventReminderEmbed(reminder, teamDisplay, availability);
+  const components = buildTeamEventActionComponents(reminder.teamId, reminder.eventId);
   const mentionContent = buildMentionContent(reminder, concernedMembers);
   const mentionDispatch = resolveMentionForDispatch(reminder, mentionContent);
 
@@ -2495,7 +2610,8 @@ async function sendTeamEventReminder(reminder: TeamEventReminder) {
   let dmSentCount = 0;
 
   for (const member of dmTargets) {
-    const sent = await sendTeamEventDmNotification(member, reminder, embed, components);
+    const dmPrompt = buildReminderDmPrompt(member, availability);
+    const sent = await sendTeamEventDmNotification(member, reminder, embed, components, dmPrompt);
     if (sent) {
       dmSentCount += 1;
     }

@@ -1792,6 +1792,11 @@ export default async function teamsRoutes(fastify: any) {
       if (!userId) return;
 
       const { id } = request.params as any;
+      const body = request.body && typeof request.body === 'object' ? request.body : {};
+      const requestedWebhookUrl = typeof (body as any).webhookUrl === 'string'
+        ? (body as any).webhookUrl.trim()
+        : '';
+      const webhookToTest = requestedWebhookUrl || null;
 
       // Only team owner can test webhook
       if (!await isTeamOwner(userId, id)) {
@@ -1803,8 +1808,13 @@ export default async function teamsRoutes(fastify: any) {
         select: { name: true, tag: true, discordWebhookUrl: true }
       });
 
-      if (!team?.discordWebhookUrl) {
-        return reply.status(400).send({ error: 'No Discord webhook configured' });
+      if (!team) {
+        return reply.status(404).send({ error: 'Team not found' });
+      }
+
+      const targetWebhook = webhookToTest || team.discordWebhookUrl;
+      if (!targetWebhook) {
+        return reply.status(400).send({ error: 'No Discord webhook configured. Add one first or provide webhookUrl in test request.' });
       }
 
       const user = await prisma.user.findUnique({
@@ -1812,7 +1822,7 @@ export default async function teamsRoutes(fastify: any) {
         select: { username: true }
       });
 
-      const success = await sendTeamDiscordWebhook(team.discordWebhookUrl, undefined, [{
+      const success = await sendTeamDiscordWebhook(targetWebhook, undefined, [{
         title: '🧪 Test Notification',
         description: `This is a test notification from **${team.name}**${team.tag ? ` [${team.tag}]` : ''}`,
         color: 0xC8AA6E,

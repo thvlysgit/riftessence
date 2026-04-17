@@ -5,7 +5,6 @@ import {
   FaBolt,
   FaDice,
   FaGem,
-  FaShieldAlt,
   FaSkull,
 } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
@@ -36,8 +35,6 @@ type GambleGame = {
   description: string;
   minWager: number;
   maxWager: number;
-  houseEdgePct: number;
-  expectedReturnPct: number;
   singlePlayerOnly: boolean;
   choices: string[] | null;
   available: boolean;
@@ -56,8 +53,6 @@ type GambleResult = {
   outcomeDetail: string;
   multiplier: number;
   rollValue: number | null;
-  houseEdgePct: number;
-  expectedReturnPct: number;
   singlePlayerOnly: boolean;
   newBalance: number;
 };
@@ -218,7 +213,7 @@ export default function PurseGamblePage() {
       if (data?.result?.won) {
         showToast(`You won ${Number(data.result.payout || 0).toLocaleString()} PE!`, 'success');
       } else {
-        showToast('Round lost. House edge always applies over time.', 'error');
+        showToast('No payout this round.', 'error');
       }
     } catch (error: any) {
       showToast(error?.message || 'Failed to play this gamble game.', 'error');
@@ -308,7 +303,7 @@ export default function PurseGamblePage() {
                 Prismatic Gamble
               </h1>
               <p className="text-sm mt-2 max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
-                Solo gamble modes only. Each game has a defined house edge, so long-run expected return is always below 100%.
+                Solo PE games only. Pick a mode, place your wager, and see instant results.
               </p>
             </div>
 
@@ -324,12 +319,12 @@ export default function PurseGamblePage() {
           </div>
 
           <div className="mt-4 rounded-lg border px-3 py-2 text-xs inline-flex items-center gap-2" style={{
-            borderColor: 'rgba(250,204,21,0.45)',
-            background: 'rgba(250, 204, 21, 0.12)',
-            color: '#fde68a',
+            borderColor: 'rgba(56,189,248,0.38)',
+            background: 'rgba(56, 189, 248, 0.12)',
+            color: '#bae6fd',
           }}>
-            <FaShieldAlt />
-            House edge protection is enabled on every gamble mode.
+            <FaDice />
+            Single-player only. No player-to-player betting or wagering.
           </div>
         </header>
 
@@ -357,8 +352,8 @@ export default function PurseGamblePage() {
                     <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
                       <span>Min: {game.minWager.toLocaleString()} PE</span>
                       <span>Max: {game.maxWager.toLocaleString()} PE</span>
-                      <span>House Edge: {game.houseEdgePct}%</span>
-                      <span>RTP: {game.expectedReturnPct}%</span>
+                      <span>{game.choices?.length ? `Choices: ${game.choices.join(' / ')}` : 'No pick required'}</span>
+                      <span>{game.available ? 'Ready to play' : game.blockedReason || 'Unavailable'}</span>
                     </div>
                   </button>
                 );

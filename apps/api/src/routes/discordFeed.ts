@@ -1349,6 +1349,12 @@ export default async function discordFeedRoutes(fastify: any) {
               duration: true,
               enemyMultigg: true,
               concernedMemberIds: true,
+              attendances: {
+                select: {
+                  userId: true,
+                  status: true,
+                },
+              },
             },
           },
           team: {
@@ -1411,7 +1417,13 @@ export default async function discordFeedRoutes(fastify: any) {
           role: m.role,
           discordId: m.user.discordAccount?.discordId || null,
           dmEnabled: Boolean(m.user.discordDmNotifications && m.user.discordAccount?.discordId)
-        }))
+        })),
+        attendances: Array.isArray(n.event.attendances)
+          ? n.event.attendances.map((a: any) => ({
+              userId: a.userId,
+              status: a.status,
+            }))
+          : [],
       }));
 
       return reply.send({ reminders: formatted });

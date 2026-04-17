@@ -4,6 +4,42 @@
 
 ---
 
+## 2026-04-17 - Gamble UX Refinement, Discord Settings Test Fix, and Reminder Availability Visibility
+
+### Objective: Make gamble presentation less blunt, improve Teams Discord settings usability, and provide complete attendance visibility in reminders
+
+Overview: Refined gamble copy and game variety with common formats, fixed Teams Discord test behavior and moved settings feedback closer to action controls, and expanded reminder payload/embed behavior so availability snapshots include Present/Absent/Unsure/No Response with unanswered-user prompts in DMs.
+
+Changes:
+
+- Updated [apps/api/src/routes/wallet.ts](apps/api/src/routes/wallet.ts):
+  - Replaced gamble game lineup with `Coin Flip`, `Slot Machine`, and `Roulette`.
+  - Implemented new outcome logic for the updated game keys.
+  - Removed exposed house-edge/expected-return fields from game state and play result payloads.
+- Updated [apps/web/pages/purse/gamble.tsx](apps/web/pages/purse/gamble.tsx):
+  - Removed explicit house-edge messaging and RTP/edge stat display from the UI.
+  - Updated loss feedback copy to neutral round-result language.
+  - Synced frontend game/result types with updated API payload shape.
+- Updated [apps/api/src/routes/teams.ts](apps/api/src/routes/teams.ts):
+  - `POST /api/teams/:id/discord/test` now accepts optional `webhookUrl` in body so owners can test unsaved webhook values.
+  - Added clearer error response when no webhook target is available.
+- Updated [apps/web/pages/teams/discord.tsx](apps/web/pages/teams/discord.tsx):
+  - `Send Test` now posts the current webhook URL in the request body.
+  - Moved success/error status messaging down near Save/Test actions instead of near the page top.
+- Updated [apps/api/src/routes/discordFeed.ts](apps/api/src/routes/discordFeed.ts):
+  - Team reminder feed now includes event attendance records (`userId`, `status`) for bot-side availability summaries.
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Reminder embeds now include full availability buckets: Present, Absent, Unsure, and No Response.
+  - DM reminders now explicitly prompt recipients who have not responded yet.
+
+Validation:
+
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm --filter @lfd/web build` passes.
+- `pnpm -C discord-bot build` passes.
+
+---
+
 ## 2026-04-17 - Purse Quick Actions Redesign, Quest Fixes, and Gamble Hub
 
 ### Objective: Improve Prismatic Purse UX, Fix Broken Quest Completion Rules, and Add Dedicated Solo Gamble Flows

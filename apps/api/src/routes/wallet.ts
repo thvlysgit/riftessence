@@ -192,42 +192,34 @@ type GambleGameDefinition = {
   description: string;
   minWager: number;
   maxWager: number;
-  houseEdgePct: number;
-  expectedReturnPct: number;
   singlePlayerOnly: boolean;
   choices: readonly string[] | null;
 };
 
 const GAMBLE_GAME_DEFINITIONS = {
-  HOUSE_COINFLIP: {
-    title: 'House Coinflip',
+  COIN_FLIP: {
+    title: 'Coin Flip',
     description: 'Pick heads or tails. Win pays 1.9x, lose pays 0x.',
     minWager: 25,
     maxWager: 50_000,
-    houseEdgePct: 5,
-    expectedReturnPct: 95,
     singlePlayerOnly: true,
     choices: ['HEADS', 'TAILS'],
   },
-  ARCANE_HIGH_LOW: {
-    title: 'Arcane High / Low',
-    description: 'Pick HIGH (56-100) or LOW (1-45). Mid band loses.',
+  SLOT_MACHINE: {
+    title: 'Slot Machine',
+    description: 'Spin the reels and chase multiplier payouts.',
     minWager: 25,
     maxWager: 75_000,
-    houseEdgePct: 10,
-    expectedReturnPct: 90,
-    singlePlayerOnly: true,
-    choices: ['HIGH', 'LOW'],
-  },
-  VOID_DRAW: {
-    title: 'Void Draw',
-    description: 'Pull a random tier. High multipliers are intentionally rare.',
-    minWager: 50,
-    maxWager: 100_000,
-    houseEdgePct: 12.4,
-    expectedReturnPct: 87.6,
     singlePlayerOnly: true,
     choices: null,
+  },
+  ROULETTE: {
+    title: 'Roulette',
+    description: 'Pick a color and spin the wheel.',
+    minWager: 50,
+    maxWager: 100_000,
+    singlePlayerOnly: true,
+    choices: ['RED', 'BLACK', 'GREEN'],
   },
 } as const satisfies Record<string, GambleGameDefinition>;
 
@@ -664,10 +656,10 @@ function hasChampionPoolConfigured(user: {
 }
 
 function resolveGambleOutcome(gameKey: GambleGameKey, wager: number, choice?: string) {
-  if (gameKey === 'HOUSE_COINFLIP') {
+  if (gameKey === 'COIN_FLIP') {
     const normalizedChoice = String(choice || '').toUpperCase();
     if (normalizedChoice !== 'HEADS' && normalizedChoice !== 'TAILS') {
-      throw new Error('Pick HEADS or TAILS for House Coinflip.');
+      throw new Error('Pick HEADS or TAILS for Coin Flip.');
     }
 
     const result = randomInt(0, 2) === 0 ? 'HEADS' : 'TAILS';
@@ -687,43 +679,20 @@ function resolveGambleOutcome(gameKey: GambleGameKey, wager: number, choice?: st
     };
   }
 
-  if (gameKey === 'ARCANE_HIGH_LOW') {
-    const normalizedChoice = String(choice || '').toUpperCase();
-    if (normalizedChoice !== 'HIGH' && normalizedChoice !== 'LOW') {
-      throw new Error('Pick HIGH or LOW for Arcane High / Low.');
-    }
-
-    const roll = randomInt(1, 101);
-    const won = normalizedChoice === 'HIGH' ? roll >= 56 : roll <= 45;
-    const multiplier = won ? 2.0 : 0;
-    const payout = won ? Math.floor(wager * multiplier) : 0;
-
-    return {
-      won,
-      payout,
-      multiplier,
-      netPrismaticEssence: payout - wager,
-      outcomeLabel: won ? 'Win band hit' : 'Missed band',
-      outcomeDetail: `Roll ${roll}`,
-      normalizedChoice,
-      rollValue: roll,
-    };
-  }
-
-  if (gameKey === 'VOID_DRAW') {
+  if (gameKey === 'SLOT_MACHINE') {
     const roll = randomInt(1, 10_001);
-    let tier = 'Bust';
+    let tier = 'No Match';
     let multiplier = 0;
 
-    if (roll <= 150) {
-      tier = 'Mythic';
-      multiplier = 6;
-    } else if (roll <= 1_950) {
-      tier = 'Rare';
-      multiplier = 2.2;
-    } else if (roll <= 4_950) {
-      tier = 'Common';
-      multiplier = 1.3;
+    if (roll <= 120) {
+      tier = 'Jackpot';
+      multiplier = 8;
+    } else if (roll <= 1_400) {
+      tier = 'Double Bars';
+      multiplier = 2.8;
+    } else if (roll <= 4_300) {
+      tier = 'Single Bar';
+      multiplier = 1.4;
     }
 
     const payout = multiplier > 0 ? Math.floor(wager * multiplier) : 0;
@@ -737,6 +706,37 @@ function resolveGambleOutcome(gameKey: GambleGameKey, wager: number, choice?: st
       outcomeDetail: `Roll ${roll}`,
       normalizedChoice: null as string | null,
       rollValue: roll,
+    };
+  }
+
+  if (gameKey === 'ROULETTE') {
+    const normalizedChoice = String(choice || '').toUpperCase();
+    if (normalizedChoice !== 'RED' && normalizedChoice !== 'BLACK' && normalizedChoice !== 'GREEN') {
+      throw new Error('Pick RED, BLACK, or GREEN for Roulette.');
+    }
+
+    const number = randomInt(0, 37);
+    const redNumbers = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+    const wheelColor = number === 0 ? 'GREEN' : redNumbers.has(number) ? 'RED' : 'BLACK';
+
+    const won = normalizedChoice === wheelColor;
+    const multiplier = won
+      ? normalizedChoice === 'GREEN'
+        ? 14
+        : 2
+      : 0;
+
+    const payout = won ? Math.floor(wager * multiplier) : 0;
+
+    return {
+      won,
+      payout,
+      multiplier,
+      netPrismaticEssence: payout - wager,
+      outcomeLabel: `${wheelColor} ${number}`,
+      outcomeDetail: `Number ${number}`,
+      normalizedChoice,
+      rollValue: number,
     };
   }
 
@@ -1181,8 +1181,6 @@ function buildGambleGameStates(wallet: WalletRow) {
       description: game.description,
       minWager: game.minWager,
       maxWager: game.maxWager,
-      houseEdgePct: game.houseEdgePct,
-      expectedReturnPct: game.expectedReturnPct,
       singlePlayerOnly: game.singlePlayerOnly,
       choices: game.choices ? [...game.choices] : null,
       available,
@@ -1868,8 +1866,6 @@ export default async function walletRoutes(fastify: FastifyInstance) {
           outcomeDetail: playResult.outcomeDetail,
           multiplier: playResult.multiplier,
           rollValue: playResult.rollValue,
-          houseEdgePct: game.houseEdgePct,
-          expectedReturnPct: game.expectedReturnPct,
           singlePlayerOnly: game.singlePlayerOnly,
           newBalance: playResult.newBalance,
         },

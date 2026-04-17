@@ -318,7 +318,8 @@ const DiscordSettingsPage: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({ webhookUrl: webhookUrl.trim() })
       });
       
       const data = await res.json();
@@ -561,28 +562,6 @@ const DiscordSettingsPage: React.FC = () => {
 
           {selectedTeamId && (
             <>
-              {/* Status Messages */}
-              {error && (
-                <div className="border rounded-lg p-4" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#EF4444' }}>
-                  <div className="flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {error}
-                  </div>
-                </div>
-              )}
-              {success && (
-                <div className="border rounded-lg p-4" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.3)', color: '#22C55E' }}>
-                  <div className="flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    {success}
-                  </div>
-                </div>
-              )}
-
               {/* Delivery behavior */}
               <div className="border rounded-xl p-5" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
                 <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
@@ -949,6 +928,31 @@ const DiscordSettingsPage: React.FC = () => {
                   </div>
 
                   {/* Action Buttons */}
+                  {(error || success) && (
+                    <div>
+                      {error && (
+                        <div className="border rounded-lg p-4" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#EF4444' }}>
+                          <div className="flex items-center gap-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {error}
+                          </div>
+                        </div>
+                      )}
+                      {success && (
+                        <div className="border rounded-lg p-4" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', borderColor: 'rgba(34, 197, 94, 0.3)', color: '#22C55E' }}>
+                          <div className="flex items-center gap-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            {success}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap gap-3 pt-4">
                     <button
                       onClick={handleSave}
