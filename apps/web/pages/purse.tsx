@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
+  FaBullhorn,
   FaArrowDown,
   FaArrowUp,
-  FaBullhorn,
   FaBolt,
   FaCheckCircle,
   FaClock,
+  FaDice,
   FaGem,
   FaMagic,
   FaPalette,
@@ -60,21 +61,49 @@ type WalletQuest = {
   nextClaimAt: string | null;
 };
 
-type WalletAction = {
-  key: string;
-  title: string;
-  description: string;
-  category: 'Loot' | 'Cosmetic' | 'Community';
-  costPrismaticEssence: number;
-  repeatable: boolean;
-  owned: boolean;
-  available: boolean;
-  blockedReason: string | null;
-  badgePreview: {
-    key: string;
-    name: string;
-    icon: string;
-  } | null;
+type QuestCompletionLink = {
+  label: string;
+  href: string;
+  external?: boolean;
+};
+
+const SUPPORT_DISCORD_INVITE_URL = process.env.NEXT_PUBLIC_SUPPORT_DISCORD_INVITE_URL || 'https://discord.gg/uypaWqmxx6';
+
+const QUEST_COMPLETION_LINKS: Record<string, QuestCompletionLink[]> = {
+  DAILY_SOCIAL_SPARK: [
+    { label: 'Create Duo Post', href: '/create' },
+    { label: 'Open Feed', href: '/feed' },
+  ],
+  COMPLETE_PROFILE: [
+    { label: 'Complete Profile', href: '/profile' },
+    { label: 'Open Settings', href: '/settings' },
+  ],
+  CREATE_FIRST_DUO_POST: [
+    { label: 'Create Duo Post', href: '/create' },
+  ],
+  CREATE_FIRST_LFT_POST: [
+    { label: 'Open LFT', href: '/lft' },
+  ],
+  JOIN_FIRST_COMMUNITY: [
+    { label: 'Browse Communities', href: '/communities' },
+  ],
+  LINK_DISCORD_ACCOUNT: [
+    { label: 'Connect Discord', href: '/profile' },
+  ],
+  ENABLE_DISCORD_DMS: [
+    { label: 'Discord DM Settings', href: '/settings' },
+  ],
+  JOIN_SUPPORT_SERVER: [
+    { label: 'Join Support Discord', href: SUPPORT_DISCORD_INVITE_URL, external: true },
+    { label: 'Open Profile', href: '/profile' },
+  ],
+  RECEIVE_FIRST_FEEDBACK: [
+    { label: 'Open Profile', href: '/profile' },
+    { label: 'Open Feed', href: '/feed' },
+  ],
+  SEND_FIRST_CHAT_MESSAGE: [
+    { label: 'Open Feed', href: '/feed' },
+  ],
 };
 
 function formatSignedAmount(value: number) {
@@ -104,9 +133,7 @@ export default function PursePage() {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [quests, setQuests] = useState<WalletQuest[]>([]);
-  const [actions, setActions] = useState<WalletAction[]>([]);
   const [questLoadingMap, setQuestLoadingMap] = useState<Record<string, boolean>>({});
-  const [actionLoadingMap, setActionLoadingMap] = useState<Record<string, boolean>>({});
   const [transactionFilter, setTransactionFilter] = useState<TransactionCurrencyFilter>('ALL');
 
   const authHeaders = useCallback(() => {
@@ -143,20 +170,6 @@ export default function PursePage() {
     return (data?.quests || []) as WalletQuest[];
   }, [authHeaders]);
 
-  const loadActions = useCallback(async () => {
-    const headers = authHeaders();
-    if (!headers) return [] as WalletAction[];
-
-    const res = await fetch(`${API_URL}/api/wallet/actions`, { headers });
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok) {
-      throw new Error(data?.error || 'Failed to load actions.');
-    }
-
-    return (data?.actions || []) as WalletAction[];
-  }, [authHeaders]);
-
   const loadTransactions = useCallback(async (filter: TransactionCurrencyFilter) => {
     const headers = authHeaders();
     if (!headers) return [] as WalletTransaction[];
@@ -190,10 +203,9 @@ export default function PursePage() {
       setTransactionsLoading(true);
 
       try {
-        const [nextSummary, nextQuests, nextActions, nextTransactions] = await Promise.all([
+        const [nextSummary, nextQuests, nextTransactions] = await Promise.all([
           loadSummary(),
           loadQuests(),
-          loadActions(),
           loadTransactions(transactionFilter),
         ]);
 
@@ -201,7 +213,6 @@ export default function PursePage() {
 
         setSummary(nextSummary);
         setQuests(nextQuests);
-        setActions(nextActions);
         setTransactions(nextTransactions);
       } catch (error: any) {
         if (!active) return;
@@ -219,28 +230,26 @@ export default function PursePage() {
     return () => {
       active = false;
     };
-  }, [user, loadSummary, loadQuests, loadActions, loadTransactions, transactionFilter, showToast]);
+  }, [user, loadSummary, loadQuests, loadTransactions, transactionFilter, showToast]);
 
   useEffect(() => {
     if (!user) return;
 
     const interval = setInterval(async () => {
       try {
-        const [nextSummary, nextQuests, nextActions] = await Promise.all([
+        const [nextSummary, nextQuests] = await Promise.all([
           loadSummary(),
           loadQuests(),
-          loadActions(),
         ]);
         setSummary(nextSummary);
         setQuests(nextQuests);
-        setActions(nextActions);
       } catch {
         // Silent poll failure
       }
     }, 45_000);
 
     return () => clearInterval(interval);
-  }, [user, loadSummary, loadQuests, loadActions]);
+  }, [user, loadSummary, loadQuests]);
 
   const handleClaimQuest = async (quest: WalletQuest) => {
     if (!quest.available || !user) return;
@@ -267,61 +276,12 @@ export default function PursePage() {
       setQuests((data.quests || []) as WalletQuest[]);
       showToast(`+${quest.rewardPrismaticEssence.toLocaleString()} Prismatic Essence claimed!`, 'success');
 
-      const [nextTransactions, nextActions] = await Promise.all([
-        loadTransactions(transactionFilter),
-        loadActions(),
-      ]);
+      const nextTransactions = await loadTransactions(transactionFilter);
       setTransactions(nextTransactions);
-      setActions(nextActions);
     } catch (error: any) {
       showToast(error?.message || 'Failed to claim quest reward.', 'error');
     } finally {
       setQuestLoadingMap((prev) => ({ ...prev, [quest.key]: false }));
-    }
-  };
-
-  const handlePurchaseAction = async (action: WalletAction) => {
-    if (!action.available || !user) return;
-
-    setActionLoadingMap((prev) => ({ ...prev, [action.key]: true }));
-
-    try {
-      const headers = authHeaders();
-      if (!headers) {
-        throw new Error('Please sign in first.');
-      }
-
-      const res = await fetch(`${API_URL}/api/wallet/actions/${action.key}/purchase`, {
-        method: 'POST',
-        headers,
-      });
-
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(data?.error || 'Failed to execute action.');
-      }
-
-      setSummary(data.summary as WalletSummaryResponse);
-      setActions((data.actions || []) as WalletAction[]);
-
-      const result = data?.result;
-      if (result?.rewardPrismaticEssence > 0) {
-        showToast(
-          `${result.cacheTier || 'Lucky'} cache! +${Number(result.rewardPrismaticEssence).toLocaleString()} PE (${Number(result.netPrismaticEssence).toLocaleString()} net).`,
-          'success'
-        );
-      } else if (result?.badgeGranted) {
-        showToast('Cosmetic unlocked on your profile badges.', 'success');
-      } else {
-        showToast('Action completed.', 'success');
-      }
-
-      const nextTransactions = await loadTransactions(transactionFilter);
-      setTransactions(nextTransactions);
-    } catch (error: any) {
-      showToast(error?.message || 'Failed to execute action.', 'error');
-    } finally {
-      setActionLoadingMap((prev) => ({ ...prev, [action.key]: false }));
     }
   };
 
@@ -402,33 +362,8 @@ export default function PursePage() {
                 Purse
               </h1>
               <p className="text-sm max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
-                Earn PE from quests, then spend it on cosmetics, adspace credits, and quick actions.
+                Earn PE from quests, then spend it on cosmetics, adspace campaigns, and house-favored solo gambling.
               </p>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Link
-                  href="/cosmetics"
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                  style={{
-                    background: 'rgba(125,211,252,0.18)',
-                    color: '#93c5fd',
-                    border: '1px solid rgba(125,211,252,0.35)',
-                  }}
-                >
-                  <FaPalette /> Cosmetics Shop
-                </Link>
-                <Link
-                  href="/adspace"
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                  style={{
-                    background: 'rgba(249, 168, 212, 0.18)',
-                    color: '#f9a8d4',
-                    border: '1px solid rgba(249, 168, 212, 0.35)',
-                  }}
-                >
-                  <FaBullhorn /> Adspace
-                </Link>
-              </div>
             </div>
 
             <div className="text-right">
@@ -559,6 +494,42 @@ export default function PursePage() {
                       {questLoadingMap[quest.key] ? 'Claiming...' : 'Claim'}
                     </button>
                   </div>
+
+                  {!quest.available && !quest.completed && (QUEST_COMPLETION_LINKS[quest.key]?.length || 0) > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {QUEST_COMPLETION_LINKS[quest.key].map((link) => (
+                        link.external ? (
+                          <a
+                            key={`${quest.key}-${link.label}`}
+                            href={link.href}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[11px] font-semibold"
+                            style={{
+                              background: 'rgba(56, 189, 248, 0.14)',
+                              color: '#7dd3fc',
+                              border: '1px solid rgba(56, 189, 248, 0.35)',
+                            }}
+                          >
+                            {link.label}
+                          </a>
+                        ) : (
+                          <Link
+                            key={`${quest.key}-${link.label}`}
+                            href={link.href}
+                            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[11px] font-semibold"
+                            style={{
+                              background: 'rgba(56, 189, 248, 0.14)',
+                              color: '#7dd3fc',
+                              border: '1px solid rgba(56, 189, 248, 0.35)',
+                            }}
+                          >
+                            {link.label}
+                          </Link>
+                        )
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -569,59 +540,58 @@ export default function PursePage() {
               <FaMagic />
               Quick Actions
             </h2>
-            <div className="space-y-3 max-h-[620px] overflow-y-auto pr-1">
-              {actions.map((action) => {
-                const categoryIcon = action.category === 'Loot'
-                  ? <FaGem />
-                  : action.category === 'Cosmetic'
-                    ? <FaPalette />
-                    : <FaBolt />;
+            <p className="text-xs mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+              Jump directly to the places where Prismatic Essence is spent or risked.
+            </p>
 
-                return (
-                  <div key={action.key} className="rounded-lg border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div>
-                        <p className="font-semibold text-sm inline-flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
-                          {categoryIcon}
-                          {action.title}
-                        </p>
-                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{action.description}</p>
-                        <p className="text-[11px] mt-1" style={{ color: '#93c5fd' }}>
-                          {action.category} {action.repeatable ? '• Repeatable' : '• One-time'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold inline-flex items-center gap-1" style={{ color: '#67e8f9' }}>
-                          <PrismaticEssenceIcon />
-                          {action.costPrismaticEssence.toLocaleString()}
-                        </p>
-                        {action.owned && (
-                          <p className="text-[11px]" style={{ color: '#86efac' }}>Owned</p>
-                        )}
-                      </div>
-                    </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Link
+                href="/cosmetics"
+                className="rounded-xl border p-4 transition-transform hover:-translate-y-0.5"
+                style={{
+                  borderColor: 'rgba(56, 189, 248, 0.38)',
+                  background: 'linear-gradient(145deg, rgba(56, 189, 248, 0.18), rgba(29, 78, 216, 0.08))',
+                }}
+              >
+                <p className="text-sm font-bold inline-flex items-center gap-2" style={{ color: '#93c5fd' }}>
+                  <FaPalette /> Cosmetics
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  Unlock username styles, visual effects, and PE cosmetics.
+                </p>
+              </Link>
 
-                    {action.blockedReason && (
-                      <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>{action.blockedReason}</p>
-                    )}
+              <Link
+                href="/adspace"
+                className="rounded-xl border p-4 transition-transform hover:-translate-y-0.5"
+                style={{
+                  borderColor: 'rgba(249, 168, 212, 0.38)',
+                  background: 'linear-gradient(145deg, rgba(249, 168, 212, 0.18), rgba(219, 39, 119, 0.09))',
+                }}
+              >
+                <p className="text-sm font-bold inline-flex items-center gap-2" style={{ color: '#f9a8d4' }}>
+                  <FaBullhorn /> Adspace
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  Convert PE into promotion opportunities for your content.
+                </p>
+              </Link>
 
-                    <button
-                      onClick={() => handlePurchaseAction(action)}
-                      disabled={!action.available || Boolean(actionLoadingMap[action.key])}
-                      className="w-full px-3 py-2 rounded-lg text-xs font-semibold"
-                      style={{
-                        background: action.available
-                          ? 'linear-gradient(135deg, #22d3ee, #a78bfa, #f472b6)'
-                          : 'var(--color-bg-tertiary)',
-                        color: action.available ? '#0b1220' : 'var(--color-text-muted)',
-                        border: `1px solid ${action.available ? 'rgba(125,211,252,0.6)' : 'var(--color-border)'}`,
-                      }}
-                    >
-                      {actionLoadingMap[action.key] ? 'Processing...' : 'Use Action'}
-                    </button>
-                  </div>
-                );
-              })}
+              <Link
+                href="/purse/gamble"
+                className="rounded-xl border p-4 sm:col-span-2 transition-transform hover:-translate-y-0.5"
+                style={{
+                  borderColor: 'rgba(192, 132, 252, 0.44)',
+                  background: 'linear-gradient(145deg, rgba(167, 139, 250, 0.22), rgba(30, 27, 75, 0.16), rgba(56, 189, 248, 0.12))',
+                }}
+              >
+                <p className="text-sm font-bold inline-flex items-center gap-2" style={{ color: '#ddd6fe' }}>
+                  <FaDice /> Gamble
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  Single-player PE games only. Every mode is intentionally house-favored over time.
+                </p>
+              </Link>
             </div>
           </div>
         </section>

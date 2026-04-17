@@ -66,7 +66,7 @@ const QUEST_DEFINITIONS = {
   },
   COMPLETE_PROFILE: {
     title: 'Complete Profile',
-    description: 'Set your bio, region, primary role, and at least one language.',
+    description: 'Connect Riot + Discord, set champion pool, and add your bio.',
     rewardPrismaticEssence: 320,
     repeatWindow: 'ONE_TIME',
   },
@@ -102,7 +102,7 @@ const QUEST_DEFINITIONS = {
   },
   JOIN_SUPPORT_SERVER: {
     title: 'Join Support Server',
-    description: 'Join the official support server/community.',
+    description: 'Join the official support Discord (linked Discord account required).',
     rewardPrismaticEssence: 210,
     repeatWindow: 'ONE_TIME',
   },
@@ -123,17 +123,38 @@ const QUEST_DEFINITIONS = {
 type QuestKey = keyof typeof QUEST_DEFINITIONS;
 const QUEST_KEYS = Object.keys(QUEST_DEFINITIONS) as QuestKey[];
 
+const DEFAULT_SUPPORT_DISCORD_GUILD_ID = '1051156621860020304';
 const SUPPORT_DISCORD_INVITE_CODE = String(process.env.SUPPORT_DISCORD_INVITE_CODE || 'uypaWqmxx6').toLowerCase();
 const SUPPORT_COMMUNITY_HINTS = String(process.env.SUPPORT_COMMUNITY_HINTS || 'riftessence-support,support')
   .split(',')
   .map((entry) => entry.trim().toLowerCase())
   .filter(Boolean);
 const SUPPORT_DISCORD_SERVER_IDS = new Set(
-  String(process.env.SUPPORT_DISCORD_SERVER_IDS || '')
+  String(process.env.SUPPORT_DISCORD_SERVER_IDS || DEFAULT_SUPPORT_DISCORD_GUILD_ID)
     .split(',')
     .map((entry) => entry.trim())
     .filter(Boolean)
 );
+const SUPPORT_DISCORD_GUILD_ID = String(process.env.SUPPORT_DISCORD_GUILD_ID || DEFAULT_SUPPORT_DISCORD_GUILD_ID).trim();
+if (SUPPORT_DISCORD_GUILD_ID) {
+  SUPPORT_DISCORD_SERVER_IDS.add(SUPPORT_DISCORD_GUILD_ID);
+}
+SUPPORT_DISCORD_SERVER_IDS.add(DEFAULT_SUPPORT_DISCORD_GUILD_ID);
+
+const DISCORD_BOT_TOKEN = String(process.env.DISCORD_BOT_TOKEN || '').trim();
+const SUPPORT_SERVER_MEMBERSHIP_CACHE_TTL_MS = parseBoundedInt(
+  process.env.SUPPORT_SERVER_MEMBERSHIP_CACHE_TTL_MS,
+  5 * 60 * 1000,
+  30 * 1000,
+  30 * 60 * 1000
+);
+
+type CachedSupportMembership = {
+  value: boolean;
+  expiresAt: number;
+};
+
+const supportServerMembershipCache = new Map<string, CachedSupportMembership>();
 
 type ActionDefinition = {
   title: string;
@@ -165,6 +186,53 @@ const ACTION_DEFINITIONS: Record<ActionKey, ActionDefinition> = {
 };
 
 const ACTION_KEYS = Object.keys(ACTION_DEFINITIONS) as ActionKey[];
+
+type GambleGameDefinition = {
+  title: string;
+  description: string;
+  minWager: number;
+  maxWager: number;
+  houseEdgePct: number;
+  expectedReturnPct: number;
+  singlePlayerOnly: boolean;
+  choices: readonly string[] | null;
+};
+
+const GAMBLE_GAME_DEFINITIONS = {
+  HOUSE_COINFLIP: {
+    title: 'House Coinflip',
+    description: 'Pick heads or tails. Win pays 1.9x, lose pays 0x.',
+    minWager: 25,
+    maxWager: 50_000,
+    houseEdgePct: 5,
+    expectedReturnPct: 95,
+    singlePlayerOnly: true,
+    choices: ['HEADS', 'TAILS'],
+  },
+  ARCANE_HIGH_LOW: {
+    title: 'Arcane High / Low',
+    description: 'Pick HIGH (56-100) or LOW (1-45). Mid band loses.',
+    minWager: 25,
+    maxWager: 75_000,
+    houseEdgePct: 10,
+    expectedReturnPct: 90,
+    singlePlayerOnly: true,
+    choices: ['HIGH', 'LOW'],
+  },
+  VOID_DRAW: {
+    title: 'Void Draw',
+    description: 'Pull a random tier. High multipliers are intentionally rare.',
+    minWager: 50,
+    maxWager: 100_000,
+    houseEdgePct: 12.4,
+    expectedReturnPct: 87.6,
+    singlePlayerOnly: true,
+    choices: null,
+  },
+} as const satisfies Record<string, GambleGameDefinition>;
+
+type GambleGameKey = keyof typeof GAMBLE_GAME_DEFINITIONS;
+const GAMBLE_GAME_KEYS = Object.keys(GAMBLE_GAME_DEFINITIONS) as GambleGameKey[];
 
 type CosmeticCategory = 'BADGE' | 'USERNAME_DECORATION' | 'HOVER_EFFECT' | 'VISUAL_EFFECT' | 'FONT';
 
@@ -398,6 +466,15 @@ const BuyAdspaceCreditsSchema = z.object({
   quantity: z.preprocess((value) => (value === undefined ? 1 : Number(value)), z.number().int().min(1).max(250)).default(1),
 });
 
+const GamblePlaySchema = z.object({
+  wager: z.preprocess((value) => Number(value), z.number().int().min(1).max(500_000)),
+  choice: z.preprocess((value) => {
+    if (value === undefined || value === null) return undefined;
+    const normalized = String(value).trim().toUpperCase();
+    return normalized.length > 0 ? normalized : undefined;
+  }, z.string().max(24).optional()),
+});
+
 const DeactivateCosmeticSchema = z.object({
   category: z.enum(['ALL', 'USERNAME_DECORATION', 'HOVER_EFFECT', 'VISUAL_EFFECT', 'FONT']).default('ALL'),
 });
@@ -462,6 +539,10 @@ function isKnownActionKey(value: string): value is ActionKey {
   return (ACTION_KEYS as string[]).includes(value);
 }
 
+function isKnownGambleGameKey(value: string): value is GambleGameKey {
+  return (GAMBLE_GAME_KEYS as string[]).includes(value);
+}
+
 function isKnownCosmeticKey(value: string): value is CosmeticItemKey {
   return (COSMETIC_KEYS as string[]).includes(value);
 }
@@ -501,6 +582,165 @@ function hasJoinedSupportServer(memberships: Array<{ community: { slug: string; 
 
     return SUPPORT_COMMUNITY_HINTS.some((hint) => slug.includes(hint));
   });
+}
+
+async function hasJoinedSupportServerViaDiscord(discordId: string): Promise<boolean> {
+  const normalizedDiscordId = String(discordId || '').trim();
+  if (!normalizedDiscordId) {
+    return false;
+  }
+
+  const now = Date.now();
+  const cached = supportServerMembershipCache.get(normalizedDiscordId);
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
+  }
+
+  if (!DISCORD_BOT_TOKEN || SUPPORT_DISCORD_SERVER_IDS.size === 0) {
+    supportServerMembershipCache.set(normalizedDiscordId, {
+      value: false,
+      expiresAt: now + SUPPORT_SERVER_MEMBERSHIP_CACHE_TTL_MS,
+    });
+    return false;
+  }
+
+  for (const guildId of SUPPORT_DISCORD_SERVER_IDS) {
+    const normalizedGuildId = String(guildId || '').trim();
+    if (!normalizedGuildId) continue;
+
+    try {
+      const response = await fetch(
+        `https://discord.com/api/v10/guilds/${encodeURIComponent(normalizedGuildId)}/members/${encodeURIComponent(normalizedDiscordId)}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        supportServerMembershipCache.set(normalizedDiscordId, {
+          value: true,
+          expiresAt: now + SUPPORT_SERVER_MEMBERSHIP_CACHE_TTL_MS,
+        });
+        return true;
+      }
+
+      if (response.status === 404) {
+        continue;
+      }
+    } catch {
+      // Best-effort check; leave fallback eligibility checks in place.
+    }
+  }
+
+  supportServerMembershipCache.set(normalizedDiscordId, {
+    value: false,
+    expiresAt: now + SUPPORT_SERVER_MEMBERSHIP_CACHE_TTL_MS,
+  });
+  return false;
+}
+
+function hasChampionPoolConfigured(user: {
+  championList?: string[];
+  championTierlist?: any;
+}) {
+  const championList = Array.isArray(user.championList)
+    ? user.championList.filter((entry) => typeof entry === 'string' && entry.trim().length > 0)
+    : [];
+
+  if (championList.length > 0) {
+    return true;
+  }
+
+  const tierlist = user.championTierlist;
+  if (!tierlist || typeof tierlist !== 'object' || Array.isArray(tierlist)) {
+    return false;
+  }
+
+  return Object.values(tierlist).some((value) => Array.isArray(value) && value.length > 0);
+}
+
+function resolveGambleOutcome(gameKey: GambleGameKey, wager: number, choice?: string) {
+  if (gameKey === 'HOUSE_COINFLIP') {
+    const normalizedChoice = String(choice || '').toUpperCase();
+    if (normalizedChoice !== 'HEADS' && normalizedChoice !== 'TAILS') {
+      throw new Error('Pick HEADS or TAILS for House Coinflip.');
+    }
+
+    const result = randomInt(0, 2) === 0 ? 'HEADS' : 'TAILS';
+    const won = normalizedChoice === result;
+    const multiplier = won ? 1.9 : 0;
+    const payout = won ? Math.floor(wager * multiplier) : 0;
+
+    return {
+      won,
+      payout,
+      multiplier,
+      netPrismaticEssence: payout - wager,
+      outcomeLabel: result,
+      outcomeDetail: won ? 'Direct hit' : 'Wrong side',
+      normalizedChoice,
+      rollValue: null as number | null,
+    };
+  }
+
+  if (gameKey === 'ARCANE_HIGH_LOW') {
+    const normalizedChoice = String(choice || '').toUpperCase();
+    if (normalizedChoice !== 'HIGH' && normalizedChoice !== 'LOW') {
+      throw new Error('Pick HIGH or LOW for Arcane High / Low.');
+    }
+
+    const roll = randomInt(1, 101);
+    const won = normalizedChoice === 'HIGH' ? roll >= 56 : roll <= 45;
+    const multiplier = won ? 2.0 : 0;
+    const payout = won ? Math.floor(wager * multiplier) : 0;
+
+    return {
+      won,
+      payout,
+      multiplier,
+      netPrismaticEssence: payout - wager,
+      outcomeLabel: won ? 'Win band hit' : 'Missed band',
+      outcomeDetail: `Roll ${roll}`,
+      normalizedChoice,
+      rollValue: roll,
+    };
+  }
+
+  if (gameKey === 'VOID_DRAW') {
+    const roll = randomInt(1, 10_001);
+    let tier = 'Bust';
+    let multiplier = 0;
+
+    if (roll <= 150) {
+      tier = 'Mythic';
+      multiplier = 6;
+    } else if (roll <= 1_950) {
+      tier = 'Rare';
+      multiplier = 2.2;
+    } else if (roll <= 4_950) {
+      tier = 'Common';
+      multiplier = 1.3;
+    }
+
+    const payout = multiplier > 0 ? Math.floor(wager * multiplier) : 0;
+
+    return {
+      won: payout > 0,
+      payout,
+      multiplier,
+      netPrismaticEssence: payout - wager,
+      outcomeLabel: tier,
+      outcomeDetail: `Roll ${roll}`,
+      normalizedChoice: null as string | null,
+      rollValue: roll,
+    };
+  }
+
+  throw new Error('Unsupported gamble game.');
 }
 
 type UserCosmeticState = {
@@ -678,8 +918,10 @@ async function loadQuestStatuses(userId: string) {
         region: true,
         primaryRole: true,
         languages: true,
+        championList: true,
+        championTierlist: true,
         discordDmNotifications: true,
-        discordAccount: { select: { id: true } },
+        discordAccount: { select: { id: true, discordId: true } },
         communityMemberships: {
           select: {
             community: {
@@ -699,6 +941,7 @@ async function loadQuestStatuses(userId: string) {
             communityMemberships: true,
             ratingsReceived: true,
             messagesSent: true,
+            riotAccounts: true,
           },
         },
       },
@@ -721,6 +964,10 @@ async function loadQuestStatuses(userId: string) {
   ]);
 
   if (!user) return [];
+
+  const supportServerViaDiscord = user.discordAccount?.discordId
+    ? await hasJoinedSupportServerViaDiscord(user.discordAccount.discordId)
+    : false;
 
   return QUEST_KEYS.map((questKey) => {
     const definition = QUEST_DEFINITIONS[questKey];
@@ -759,14 +1006,22 @@ async function loadQuestStatuses(userId: string) {
 
       case 'COMPLETE_PROFILE': {
         const hasBio = Boolean(user.bio && user.bio.trim().length > 0);
-        const hasRegion = Boolean(user.region);
-        const hasPrimaryRole = Boolean(user.primaryRole);
-        const hasLanguage = Array.isArray(user.languages) && user.languages.length > 0;
-        eligible = hasBio && hasRegion && hasPrimaryRole && hasLanguage;
+        const hasRiotLinked = (user._count?.riotAccounts || 0) > 0;
+        const hasDiscordLinked = Boolean(user.discordAccount);
+        const hasChampionPool = hasChampionPoolConfigured(user as any);
+
+        eligible = hasBio && hasRiotLinked && hasDiscordLinked && hasChampionPool;
         completed = hasClaimedOnce;
         available = eligible && !completed;
         if (!eligible) {
-          reason = 'Add bio, region, primary role, and at least one language.';
+          const missingSteps: string[] = [];
+          if (!hasRiotLinked) missingSteps.push('Connect Riot account');
+          if (!hasDiscordLinked) missingSteps.push('Connect Discord account');
+          if (!hasChampionPool) missingSteps.push('Set champion pool');
+          if (!hasBio) missingSteps.push('Add bio');
+          reason = missingSteps.length > 0
+            ? `Missing: ${missingSteps.join(' • ')}`
+            : 'Complete all profile setup steps.';
         } else if (completed) {
           reason = 'Already claimed.';
         }
@@ -837,11 +1092,13 @@ async function loadQuestStatuses(userId: string) {
 
       case 'JOIN_SUPPORT_SERVER': {
         const memberships = user.communityMemberships || [];
-        eligible = hasJoinedSupportServer(memberships as any);
+        eligible = hasJoinedSupportServer(memberships as any) || supportServerViaDiscord;
         completed = hasClaimedOnce;
         available = eligible && !completed;
         if (!eligible) {
-          reason = 'Join the official support server/community first.';
+          reason = user.discordAccount
+            ? 'Join the official support Discord server with your linked Discord account.'
+            : 'Connect Discord first, then join the official support Discord server.';
         } else if (completed) {
           reason = 'Already claimed.';
         }
@@ -909,6 +1166,29 @@ async function buildActionStates(userId: string, wallet?: WalletRow) {
         ? `Need ${definition.costPrismaticEssence.toLocaleString()} Prismatic Essence.`
         : null,
       badgePreview: null,
+    };
+  });
+}
+
+function buildGambleGameStates(wallet: WalletRow) {
+  return GAMBLE_GAME_KEYS.map((gameKey) => {
+    const game = GAMBLE_GAME_DEFINITIONS[gameKey];
+    const available = wallet.prismaticEssence >= game.minWager;
+
+    return {
+      key: gameKey,
+      title: game.title,
+      description: game.description,
+      minWager: game.minWager,
+      maxWager: game.maxWager,
+      houseEdgePct: game.houseEdgePct,
+      expectedReturnPct: game.expectedReturnPct,
+      singlePlayerOnly: game.singlePlayerOnly,
+      choices: game.choices ? [...game.choices] : null,
+      available,
+      blockedReason: available
+        ? null
+        : `Need at least ${game.minWager.toLocaleString()} Prismatic Essence to play.`,
     };
   });
 }
@@ -1444,6 +1724,164 @@ export default async function walletRoutes(fastify: FastifyInstance) {
     } catch (error: any) {
       request.log.error({ err: error }, 'Failed to claim wallet quest');
       return reply.code(500).send({ error: 'Failed to claim quest.' });
+    }
+  });
+
+  fastify.get('/wallet/gamble/games', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const wallet = await ensureWalletState(userId, prisma);
+      const games = buildGambleGameStates(wallet);
+
+      return reply.send({
+        games,
+        wallet: {
+          prismaticEssence: wallet.prismaticEssence,
+        },
+      });
+    } catch (error: any) {
+      request.log.error({ err: error }, 'Failed to load gamble games');
+      return reply.code(500).send({ error: 'Failed to load gamble games.' });
+    }
+  });
+
+  fastify.post('/wallet/gamble/:gameKey/play', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const rawGameKey = String(request.params?.gameKey || '').toUpperCase();
+      if (!isKnownGambleGameKey(rawGameKey)) {
+        return reply.code(404).send({ error: 'Gamble game not found.' });
+      }
+
+      const gameKey = rawGameKey as GambleGameKey;
+      const game = GAMBLE_GAME_DEFINITIONS[gameKey];
+
+      const validation = validateRequest(GamblePlaySchema, request.body || {});
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid gamble request.', details: validation.errors });
+      }
+
+      const { wager, choice } = validation.data as {
+        wager: number;
+        choice?: string;
+      };
+
+      if (wager < game.minWager || wager > game.maxWager) {
+        return reply.code(400).send({
+          error: `Wager must be between ${game.minWager.toLocaleString()} and ${game.maxWager.toLocaleString()} Prismatic Essence.`,
+        });
+      }
+
+      const playResult = await prisma.$transaction(async (tx: any) => {
+        const wallet = await ensureWalletState(userId, tx);
+
+        if (wallet.prismaticEssence < wager) {
+          throw new Error(`Need ${wager.toLocaleString()} Prismatic Essence.`);
+        }
+
+        const outcome = resolveGambleOutcome(gameKey, wager, choice);
+        let nextBalance = wallet.prismaticEssence - wager;
+
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: {
+            prismaticEssence: nextBalance,
+            totalRiftCoinsSpent: { increment: wager },
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            userId,
+            currency: 'PRISMATIC_ESSENCE',
+            type: 'SHOP_PURCHASE',
+            amount: -wager,
+            balanceAfter: nextBalance,
+            note: `Gamble wager: ${game.title}`,
+            metadata: {
+              source: 'wallet_gamble_wager',
+              gameKey,
+              choice: outcome.normalizedChoice,
+            },
+          },
+        });
+
+        if (outcome.payout > 0) {
+          nextBalance += outcome.payout;
+
+          await tx.wallet.update({
+            where: { id: wallet.id },
+            data: {
+              prismaticEssence: nextBalance,
+              totalRiftCoinsEarned: { increment: outcome.payout },
+            },
+          });
+
+          await tx.walletTransaction.create({
+            data: {
+              walletId: wallet.id,
+              userId,
+              currency: 'PRISMATIC_ESSENCE',
+              type: 'ADMIN_ADJUSTMENT',
+              amount: outcome.payout,
+              balanceAfter: nextBalance,
+              note: `Gamble payout: ${game.title}`,
+              metadata: {
+                source: 'wallet_gamble_payout',
+                gameKey,
+                outcomeLabel: outcome.outcomeLabel,
+                multiplier: outcome.multiplier,
+                rollValue: outcome.rollValue,
+              },
+            },
+          });
+        }
+
+        return {
+          ...outcome,
+          wager,
+          newBalance: nextBalance,
+        };
+      });
+
+      const [summary, wallet] = await Promise.all([
+        buildWalletSummary(userId),
+        ensureWalletState(userId, prisma),
+      ]);
+
+      return reply.send({
+        success: true,
+        result: {
+          gameKey,
+          title: game.title,
+          choice: playResult.normalizedChoice,
+          wager: playResult.wager,
+          payout: playResult.payout,
+          netPrismaticEssence: playResult.netPrismaticEssence,
+          won: playResult.won,
+          outcomeLabel: playResult.outcomeLabel,
+          outcomeDetail: playResult.outcomeDetail,
+          multiplier: playResult.multiplier,
+          rollValue: playResult.rollValue,
+          houseEdgePct: game.houseEdgePct,
+          expectedReturnPct: game.expectedReturnPct,
+          singlePlayerOnly: game.singlePlayerOnly,
+          newBalance: playResult.newBalance,
+        },
+        summary,
+        games: buildGambleGameStates(wallet),
+      });
+    } catch (error: any) {
+      if (error?.message && typeof error.message === 'string' && error.message.length < 220) {
+        return reply.code(400).send({ error: error.message });
+      }
+      request.log.error({ err: error }, 'Failed to play gamble game');
+      return reply.code(500).send({ error: 'Failed to play gamble game.' });
     }
   });
 

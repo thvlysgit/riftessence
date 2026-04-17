@@ -4,6 +4,44 @@
 
 ---
 
+## 2026-04-17 - Purse Quick Actions Redesign, Quest Fixes, and Gamble Hub
+
+### Objective: Improve Prismatic Purse UX, Fix Broken Quest Completion Rules, and Add Dedicated Solo Gamble Flows
+
+Overview: Reworked Purse quick actions into clear navigation shortcuts, removed duplicated top-page cosmetics/adspace chips, fixed impossible quest criteria (Complete Profile + Join Support Server), added guided quest completion links, and introduced a dedicated single-player gamble page with explicit house-edge-disadvantaged games.
+
+Changes:
+
+- Updated [apps/web/pages/purse.tsx](apps/web/pages/purse.tsx):
+  - Removed top-page cosmetics/adspace mini buttons.
+  - Replaced old Quick Actions purchase list with better-styled navigation buttons to `Cosmetics`, `Adspace`, and `Gamble`.
+  - Added per-quest helper links/buttons to guide users directly to completion destinations.
+- Added [apps/web/pages/purse/gamble.tsx](apps/web/pages/purse/gamble.tsx):
+  - New dedicated gamble hub with multiple single-player game modes.
+  - Added wager controls, optional choice selectors per game, and result feedback panel.
+  - Added clear UX messaging that all games are house-favored over time.
+- Updated [apps/api/src/routes/wallet.ts](apps/api/src/routes/wallet.ts):
+  - Updated `COMPLETE_PROFILE` quest criteria to require: linked Riot account, linked Discord account, champion pool set, and bio set.
+  - Updated `JOIN_SUPPORT_SERVER` quest logic to include direct Discord guild membership verification (support guild `1051156621860020304`, plus configured support guild IDs) using bot credentials.
+  - Added support-server membership caching to reduce repeated Discord API checks.
+  - Added gamble API:
+    - `GET /api/wallet/gamble/games`
+    - `POST /api/wallet/gamble/:gameKey/play`
+  - Added multiple one-player gamble modes with negative expected value by design.
+
+Validation:
+
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/web build` passes.
+
+Operational Notes:
+
+- Support-server Discord quest verification requires a valid bot token at runtime (`DISCORD_BOT_TOKEN`).
+- Optional guild overrides remain available via `SUPPORT_DISCORD_SERVER_IDS` and `SUPPORT_DISCORD_GUILD_ID`.
+
+---
+
 ## 2026-04-17 - Team Region Preselect, Discord Ping Recurrence, and Team Event Reminders
 
 ### Objective: Improve Team Setup Defaults and Make Discord Team Delivery More Controllable
