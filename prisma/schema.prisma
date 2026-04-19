@@ -1017,6 +1017,7 @@ model ScrimPost {
   source            String         @default("app")
 
   proposals         ScrimProposal[]
+  series            ScrimSeries[]
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
@@ -1046,6 +1047,7 @@ model ScrimProposal {
   autoRejectedAt      DateTime?
   responseSeconds     Int?
   discordNotifications ScrimDiscordNotification[]
+  series              ScrimSeries?
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
@@ -1053,6 +1055,55 @@ model ScrimProposal {
   @@index([postId, status, createdAt])
   @@index([proposerTeamId, status, createdAt])
   @@index([targetTeamId, status, createdAt])
+}
+
+model ScrimSeries {
+  id                        String           @id @default(cuid())
+  proposal                  ScrimProposal    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposalId                String           @unique
+  post                      ScrimPost        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId                    String
+  hostTeam                  Team             @relation("TeamScrimSeriesHost", fields: [hostTeamId], references: [id], onDelete: Cascade)
+  hostTeamId                String
+  guestTeam                 Team             @relation("TeamScrimSeriesGuest", fields: [guestTeamId], references: [id], onDelete: Cascade)
+  guestTeamId               String
+  matchCode                 String
+  scheduledAt               DateTime
+  winnerTeamId              String?
+  winnerConfirmedAt         DateTime?
+  firstReporterTeamId       String?
+  firstReportedWinnerTeamId String?
+  firstReportedAt           DateTime?
+  hostEventId               String?
+  guestEventId              String?
+  reviews                   ScrimTeamReview[]
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+
+  @@index([hostTeamId, scheduledAt])
+  @@index([guestTeamId, scheduledAt])
+  @@index([winnerTeamId, winnerConfirmedAt])
+  @@index([matchCode])
+}
+
+model ScrimTeamReview {
+  id             String      @id @default(cuid())
+  series         ScrimSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  seriesId       String
+  reviewerTeam   Team        @relation("TeamScrimReviewsGiven", fields: [reviewerTeamId], references: [id], onDelete: Cascade)
+  reviewerTeamId String
+  targetTeam     Team        @relation("TeamScrimReviewsReceived", fields: [targetTeamId], references: [id], onDelete: Cascade)
+  targetTeamId   String
+  politeness     Int
+  punctuality    Int
+  gameplay       Int
+  averageRating  Float
+  message        String?
+  createdAt      DateTime    @default(now())
+
+  @@unique([reviewerTeamId, targetTeamId])
+  @@index([targetTeamId, createdAt])
+  @@index([seriesId, createdAt])
 }
 
 model ScrimDiscordNotification {
@@ -1104,6 +1155,10 @@ model Team {
   scrimPosts  ScrimPost[]               @relation("TeamScrimPosts")
   scrimProposalsSent ScrimProposal[]    @relation("TeamScrimProposalsSent")
   scrimProposalsReceived ScrimProposal[] @relation("TeamScrimProposalsReceived")
+  scrimSeriesHost ScrimSeries[]         @relation("TeamScrimSeriesHost")
+  scrimSeriesGuest ScrimSeries[]        @relation("TeamScrimSeriesGuest")
+  scrimReviewsGiven ScrimTeamReview[]   @relation("TeamScrimReviewsGiven")
+  scrimReviewsReceived ScrimTeamReview[] @relation("TeamScrimReviewsReceived")
   notifications TeamEventNotification[]
   eventReminders TeamEventReminder[]
   

@@ -1,5 +1,6 @@
 import prisma from '../prisma';
 import { getUserIdFromRequest } from '../middleware/auth';
+import { randomUUID } from 'crypto';
 
 const REGULAR_SCRIM_FORMATS = ['BO1', 'BO3', 'BO5'] as const;
 const FEARLESS_SCRIM_FORMATS = ['FEARLESS_BO1', 'FEARLESS_BO3', 'FEARLESS_BO5', 'BLOCK'] as const;
@@ -237,6 +238,212 @@ async function canManageTeam(userId: string, teamId: string): Promise<boolean> {
   return isManageableRole(membership?.role);
 }
 
+async function isAdminUser(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      badges: {
+        select: { key: true },
+      },
+    },
+  });
+
+  return (user?.badges ?? []).some((badge: any) => normalizeString(badge.key).toLowerCase() === 'admin');
+}
+
+async function buildTeamOpggMultisearchUrl(db: any, teamId: string): Promise<string | null> {
+  const team = await db.team.findUnique({
+    where: { id: teamId },
+    select: {
+      region: true,
+      members: {
+        select: {
+          user: {
+            select: {
+              riotAccounts: {
+                where: {
+                  OR: [
+                    { isMain: true },
+                    { hidden: false },
+                  ],
+                },
+                orderBy: [
+                  { isMain: 'desc' },
+                  { createdAt: 'asc' },
+                ],
+                take: 1,
+                select: {
+                  gameName: true,
+                  tagLine: true,
+                  summonerName: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!team) {
+    return null;
+  }
+
+  const riotIds = (team.members as any[])
+    .map((member: any) => {
+      const account = member.user?.riotAccounts?.[0];
+      if (!account) {
+        return null;
+      }
+
+      const gameName = normalizeString(account.gameName || account.summonerName);
+      const tagLine = normalizeString(account.tagLine);
+      if (!gameName) {
+        return null;
+      }
+
+      return tagLine ? `${gameName}#${tagLine}` : gameName;
+    })
+    .filter(Boolean) as string[];
+
+  return buildOpggMultisearchUrl(team.region, riotIds);
+}
+
+function generateScrimMatchCode(): string {
+  const stamp = Date.now().toString(36).toUpperCase();
+  const randomPart = randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase();
+  return `SCRIM-${stamp}-${randomPart}`;
+}
+
+async function createOrReuseScrimEvent(db: any, params: {
+  teamId: string;
+  title: string;
+  scheduledAt: Date;
+  enemyMultigg: string | null;
+  createdBy: string;
+}): Promise<string | null> {
+  const scheduleMs = params.scheduledAt.getTime();
+  if (!Number.isFinite(scheduleMs)) {
+    return null;
+  }
+
+  const windowMs = 10 * 60 * 1000;
+  const existing = await db.teamEvent.findFirst({
+    where: {
+      teamId: params.teamId,
+      type: 'SCRIM',
+      title: params.title,
+      scheduledAt: {
+        gte: new Date(scheduleMs - windowMs),
+        lte: new Date(scheduleMs + windowMs),
+      },
+    },
+    select: { id: true },
+  });
+
+  if (existing?.id) {
+    return existing.id;
+  }
+
+  const created = await db.teamEvent.create({
+    data: {
+      teamId: params.teamId,
+      title: params.title,
+      type: 'SCRIM',
+      scheduledAt: params.scheduledAt,
+      enemyMultigg: params.enemyMultigg,
+      createdBy: params.createdBy,
+      description: 'Auto-created from Scrim Finder accepted proposal.',
+    },
+    select: { id: true },
+  });
+
+  return created.id;
+}
+
+async function ensureScrimSeriesForProposal(db: any, proposalId: string): Promise<string | null> {
+  const proposal = await db.scrimProposal.findUnique({
+    where: { id: proposalId },
+    include: {
+      post: {
+        select: {
+          id: true,
+          teamId: true,
+          teamName: true,
+          startTimeUtc: true,
+          opggMultisearchUrl: true,
+        },
+      },
+    },
+  });
+
+  if (!proposal || !proposal.post || proposal.status !== 'ACCEPTED') {
+    return null;
+  }
+
+  const scheduledAt = proposal.post.startTimeUtc;
+  const hostTeam = await db.team.findUnique({
+    where: { id: proposal.targetTeamId },
+    select: {
+      name: true,
+      ownerId: true,
+    },
+  });
+  const guestTeam = await db.team.findUnique({
+    where: { id: proposal.proposerTeamId },
+    select: {
+      name: true,
+      ownerId: true,
+    },
+  });
+
+  const hostEnemyMultigg = await buildTeamOpggMultisearchUrl(db, proposal.proposerTeamId);
+  const guestEnemyMultigg = proposal.post.opggMultisearchUrl || await buildTeamOpggMultisearchUrl(db, proposal.targetTeamId);
+
+  const [hostEventId, guestEventId] = await Promise.all([
+    hostTeam?.ownerId
+      ? createOrReuseScrimEvent(db, {
+          teamId: proposal.targetTeamId,
+          title: `Scrim vs ${guestTeam?.name || 'Opponent Team'}`,
+          scheduledAt,
+          enemyMultigg: hostEnemyMultigg,
+          createdBy: hostTeam.ownerId,
+        })
+      : Promise.resolve(null),
+    guestTeam?.ownerId
+      ? createOrReuseScrimEvent(db, {
+          teamId: proposal.proposerTeamId,
+          title: `Scrim vs ${proposal.post.teamName || hostTeam?.name || 'Opponent Team'}`,
+          scheduledAt,
+          enemyMultigg: guestEnemyMultigg,
+          createdBy: guestTeam.ownerId,
+        })
+      : Promise.resolve(null),
+  ]);
+
+  const series = await db.scrimSeries.upsert({
+    where: { proposalId: proposal.id },
+    update: {
+      hostEventId: hostEventId,
+      guestEventId: guestEventId,
+      scheduledAt,
+    },
+    create: {
+      proposalId: proposal.id,
+      postId: proposal.post.id,
+      hostTeamId: proposal.targetTeamId,
+      guestTeamId: proposal.proposerTeamId,
+      hostEventId: hostEventId,
+      guestEventId: guestEventId,
+      matchCode: generateScrimMatchCode(),
+      scheduledAt,
+    },
+    select: { id: true },
+  });
+
+  return series.id;
+}
+
 async function assertDiscordReliabilityReady(userId: string, reply: any): Promise<boolean> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -464,7 +671,10 @@ async function applyScrimProposalDecision(params: {
       post: {
         select: {
           id: true,
+          teamId: true,
           teamName: true,
+          startTimeUtc: true,
+          opggMultisearchUrl: true,
           status: true,
         },
       },
@@ -579,7 +789,9 @@ async function applyScrimProposalDecision(params: {
         })));
       }
 
-      return { status: 'ACCEPTED' };
+      const seriesId = await ensureScrimSeriesForProposal(tx, latest.id);
+
+      return { status: 'ACCEPTED', seriesId };
     }
 
     if (normalizedAction === 'REJECT') {
@@ -716,7 +928,10 @@ export default async function scrimRoutes(fastify: any) {
         where.teamId = normalizeString(teamId);
       }
 
-      const manageableTeamIds = await getManageableTeamIds(userId);
+      const [manageableTeamIds, viewerIsAdmin] = await Promise.all([
+        getManageableTeamIds(userId),
+        isAdminUser(userId),
+      ]);
 
       const posts = await prisma.scrimPost.findMany({
         where,
@@ -802,6 +1017,7 @@ export default async function scrimRoutes(fastify: any) {
           createdAt: post.createdAt,
           updatedAt: post.updatedAt,
           team: post.team,
+          canDelete: post.authorId === userId || manageableTeamIds.includes(post.teamId) || viewerIsAdmin,
           proposalStats: {
             pendingCount,
             delayedCount,
@@ -1169,6 +1385,51 @@ export default async function scrimRoutes(fastify: any) {
     }
   });
 
+  // DELETE /api/scrims/posts/:postId - Delete scrim listing (creator/manager/admin)
+  fastify.delete('/scrims/posts/:postId', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { postId } = request.params as { postId: string };
+      const normalizedPostId = normalizeString(postId);
+      if (!normalizedPostId) {
+        return reply.status(400).send({ error: 'postId is required' });
+      }
+
+      const post = await prisma.scrimPost.findUnique({
+        where: { id: normalizedPostId },
+        select: {
+          id: true,
+          teamId: true,
+          authorId: true,
+        },
+      });
+
+      if (!post) {
+        return reply.status(404).send({ error: 'Scrim post not found' });
+      }
+
+      const [canManage, isAdmin] = await Promise.all([
+        canManageTeam(userId, post.teamId),
+        isAdminUser(userId),
+      ]);
+
+      if (post.authorId !== userId && !canManage && !isAdmin) {
+        return reply.status(403).send({ error: 'You are not allowed to delete this scrim post' });
+      }
+
+      await prisma.scrimPost.delete({
+        where: { id: post.id },
+      });
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to delete scrim post' });
+    }
+  });
+
   // POST /api/scrims/posts/:postId/proposals - Propose a scrim
   fastify.post('/scrims/posts/:postId/proposals', async (request: any, reply: any) => {
     try {
@@ -1376,6 +1637,7 @@ export default async function scrimRoutes(fastify: any) {
       return reply.send({
         success: true,
         status: outcome.status,
+        seriesId: (outcome as any).seriesId || null,
       });
     } catch (error: any) {
       if (error instanceof ScrimRouteError) {
@@ -1415,6 +1677,7 @@ export default async function scrimRoutes(fastify: any) {
       return reply.send({
         success: true,
         status: outcome.status,
+        seriesId: (outcome as any).seriesId || null,
       });
     } catch (error: any) {
       if (error instanceof ScrimRouteError) {
@@ -1423,6 +1686,443 @@ export default async function scrimRoutes(fastify: any) {
 
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to process Discord scrim decision' });
+    }
+  });
+
+  // GET /api/scrims/series/pending-results - Series awaiting winner agreement from both teams
+  fastify.get('/scrims/series/pending-results', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const manageableTeamIds = await getManageableTeamIds(userId);
+      if (manageableTeamIds.length === 0) {
+        return reply.send({ series: [] });
+      }
+
+      const series = await prisma.scrimSeries.findMany({
+        where: {
+          winnerConfirmedAt: null,
+          OR: [
+            { hostTeamId: { in: manageableTeamIds } },
+            { guestTeamId: { in: manageableTeamIds } },
+          ],
+        },
+        orderBy: [{ scheduledAt: 'desc' }, { createdAt: 'desc' }],
+        take: 120,
+        include: {
+          hostTeam: {
+            select: {
+              id: true,
+              name: true,
+              tag: true,
+            },
+          },
+          guestTeam: {
+            select: {
+              id: true,
+              name: true,
+              tag: true,
+            },
+          },
+          proposal: {
+            select: {
+              id: true,
+              post: {
+                select: {
+                  id: true,
+                  scrimFormat: true,
+                  startTimeUtc: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const payload = (series as any[]).map((entry) => {
+        const myTeamIds = [entry.hostTeamId, entry.guestTeamId].filter((teamId: string) => manageableTeamIds.includes(teamId));
+        return {
+          id: entry.id,
+          matchCode: entry.matchCode,
+          scheduledAt: entry.scheduledAt,
+          hostTeamId: entry.hostTeamId,
+          guestTeamId: entry.guestTeamId,
+          hostTeam: entry.hostTeam,
+          guestTeam: entry.guestTeam,
+          firstReporterTeamId: entry.firstReporterTeamId,
+          firstReportedWinnerTeamId: entry.firstReportedWinnerTeamId,
+          firstReportedAt: entry.firstReportedAt,
+          proposal: entry.proposal,
+          myTeamIds,
+        };
+      });
+
+      return reply.send({ series: payload });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch pending scrim results' });
+    }
+  });
+
+  // POST /api/scrims/series/:seriesId/result - Report winner and require opponent agreement
+  fastify.post('/scrims/series/:seriesId/result', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { seriesId } = request.params as { seriesId: string };
+      const {
+        reportingTeamId,
+        winnerTeamId,
+      } = request.body as {
+        reportingTeamId?: string;
+        winnerTeamId?: string;
+      };
+
+      const normalizedSeriesId = normalizeString(seriesId);
+      const normalizedReportingTeamId = normalizeString(reportingTeamId);
+      const normalizedWinnerTeamId = normalizeString(winnerTeamId);
+
+      if (!normalizedSeriesId || !normalizedReportingTeamId || !normalizedWinnerTeamId) {
+        return reply.status(400).send({ error: 'seriesId, reportingTeamId, and winnerTeamId are required' });
+      }
+
+      if (!await canManageTeam(userId, normalizedReportingTeamId)) {
+        return reply.status(403).send({ error: 'You are not allowed to report results for this team' });
+      }
+
+      const result = await prisma.$transaction(async (tx: any) => {
+        const current = await tx.scrimSeries.findUnique({
+          where: { id: normalizedSeriesId },
+          select: {
+            id: true,
+            hostTeamId: true,
+            guestTeamId: true,
+            winnerTeamId: true,
+            winnerConfirmedAt: true,
+            firstReporterTeamId: true,
+            firstReportedWinnerTeamId: true,
+          },
+        });
+
+        if (!current) {
+          return { errorCode: 404, error: 'Scrim series not found' };
+        }
+
+        if (![current.hostTeamId, current.guestTeamId].includes(normalizedReportingTeamId)) {
+          return { errorCode: 403, error: 'Reporting team is not part of this scrim series' };
+        }
+
+        if (![current.hostTeamId, current.guestTeamId].includes(normalizedWinnerTeamId)) {
+          return { errorCode: 400, error: 'winnerTeamId must be one of the teams in this scrim series' };
+        }
+
+        if (current.winnerConfirmedAt) {
+          return {
+            status: 'CONFIRMED',
+            winnerTeamId: current.winnerTeamId,
+            alreadyConfirmed: true,
+          };
+        }
+
+        const now = new Date();
+
+        if (!current.firstReporterTeamId) {
+          const updated = await tx.scrimSeries.update({
+            where: { id: current.id },
+            data: {
+              firstReporterTeamId: normalizedReportingTeamId,
+              firstReportedWinnerTeamId: normalizedWinnerTeamId,
+              firstReportedAt: now,
+            },
+            select: {
+              id: true,
+              firstReporterTeamId: true,
+              firstReportedWinnerTeamId: true,
+            },
+          });
+
+          return {
+            status: 'PENDING_CONFIRMATION',
+            firstReporterTeamId: updated.firstReporterTeamId,
+            firstReportedWinnerTeamId: updated.firstReportedWinnerTeamId,
+          };
+        }
+
+        if (current.firstReporterTeamId === normalizedReportingTeamId) {
+          const updated = await tx.scrimSeries.update({
+            where: { id: current.id },
+            data: {
+              firstReportedWinnerTeamId: normalizedWinnerTeamId,
+              firstReportedAt: now,
+            },
+            select: {
+              id: true,
+              firstReporterTeamId: true,
+              firstReportedWinnerTeamId: true,
+            },
+          });
+
+          return {
+            status: 'PENDING_CONFIRMATION',
+            firstReporterTeamId: updated.firstReporterTeamId,
+            firstReportedWinnerTeamId: updated.firstReportedWinnerTeamId,
+          };
+        }
+
+        if (current.firstReportedWinnerTeamId === normalizedWinnerTeamId) {
+          const confirmed = await tx.scrimSeries.update({
+            where: { id: current.id },
+            data: {
+              winnerTeamId: normalizedWinnerTeamId,
+              winnerConfirmedAt: now,
+            },
+            select: {
+              id: true,
+              winnerTeamId: true,
+              winnerConfirmedAt: true,
+            },
+          });
+
+          return {
+            status: 'CONFIRMED',
+            winnerTeamId: confirmed.winnerTeamId,
+            winnerConfirmedAt: confirmed.winnerConfirmedAt,
+            alreadyConfirmed: false,
+          };
+        }
+
+        return {
+          status: 'CONFLICT',
+          expectedWinnerTeamId: current.firstReportedWinnerTeamId,
+        };
+      });
+
+      if ((result as any).errorCode) {
+        return reply.status((result as any).errorCode).send({ error: (result as any).error });
+      }
+
+      if ((result as any).status === 'CONFLICT') {
+        return reply.status(409).send({
+          error: 'Teams did not agree on winner yet. Ask the opponent to align on the reported winner.',
+          expectedWinnerTeamId: (result as any).expectedWinnerTeamId,
+        });
+      }
+
+      return reply.send({
+        success: true,
+        result,
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to report scrim result' });
+    }
+  });
+
+  // GET /api/scrims/reviews/candidates - Team pairs eligible for first-time review
+  fastify.get('/scrims/reviews/candidates', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const manageableTeamIds = await getManageableTeamIds(userId);
+      if (manageableTeamIds.length === 0) {
+        return reply.send({ candidates: [] });
+      }
+
+      const series = await prisma.scrimSeries.findMany({
+        where: {
+          winnerConfirmedAt: { not: null },
+          OR: [
+            { hostTeamId: { in: manageableTeamIds } },
+            { guestTeamId: { in: manageableTeamIds } },
+          ],
+        },
+        orderBy: { winnerConfirmedAt: 'desc' },
+        take: 200,
+        include: {
+          hostTeam: {
+            select: {
+              id: true,
+              name: true,
+              tag: true,
+            },
+          },
+          guestTeam: {
+            select: {
+              id: true,
+              name: true,
+              tag: true,
+            },
+          },
+        },
+      });
+
+      const involvedTeamIds = Array.from(new Set((series as any[]).flatMap((entry) => [entry.hostTeamId, entry.guestTeamId])));
+      const existingReviews = involvedTeamIds.length > 0
+        ? await prisma.scrimTeamReview.findMany({
+            where: {
+              reviewerTeamId: { in: involvedTeamIds },
+              targetTeamId: { in: involvedTeamIds },
+            },
+            select: {
+              reviewerTeamId: true,
+              targetTeamId: true,
+            },
+          })
+        : [];
+
+      const reviewedPairSet = new Set((existingReviews as Array<{ reviewerTeamId: string; targetTeamId: string }>).map((entry) => `${entry.reviewerTeamId}::${entry.targetTeamId}`));
+      const candidates: Array<Record<string, any>> = [];
+
+      (series as any[]).forEach((entry) => {
+        const pairs: Array<{ reviewerTeamId: string; targetTeamId: string; reviewerTeam: any; targetTeam: any }> = [];
+
+        if (manageableTeamIds.includes(entry.hostTeamId)) {
+          pairs.push({
+            reviewerTeamId: entry.hostTeamId,
+            targetTeamId: entry.guestTeamId,
+            reviewerTeam: entry.hostTeam,
+            targetTeam: entry.guestTeam,
+          });
+        }
+
+        if (manageableTeamIds.includes(entry.guestTeamId)) {
+          pairs.push({
+            reviewerTeamId: entry.guestTeamId,
+            targetTeamId: entry.hostTeamId,
+            reviewerTeam: entry.guestTeam,
+            targetTeam: entry.hostTeam,
+          });
+        }
+
+        pairs.forEach((pair) => {
+          const pairKey = `${pair.reviewerTeamId}::${pair.targetTeamId}`;
+          if (reviewedPairSet.has(pairKey)) {
+            return;
+          }
+
+          reviewedPairSet.add(pairKey);
+          candidates.push({
+            seriesId: entry.id,
+            matchCode: entry.matchCode,
+            winnerTeamId: entry.winnerTeamId,
+            winnerConfirmedAt: entry.winnerConfirmedAt,
+            scheduledAt: entry.scheduledAt,
+            reviewerTeamId: pair.reviewerTeamId,
+            targetTeamId: pair.targetTeamId,
+            reviewerTeam: pair.reviewerTeam,
+            targetTeam: pair.targetTeam,
+          });
+        });
+      });
+
+      return reply.send({ candidates });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch scrim review candidates' });
+    }
+  });
+
+  // POST /api/scrims/reviews - Submit team-vs-team review once per directed pair
+  fastify.post('/scrims/reviews', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const {
+        seriesId,
+        reviewerTeamId,
+        targetTeamId,
+        politeness,
+        punctuality,
+        gameplay,
+        message,
+      } = request.body as {
+        seriesId?: string;
+        reviewerTeamId?: string;
+        targetTeamId?: string;
+        politeness?: number;
+        punctuality?: number;
+        gameplay?: number;
+        message?: string;
+      };
+
+      const normalizedSeriesId = normalizeString(seriesId);
+      const normalizedReviewerTeamId = normalizeString(reviewerTeamId);
+      const normalizedTargetTeamId = normalizeString(targetTeamId);
+
+      if (!normalizedSeriesId || !normalizedReviewerTeamId || !normalizedTargetTeamId) {
+        return reply.status(400).send({ error: 'seriesId, reviewerTeamId, and targetTeamId are required' });
+      }
+
+      if (normalizedReviewerTeamId === normalizedTargetTeamId) {
+        return reply.status(400).send({ error: 'reviewerTeamId and targetTeamId must be different teams' });
+      }
+
+      const scoreValues = [politeness, punctuality, gameplay].map((value) => Number(value));
+      const hasInvalidScore = scoreValues.some((value) => !Number.isFinite(value) || value < 1 || value > 5);
+      if (hasInvalidScore) {
+        return reply.status(400).send({ error: 'politeness, punctuality, and gameplay must be numbers from 1 to 5' });
+      }
+
+      if (!await canManageTeam(userId, normalizedReviewerTeamId)) {
+        return reply.status(403).send({ error: 'You are not allowed to submit reviews for this team' });
+      }
+
+      const series = await prisma.scrimSeries.findUnique({
+        where: { id: normalizedSeriesId },
+        select: {
+          id: true,
+          hostTeamId: true,
+          guestTeamId: true,
+          winnerConfirmedAt: true,
+        },
+      });
+
+      if (!series) {
+        return reply.status(404).send({ error: 'Scrim series not found' });
+      }
+
+      if (!series.winnerConfirmedAt) {
+        return reply.status(400).send({ error: 'Result agreement must be completed before leaving a review' });
+      }
+
+      const validDirectedPair =
+        (normalizedReviewerTeamId === series.hostTeamId && normalizedTargetTeamId === series.guestTeamId)
+        || (normalizedReviewerTeamId === series.guestTeamId && normalizedTargetTeamId === series.hostTeamId);
+
+      if (!validDirectedPair) {
+        return reply.status(400).send({ error: 'reviewerTeamId/targetTeamId must match the teams in this scrim series' });
+      }
+
+      const averageRating = Number(((scoreValues[0] + scoreValues[1] + scoreValues[2]) / 3).toFixed(2));
+
+      const created = await prisma.scrimTeamReview.create({
+        data: {
+          seriesId: series.id,
+          reviewerTeamId: normalizedReviewerTeamId,
+          targetTeamId: normalizedTargetTeamId,
+          politeness: scoreValues[0],
+          punctuality: scoreValues[1],
+          gameplay: scoreValues[2],
+          averageRating,
+          message: normalizeOptionalString(message),
+        },
+      });
+
+      return reply.status(201).send({
+        success: true,
+        review: created,
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        return reply.status(409).send({ error: 'This team pair already has a submitted review.' });
+      }
+
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to submit scrim review' });
     }
   });
 }

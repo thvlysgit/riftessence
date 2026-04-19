@@ -59,7 +59,37 @@ interface TeamDetails {
   members: TeamMember[];
   pendingRoster: PendingSpot[];
   upcomingEvents: TeamEvent[];
+  scrimPerformance: {
+    totalSeries: number;
+    wins: number;
+    losses: number;
+    winRate: number | null;
+  };
+  scrimReputation: {
+    averageRating: number | null;
+    reviewCount: number;
+    recentReviews: Array<{
+      id: string;
+      reviewerTeam: {
+        id: string;
+        name: string;
+        tag: string | null;
+      };
+      politeness: number;
+      punctuality: number;
+      gameplay: number;
+      averageRating: number;
+      message: string | null;
+      createdAt: string;
+      series: {
+        id: string;
+        matchCode: string;
+        scheduledAt: string;
+      } | null;
+    }>;
+  };
   createdAt: string;
+  updatedAt: string;
 }
 
 const PLAYER_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS'];
@@ -144,6 +174,15 @@ const getRoleColor = (role: string): string => {
     OWNER: '#FFD700',
   };
   return colors[role] || '#6B7280';
+};
+
+const teamLabel = (name: string, tag: string | null): string => {
+  return tag ? `${name} [${tag}]` : name;
+};
+
+const renderRatingStars = (rating: number): string => {
+  const rounded = Math.max(0, Math.min(5, Math.round(rating)));
+  return `${'★'.repeat(rounded)}${'☆'.repeat(5 - rounded)}`;
 };
 
 const TeamDetailPage: React.FC = () => {
@@ -714,6 +753,102 @@ const TeamDetailPage: React.FC = () => {
               </div>
             </div>
           </header>
+
+          <section
+            className="border p-6"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              borderColor: 'var(--color-border)',
+              borderRadius: 'var(--border-radius)',
+            }}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                Scrim Performance & Reputation
+              </h2>
+              <Link
+                href="/teams/scrims"
+                className="text-sm px-3 py-1.5 rounded-lg border hover:opacity-85"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+              >
+                Open Scrim Finder
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+              <div className="rounded-lg border p-3" style={{ borderColor: 'rgba(59,130,246,0.35)', backgroundColor: 'rgba(59,130,246,0.08)' }}>
+                <p className="text-xs uppercase tracking-wide" style={{ color: '#93C5FD' }}>Win Rate</p>
+                <p className="text-2xl font-extrabold mt-1" style={{ color: '#DBEAFE' }}>
+                  {team.scrimPerformance?.winRate !== null && team.scrimPerformance?.winRate !== undefined
+                    ? `${team.scrimPerformance.winRate}%`
+                    : 'No data'}
+                </p>
+              </div>
+
+              <div className="rounded-lg border p-3" style={{ borderColor: 'rgba(34,197,94,0.35)', backgroundColor: 'rgba(34,197,94,0.08)' }}>
+                <p className="text-xs uppercase tracking-wide" style={{ color: '#86EFAC' }}>Record</p>
+                <p className="text-2xl font-extrabold mt-1" style={{ color: '#DCFCE7' }}>
+                  {team.scrimPerformance?.wins || 0}W - {team.scrimPerformance?.losses || 0}L
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                  {team.scrimPerformance?.totalSeries || 0} confirmed series
+                </p>
+              </div>
+
+              <div className="rounded-lg border p-3" style={{ borderColor: 'rgba(245,158,11,0.35)', backgroundColor: 'rgba(245,158,11,0.08)' }}>
+                <p className="text-xs uppercase tracking-wide" style={{ color: '#FCD34D' }}>Team Rating</p>
+                <p className="text-2xl font-extrabold mt-1" style={{ color: '#FEF3C7' }}>
+                  {team.scrimReputation?.averageRating !== null && team.scrimReputation?.averageRating !== undefined
+                    ? `${team.scrimReputation.averageRating.toFixed(2)} / 5`
+                    : 'No reviews'}
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                  {team.scrimReputation?.reviewCount || 0} review{(team.scrimReputation?.reviewCount || 0) !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                Recent Public Scrim Reviews
+              </h3>
+              {!team.scrimReputation?.recentReviews || team.scrimReputation.recentReviews.length === 0 ? (
+                <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                  No public comments yet.
+                </p>
+              ) : (
+                team.scrimReputation.recentReviews.map((review) => (
+                  <div
+                    key={review.id}
+                    className="rounded-lg border p-3"
+                    style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}
+                  >
+                    <div className="flex flex-wrap items-center gap-2 justify-between mb-1">
+                      <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                        From {teamLabel(review.reviewerTeam.name, review.reviewerTeam.tag)}
+                      </p>
+                      <span className="text-xs" style={{ color: '#FCD34D' }}>
+                        {renderRatingStars(review.averageRating)} ({review.averageRating.toFixed(2)})
+                      </span>
+                    </div>
+
+                    <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                      Politeness {review.politeness}/5 • Punctuality {review.punctuality}/5 • Gameplay {review.gameplay}/5
+                    </p>
+
+                    <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                      {review.message || 'No comment provided.'}
+                    </p>
+
+                    <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                      {review.series?.matchCode ? `${review.series.matchCode} • ` : ''}
+                      {new Date(review.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
 
           {/* Roster */}
           <section

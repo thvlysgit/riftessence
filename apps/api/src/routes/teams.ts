@@ -518,8 +518,69 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(404).send({ error: 'Team not found' });
       }
 
-      const isMember = await isTeamMember(userId, id);
-      const canManage = await canManageRoster(userId, id);
+      const [
+        isMember,
+        canManage,
+        canEditScheduleValue,
+        finalizedSeries,
+        reviewsAggregate,
+        recentReviews,
+      ] = await Promise.all([
+        isTeamMember(userId, id),
+        canManageRoster(userId, id),
+        canEditSchedule(userId, id),
+        prisma.scrimSeries.findMany({
+          where: {
+            winnerConfirmedAt: { not: null },
+            OR: [
+              { hostTeamId: id },
+              { guestTeamId: id },
+            ],
+          },
+          select: {
+            winnerTeamId: true,
+          },
+        }),
+        prisma.scrimTeamReview.aggregate({
+          where: { targetTeamId: id },
+          _avg: { averageRating: true },
+          _count: { _all: true },
+        }),
+        prisma.scrimTeamReview.findMany({
+          where: {
+            targetTeamId: id,
+            message: { not: null },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 25,
+          include: {
+            reviewerTeam: {
+              select: {
+                id: true,
+                name: true,
+                tag: true,
+              },
+            },
+            series: {
+              select: {
+                id: true,
+                matchCode: true,
+                scheduledAt: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      const totalSeries = finalizedSeries.length;
+      const wins = finalizedSeries.filter((entry: any) => entry.winnerTeamId === id).length;
+      const losses = Math.max(0, totalSeries - wins);
+      const winRate = totalSeries > 0 ? Number(((wins / totalSeries) * 100).toFixed(1)) : null;
+
+      const averageRating = typeof reviewsAggregate._avg.averageRating === 'number'
+        ? Number(reviewsAggregate._avg.averageRating.toFixed(2))
+        : null;
+      const reviewCount = reviewsAggregate._count._all || 0;
       
       // Check if user can join (has pending spot matching their account)
       let canJoin = false;
@@ -572,7 +633,7 @@ export default async function teamsRoutes(fastify: any) {
         pendingSpotRole,
         myRole: myMembership?.role || null,
         canManageRoster: canManage,
-        canEditSchedule: await canEditSchedule(userId, id),
+        canEditSchedule: canEditScheduleValue,
         members: team.members.map((m: any) => {
           const riotAccount = m.user.riotAccounts?.[0];
           return {
@@ -609,6 +670,27 @@ export default async function teamsRoutes(fastify: any) {
             status: a.status
           }))
         })) : [],
+        scrimPerformance: {
+          totalSeries,
+          wins,
+          losses,
+          winRate,
+        },
+        scrimReputation: {
+          averageRating,
+          reviewCount,
+          recentReviews: (recentReviews as any[]).map((review) => ({
+            id: review.id,
+            reviewerTeam: review.reviewerTeam,
+            politeness: review.politeness,
+            punctuality: review.punctuality,
+            gameplay: review.gameplay,
+            averageRating: review.averageRating,
+            message: review.message,
+            createdAt: review.createdAt,
+            series: review.series,
+          })),
+        },
         createdAt: team.createdAt,
         updatedAt: team.updatedAt
       });

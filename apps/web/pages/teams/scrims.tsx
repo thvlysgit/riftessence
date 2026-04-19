@@ -59,6 +59,7 @@ interface ScrimFeedPost {
   details: string | null;
   status: string;
   createdAt: string;
+  canDelete: boolean;
   proposalStats: {
     pendingCount: number;
     delayedCount: number;
@@ -79,6 +80,59 @@ interface ScrimFeedPost {
     };
   } | null;
 }
+
+interface PendingScrimSeries {
+  id: string;
+  matchCode: string;
+  scheduledAt: string;
+  hostTeamId: string;
+  guestTeamId: string;
+  hostTeam: {
+    id: string;
+    name: string;
+    tag: string | null;
+  };
+  guestTeam: {
+    id: string;
+    name: string;
+    tag: string | null;
+  };
+  firstReporterTeamId: string | null;
+  firstReportedWinnerTeamId: string | null;
+  myTeamIds: string[];
+}
+
+interface ScrimReviewCandidate {
+  seriesId: string;
+  matchCode: string;
+  winnerTeamId: string;
+  winnerConfirmedAt: string;
+  scheduledAt: string;
+  reviewerTeamId: string;
+  targetTeamId: string;
+  reviewerTeam: {
+    id: string;
+    name: string;
+    tag: string | null;
+  };
+  targetTeam: {
+    id: string;
+    name: string;
+    tag: string | null;
+  };
+}
+
+type ResultDraft = {
+  reportingTeamId: string;
+  winnerTeamId: string;
+};
+
+type ReviewDraft = {
+  politeness: number;
+  punctuality: number;
+  gameplay: number;
+  message: string;
+};
 
 type PostForm = {
   averageRank: string;
@@ -188,6 +242,10 @@ function rankAccent(rank: string | null | undefined): string {
   return '#64748B';
 }
 
+function formatTeamLabel(team: { name: string; tag: string | null }): string {
+  return team.tag ? `${team.name} [${team.tag}]` : team.name;
+}
+
 export default function TeamsScrimsPage() {
   const { user } = useAuth();
   const { showToast, confirm } = useGlobalUI();
@@ -208,16 +266,25 @@ export default function TeamsScrimsPage() {
   });
 
   const [feedPosts, setFeedPosts] = useState<ScrimFeedPost[]>([]);
+  const [pendingSeries, setPendingSeries] = useState<PendingScrimSeries[]>([]);
+  const [reviewCandidates, setReviewCandidates] = useState<ScrimReviewCandidate[]>([]);
 
   const [feedLoading, setFeedLoading] = useState(true);
+  const [pendingSeriesLoading, setPendingSeriesLoading] = useState(true);
+  const [reviewCandidatesLoading, setReviewCandidatesLoading] = useState(true);
   const [postSubmitting, setPostSubmitting] = useState(false);
   const [proposalSubmitting, setProposalSubmitting] = useState(false);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [resultSubmittingSeriesId, setResultSubmittingSeriesId] = useState<string | null>(null);
+  const [reviewSubmittingKey, setReviewSubmittingKey] = useState<string | null>(null);
 
   const [activeProposalPostId, setActiveProposalPostId] = useState<string | null>(null);
   const [proposalForm, setProposalForm] = useState<ProposalForm>({
     proposerTeamId: '',
     message: '',
   });
+  const [resultDrafts, setResultDrafts] = useState<Record<string, ResultDraft>>({});
+  const [reviewDrafts, setReviewDrafts] = useState<Record<string, ReviewDraft>>({});
 
   const [filterRegion, setFilterRegion] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('AVAILABLE');
@@ -230,6 +297,10 @@ export default function TeamsScrimsPage() {
   }, [teams]);
 
   const selectedTeam = useMemo(() => manageableTeams.find((team) => team.id === selectedTeamId) || null, [manageableTeams, selectedTeamId]);
+
+  const reviewPairKey = (candidate: Pick<ScrimReviewCandidate, 'reviewerTeamId' | 'targetTeamId'>): string => {
+    return `${candidate.reviewerTeamId}::${candidate.targetTeamId}`;
+  };
 
   const fetchTeams = async () => {
     const token = getAuthToken();
@@ -288,6 +359,84 @@ export default function TeamsScrimsPage() {
     }
   };
 
+  const fetchPendingSeries = async () => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    setPendingSeriesLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/scrims/series/pending-results`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to fetch pending scrim result confirmations');
+      }
+
+      const rows: PendingScrimSeries[] = payload.series || [];
+      setPendingSeries(rows);
+      setResultDrafts((prev) => {
+        const next: Record<string, ResultDraft> = {};
+        rows.forEach((entry) => {
+          const existing = prev[entry.id];
+          const defaultReportingTeamId = entry.myTeamIds?.[0] || '';
+          const defaultWinnerTeamId = entry.firstReportedWinnerTeamId || entry.hostTeamId;
+          next[entry.id] = {
+            reportingTeamId: existing?.reportingTeamId || defaultReportingTeamId,
+            winnerTeamId: existing?.winnerTeamId || defaultWinnerTeamId,
+          };
+        });
+        return next;
+      });
+    } catch (error: any) {
+      console.error('Failed to load pending scrim results', error);
+      showToast(error?.message || 'Failed to load pending scrim results', 'error');
+    } finally {
+      setPendingSeriesLoading(false);
+    }
+  };
+
+  const fetchReviewCandidates = async () => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    setReviewCandidatesLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/scrims/reviews/candidates`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to fetch review candidates');
+      }
+
+      const rows: ScrimReviewCandidate[] = payload.candidates || [];
+      setReviewCandidates(rows);
+      setReviewDrafts((prev) => {
+        const next: Record<string, ReviewDraft> = {};
+        rows.forEach((candidate) => {
+          const key = reviewPairKey(candidate);
+          next[key] = prev[key] || {
+            politeness: 5,
+            punctuality: 5,
+            gameplay: 5,
+            message: '',
+          };
+        });
+        return next;
+      });
+    } catch (error: any) {
+      console.error('Failed to load review candidates', error);
+      showToast(error?.message || 'Failed to load review candidates', 'error');
+    } finally {
+      setReviewCandidatesLoading(false);
+    }
+  };
+
   const fetchPrefill = async (teamId: string) => {
     const token = getAuthToken();
     if (!token || !teamId) return;
@@ -328,6 +477,8 @@ export default function TeamsScrimsPage() {
   useEffect(() => {
     if (!user) return;
     void fetchFeed();
+    void fetchPendingSeries();
+    void fetchReviewCandidates();
   }, [user?.id, filterRegion, filterStatus, filterFormat, filterFearless]);
 
   useEffect(() => {
@@ -522,6 +673,139 @@ export default function TeamsScrimsPage() {
       showToast(error?.message || 'Failed to send proposal', 'error');
     } finally {
       setProposalSubmitting(false);
+    }
+  };
+
+  const handleDeletePost = async (post: ScrimFeedPost) => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    const confirmed = await confirm({
+      title: 'Delete Scrim Post?',
+      message: `This will remove ${post.teamName}'s listing and all related pending proposals.`,
+      confirmText: 'Delete Post',
+      cancelText: 'Cancel',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingPostId(post.id);
+
+    try {
+      const response = await fetch(`${API_URL}/api/scrims/posts/${post.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to delete scrim post');
+      }
+
+      showToast('Scrim post deleted', 'success');
+      await fetchFeed();
+    } catch (error: any) {
+      console.error('Failed to delete scrim post', error);
+      showToast(error?.message || 'Failed to delete scrim post', 'error');
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
+  const handleReportResult = async (seriesId: string) => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    const draft = resultDrafts[seriesId];
+    if (!draft?.reportingTeamId || !draft?.winnerTeamId) {
+      showToast('Select both reporting team and winner team', 'error');
+      return;
+    }
+
+    setResultSubmittingSeriesId(seriesId);
+
+    try {
+      const response = await fetch(`${API_URL}/api/scrims/series/${seriesId}/result`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          reportingTeamId: draft.reportingTeamId,
+          winnerTeamId: draft.winnerTeamId,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to submit result');
+      }
+
+      const status = payload?.result?.status || 'PENDING_CONFIRMATION';
+      if (status === 'CONFIRMED') {
+        showToast('Result confirmed by both teams', 'success');
+      } else {
+        showToast('Result submitted. Waiting for opponent confirmation.', 'info');
+      }
+
+      await Promise.all([
+        fetchPendingSeries(),
+        fetchReviewCandidates(),
+      ]);
+    } catch (error: any) {
+      console.error('Failed to submit scrim result', error);
+      showToast(error?.message || 'Failed to submit scrim result', 'error');
+    } finally {
+      setResultSubmittingSeriesId(null);
+    }
+  };
+
+  const handleSubmitReview = async (candidate: ScrimReviewCandidate) => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    const key = reviewPairKey(candidate);
+    const draft = reviewDrafts[key];
+    if (!draft) {
+      showToast('Review draft is missing', 'error');
+      return;
+    }
+
+    setReviewSubmittingKey(key);
+
+    try {
+      const response = await fetch(`${API_URL}/api/scrims/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          seriesId: candidate.seriesId,
+          reviewerTeamId: candidate.reviewerTeamId,
+          targetTeamId: candidate.targetTeamId,
+          politeness: draft.politeness,
+          punctuality: draft.punctuality,
+          gameplay: draft.gameplay,
+          message: draft.message.trim() || null,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to submit review');
+      }
+
+      showToast('Review submitted', 'success');
+      await fetchReviewCandidates();
+    } catch (error: any) {
+      console.error('Failed to submit scrim review', error);
+      showToast(error?.message || 'Failed to submit review', 'error');
+    } finally {
+      setReviewSubmittingKey(null);
     }
   };
 
@@ -932,6 +1216,205 @@ export default function TeamsScrimsPage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <section
+                  className="border rounded-2xl p-4"
+                  style={{
+                    background: 'linear-gradient(145deg, var(--color-bg-secondary) 0%, rgba(37,99,235,0.1) 100%)',
+                    borderColor: 'var(--color-border)',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Winner Agreement Queue</h3>
+                    <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                      {pendingSeries.length} pending
+                    </span>
+                  </div>
+
+                  {pendingSeriesLoading ? (
+                    <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading pending scrim result confirmations...</p>
+                  ) : pendingSeries.length === 0 ? (
+                    <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>No pending result agreements right now.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {pendingSeries.map((series) => {
+                        const draft = resultDrafts[series.id] || {
+                          reportingTeamId: series.myTeamIds?.[0] || '',
+                          winnerTeamId: series.firstReportedWinnerTeamId || series.hostTeamId,
+                        };
+
+                        return (
+                          <div
+                            key={series.id}
+                            className="rounded-xl border p-3"
+                            style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}
+                          >
+                            <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                              {formatTeamLabel(series.hostTeam)} vs {formatTeamLabel(series.guestTeam)}
+                            </p>
+                            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                              {series.matchCode} • {formatLocalDateTime(series.scheduledAt)}
+                            </p>
+
+                            {series.firstReporterTeamId && (
+                              <p className="text-xs mt-1" style={{ color: '#F59E0B' }}>
+                                First report submitted. Opponent confirmation required.
+                              </p>
+                            )}
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+                              <select
+                                value={draft.reportingTeamId}
+                                onChange={(event) => setResultDrafts((prev) => ({
+                                  ...prev,
+                                  [series.id]: {
+                                    ...draft,
+                                    reportingTeamId: event.target.value,
+                                  },
+                                }))}
+                                className="px-3 py-2 rounded border text-sm"
+                                style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                              >
+                                <option value="">Reporting team</option>
+                                {series.myTeamIds.map((teamId) => {
+                                  const label = teamId === series.hostTeamId ? formatTeamLabel(series.hostTeam) : formatTeamLabel(series.guestTeam);
+                                  return (
+                                    <option key={teamId} value={teamId}>{label}</option>
+                                  );
+                                })}
+                              </select>
+
+                              <select
+                                value={draft.winnerTeamId}
+                                onChange={(event) => setResultDrafts((prev) => ({
+                                  ...prev,
+                                  [series.id]: {
+                                    ...draft,
+                                    winnerTeamId: event.target.value,
+                                  },
+                                }))}
+                                className="px-3 py-2 rounded border text-sm"
+                                style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                              >
+                                <option value={series.hostTeamId}>{formatTeamLabel(series.hostTeam)} won</option>
+                                <option value={series.guestTeamId}>{formatTeamLabel(series.guestTeam)} won</option>
+                              </select>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => void handleReportResult(series.id)}
+                              disabled={resultSubmittingSeriesId === series.id || !draft.reportingTeamId}
+                              className="mt-3 px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                              style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', color: 'white' }}
+                            >
+                              {resultSubmittingSeriesId === series.id ? 'Submitting...' : 'Submit Result'}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+
+                <section
+                  className="border rounded-2xl p-4"
+                  style={{
+                    background: 'linear-gradient(145deg, var(--color-bg-secondary) 0%, rgba(16,185,129,0.1) 100%)',
+                    borderColor: 'var(--color-border)',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Post-Scrim Reviews</h3>
+                    <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                      {reviewCandidates.length} available
+                    </span>
+                  </div>
+
+                  {reviewCandidatesLoading ? (
+                    <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading review candidates...</p>
+                  ) : reviewCandidates.length === 0 ? (
+                    <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>No review candidates. Confirm winners first.</p>
+                  ) : (
+                    <div className="space-y-3 max-h-[540px] overflow-y-auto pr-1">
+                      {reviewCandidates.map((candidate) => {
+                        const key = reviewPairKey(candidate);
+                        const draft = reviewDrafts[key] || {
+                          politeness: 5,
+                          punctuality: 5,
+                          gameplay: 5,
+                          message: '',
+                        };
+
+                        return (
+                          <div
+                            key={`${candidate.seriesId}-${key}`}
+                            className="rounded-xl border p-3"
+                            style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}
+                          >
+                            <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                              {formatTeamLabel(candidate.reviewerTeam)} reviewing {formatTeamLabel(candidate.targetTeam)}
+                            </p>
+                            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                              {candidate.matchCode} • Winner confirmed {formatLocalDateTime(candidate.winnerConfirmedAt)}
+                            </p>
+
+                            <div className="grid grid-cols-3 gap-2 mt-3 text-xs">
+                              {(['politeness', 'punctuality', 'gameplay'] as const).map((field) => (
+                                <label key={field} className="flex flex-col gap-1" style={{ color: 'var(--color-text-secondary)' }}>
+                                  {field.charAt(0).toUpperCase() + field.slice(1)}
+                                  <select
+                                    value={draft[field]}
+                                    onChange={(event) => setReviewDrafts((prev) => ({
+                                      ...prev,
+                                      [key]: {
+                                        ...draft,
+                                        [field]: Number(event.target.value),
+                                      },
+                                    }))}
+                                    className="px-2 py-1.5 rounded border text-sm"
+                                    style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                                  >
+                                    {[1, 2, 3, 4, 5].map((value) => (
+                                      <option key={value} value={value}>{value} Star{value > 1 ? 's' : ''}</option>
+                                    ))}
+                                  </select>
+                                </label>
+                              ))}
+                            </div>
+
+                            <textarea
+                              value={draft.message}
+                              onChange={(event) => setReviewDrafts((prev) => ({
+                                ...prev,
+                                [key]: {
+                                  ...draft,
+                                  message: event.target.value,
+                                },
+                              }))}
+                              rows={2}
+                              placeholder="Optional public comment about your scrim experience"
+                              className="w-full mt-2 px-3 py-2 rounded border text-sm"
+                              style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() => void handleSubmitReview(candidate)}
+                              disabled={reviewSubmittingKey === key}
+                              className="mt-2 px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                              style={{ background: 'linear-gradient(135deg, #059669, #047857)', color: 'white' }}
+                            >
+                              {reviewSubmittingKey === key ? 'Submitting...' : 'Publish Review'}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              </div>
+
               <div className="space-y-4">
                 {feedLoading ? (
                   <div className="text-center py-10" style={{ color: 'var(--color-text-muted)' }}>Loading scrim feed...</div>
@@ -1036,13 +1519,17 @@ export default function TeamsScrimsPage() {
                           </div>
                         )}
 
-                        <div className="flex flex-wrap gap-2 mb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
                           <Link
                             href={`/teams/${post.teamId}`}
-                            className="px-3 py-1.5 rounded-lg text-sm font-semibold border"
-                            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)', backgroundColor: 'var(--color-bg-tertiary)' }}
+                            className="px-3 py-2 rounded-xl text-sm font-semibold border flex items-center justify-center gap-2 transition-all hover:opacity-85"
+                            style={{ borderColor: 'rgba(148,163,184,0.45)', color: '#E2E8F0', background: 'linear-gradient(145deg, rgba(51,65,85,0.72), rgba(15,23,42,0.8))' }}
                           >
-                            View Team
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                            Team Page
                           </Link>
 
                           <button
@@ -1051,10 +1538,14 @@ export default function TeamsScrimsPage() {
                               setActiveProposalPostId(isProposalOpen ? null : post.id);
                               setProposalForm((prev) => ({ ...prev, proposerTeamId: proposalEligibleTeams[0]?.id || prev.proposerTeamId || '' }));
                             }}
-                            className="px-3 py-1.5 rounded-lg text-sm font-semibold"
-                            style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', color: 'white' }}
+                            className="px-3 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+                            style={{ background: 'linear-gradient(135deg, #2563EB, #1E40AF)', color: 'white', boxShadow: '0 10px 24px rgba(37,99,235,0.28)' }}
                           >
-                            Let&apos;s Scrim!
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M7 17L17 7" />
+                              <path d="M7 7h10v10" />
+                            </svg>
+                            Let&apos;s Scrim
                           </button>
 
                           {post.opggMultisearchUrl && (
@@ -1062,11 +1553,35 @@ export default function TeamsScrimsPage() {
                               href={normalizeUrl(post.opggMultisearchUrl) || '#'}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="px-3 py-1.5 rounded-lg text-sm font-semibold border"
-                              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)', backgroundColor: 'var(--color-bg-tertiary)' }}
+                              className="px-3 py-2 rounded-xl text-sm font-semibold border flex items-center justify-center gap-2 transition-all hover:opacity-85"
+                              style={{ borderColor: 'rgba(16,185,129,0.5)', color: '#A7F3D0', background: 'linear-gradient(145deg, rgba(6,95,70,0.75), rgba(4,120,87,0.55))' }}
                             >
-                              OP.GG multisearch
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                <path d="M15 3h6v6" />
+                                <path d="M10 14L21 3" />
+                              </svg>
+                              OP.GG Scout
                             </a>
+                          )}
+
+                          {post.canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => void handleDeletePost(post)}
+                              disabled={deletingPostId === post.id}
+                              className="px-3 py-2 rounded-xl text-sm font-semibold border flex items-center justify-center gap-2 disabled:opacity-50"
+                              style={{ borderColor: 'rgba(239,68,68,0.5)', color: '#FCA5A5', background: 'linear-gradient(145deg, rgba(127,29,29,0.75), rgba(153,27,27,0.62))' }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                                <path d="M10 11v6" />
+                                <path d="M14 11v6" />
+                              </svg>
+                              {deletingPostId === post.id ? 'Deleting...' : 'Delete Post'}
+                            </button>
                           )}
                         </div>
 

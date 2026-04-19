@@ -4,6 +4,48 @@
 
 ---
 
+## 2026-04-19 - Scrim Finder Post Moderation, Result Agreement, Team Reviews, and Winrate Surface
+
+### Objective: Complete post-scrim lifecycle with moderation controls, enemy multi.gg event autofill, winner consensus, and public team reputation
+
+Overview: Expanded Scrim Finder from proposal matching into full post-scrim lifecycle handling. Teams can now remove listings with proper moderation permissions, accepted proposals bootstrap a shared scrim series with auto-created team events (enemy multi.gg prefilled), both teams must agree on winner before results finalize, one directed team-pair review can be submitted with 3 scored criteria plus comment, and team pages now expose aggregate winrate and review sentiment.
+
+Changes:
+
+- Updated [prisma/schema.prisma](prisma/schema.prisma):
+  - Added `ScrimSeries` model for accepted-proposal match tracking, winner agreement fields, match code, and linked events.
+  - Added `ScrimTeamReview` model for one-review-per-directed-team-pair with criteria scoring and optional comment.
+  - Added `ScrimPost.series` inverse relation and team review/series relations on `Team`.
+- Added [prisma/migrations/20260419233000_add_scrim_series_reviews/migration.sql](prisma/migrations/20260419233000_add_scrim_series_reviews/migration.sql):
+  - Creates `ScrimSeries` and `ScrimTeamReview` tables, indexes, and FK/unique constraints.
+- Updated [apps/api/src/routes/scrims.ts](apps/api/src/routes/scrims.ts):
+  - Added creator/manager/admin scrim post deletion endpoint: `DELETE /api/scrims/posts/:postId`.
+  - Feed payload now includes per-post `canDelete` capability.
+  - On accepted proposal, auto-initializes `ScrimSeries`, generates match code, and creates/reuses SCRIM events for both teams.
+  - Added pending result agreement API: `GET /api/scrims/series/pending-results`.
+  - Added winner reporting/consensus API: `POST /api/scrims/series/:seriesId/result`.
+  - Added review candidate API: `GET /api/scrims/reviews/candidates`.
+  - Added team review submit API: `POST /api/scrims/reviews`.
+- Updated [apps/api/src/routes/teams.ts](apps/api/src/routes/teams.ts):
+  - `GET /api/teams/:id` now returns:
+    - `scrimPerformance` (`totalSeries`, `wins`, `losses`, `winRate`)
+    - `scrimReputation` (`averageRating`, `reviewCount`, `recentReviews`)
+- Updated [apps/web/pages/teams/scrims.tsx](apps/web/pages/teams/scrims.tsx):
+  - Upgraded post action button styling under feed cards.
+  - Added delete action for authorized users.
+  - Added winner agreement panel with reporting team + winner selection.
+  - Added post-scrim review panel (Politeness/Punctuality/Gameplay 1-5 + comment).
+- Updated [apps/web/pages/teams/[id].tsx](apps/web/pages/teams/[id].tsx):
+  - Added Scrim Performance & Reputation section showing winrate, W/L record, average rating, and recent public review comments.
+
+Validation:
+
+- `pnpm prisma generate` passes.
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+
+---
+
 ## 2026-04-19 - Scrim Finder Workflow Corrections (Notifications Relocation, Single Active Post, Discord Decisions)
 
 ### Objective: Align Scrim Finder behavior with final UX/ops expectations for proposal handling, posting semantics, and Discord interaction
