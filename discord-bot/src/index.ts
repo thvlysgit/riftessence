@@ -1828,7 +1828,6 @@ function buildScrimForwardEmbed(post: any, guild: Guild | null | undefined): Emb
     `🕒 Start: ${startTimestamp}`,
     `📌 Status: **${post.status || 'AVAILABLE'}**`,
     typeof post.proposalCount === 'number' ? `📨 Proposals: **${post.proposalCount}**` : null,
-    post.teamMultiGgUrl ? `🔗 [Team multi.gg](${post.teamMultiGgUrl.startsWith('http') ? post.teamMultiGgUrl : `https://${post.teamMultiGgUrl}`})` : null,
     post.opggMultisearchUrl ? `🔎 [OP.GG multisearch](${post.opggMultisearchUrl.startsWith('http') ? post.opggMultisearchUrl : `https://${post.opggMultisearchUrl}`})` : null,
     `↗ [open in app](${appUrl})`,
   ].filter(Boolean);
@@ -1986,6 +1985,266 @@ async function sendChatDmNotification(dm: {
     } else {
       console.error(`❌ Failed to send DM to ${dm.recipientDiscordId}:`, error.message);
     }
+  }
+}
+
+// ============================================================
+// Scrim Proposal Discord Notifications
+// ============================================================
+
+const SCRIM_NOTIFICATION_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_SCRIM_NOTIFICATION_POLL_INTERVAL_MS || '15000', 10);
+
+type ScrimDiscordNotification = {
+  id: string;
+  recipientDiscordId: string;
+  type: string;
+  message: string;
+  actionRequired: boolean;
+  proposal: {
+    id: string;
+    status: string;
+    message: string | null;
+    proposedStartTimeUtc: string | null;
+    post: {
+      id: string;
+      teamName: string;
+      teamTag: string | null;
+      startTimeUtc: string;
+      scrimFormat: string;
+      opggMultisearchUrl: string | null;
+    };
+    proposerTeam: {
+      id: string;
+      name: string;
+      tag: string | null;
+      region: string;
+    };
+    targetTeam: {
+      id: string;
+      name: string;
+      tag: string | null;
+      region: string;
+    };
+  };
+};
+
+function buildScrimNotificationComponents(notification: ScrimDiscordNotification): ActionRowBuilder<ButtonBuilder>[] {
+  const appLink = `${APP_URL}/notifications`;
+  if (!notification.actionRequired) {
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setLabel('Open Notifications').setStyle(ButtonStyle.Link).setURL(appLink)
+    );
+    return [row];
+  }
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`scrim_proposal_accept_${notification.proposal.id}`)
+      .setLabel('Accept')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`scrim_proposal_delay_${notification.proposal.id}`)
+      .setLabel('Delay')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`scrim_proposal_reject_${notification.proposal.id}`)
+      .setLabel('Reject')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setLabel('Open Notifications')
+      .setStyle(ButtonStyle.Link)
+      .setURL(appLink),
+  );
+
+  return [row];
+}
+
+function buildScrimNotificationEmbed(notification: ScrimDiscordNotification): EmbedBuilder {
+  const proposal = notification.proposal;
+  const teamLabel = proposal.proposerTeam.tag
+    ? `${proposal.proposerTeam.name} [${proposal.proposerTeam.tag}]`
+    : proposal.proposerTeam.name;
+  const targetLabel = proposal.targetTeam.tag
+    ? `${proposal.targetTeam.name} [${proposal.targetTeam.tag}]`
+    : proposal.targetTeam.name;
+  const startDate = new Date(proposal.post.startTimeUtc);
+  const startTimestamp = Number.isFinite(startDate.getTime())
+    ? `<t:${Math.floor(startDate.getTime() / 1000)}:F>`
+    : proposal.post.startTimeUtc;
+
+  const colorByType: Record<string, number> = {
+    PROPOSAL_RECEIVED: 0x3B82F6,
+    PROPOSAL_ACCEPTED: 0x22C55E,
+    PROPOSAL_REJECTED: 0xEF4444,
+    PROPOSAL_DELAYED: 0x8B5CF6,
+    PROPOSAL_AUTO_REJECTED: 0xF59E0B,
+  };
+
+  const titleByType: Record<string, string> = {
+    PROPOSAL_RECEIVED: '⚔️ New Scrim Proposal',
+    PROPOSAL_ACCEPTED: '✅ Scrim Proposal Accepted',
+    PROPOSAL_REJECTED: '❌ Scrim Proposal Rejected',
+    PROPOSAL_DELAYED: '🕒 Scrim Proposal Delayed',
+    PROPOSAL_AUTO_REJECTED: '⌛ Scrim Proposal Timed Out',
+  };
+
+  const embed = new EmbedBuilder()
+    .setColor(colorByType[notification.type] || 0x3B82F6)
+    .setTitle(titleByType[notification.type] || 'Scrim Update')
+    .setDescription(notification.message)
+    .addFields(
+      {
+        name: 'Matchup',
+        value: `${teamLabel} → ${targetLabel}`,
+        inline: false,
+      },
+      {
+        name: 'Start',
+        value: `${startTimestamp} (${proposal.post.scrimFormat})`,
+        inline: false,
+      },
+      {
+        name: 'Region',
+        value: proposal.targetTeam.region || proposal.proposerTeam.region || 'Unknown',
+        inline: true,
+      },
+      {
+        name: 'Status',
+        value: proposal.status,
+        inline: true,
+      }
+    )
+    .setFooter({ text: 'RiftEssence Scrim Finder' })
+    .setTimestamp();
+
+  if (proposal.message) {
+    embed.addFields({
+      name: 'Proposal Note',
+      value: truncateForDiscord(proposal.message, 350),
+      inline: false,
+    });
+  }
+
+  if (proposal.post.opggMultisearchUrl) {
+    const opggUrl = proposal.post.opggMultisearchUrl.startsWith('http')
+      ? proposal.post.opggMultisearchUrl
+      : `https://${proposal.post.opggMultisearchUrl}`;
+    embed.addFields({
+      name: 'Scouting',
+      value: `[Open OP.GG multisearch](${opggUrl})`,
+      inline: false,
+    });
+  }
+
+  return embed;
+}
+
+async function sendScrimDiscordNotification(notification: ScrimDiscordNotification) {
+  const markResult = await apiRequest(`/api/scrims/discord-notifications/${notification.id}/processed`, 'PATCH');
+  if (!markResult.ok) {
+    console.error(`❌ Failed to mark scrim notification ${notification.id} as processed, skipping to avoid duplicates`);
+    return;
+  }
+
+  try {
+    const user = await client.users.fetch(notification.recipientDiscordId);
+    if (!user) {
+      console.warn(`⚠️ Could not fetch Discord user ${notification.recipientDiscordId} for scrim notification`);
+      return;
+    }
+
+    await user.send({
+      embeds: [buildScrimNotificationEmbed(notification)],
+      components: buildScrimNotificationComponents(notification),
+    });
+
+    console.log(`✅ Sent scrim Discord notification ${notification.id} to ${notification.recipientDiscordId}`);
+  } catch (error: any) {
+    if (error.code === 50007) {
+      console.warn(`⚠️ Cannot DM ${notification.recipientDiscordId} for scrim notification (DMs disabled or no mutual server)`);
+      return;
+    }
+
+    console.error(`❌ Failed to send scrim notification ${notification.id}:`, error.message);
+  }
+}
+
+async function pollScrimDiscordNotifications() {
+  try {
+    const result = await apiRequest('/api/scrims/discord-notifications');
+    if (!result.ok) {
+      console.error('❌ Failed to poll scrim Discord notifications:', result.data.error);
+      return;
+    }
+
+    const notifications = Array.isArray(result.data?.notifications)
+      ? result.data.notifications
+      : [];
+
+    if (notifications.length === 0) return;
+
+    console.log(`⚔️ Found ${notifications.length} pending scrim Discord notifications`);
+    for (const notification of notifications as ScrimDiscordNotification[]) {
+      await sendScrimDiscordNotification(notification);
+    }
+  } catch (error: any) {
+    console.error('❌ Error polling scrim Discord notifications:', error.message);
+  }
+}
+
+async function handleScrimProposalButton(interaction: ButtonInteraction) {
+  const customId = interaction.customId;
+  if (!customId.startsWith('scrim_proposal_')) return false;
+
+  const parts = customId.split('_');
+  if (parts.length < 4) return false;
+
+  const actionRaw = parts[2].toUpperCase();
+  const proposalId = parts.slice(3).join('_');
+  const action = actionRaw === 'ACCEPT'
+    ? 'ACCEPT'
+    : actionRaw === 'DELAY'
+      ? 'DELAY'
+      : actionRaw === 'REJECT'
+        ? 'REJECT'
+        : null;
+
+  if (!action) {
+    await interaction.reply({ content: '❌ Unknown scrim action.', ephemeral: interaction.inGuild() });
+    return true;
+  }
+
+  await interaction.deferReply({ ephemeral: interaction.inGuild() });
+
+  try {
+    const result = await apiRequest(`/api/scrims/proposals/${proposalId}/discord-decision`, 'POST', {
+      discordId: interaction.user.id,
+      action,
+    });
+
+    if (!result.ok) {
+      const errorMessage = result.data?.error || 'Failed to apply scrim decision.';
+      if (errorMessage.includes('not linked')) {
+        return interaction.editReply({
+          content: `❌ Your Discord account is not linked to RiftEssence. Link it in ${APP_URL}/settings.`,
+        });
+      }
+
+      return interaction.editReply({ content: `❌ ${errorMessage}` });
+    }
+
+    const label = action === 'ACCEPT' ? 'accepted' : action === 'DELAY' ? 'delayed' : 'rejected';
+
+    try {
+      await interaction.message.edit({ components: [] });
+    } catch {
+      // Ignore message edit failures and still acknowledge decision.
+    }
+
+    return interaction.editReply({ content: `✅ Proposal ${label}.` });
+  } catch (error: any) {
+    console.error('❌ Error handling scrim proposal button:', error.message);
+    return interaction.editReply({ content: '❌ An unexpected error occurred. Please try again.' });
   }
 }
 
@@ -2865,6 +3124,10 @@ client.once(Events.ClientReady, async (c) => {
   console.log(`📨 Starting DM notification poll (interval: ${DM_POLL_INTERVAL_MS}ms)`);
   startGuardedPollLoop('DM queue', pollDmQueue, DM_POLL_INTERVAL_MS, 12000);
 
+  // Start polling for scrim-specific Discord notifications with decision buttons
+  console.log(`⚔️ Starting scrim notification poll (interval: ${SCRIM_NOTIFICATION_POLL_INTERVAL_MS}ms)`);
+  startGuardedPollLoop('scrim notification', pollScrimDiscordNotifications, SCRIM_NOTIFICATION_POLL_INTERVAL_MS, 14500);
+
   // Start polling for team event notifications
   console.log(`📅 Starting team event poll (interval: ${TEAM_EVENT_POLL_INTERVAL_MS}ms)`);
   startGuardedPollLoop('team event', pollTeamEventNotifications, TEAM_EVENT_POLL_INTERVAL_MS, 18000);
@@ -2897,6 +3160,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // Team event attendance buttons are public (anyone can respond)
     if (interaction.customId.startsWith('team_event_')) {
       await handleTeamEventButton(interaction as ButtonInteraction);
+      return;
+    }
+
+    // Scrim proposal decision buttons are public to eligible recipients.
+    if (interaction.customId.startsWith('scrim_proposal_')) {
+      await handleScrimProposalButton(interaction as ButtonInteraction);
       return;
     }
 

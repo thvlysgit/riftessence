@@ -817,7 +817,6 @@ export default async function discordFeedRoutes(fastify: any) {
           startTimeUtc: post.startTimeUtc,
           timezoneLabel: post.timezoneLabel,
           scrimFormat: post.scrimFormat,
-          teamMultiGgUrl: post.teamMultiGgUrl,
           opggMultisearchUrl: post.opggMultisearchUrl,
           details: post.details,
           status: post.status,

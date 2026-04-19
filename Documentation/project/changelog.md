@@ -4,6 +4,57 @@
 
 ---
 
+## 2026-04-19 - Scrim Finder Workflow Corrections (Notifications Relocation, Single Active Post, Discord Decisions)
+
+### Objective: Align Scrim Finder behavior with final UX/ops expectations for proposal handling, posting semantics, and Discord interaction
+
+Overview: Moved actionable incoming scrim proposal decisions to Notifications, enforced single-active-post replacement per team, removed redundant scrim URL/time proposal fields, and introduced a scrim-specific Discord notification queue with Accept/Delay/Reject buttons that no longer depends on generic chat DM forwarding.
+
+Changes:
+
+- Updated [apps/api/src/routes/scrims.ts](apps/api/src/routes/scrims.ts):
+  - Added a dedicated bot-auth scrim Discord queue API:
+    - `GET /api/scrims/discord-notifications`
+    - `PATCH /api/scrims/discord-notifications/:id/processed`
+    - `POST /api/scrims/proposals/:proposalId/discord-decision`
+  - Refactored proposal decisioning into a shared server helper so web and Discord button flows use the same rules.
+  - Replaced scrim DM fanout through `discordDmQueue` with custom `ScrimDiscordNotification` queue writes.
+  - Enforced one active scrim post per team (`AVAILABLE`/`CANDIDATES` posts are replaced on new publish).
+  - Removed proposal start-time override from proposal submission path.
+- Updated [prisma/schema.prisma](prisma/schema.prisma):
+  - Added `ScrimDiscordNotificationType` enum and `ScrimDiscordNotification` model.
+- Added [prisma/migrations/20260419193000_add_scrim_discord_notifications/migration.sql](prisma/migrations/20260419193000_add_scrim_discord_notifications/migration.sql):
+  - Creates scrim Discord notification enum/table/indexes/FK.
+- Updated [apps/web/pages/teams/scrims.tsx](apps/web/pages/teams/scrims.tsx):
+  - Removed embedded incoming-proposals decision panel (moved to Notifications page).
+  - Removed proposal alternate-time input.
+  - Removed redundant Team multi.gg field/button path and kept OP.GG multisearch prefill.
+  - Post publish now auto-creates a team schedule SCRIM event (50-minute duration) instead of prompting only to open schedule.
+- Updated [apps/web/pages/notifications.tsx](apps/web/pages/notifications.tsx):
+  - Added actionable incoming scrim proposal cards with Accept/Delay/Reject actions.
+- Updated [apps/api/src/routes/discordFeed.ts](apps/api/src/routes/discordFeed.ts):
+  - Removed redundant Team multi.gg payload from outgoing scrim data.
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Added scrim-specific Discord notification polling loop and custom scrim embeds.
+  - Added interactive scrim proposal button handling (`Accept`, `Delay`, `Reject`) wired to bot-auth scrim decision endpoint.
+  - Removed redundant Team multi.gg rendering from scrim feed embeds.
+- Updated [Documentation/architecture/api-contracts.md](Documentation/architecture/api-contracts.md):
+  - Synced scrim contract docs for single-post replacement, no proposal-time override, and new bot-only scrim decision queue endpoints.
+
+Validation:
+
+- `pnpm prisma generate` passes.
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm -C discord-bot build` passes.
+
+Operational Notes:
+
+- Apply migration `20260419193000_add_scrim_discord_notifications` before deploying API + bot.
+- Deploy API and bot together so scrim notification polling and Discord button decisions remain protocol-compatible.
+
+---
+
 ## 2026-04-19 - Teams Scrim Finder MVP, Proposal Lifecycle, and Discord Feed Expansion
 
 ### Objective: Launch an end-to-end scrim posting and proposal workflow under Teams with timezone-safe scheduling and Discord mirroring support

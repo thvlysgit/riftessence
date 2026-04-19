@@ -98,7 +98,10 @@ Core body fields:
 - `teamId`
 - `startTimeUtc`
 - `scrimFormat`
-- optional: rank/division, timezone label, multi.gg URL, OP.GG multisearch URL, notes
+- optional: rank/division, timezone label, OP.GG multisearch URL, notes
+
+Behavior:
+- creating a new active post for the same team replaces older `AVAILABLE`/`CANDIDATES` posts
 
 ### POST `/api/scrims/posts/:postId/proposals`
 Submit or refresh a proposal from a managed team.
@@ -112,10 +115,12 @@ Reliability gate:
 Body:
 - `proposerTeamId`
 - optional `message`
-- optional `proposedStartTimeUtc`
+
+Behavior:
+- proposal submission implies acceptance of the original post start time (no separate proposal time override)
 
 ### GET `/api/scrims/proposals/incoming`
-List incoming proposals for teams where requester is owner/manager/coach.
+List actionable incoming proposals (`PENDING` / `DELAYED`) for teams where requester is owner/manager/coach.
 
 Auth: Required
 
@@ -130,6 +135,25 @@ Body:
 Behavior:
 - `DELAY` marks proposal as low-priority fallback (not rejection)
 - `ACCEPT` settles the post and rejects other open proposals
+
+### GET `/api/scrims/discord-notifications`
+Poll pending scrim-specific Discord notifications with proposal context.
+
+Auth: Bot API key required (`Authorization: Bearer <DISCORD_BOT_API_KEY>`)
+
+### PATCH `/api/scrims/discord-notifications/:id/processed`
+Mark a scrim Discord notification as processed.
+
+Auth: Bot API key required (`Authorization: Bearer <DISCORD_BOT_API_KEY>`)
+
+### POST `/api/scrims/proposals/:proposalId/discord-decision`
+Apply `ACCEPT` / `REJECT` / `DELAY` from Discord button interactions.
+
+Auth: Bot API key required (`Authorization: Bearer <DISCORD_BOT_API_KEY>`)
+
+Body:
+- `discordId`
+- `action`: `ACCEPT`, `REJECT`, `DELAY`
 
 ---
 

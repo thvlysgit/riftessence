@@ -980,6 +980,14 @@ enum ScrimProposalStatus {
   AUTO_REJECTED
 }
 
+enum ScrimDiscordNotificationType {
+  PROPOSAL_RECEIVED
+  PROPOSAL_ACCEPTED
+  PROPOSAL_REJECTED
+  PROPOSAL_DELAYED
+  PROPOSAL_AUTO_REJECTED
+}
+
 model ScrimPost {
   id                String         @id @default(cuid())
   team              Team           @relation("TeamScrimPosts", fields: [teamId], references: [id], onDelete: Cascade)
@@ -1033,6 +1041,7 @@ model ScrimProposal {
   decisionAt          DateTime?
   autoRejectedAt      DateTime?
   responseSeconds     Int?
+  discordNotifications ScrimDiscordNotification[]
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
@@ -1040,6 +1049,24 @@ model ScrimProposal {
   @@index([postId, status, createdAt])
   @@index([proposerTeamId, status, createdAt])
   @@index([targetTeamId, status, createdAt])
+}
+
+model ScrimDiscordNotification {
+  id                 String                       @id @default(cuid())
+  proposal           ScrimProposal                @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposalId         String
+  recipientUserId    String
+  recipientDiscordId String
+  type               ScrimDiscordNotificationType
+  message            String
+  actionRequired     Boolean                      @default(false)
+  processed          Boolean                      @default(false)
+  processedAt        DateTime?
+  createdAt          DateTime                     @default(now())
+
+  @@index([processed, createdAt])
+  @@index([recipientDiscordId, processed])
+  @@index([proposalId, recipientUserId, type])
 }
 
 model Team {

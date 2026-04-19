@@ -20,15 +20,26 @@ const RANK_ORDER = [
 ] as const;
 const DIVISION_ORDER = ['IV', 'III', 'II', 'I'] as const;
 const PROPOSAL_TIMEOUT_MS = 10 * 60 * 1000;
+const SCRIM_DISCORD_NOTIFICATION_TYPES = {
+  RECEIVED: 'PROPOSAL_RECEIVED',
+  ACCEPTED: 'PROPOSAL_ACCEPTED',
+  REJECTED: 'PROPOSAL_REJECTED',
+  DELAYED: 'PROPOSAL_DELAYED',
+  AUTO_REJECTED: 'PROPOSAL_AUTO_REJECTED',
+} as const;
 
 type RankName = typeof RANK_ORDER[number];
 
-type ScrimAutoRejectOutcome = {
-  proposerUserId: string;
-  proposerUsername: string;
-  postId: string;
-  teamName: string;
-};
+type ScrimProposalDecision = typeof SCRIM_PROPOSAL_DECISIONS[number];
+
+class ScrimRouteError extends Error {
+  statusCode: number;
+
+  constructor(statusCode: number, message: string) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+}
 
 function normalizeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -236,32 +247,92 @@ async function assertDiscordReliabilityReady(userId: string, reply: any): Promis
   return true;
 }
 
-async function enqueueDiscordDmForUser(params: {
-  userId: string;
-  senderUsername: string;
-  messagePreview: string;
-  conversationId: string;
-}) {
-  const recipient = await prisma.user.findUnique({
-    where: { id: params.userId },
+function validateBotAuth(request: any, reply: any, done: () => void) {
+  const authHeader = request.headers.authorization;
+  const expectedKey = process.env.DISCORD_BOT_API_KEY;
+
+  if (!expectedKey) {
+    reply.status(500).send({ error: 'Bot API key not configured on server' });
+    return;
+  }
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    reply.status(401).send({ error: 'Missing or invalid authorization header' });
+    return;
+  }
+
+  const providedKey = authHeader.substring(7);
+  if (providedKey !== expectedKey) {
+    reply.status(403).send({ error: 'Invalid bot API key' });
+    return;
+  }
+
+  done();
+}
+
+async function getTeamDecisionRecipientIds(db: any, teamId: string): Promise<string[]> {
+  const [team, managers] = await Promise.all([
+    db.team.findUnique({
+      where: { id: teamId },
+      select: { ownerId: true },
+    }),
+    db.teamMember.findMany({
+      where: {
+        teamId,
+        role: { in: ['OWNER', 'MANAGER', 'COACH'] },
+      },
+      select: { userId: true },
+    }),
+  ]);
+
+  const ids = new Set<string>();
+  if (team?.ownerId) ids.add(team.ownerId);
+  (managers as Array<{ userId: string }>).forEach((entry) => ids.add(entry.userId));
+  return Array.from(ids);
+}
+
+async function createScrimDiscordNotifications(db: any, entries: Array<{
+  proposalId: string;
+  recipientUserId: string;
+  type: keyof typeof SCRIM_DISCORD_NOTIFICATION_TYPES;
+  message: string;
+  actionRequired?: boolean;
+}>) {
+  if (!entries.length) return;
+
+  const recipientIds = Array.from(new Set(entries.map((entry) => entry.recipientUserId)));
+  const recipients = await db.user.findMany({
+    where: { id: { in: recipientIds } },
     select: {
+      id: true,
       discordDmNotifications: true,
       discordAccount: { select: { discordId: true } },
     },
   });
 
-  if (!recipient?.discordDmNotifications || !recipient.discordAccount?.discordId) {
-    return;
-  }
+  const recipientMap = new Map<string, { discordDmNotifications: boolean; discordAccount: { discordId: string } | null }>(
+    (recipients as Array<{ id: string; discordDmNotifications: boolean; discordAccount: { discordId: string } | null }>).map((recipient) => [recipient.id, recipient])
+  );
 
-  await prisma.discordDmQueue.create({
-    data: {
+  const rows = entries.flatMap((entry) => {
+    const recipient = recipientMap.get(entry.recipientUserId);
+    if (!recipient?.discordDmNotifications || !recipient.discordAccount?.discordId) {
+      return [];
+    }
+
+    return [{
+      proposalId: entry.proposalId,
+      recipientUserId: entry.recipientUserId,
       recipientDiscordId: recipient.discordAccount.discordId,
-      senderUsername: params.senderUsername,
-      messagePreview: params.messagePreview.slice(0, 200),
-      conversationId: params.conversationId,
-    },
+      type: SCRIM_DISCORD_NOTIFICATION_TYPES[entry.type],
+      message: entry.message,
+      actionRequired: Boolean(entry.actionRequired),
+    }];
   });
+
+  if (rows.length > 0) {
+    await db.scrimDiscordNotification.createMany({ data: rows });
+  }
 }
 
 async function autoRejectExpiredProposals(): Promise<void> {
@@ -280,22 +351,14 @@ async function autoRejectExpiredProposals(): Promise<void> {
           status: true,
         },
       },
-      proposedBy: {
-        select: {
-          id: true,
-          username: true,
-        },
-      },
     },
     take: 120,
   });
 
-  const dmQueuePayloads: ScrimAutoRejectOutcome[] = [];
-
   for (const proposal of candidates as any[]) {
     const now = new Date();
 
-    const result = await prisma.$transaction(async (tx: any) => {
+    await prisma.$transaction(async (tx: any) => {
       const latest = await tx.scrimProposal.findUnique({
         where: { id: proposal.id },
         select: {
@@ -331,6 +394,13 @@ async function autoRejectExpiredProposals(): Promise<void> {
         },
       });
 
+      await createScrimDiscordNotifications(tx, [{
+        proposalId: latest.id,
+        recipientUserId: latest.proposedByUserId,
+        type: 'AUTO_REJECTED',
+        message: `Your scrim proposal to ${proposal.post.teamName} expired after 10 minutes without response.`,
+      }]);
+
       const activeProposalCount = await tx.scrimProposal.count({
         where: {
           postId: latest.postId,
@@ -350,27 +420,230 @@ async function autoRejectExpiredProposals(): Promise<void> {
         });
       }
 
-      return {
-        proposerUserId: latest.proposedByUserId,
-        proposerUsername: proposal.proposedBy.username,
-        postId: latest.postId,
-        teamName: proposal.post.teamName,
-      } as ScrimAutoRejectOutcome;
+      return true;
+    });
+  }
+}
+
+async function applyScrimProposalDecision(params: {
+  proposalId: string;
+  action: string;
+  actorUserId: string;
+}) {
+  await autoRejectExpiredProposals();
+
+  const normalizedAction = normalizeString(params.action).toUpperCase() as ScrimProposalDecision;
+  if (!SCRIM_PROPOSAL_DECISIONS.includes(normalizedAction)) {
+    throw new ScrimRouteError(400, `action must be one of: ${SCRIM_PROPOSAL_DECISIONS.join(', ')}`);
+  }
+
+  const proposal = await prisma.scrimProposal.findUnique({
+    where: { id: params.proposalId },
+    include: {
+      post: {
+        select: {
+          id: true,
+          teamName: true,
+          status: true,
+        },
+      },
+    },
+  });
+
+  if (!proposal) {
+    throw new ScrimRouteError(404, 'Scrim proposal not found');
+  }
+
+  if (!await canManageTeam(params.actorUserId, proposal.targetTeamId)) {
+    throw new ScrimRouteError(403, 'You are not allowed to decide this proposal');
+  }
+
+  if (!['PENDING', 'DELAYED'].includes(proposal.status)) {
+    throw new ScrimRouteError(400, 'This proposal is already resolved');
+  }
+
+  const now = new Date();
+  const responseSeconds = Math.max(0, Math.floor((now.getTime() - proposal.createdAt.getTime()) / 1000));
+
+  const outcome = await prisma.$transaction(async (tx: any) => {
+    const latest = await tx.scrimProposal.findUnique({
+      where: { id: params.proposalId },
+      select: {
+        id: true,
+        status: true,
+        postId: true,
+        createdAt: true,
+        proposedByUserId: true,
+      },
     });
 
-    if (result) {
-      dmQueuePayloads.push(result);
+    if (!latest || !['PENDING', 'DELAYED'].includes(latest.status)) {
+      return null;
     }
+
+    if (normalizedAction === 'ACCEPT') {
+      await tx.scrimProposal.update({
+        where: { id: latest.id },
+        data: {
+          status: 'ACCEPTED',
+          decisionAt: now,
+          decisionByUserId: params.actorUserId,
+          responseSeconds,
+          lowPriorityAt: null,
+        },
+      });
+
+      const competing = await tx.scrimProposal.findMany({
+        where: {
+          postId: latest.postId,
+          id: { not: latest.id },
+          status: { in: ['PENDING', 'DELAYED'] },
+        },
+        select: {
+          id: true,
+          proposedByUserId: true,
+        },
+      });
+
+      if (competing.length > 0) {
+        await tx.scrimProposal.updateMany({
+          where: {
+            id: { in: competing.map((entry: any) => entry.id) },
+          },
+          data: {
+            status: 'REJECTED',
+            decisionAt: now,
+            decisionByUserId: params.actorUserId,
+          },
+        });
+      }
+
+      await tx.scrimPost.update({
+        where: { id: latest.postId },
+        data: {
+          status: 'SETTLED',
+          settledAt: now,
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: latest.proposedByUserId,
+          type: 'SCRIM_PROPOSAL_ACCEPTED',
+          message: `Your scrim proposal was accepted by ${proposal.post.teamName}.`,
+        },
+      });
+
+      await createScrimDiscordNotifications(tx, [{
+        proposalId: latest.id,
+        recipientUserId: latest.proposedByUserId,
+        type: 'ACCEPTED',
+        message: `${proposal.post.teamName} accepted your scrim proposal.`,
+      }]);
+
+      if (competing.length > 0) {
+        await tx.notification.createMany({
+          data: competing.map((entry: any) => ({
+            userId: entry.proposedByUserId,
+            type: 'SCRIM_PROPOSAL_REJECTED',
+            message: `Your scrim proposal was declined because ${proposal.post.teamName} settled with another opponent.`,
+          })),
+        });
+
+        await createScrimDiscordNotifications(tx, competing.map((entry: any) => ({
+          proposalId: entry.id,
+          recipientUserId: entry.proposedByUserId,
+          type: 'REJECTED',
+          message: `${proposal.post.teamName} settled with another team. Your proposal was declined.`,
+        })));
+      }
+
+      return { status: 'ACCEPTED' };
+    }
+
+    if (normalizedAction === 'REJECT') {
+      await tx.scrimProposal.update({
+        where: { id: latest.id },
+        data: {
+          status: 'REJECTED',
+          decisionAt: now,
+          decisionByUserId: params.actorUserId,
+          responseSeconds,
+          lowPriorityAt: null,
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: latest.proposedByUserId,
+          type: 'SCRIM_PROPOSAL_REJECTED',
+          message: `Your scrim proposal was rejected by ${proposal.post.teamName}.`,
+        },
+      });
+
+      await createScrimDiscordNotifications(tx, [{
+        proposalId: latest.id,
+        recipientUserId: latest.proposedByUserId,
+        type: 'REJECTED',
+        message: `${proposal.post.teamName} rejected your scrim proposal.`,
+      }]);
+
+      const activeProposalCount = await tx.scrimProposal.count({
+        where: {
+          postId: latest.postId,
+          status: { in: ['PENDING', 'DELAYED'] },
+        },
+      });
+
+      const currentPost = await tx.scrimPost.findUnique({
+        where: { id: latest.postId },
+        select: { status: true },
+      });
+
+      if (currentPost?.status !== 'SETTLED' && activeProposalCount === 0) {
+        await tx.scrimPost.update({
+          where: { id: latest.postId },
+          data: { status: 'AVAILABLE' },
+        });
+      }
+
+      return { status: 'REJECTED' };
+    }
+
+    await tx.scrimProposal.update({
+      where: { id: latest.id },
+      data: {
+        status: 'DELAYED',
+        lowPriorityAt: now,
+        decisionAt: now,
+        decisionByUserId: params.actorUserId,
+        responseSeconds,
+      },
+    });
+
+    await tx.notification.create({
+      data: {
+        userId: latest.proposedByUserId,
+        type: 'SCRIM_PROPOSAL_DELAYED',
+        message: `${proposal.post.teamName} marked your scrim proposal as low priority and may come back to it as fallback.`,
+      },
+    });
+
+    await createScrimDiscordNotifications(tx, [{
+      proposalId: latest.id,
+      recipientUserId: latest.proposedByUserId,
+      type: 'DELAYED',
+      message: `${proposal.post.teamName} marked your proposal as low priority fallback.`,
+    }]);
+
+    return { status: 'DELAYED' };
+  });
+
+  if (!outcome) {
+    throw new ScrimRouteError(409, 'Proposal state changed. Refresh and retry.');
   }
 
-  for (const payload of dmQueuePayloads) {
-    await enqueueDiscordDmForUser({
-      userId: payload.proposerUserId,
-      senderUsername: 'Scrim Finder',
-      messagePreview: `Your proposal to ${payload.teamName} timed out after 10 minutes.`,
-      conversationId: `scrim:${payload.postId}`,
-    });
-  }
+  return outcome;
 }
 
 export default async function scrimRoutes(fastify: any) {
@@ -471,7 +744,6 @@ export default async function scrimRoutes(fastify: any) {
           startTimeUtc: post.startTimeUtc,
           timezoneLabel: post.timezoneLabel,
           scrimFormat: post.scrimFormat,
-          teamMultiGgUrl: post.teamMultiGgUrl,
           opggMultisearchUrl: post.opggMultisearchUrl,
           details: post.details,
           status: post.status,
@@ -495,6 +767,78 @@ export default async function scrimRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch scrim posts' });
+    }
+  });
+
+  // GET /api/scrims/discord-notifications - Get pending scrim Discord notifications (bot only)
+  fastify.get('/scrims/discord-notifications', { preHandler: validateBotAuth }, async (_request: any, reply: any) => {
+    try {
+      const notifications = await prisma.scrimDiscordNotification.findMany({
+        where: { processed: false },
+        orderBy: { createdAt: 'asc' },
+        take: 80,
+        include: {
+          proposal: {
+            select: {
+              id: true,
+              status: true,
+              message: true,
+              proposedStartTimeUtc: true,
+              post: {
+                select: {
+                  id: true,
+                  teamName: true,
+                  teamTag: true,
+                  startTimeUtc: true,
+                  scrimFormat: true,
+                  opggMultisearchUrl: true,
+                },
+              },
+              proposerTeam: {
+                select: {
+                  id: true,
+                  name: true,
+                  tag: true,
+                  region: true,
+                },
+              },
+              targetTeam: {
+                select: {
+                  id: true,
+                  name: true,
+                  tag: true,
+                  region: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return reply.send({ notifications });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch scrim Discord notifications' });
+    }
+  });
+
+  // PATCH /api/scrims/discord-notifications/:id/processed - Mark scrim Discord notification as processed (bot only)
+  fastify.patch('/scrims/discord-notifications/:id/processed', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { id } = request.params as { id: string };
+
+      await prisma.scrimDiscordNotification.update({
+        where: { id },
+        data: {
+          processed: true,
+          processedAt: new Date(),
+        },
+      });
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to mark scrim Discord notification as processed' });
     }
   });
 
@@ -628,7 +972,6 @@ export default async function scrimRoutes(fastify: any) {
         startTimeUtc,
         timezoneLabel,
         scrimFormat,
-        teamMultiGgUrl,
         opggMultisearchUrl,
         details,
       } = request.body as any;
@@ -669,25 +1012,75 @@ export default async function scrimRoutes(fastify: any) {
         return reply.status(404).send({ error: 'Team not found' });
       }
 
-      const created = await prisma.scrimPost.create({
-        data: {
-          teamId: normalizedTeamId,
-          authorId: userId,
-          contactUserId: normalizeOptionalString(contactUserId),
-          region: team.region,
-          teamName: team.name,
-          teamTag: team.tag,
-          averageRank: RANK_ORDER.includes(normalizedRank as RankName) ? normalizedRank : null,
-          averageDivision: normalizedDivision,
-          startTimeUtc: parsedStartTime,
-          timezoneLabel: normalizeOptionalString(timezoneLabel),
-          scrimFormat: normalizedFormat,
-          teamMultiGgUrl: normalizeOptionalString(teamMultiGgUrl),
-          opggMultisearchUrl: normalizeOptionalString(opggMultisearchUrl),
-          details: normalizeOptionalString(details),
-          source: 'app',
-          discordMirrored: false,
-        },
+      const created = await prisma.$transaction(async (tx: any) => {
+        const activePosts = await tx.scrimPost.findMany({
+          where: {
+            teamId: normalizedTeamId,
+            status: { in: ['AVAILABLE', 'CANDIDATES'] },
+          },
+          select: {
+            id: true,
+            proposals: {
+              where: { status: { in: ['PENDING', 'DELAYED'] } },
+              select: {
+                id: true,
+                proposedByUserId: true,
+              },
+            },
+          },
+        });
+
+        const displacedProposals = (activePosts as Array<{ id: string; proposals: Array<{ id: string; proposedByUserId: string }> }>).flatMap((post) => post.proposals);
+
+        if (displacedProposals.length > 0) {
+          const displacedUserIds = Array.from(new Set(displacedProposals.map((proposal) => proposal.proposedByUserId)));
+
+          await tx.notification.createMany({
+            data: displacedUserIds.map((recipientId) => ({
+              userId: recipientId,
+              type: 'SCRIM_PROPOSAL_REJECTED',
+              message: `${team.name} published a newer scrim slot, so your previous proposal was cleared.`,
+            })),
+          });
+
+          await createScrimDiscordNotifications(tx, displacedProposals.map((proposal) => ({
+            proposalId: proposal.id,
+            recipientUserId: proposal.proposedByUserId,
+            type: 'REJECTED',
+            message: `${team.name} published a newer scrim slot, so your previous proposal was cleared.`,
+          })));
+        }
+
+        if (activePosts.length > 0) {
+          await tx.scrimPost.deleteMany({
+            where: {
+              id: { in: activePosts.map((post: { id: string }) => post.id) },
+            },
+          });
+        }
+
+        const post = await tx.scrimPost.create({
+          data: {
+            teamId: normalizedTeamId,
+            authorId: userId,
+            contactUserId: normalizeOptionalString(contactUserId),
+            region: team.region,
+            teamName: team.name,
+            teamTag: team.tag,
+            averageRank: RANK_ORDER.includes(normalizedRank as RankName) ? normalizedRank : null,
+            averageDivision: normalizedDivision,
+            startTimeUtc: parsedStartTime,
+            timezoneLabel: normalizeOptionalString(timezoneLabel),
+            scrimFormat: normalizedFormat,
+            teamMultiGgUrl: null,
+            opggMultisearchUrl: normalizeOptionalString(opggMultisearchUrl),
+            details: normalizeOptionalString(details),
+            source: 'app',
+            discordMirrored: false,
+          },
+        });
+
+        return post;
       });
 
       return reply.status(201).send({
@@ -713,7 +1106,7 @@ export default async function scrimRoutes(fastify: any) {
       await autoRejectExpiredProposals();
 
       const { postId } = request.params as { postId: string };
-      const { proposerTeamId, message, proposedStartTimeUtc } = request.body as any;
+      const { proposerTeamId, message } = request.body as any;
       const normalizedProposerTeamId = normalizeString(proposerTeamId);
 
       if (!normalizedProposerTeamId) {
@@ -747,8 +1140,6 @@ export default async function scrimRoutes(fastify: any) {
         return reply.status(400).send({ error: 'This scrim post is already settled' });
       }
 
-      const parsedProposedStart = parseDate(proposedStartTimeUtc);
-
       const now = new Date();
       const upserted = await prisma.$transaction(async (tx: any) => {
         const existing = await tx.scrimProposal.findUnique({
@@ -775,7 +1166,7 @@ export default async function scrimRoutes(fastify: any) {
                 status: 'PENDING',
                 message: normalizeOptionalString(message),
                 proposedByUserId: userId,
-                proposedStartTimeUtc: parsedProposedStart,
+                proposedStartTimeUtc: null,
                 createdAt: now,
                 lowPriorityAt: null,
                 decisionAt: null,
@@ -791,7 +1182,7 @@ export default async function scrimRoutes(fastify: any) {
                 targetTeamId: post.teamId,
                 proposedByUserId: userId,
                 message: normalizeOptionalString(message),
-                proposedStartTimeUtc: parsedProposedStart,
+                proposedStartTimeUtc: null,
               },
             });
 
@@ -802,26 +1193,24 @@ export default async function scrimRoutes(fastify: any) {
           });
         }
 
-        const targetReceivers = await tx.teamMember.findMany({
-          where: {
-            teamId: post.teamId,
-            role: { in: ['OWNER', 'MANAGER', 'COACH'] },
-          },
-          select: { userId: true },
-        });
-
-        const receiverIds: string[] = Array.from(new Set(
-          (targetReceivers as Array<{ userId: string }>).map((receiver) => receiver.userId)
-        ));
+        const receiverIds = await getTeamDecisionRecipientIds(tx, post.teamId);
         if (receiverIds.length > 0) {
           await tx.notification.createMany({
             data: receiverIds.map((receiverId: string) => ({
               userId: receiverId,
               type: 'SCRIM_PROPOSAL_RECEIVED',
               fromUserId: userId,
-              message: 'A new scrim proposal has arrived. Review it in Teams > Scrim Finder.',
+              message: 'A new scrim proposal has arrived. Review it in Notifications.',
             })),
           });
+
+          await createScrimDiscordNotifications(tx, receiverIds.map((receiverId: string) => ({
+            proposalId: proposal.id,
+            recipientUserId: receiverId,
+            type: 'RECEIVED',
+            message: 'A new scrim proposal needs your decision.',
+            actionRequired: true,
+          })));
         }
 
         return proposal;
@@ -858,7 +1247,7 @@ export default async function scrimRoutes(fastify: any) {
       const proposals = await prisma.scrimProposal.findMany({
         where: {
           targetTeamId: { in: manageableTeamIds },
-          status: { in: ['PENDING', 'DELAYED', 'ACCEPTED', 'REJECTED', 'AUTO_REJECTED'] },
+          status: { in: ['PENDING', 'DELAYED'] },
         },
         orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
         take: 300,
@@ -880,7 +1269,6 @@ export default async function scrimRoutes(fastify: any) {
               status: true,
               startTimeUtc: true,
               scrimFormat: true,
-              teamMultiGgUrl: true,
               opggMultisearchUrl: true,
             },
           },
@@ -900,263 +1288,64 @@ export default async function scrimRoutes(fastify: any) {
       const userId = await getUserIdFromRequest(request, reply);
       if (!userId) return;
 
-      await autoRejectExpiredProposals();
-
       const { proposalId } = request.params as { proposalId: string };
       const { action } = request.body as { action?: string };
-      const normalizedAction = normalizeString(action).toUpperCase();
-
-      if (!SCRIM_PROPOSAL_DECISIONS.includes(normalizedAction as any)) {
-        return reply.status(400).send({ error: `action must be one of: ${SCRIM_PROPOSAL_DECISIONS.join(', ')}` });
-      }
-
-      const proposal = await prisma.scrimProposal.findUnique({
-        where: { id: proposalId },
-        include: {
-          proposerTeam: {
-            select: {
-              id: true,
-              name: true,
-              tag: true,
-            },
-          },
-          post: {
-            select: {
-              id: true,
-              teamName: true,
-              status: true,
-            },
-          },
-          proposedBy: {
-            select: {
-              id: true,
-              username: true,
-            },
-          },
-        },
+      const outcome = await applyScrimProposalDecision({
+        proposalId,
+        action: action || '',
+        actorUserId: userId,
       });
-
-      if (!proposal) {
-        return reply.status(404).send({ error: 'Scrim proposal not found' });
-      }
-
-      if (!await canManageTeam(userId, proposal.targetTeamId)) {
-        return reply.status(403).send({ error: 'You are not allowed to decide this proposal' });
-      }
-
-      if (!['PENDING', 'DELAYED'].includes(proposal.status)) {
-        return reply.status(400).send({ error: 'This proposal is already resolved' });
-      }
-
-      const now = new Date();
-      const responseSeconds = Math.max(0, Math.floor((now.getTime() - proposal.createdAt.getTime()) / 1000));
-
-      const dmTargets: Array<{ userId: string; message: string }> = [];
-
-      const outcome = await prisma.$transaction(async (tx: any) => {
-        const latest = await tx.scrimProposal.findUnique({
-          where: { id: proposalId },
-          select: {
-            id: true,
-            status: true,
-            postId: true,
-            createdAt: true,
-            proposedByUserId: true,
-            proposerTeamId: true,
-          },
-        });
-
-        if (!latest || !['PENDING', 'DELAYED'].includes(latest.status)) {
-          return null;
-        }
-
-        if (normalizedAction === 'ACCEPT') {
-          await tx.scrimProposal.update({
-            where: { id: latest.id },
-            data: {
-              status: 'ACCEPTED',
-              decisionAt: now,
-              decisionByUserId: userId,
-              responseSeconds,
-              lowPriorityAt: null,
-            },
-          });
-
-          const competing = await tx.scrimProposal.findMany({
-            where: {
-              postId: latest.postId,
-              id: { not: latest.id },
-              status: { in: ['PENDING', 'DELAYED'] },
-            },
-            select: {
-              id: true,
-              proposedByUserId: true,
-            },
-          });
-
-          if (competing.length > 0) {
-            await tx.scrimProposal.updateMany({
-              where: {
-                id: { in: competing.map((entry: any) => entry.id) },
-              },
-              data: {
-                status: 'REJECTED',
-                decisionAt: now,
-                decisionByUserId: userId,
-              },
-            });
-          }
-
-          await tx.scrimPost.update({
-            where: { id: latest.postId },
-            data: {
-              status: 'SETTLED',
-              settledAt: now,
-            },
-          });
-
-          await tx.notification.create({
-            data: {
-              userId: latest.proposedByUserId,
-              type: 'SCRIM_PROPOSAL_ACCEPTED',
-              message: `Your scrim proposal was accepted by ${proposal.post.teamName}.`,
-            },
-          });
-
-          if (competing.length > 0) {
-            await tx.notification.createMany({
-              data: competing.map((entry: any) => ({
-                userId: entry.proposedByUserId,
-                type: 'SCRIM_PROPOSAL_REJECTED',
-                message: `Your scrim proposal was declined because ${proposal.post.teamName} settled with another opponent.`,
-              })),
-            });
-          }
-
-          return {
-            status: 'ACCEPTED',
-            rejectedProposalUserIds: competing.map((entry: any) => entry.proposedByUserId),
-          };
-        }
-
-        if (normalizedAction === 'REJECT') {
-          await tx.scrimProposal.update({
-            where: { id: latest.id },
-            data: {
-              status: 'REJECTED',
-              decisionAt: now,
-              decisionByUserId: userId,
-              responseSeconds,
-              lowPriorityAt: null,
-            },
-          });
-
-          await tx.notification.create({
-            data: {
-              userId: latest.proposedByUserId,
-              type: 'SCRIM_PROPOSAL_REJECTED',
-              message: `Your scrim proposal was rejected by ${proposal.post.teamName}.`,
-            },
-          });
-
-          const activeProposalCount = await tx.scrimProposal.count({
-            where: {
-              postId: latest.postId,
-              status: { in: ['PENDING', 'DELAYED'] },
-            },
-          });
-
-          const currentPost = await tx.scrimPost.findUnique({
-            where: { id: latest.postId },
-            select: { status: true },
-          });
-
-          if (currentPost?.status !== 'SETTLED' && activeProposalCount === 0) {
-            await tx.scrimPost.update({
-              where: { id: latest.postId },
-              data: { status: 'AVAILABLE' },
-            });
-          }
-
-          return {
-            status: 'REJECTED',
-            rejectedProposalUserIds: [] as string[],
-          };
-        }
-
-        await tx.scrimProposal.update({
-          where: { id: latest.id },
-          data: {
-            status: 'DELAYED',
-            lowPriorityAt: now,
-            decisionAt: now,
-            decisionByUserId: userId,
-            responseSeconds,
-          },
-        });
-
-        await tx.notification.create({
-          data: {
-            userId: latest.proposedByUserId,
-            type: 'SCRIM_PROPOSAL_DELAYED',
-            message: `${proposal.post.teamName} marked your scrim proposal as low priority and may come back to it as fallback.`,
-          },
-        });
-
-        return {
-          status: 'DELAYED',
-          rejectedProposalUserIds: [] as string[],
-        };
-      });
-
-      if (!outcome) {
-        return reply.status(409).send({ error: 'Proposal state changed. Refresh and retry.' });
-      }
-
-      if (outcome.status === 'ACCEPTED') {
-        dmTargets.push({
-          userId: proposal.proposedBy.id,
-          message: `${proposal.post.teamName} accepted your scrim proposal.`,
-        });
-
-        outcome.rejectedProposalUserIds.forEach((rejectedUserId: string) => {
-          dmTargets.push({
-            userId: rejectedUserId,
-            message: `${proposal.post.teamName} settled with another team. Your proposal was declined.`,
-          });
-        });
-      }
-
-      if (outcome.status === 'REJECTED') {
-        dmTargets.push({
-          userId: proposal.proposedBy.id,
-          message: `${proposal.post.teamName} rejected your scrim proposal.`,
-        });
-      }
-
-      if (outcome.status === 'DELAYED') {
-        dmTargets.push({
-          userId: proposal.proposedBy.id,
-          message: `${proposal.post.teamName} marked your proposal as low priority fallback.`,
-        });
-      }
-
-      for (const target of dmTargets) {
-        await enqueueDiscordDmForUser({
-          userId: target.userId,
-          senderUsername: 'Scrim Finder',
-          messagePreview: target.message,
-          conversationId: `scrim:${proposal.postId}`,
-        });
-      }
 
       return reply.send({
         success: true,
         status: outcome.status,
       });
     } catch (error: any) {
+      if (error instanceof ScrimRouteError) {
+        return reply.status(error.statusCode).send({ error: error.message });
+      }
+
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to decide scrim proposal' });
+    }
+  });
+
+  // POST /api/scrims/proposals/:proposalId/discord-decision - Accept, reject, or delay from Discord button (bot only)
+  fastify.post('/scrims/proposals/:proposalId/discord-decision', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { proposalId } = request.params as { proposalId: string };
+      const { action, discordId } = request.body as { action?: string; discordId?: string };
+
+      if (!discordId || normalizeString(discordId).length === 0) {
+        return reply.status(400).send({ error: 'discordId is required' });
+      }
+
+      const account = await prisma.discordAccount.findUnique({
+        where: { discordId: normalizeString(discordId) },
+        select: { userId: true },
+      });
+
+      if (!account?.userId) {
+        return reply.status(404).send({ error: 'Discord account is not linked to a RiftEssence user' });
+      }
+
+      const outcome = await applyScrimProposalDecision({
+        proposalId,
+        action: action || '',
+        actorUserId: account.userId,
+      });
+
+      return reply.send({
+        success: true,
+        status: outcome.status,
+      });
+    } catch (error: any) {
+      if (error instanceof ScrimRouteError) {
+        return reply.status(error.statusCode).send({ error: error.message });
+      }
+
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to process Discord scrim decision' });
     }
   });
 }

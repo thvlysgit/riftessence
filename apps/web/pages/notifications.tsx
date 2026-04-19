@@ -19,6 +19,28 @@ type Notification = {
   senderProfileLink?: string;
 };
 
+type IncomingScrimProposal = {
+  id: string;
+  status: 'PENDING' | 'DELAYED';
+  message: string | null;
+  createdAt: string;
+  proposerTeam: {
+    id: string;
+    name: string;
+    tag: string | null;
+    region: string;
+  };
+  post: {
+    id: string;
+    teamId: string;
+    teamName: string;
+    teamTag: string | null;
+    startTimeUtc: string;
+    scrimFormat: string;
+    opggMultisearchUrl: string | null;
+  };
+};
+
 const NOTIFICATION_CONFIG: Record<Notification['type'], { icon: string; color: string; title: string }> = {
   CONTACT_REQUEST: { icon: '💬', color: 'var(--accent-primary)', title: 'Contact Request' },
   FEEDBACK_RECEIVED: { icon: '⭐', color: 'var(--accent-success)', title: 'New Feedback' },
@@ -53,36 +75,57 @@ function getNotificationConfig(notification: Notification) {
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [incomingProposals, setIncomingProposals] = useState<IncomingScrimProposal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [decisionLoadingId, setDecisionLoadingId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const { showToast } = useGlobalUI();
 
-  useEffect(() => {
-    const loadNotifications = async () => {
-      try {
-        const token = getAuthToken();
-        const uid = token ? getUserIdFromToken(token) : null;
-        setUserId(uid);
-        if (!uid) { 
-          setLoading(false); 
-          return; 
-        }
-
-        const res = await fetch(`${API_URL}/api/notifications?userId=${encodeURIComponent(uid)}`);
-        if (!res.ok) throw new Error('Failed to fetch notifications');
-        const data = await res.json();
-        setNotifications(data.notifications || []);
-      } catch (err) {
-        console.error('Failed to load notifications', err);
-        showToast('Failed to load notifications', 'error');
-      } finally {
+  const loadNotifications = async () => {
+    try {
+      const token = getAuthToken();
+      const uid = token ? getUserIdFromToken(token) : null;
+      setUserId(uid);
+      if (!uid || !token) {
+        setIncomingProposals([]);
         setLoading(false);
+        return;
       }
+
+      const authHeaders = { Authorization: `Bearer ${token}` };
+      const [notificationRes, proposalRes] = await Promise.all([
+        fetch(`${API_URL}/api/notifications?userId=${encodeURIComponent(uid)}`, { headers: authHeaders }),
+        fetch(`${API_URL}/api/scrims/proposals/incoming`, { headers: authHeaders }),
+      ]);
+
+      if (!notificationRes.ok) {
+        throw new Error('Failed to fetch notifications');
+      }
+
+      if (!proposalRes.ok) {
+        const proposalError = await proposalRes.json().catch(() => ({}));
+        throw new Error(proposalError.error || 'Failed to fetch incoming scrim proposals');
+      }
+
+      const notificationPayload = await notificationRes.json();
+      const proposalPayload = await proposalRes.json();
+      setNotifications(notificationPayload.notifications || []);
+      setIncomingProposals(proposalPayload.proposals || []);
+    } catch (err: any) {
+      console.error('Failed to load notifications', err);
+      showToast(err?.message || 'Failed to load notifications', 'error');
+    } finally {
+      setLoading(false);
     }
-    loadNotifications();
+  };
+
+  useEffect(() => {
+    void loadNotifications();
 
     // Poll for new notifications every 30 seconds
-    const interval = setInterval(loadNotifications, 30000);
+    const interval = setInterval(() => {
+      void loadNotifications();
+    }, 30000);
     return () => clearInterval(interval);
   }, [showToast]);
 
@@ -103,6 +146,37 @@ export default function NotificationsPage() {
       await markAsRead(id);
     }
     showToast('All notifications marked as read', 'success');
+  };
+
+  const decideProposal = async (proposalId: string, action: 'ACCEPT' | 'REJECT' | 'DELAY') => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    setDecisionLoadingId(proposalId);
+
+    try {
+      const response = await fetch(`${API_URL}/api/scrims/proposals/${proposalId}/decision`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to update proposal');
+      }
+
+      showToast(`Proposal ${action.toLowerCase()}ed`, 'success');
+      await loadNotifications();
+    } catch (error: any) {
+      console.error('Failed to decide scrim proposal', error);
+      showToast(error?.message || 'Failed to update proposal', 'error');
+    } finally {
+      setDecisionLoadingId(null);
+    }
   };
 
   if (loading) {
@@ -149,6 +223,88 @@ export default function NotificationsPage() {
             </button>
           )}
         </div>
+
+        {incomingProposals.length > 0 && (
+          <section className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)' }}>
+            <h2 className="text-lg font-bold mb-3" style={{ color: 'var(--text-main)' }}>
+              Incoming Scrim Proposals
+            </h2>
+            <div className="space-y-3">
+              {incomingProposals.map((proposal) => {
+                const isLoading = decisionLoadingId === proposal.id;
+                return (
+                  <div
+                    key={proposal.id}
+                    className="rounded-lg p-3 border"
+                    style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-card)' }}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
+                        {proposal.proposerTeam.name} {proposal.proposerTeam.tag ? `[${proposal.proposerTeam.tag}]` : ''} wants to scrim {proposal.post.teamName}
+                      </p>
+                      <span
+                        className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                        style={{
+                          background: proposal.status === 'DELAYED' ? 'rgba(124,58,237,0.2)' : 'rgba(245,158,11,0.2)',
+                          color: proposal.status === 'DELAYED' ? '#8B5CF6' : '#F59E0B',
+                        }}
+                      >
+                        {proposal.status}
+                      </span>
+                    </div>
+
+                    <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
+                      {new Date(proposal.post.startTimeUtc).toLocaleString()} • {proposal.post.scrimFormat}
+                    </p>
+
+                    {proposal.message && (
+                      <p className="text-sm mb-2" style={{ color: 'var(--text-main)' }}>
+                        {proposal.message}
+                      </p>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => decideProposal(proposal.id, 'ACCEPT')}
+                        className="px-3 py-1.5 rounded text-xs font-semibold"
+                        style={{ background: '#16A34A', color: 'white' }}
+                      >
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => decideProposal(proposal.id, 'DELAY')}
+                        className="px-3 py-1.5 rounded text-xs font-semibold"
+                        style={{ background: '#7C3AED', color: 'white' }}
+                      >
+                        Delay
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => decideProposal(proposal.id, 'REJECT')}
+                        className="px-3 py-1.5 rounded text-xs font-semibold"
+                        style={{ background: '#DC2626', color: 'white' }}
+                      >
+                        Reject
+                      </button>
+                      <Link
+                        href="/teams/scrims"
+                        className="px-3 py-1.5 rounded text-xs font-semibold border"
+                        style={{ borderColor: 'var(--border-card)', color: 'var(--accent-primary)' }}
+                      >
+                        Open Scrim Finder
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {notifications.length === 0 ? (
           <div className="rounded-xl p-12 text-center" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)' }}>

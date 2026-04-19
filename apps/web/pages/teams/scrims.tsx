@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
 import SEOHead from '@components/SEOHead';
 import NoAccess from '@components/NoAccess';
 import { useAuth } from '../../contexts/AuthContext';
@@ -44,7 +43,6 @@ interface ScrimFeedPost {
   startTimeUtc: string;
   timezoneLabel: string | null;
   scrimFormat: string;
-  teamMultiGgUrl: string | null;
   opggMultisearchUrl: string | null;
   details: string | null;
   status: string;
@@ -70,41 +68,11 @@ interface ScrimFeedPost {
   } | null;
 }
 
-interface IncomingProposal {
-  id: string;
-  postId: string;
-  proposerTeamId: string;
-  targetTeamId: string;
-  message: string | null;
-  proposedStartTimeUtc: string | null;
-  status: string;
-  createdAt: string;
-  lowPriorityAt: string | null;
-  proposerTeam: {
-    id: string;
-    name: string;
-    tag: string | null;
-    region: string;
-  };
-  post: {
-    id: string;
-    teamId: string;
-    teamName: string;
-    teamTag: string | null;
-    status: string;
-    startTimeUtc: string;
-    scrimFormat: string;
-    teamMultiGgUrl: string | null;
-    opggMultisearchUrl: string | null;
-  };
-}
-
 type PostForm = {
   averageRank: string;
   averageDivision: string;
   startLocalTime: string;
   scrimFormat: string;
-  teamMultiGgUrl: string;
   opggMultisearchUrl: string;
   details: string;
 };
@@ -112,7 +80,6 @@ type PostForm = {
 type ProposalForm = {
   proposerTeamId: string;
   message: string;
-  proposedLocalTime: string;
 };
 
 function toLocalInputValue(isoUtc: string | null | undefined): string {
@@ -162,9 +129,8 @@ function statusColor(status: string): string {
 }
 
 export default function TeamsScrimsPage() {
-  const router = useRouter();
   const { user } = useAuth();
-  const { showToast, confirm } = useGlobalUI();
+  const { showToast } = useGlobalUI();
 
   const [teams, setTeams] = useState<TeamSummary[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState('');
@@ -176,24 +142,20 @@ export default function TeamsScrimsPage() {
     averageDivision: '',
     startLocalTime: '',
     scrimFormat: 'BO3',
-    teamMultiGgUrl: '',
     opggMultisearchUrl: '',
     details: '',
   });
 
   const [feedPosts, setFeedPosts] = useState<ScrimFeedPost[]>([]);
-  const [incomingProposals, setIncomingProposals] = useState<IncomingProposal[]>([]);
 
   const [feedLoading, setFeedLoading] = useState(true);
   const [postSubmitting, setPostSubmitting] = useState(false);
   const [proposalSubmitting, setProposalSubmitting] = useState(false);
-  const [proposalDecisionLoadingId, setProposalDecisionLoadingId] = useState<string | null>(null);
 
   const [activeProposalPostId, setActiveProposalPostId] = useState<string | null>(null);
   const [proposalForm, setProposalForm] = useState<ProposalForm>({
     proposerTeamId: '',
     message: '',
-    proposedLocalTime: '',
   });
 
   const [filterRegion, setFilterRegion] = useState('ALL');
@@ -262,27 +224,6 @@ export default function TeamsScrimsPage() {
     }
   };
 
-  const fetchIncomingProposals = async () => {
-    const token = getAuthToken();
-    if (!token) return;
-
-    try {
-      const response = await fetch(`${API_URL}/api/scrims/proposals/incoming`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.error || 'Failed to load incoming proposals');
-      }
-
-      setIncomingProposals(payload.proposals || []);
-    } catch (error: any) {
-      console.error('Failed to load incoming proposals', error);
-      showToast(error?.message || 'Failed to load incoming proposals', 'error');
-    }
-  };
-
   const fetchPrefill = async (teamId: string) => {
     const token = getAuthToken();
     if (!token || !teamId) return;
@@ -305,7 +246,7 @@ export default function TeamsScrimsPage() {
         averageRank: prev.averageRank || payload.suggestedAverageRank || '',
         averageDivision: prev.averageDivision || payload.suggestedAverageDivision || '',
         startLocalTime: prev.startLocalTime || toLocalInputValue(payload.defaultStartTimeUtc),
-        opggMultisearchUrl: prev.opggMultisearchUrl || payload.generatedOpggMultisearchUrl || '',
+        opggMultisearchUrl: payload.generatedOpggMultisearchUrl || prev.opggMultisearchUrl || '',
       }));
     } catch (error: any) {
       console.error('Failed to load prefill', error);
@@ -323,7 +264,6 @@ export default function TeamsScrimsPage() {
   useEffect(() => {
     if (!user) return;
     void fetchFeed();
-    void fetchIncomingProposals();
   }, [user?.id, filterRegion, filterStatus, filterFormat]);
 
   useEffect(() => {
@@ -402,7 +342,6 @@ export default function TeamsScrimsPage() {
           startTimeUtc,
           timezoneLabel: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
           scrimFormat: postForm.scrimFormat,
-          teamMultiGgUrl: normalizeUrl(postForm.teamMultiGgUrl),
           opggMultisearchUrl: normalizeUrl(postForm.opggMultisearchUrl),
           details: postForm.details.trim() || null,
         }),
@@ -413,23 +352,34 @@ export default function TeamsScrimsPage() {
         throw new Error(payload.error || 'Failed to publish scrim post');
       }
 
-      showToast('Scrim post published', 'success');
+      const scheduleResponse = await fetch(`${API_URL}/api/teams/${selectedTeamId}/events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: 'Scrim Finder Slot',
+          type: 'SCRIM',
+          description: postForm.details.trim() || 'Auto-created from Scrim Finder post.',
+          scheduledAt: startTimeUtc,
+          duration: 50,
+          enemyMultigg: normalizeUrl(postForm.opggMultisearchUrl),
+        }),
+      });
+
+      if (!scheduleResponse.ok) {
+        const schedulePayload = await scheduleResponse.json().catch(() => ({}));
+        showToast(schedulePayload.error || 'Scrim post published but schedule event creation failed', 'info');
+      } else {
+        showToast('Scrim post published and schedule event created', 'success');
+      }
+
       setPostForm((prev) => ({
         ...prev,
         details: '',
       }));
       await fetchFeed();
-
-      const setupSchedule = await confirm({
-        title: 'Schedule Reminder',
-        message: 'Want to add this scrim to your Team Schedule now for easier follow-up?',
-        confirmText: 'Open Team Schedule',
-        cancelText: 'Not now',
-      });
-
-      if (setupSchedule) {
-        await router.push('/teams/schedule');
-      }
     } catch (error: any) {
       console.error('Failed to publish scrim post', error);
       showToast(error?.message || 'Failed to publish scrim post', 'error');
@@ -459,7 +409,6 @@ export default function TeamsScrimsPage() {
         body: JSON.stringify({
           proposerTeamId: proposalForm.proposerTeamId,
           message: proposalForm.message.trim() || null,
-          proposedStartTimeUtc: proposalForm.proposedLocalTime ? toUtcIso(proposalForm.proposedLocalTime) : null,
         }),
       });
 
@@ -470,46 +419,13 @@ export default function TeamsScrimsPage() {
 
       showToast('Proposal sent', 'success');
       setActiveProposalPostId(null);
-      setProposalForm({ proposerTeamId: '', message: '', proposedLocalTime: '' });
+      setProposalForm({ proposerTeamId: '', message: '' });
       await fetchFeed();
-      await fetchIncomingProposals();
     } catch (error: any) {
       console.error('Failed to send proposal', error);
       showToast(error?.message || 'Failed to send proposal', 'error');
     } finally {
       setProposalSubmitting(false);
-    }
-  };
-
-  const handleProposalDecision = async (proposalId: string, action: 'ACCEPT' | 'REJECT' | 'DELAY') => {
-    const token = getAuthToken();
-    if (!token) return;
-
-    setProposalDecisionLoadingId(proposalId);
-
-    try {
-      const response = await fetch(`${API_URL}/api/scrims/proposals/${proposalId}/decision`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ action }),
-      });
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.error || 'Failed to update proposal');
-      }
-
-      showToast(`Proposal ${action.toLowerCase()}ed`, 'success');
-      await fetchIncomingProposals();
-      await fetchFeed();
-    } catch (error: any) {
-      console.error('Failed to update proposal', error);
-      showToast(error?.message || 'Failed to update proposal', 'error');
-    } finally {
-      setProposalDecisionLoadingId(null);
     }
   };
 
@@ -550,7 +466,7 @@ export default function TeamsScrimsPage() {
                 Start time is saved once in UTC and displayed in each viewer&apos;s local timezone automatically.
               </p>
               <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Proposal updates use in-app notifications and Discord DMs when possible; Discord privacy settings can still block delivery.
+                Proposal decisions now live in Notifications, with matching Discord decision prompts.
               </p>
             </div>
             <Link
@@ -680,39 +596,9 @@ export default function TeamsScrimsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                    Team multi.gg URL
+                  <label className="text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                    OP.GG multisearch URL
                   </label>
-                  <input
-                    type="text"
-                    value={postForm.teamMultiGgUrl}
-                    onChange={(event) => setPostForm((prev) => ({ ...prev, teamMultiGgUrl: event.target.value }))}
-                    placeholder="https://multi.gg/team-name"
-                    className="w-full px-3 py-2 rounded border"
-                    style={{
-                      backgroundColor: 'var(--color-bg-tertiary)',
-                      borderColor: 'var(--color-border)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
-                      OP.GG multisearch URL
-                    </label>
-                    {prefill?.generatedOpggMultisearchUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setPostForm((prev) => ({ ...prev, opggMultisearchUrl: prefill.generatedOpggMultisearchUrl || '' }))}
-                        className="text-xs font-semibold underline"
-                        style={{ color: 'var(--color-accent-1)' }}
-                      >
-                        Use generated
-                      </button>
-                    )}
-                  </div>
                   <input
                     type="text"
                     value={postForm.opggMultisearchUrl}
@@ -894,18 +780,6 @@ export default function TeamsScrimsPage() {
                             Let&apos;s Scrim!
                           </button>
 
-                          {post.teamMultiGgUrl && (
-                            <a
-                              href={normalizeUrl(post.teamMultiGgUrl) || '#'}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-3 py-1.5 rounded text-sm font-semibold border"
-                              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
-                            >
-                              Team multi.gg
-                            </a>
-                          )}
-
                           {post.opggMultisearchUrl && (
                             <a
                               href={normalizeUrl(post.opggMultisearchUrl) || '#'}
@@ -944,14 +818,6 @@ export default function TeamsScrimsPage() {
                               ))}
                             </select>
 
-                            <input
-                              type="datetime-local"
-                              value={proposalForm.proposedLocalTime}
-                              onChange={(event) => setProposalForm((prev) => ({ ...prev, proposedLocalTime: event.target.value }))}
-                              className="w-full px-3 py-2 rounded border text-sm"
-                              style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
-                            />
-
                             <textarea
                               value={proposalForm.message}
                               onChange={(event) => setProposalForm((prev) => ({ ...prev, message: event.target.value }))}
@@ -987,92 +853,6 @@ export default function TeamsScrimsPage() {
                   })
                 )}
               </div>
-
-              <section
-                className="border p-4 rounded-xl"
-                style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}
-              >
-                <h2 className="text-lg font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>Incoming Proposals</h2>
-
-                {incomingProposals.length === 0 ? (
-                  <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>No incoming proposals yet.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {incomingProposals.map((proposal) => {
-                      const isActionable = proposal.status === 'PENDING' || proposal.status === 'DELAYED';
-                      const loadingThisProposal = proposalDecisionLoadingId === proposal.id;
-                      return (
-                        <div
-                          key={proposal.id}
-                          className="border rounded-lg p-3"
-                          style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
-                            <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                              {proposal.proposerTeam.name} {proposal.proposerTeam.tag ? `[${proposal.proposerTeam.tag}]` : ''} → {proposal.post.teamName}
-                            </p>
-                            <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: `${statusColor(proposal.status)}22`, color: statusColor(proposal.status) }}>
-                              {proposal.status}
-                            </span>
-                          </div>
-
-                          <p className="text-sm mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                            Target scrim: {formatLocalDateTime(proposal.post.startTimeUtc)} ({proposal.post.scrimFormat})
-                          </p>
-
-                          {proposal.proposedStartTimeUtc && (
-                            <p className="text-sm mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                              Proposed alternative: {formatLocalDateTime(proposal.proposedStartTimeUtc)}
-                            </p>
-                          )}
-
-                          {proposal.message && (
-                            <p className="text-sm mb-2" style={{ color: 'var(--color-text-primary)' }}>{proposal.message}</p>
-                          )}
-
-                          {proposal.status === 'DELAYED' && (
-                            <p className="text-xs mb-2" style={{ color: '#A78BFA' }}>
-                              This proposal is currently marked as low-priority fallback.
-                            </p>
-                          )}
-
-                          {isActionable && (
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                disabled={loadingThisProposal}
-                                onClick={() => void handleProposalDecision(proposal.id, 'ACCEPT')}
-                                className="px-3 py-1.5 rounded text-sm font-semibold"
-                                style={{ backgroundColor: '#16A34A', color: 'white' }}
-                              >
-                                Accept
-                              </button>
-                              <button
-                                type="button"
-                                disabled={loadingThisProposal}
-                                onClick={() => void handleProposalDecision(proposal.id, 'DELAY')}
-                                className="px-3 py-1.5 rounded text-sm font-semibold"
-                                style={{ backgroundColor: '#7C3AED', color: 'white' }}
-                              >
-                                Delay (Low priority)
-                              </button>
-                              <button
-                                type="button"
-                                disabled={loadingThisProposal}
-                                onClick={() => void handleProposalDecision(proposal.id, 'REJECT')}
-                                className="px-3 py-1.5 rounded text-sm font-semibold"
-                                style={{ backgroundColor: '#DC2626', color: 'white' }}
-                              >
-                                Reject
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
             </section>
           </div>
         </div>
