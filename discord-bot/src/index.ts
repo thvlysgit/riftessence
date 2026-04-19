@@ -795,7 +795,7 @@ async function handleLinkServer(interaction: ChatInputCommandInteraction) {
 
 // Temporary state for multi-step setup flows (keyed by `${userId}-${channelId}`)
 const pendingSetups = new Map<string, {
-  feedType: 'DUO' | 'LFT';
+  feedType: 'DUO' | 'LFT' | 'SCRIM';
   channelId: string;
   guildId: string;
   communityId: string;
@@ -850,6 +850,7 @@ async function handleSetup(interaction: ChatInputCommandInteraction) {
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId('setup_duo').setLabel('🤝 Duo Feed').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('setup_lft').setLabel('👥 LFT Feed').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('setup_scrim').setLabel('⚔️ Scrim Feed').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('setup_remove').setLabel('🗑️ Remove Channel').setStyle(ButtonStyle.Danger)
       .setDisabled(existingChannels.length === 0),
   );
@@ -897,6 +898,18 @@ function describeFilters(fc: any): string {
   if (fc.filterMinRank) parts.push(`Min: ${fc.filterMinRank}`);
   if (fc.filterMaxRank) parts.push(`Max: ${fc.filterMaxRank}`);
   return parts.length > 0 ? ` (${parts.join(' | ')})` : ' (Global)';
+}
+
+function feedTypeLabel(feedType: 'DUO' | 'LFT' | 'SCRIM'): string {
+  if (feedType === 'DUO') return 'Duo';
+  if (feedType === 'LFT') return 'LFT';
+  return 'Scrim';
+}
+
+function feedTypeTitle(feedType: 'DUO' | 'LFT' | 'SCRIM'): string {
+  if (feedType === 'DUO') return '🤝 Duo';
+  if (feedType === 'LFT') return '👥 LFT';
+  return '⚔️ Scrim';
 }
 
 // ============================================================
@@ -1079,8 +1092,12 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
   }
 
   // ── Choose feed type ──
-  if (customId === 'setup_duo' || customId === 'setup_lft') {
-    const feedType = customId === 'setup_duo' ? 'DUO' : 'LFT';
+  if (customId === 'setup_duo' || customId === 'setup_lft' || customId === 'setup_scrim') {
+    const feedType = customId === 'setup_duo'
+      ? 'DUO'
+      : customId === 'setup_lft'
+        ? 'LFT'
+        : 'SCRIM';
 
     const communityRes = await apiRequest(`/api/communities?discordServerId=${guildId}`);
     const community = communityRes.data?.communities?.[0];
@@ -1102,7 +1119,7 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
 
     const embed = new EmbedBuilder()
       .setColor(0x0a84ff)
-      .setTitle(`${feedType === 'DUO' ? '🤝 Duo' : '👥 LFT'} Feed Setup`)
+      .setTitle(`${feedTypeTitle(feedType)} Feed Setup`)
       .setDescription(
         `Setting up **${feedType}** forwarding in <#${interaction.channelId}>.\n\n` +
         'Choose a mode:'
@@ -1132,7 +1149,7 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
     pendingSetups.delete(key);
 
     if (res.ok) {
-      const label = setup.feedType === 'DUO' ? 'Duo' : 'LFT';
+      const label = feedTypeLabel(setup.feedType);
       const verb = res.data.updated ? 'updated' : 'configured';
       return interaction.update({
         content: `✅ **${label} Feed** ${verb} for <#${setup.channelId}> — **Global** (all posts).`,
@@ -1242,7 +1259,7 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
     pendingSetups.delete(key);
 
     if (res.ok) {
-      const label = setup.feedType === 'DUO' ? 'Duo' : 'LFT';
+      const label = feedTypeLabel(setup.feedType);
       const verb = res.data.updated ? 'updated' : 'configured';
       const filterDesc = describeFilters(setup);
       return interaction.update({
@@ -1760,6 +1777,96 @@ async function mirrorLftPostToDiscord(post: any) {
       }
     } catch (error: any) {
       console.error(`❌ Failed to send LFT to channel ${fc.channelId}:`, error.message);
+    }
+  }
+}
+
+// ============================================================
+// Outgoing Scrim Finder Post Mirroring
+// ============================================================
+
+async function pollOutgoingScrimPosts() {
+  try {
+    const result = await apiRequest('/api/discord/outgoing-scrims');
+    if (!result.ok) {
+      console.error('❌ Failed to poll outgoing SCRIM posts:', result.data.error);
+      return;
+    }
+
+    const posts = Array.isArray(result.data?.posts)
+      ? result.data.posts
+      : Array.isArray(result.data)
+        ? result.data
+        : [];
+
+    if (!posts || posts.length === 0) return;
+
+    console.log(`📤 Found ${posts.length} outgoing SCRIM posts to mirror`);
+
+    for (const post of posts) {
+      await mirrorScrimPostToDiscord(post);
+    }
+  } catch (error: any) {
+    console.error('❌ Error in SCRIM polling loop:', error.message);
+  }
+}
+
+function buildScrimForwardEmbed(post: any, guild: Guild | null | undefined): EmbedBuilder {
+  const appUrl = `${APP_URL}/teams/scrims`;
+  const teamLabel = post.teamTag ? `${post.teamName} [${post.teamTag}]` : post.teamName;
+  const rankLabel = formatRankLabelForDiscord(post.averageRank, post.averageDivision, guild);
+  const startDate = new Date(post.startTimeUtc);
+  const startTimestamp = Number.isFinite(startDate.getTime())
+    ? `<t:${Math.floor(startDate.getTime() / 1000)}:F>`
+    : String(post.startTimeUtc || 'Unknown');
+
+  const descriptionParts = [
+    truncateForDiscord(post.details, 320) ? `> ${truncateForDiscord(post.details, 320)}` : null,
+    `${resolveEmoji(guild, 'region', '🌍')} **${post.region || 'Unknown'}**`,
+    rankLabel,
+    `⚔️ Format: **${post.scrimFormat || 'N/A'}**`,
+    `🕒 Start: ${startTimestamp}`,
+    `📌 Status: **${post.status || 'AVAILABLE'}**`,
+    typeof post.proposalCount === 'number' ? `📨 Proposals: **${post.proposalCount}**` : null,
+    post.teamMultiGgUrl ? `🔗 [Team multi.gg](${post.teamMultiGgUrl.startsWith('http') ? post.teamMultiGgUrl : `https://${post.teamMultiGgUrl}`})` : null,
+    post.opggMultisearchUrl ? `🔎 [OP.GG multisearch](${post.opggMultisearchUrl.startsWith('http') ? post.opggMultisearchUrl : `https://${post.opggMultisearchUrl}`})` : null,
+    `↗ [open in app](${appUrl})`,
+  ].filter(Boolean);
+
+  return new EmbedBuilder()
+    .setColor(0x2563EB)
+    .setTitle(`Scrim Finder • ${teamLabel}`)
+    .setURL(appUrl)
+    .setDescription(descriptionParts.join('\n'))
+    .setFooter({ text: 'RiftEssence' })
+    .setTimestamp();
+}
+
+async function mirrorScrimPostToDiscord(post: any) {
+  const { id, feedChannels } = post;
+
+  const markResult = await apiRequest(`/api/discord/scrim-posts/${id}/mirrored`, 'PATCH');
+  if (!markResult.ok) {
+    console.error(`❌ Failed to mark SCRIM post ${id} as mirrored, skipping`);
+    return;
+  }
+
+  if (!feedChannels || feedChannels.length === 0) {
+    console.warn(`⚠️ SCRIM post ${id} has no feed channels, skipping`);
+    return;
+  }
+
+  for (const fc of feedChannels) {
+    try {
+      const channel = await client.channels.fetch(fc.channelId);
+      if (channel && channel.isTextBased() && 'guild' in channel) {
+        const textChannel = channel as TextChannel;
+        const embed = buildScrimForwardEmbed(post, textChannel.guild);
+        await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId, `${APP_URL}/teams/scrims`));
+        console.log(`✅ Mirrored SCRIM post ${id} to channel ${fc.channelId}`);
+      }
+    } catch (error: any) {
+      console.error(`❌ Failed to send SCRIM to channel ${fc.channelId}:`, error.message);
     }
   }
 }
@@ -2748,6 +2855,11 @@ client.once(Events.ClientReady, async (c) => {
   const LFT_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_LFT_POLL_INTERVAL_MS || '30000', 10);
   console.log(`🔄 Starting LFT post poll (interval: ${LFT_POLL_INTERVAL_MS}ms)`);
   startGuardedPollLoop('LFT post', pollOutgoingLftPosts, LFT_POLL_INTERVAL_MS, 6500);
+
+  // Start polling for outgoing Scrim Finder posts
+  const SCRIM_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_SCRIM_POLL_INTERVAL_MS || '30000', 10);
+  console.log(`🔄 Starting SCRIM post poll (interval: ${SCRIM_POLL_INTERVAL_MS}ms)`);
+  startGuardedPollLoop('SCRIM post', pollOutgoingScrimPosts, SCRIM_POLL_INTERVAL_MS, 9000);
 
   // Start polling for DM notifications
   console.log(`📨 Starting DM notification poll (interval: ${DM_POLL_INTERVAL_MS}ms)`);

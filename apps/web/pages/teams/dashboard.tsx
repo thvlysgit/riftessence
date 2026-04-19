@@ -633,7 +633,7 @@ const TeamsDashboardPage: React.FC = () => {
           </section>
 
           {/* Quick Action Buttons */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
             {/* Manage Roster - Clickable */}
             <button
               onClick={handleManageRosterClick}
@@ -783,6 +783,52 @@ const TeamsDashboardPage: React.FC = () => {
                   style={{ color: '#3B82F6' }}
                   fill="none" 
                   stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </Link>
+
+            {/* Scrim Finder - Clickable Link */}
+            <Link
+              href="/teams/scrims"
+              className="border p-6 rounded-xl block transition-all hover:scale-[1.02] hover:shadow-lg group"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                borderColor: 'var(--color-border)',
+              }}
+            >
+              <div
+                className="w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.2) 0%, rgba(37, 99, 235, 0.1) 100%)',
+                  border: '1px solid rgba(37, 99, 235, 0.3)',
+                }}
+              >
+                <svg className="w-7 h-7" style={{ color: '#2563EB' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 4l6 6-8 8-6-6 8-8z" />
+                  <path d="M4 20l4-4" />
+                  <path d="M16 8l4-4" />
+                </svg>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4
+                    className="font-bold text-lg mb-1"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
+                    Scrim Finder
+                  </h4>
+                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                    Publish scrim slots, filter opponents, and manage proposal decisions.
+                  </p>
+                </div>
+                <svg
+                  className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-1"
+                  style={{ color: '#2563EB' }}
+                  fill="none"
+                  stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

@@ -176,6 +176,8 @@ model User {
   teamMemberships        TeamMember[]           @relation("TeamMemberships")
   teamEventAttendances   TeamEventAttendance[]  @relation("TeamEventAttendances")
   assignedCoachEvents    TeamEventCoach[]       @relation("AssignedCoachEvents")
+  createdScrimPosts      ScrimPost[]            @relation("ScrimPostAuthor")
+  sentScrimProposals     ScrimProposal[]        @relation("ScrimProposalSender")
 
   // Wallet relations
   wallet             Wallet?
@@ -309,6 +311,11 @@ enum NotificationType {
   REPORT_ACCEPTED
   REPORT_REJECTED
   PASSWORD_SETUP_REMINDER
+  SCRIM_PROPOSAL_RECEIVED
+  SCRIM_PROPOSAL_ACCEPTED
+  SCRIM_PROPOSAL_REJECTED
+  SCRIM_PROPOSAL_DELAYED
+  SCRIM_PROPOSAL_AUTO_REJECTED
   ADMIN_TEST
 }
 
@@ -653,6 +660,7 @@ model CoachingPost {
 enum FeedType {
   DUO
   LFT
+  SCRIM
 }
 
 // Discord integration models
@@ -951,6 +959,89 @@ enum AttendanceStatus {
   UNSURE
 }
 
+enum ScrimFormat {
+  BO1
+  BO3
+  BO5
+  BLOCK
+}
+
+enum ScrimPostStatus {
+  AVAILABLE
+  CANDIDATES
+  SETTLED
+}
+
+enum ScrimProposalStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  DELAYED
+  AUTO_REJECTED
+}
+
+model ScrimPost {
+  id                String         @id @default(cuid())
+  team              Team           @relation("TeamScrimPosts", fields: [teamId], references: [id], onDelete: Cascade)
+  teamId            String
+  author            User           @relation("ScrimPostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  authorId          String
+  contactUserId     String?
+  region            Region
+  teamName          String
+  teamTag           String?
+  averageRank       Rank?
+  averageDivision   String?
+  startTimeUtc      DateTime
+  timezoneLabel     String?
+  scrimFormat       ScrimFormat
+  teamMultiGgUrl    String?
+  opggMultisearchUrl String?
+  details           String?
+  status            ScrimPostStatus @default(AVAILABLE)
+  settledAt         DateTime?
+
+  discordMirrored   Boolean        @default(false)
+  source            String         @default("app")
+
+  proposals         ScrimProposal[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([teamId, createdAt])
+  @@index([status, createdAt])
+  @@index([region, status, createdAt])
+  @@index([scrimFormat, createdAt])
+  @@index([source, discordMirrored])
+}
+
+model ScrimProposal {
+  id                  String              @id @default(cuid())
+  post                ScrimPost           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId              String
+  proposerTeam        Team                @relation("TeamScrimProposalsSent", fields: [proposerTeamId], references: [id], onDelete: Cascade)
+  proposerTeamId      String
+  targetTeam          Team                @relation("TeamScrimProposalsReceived", fields: [targetTeamId], references: [id], onDelete: Cascade)
+  targetTeamId        String
+  proposedBy          User                @relation("ScrimProposalSender", fields: [proposedByUserId], references: [id], onDelete: Cascade)
+  proposedByUserId    String
+  message             String?
+  proposedStartTimeUtc DateTime?
+  status              ScrimProposalStatus @default(PENDING)
+  lowPriorityAt       DateTime?
+  decisionByUserId    String?
+  decisionAt          DateTime?
+  autoRejectedAt      DateTime?
+  responseSeconds     Int?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@unique([postId, proposerTeamId])
+  @@index([postId, status, createdAt])
+  @@index([proposerTeamId, status, createdAt])
+  @@index([targetTeamId, status, createdAt])
+}
+
 model Team {
   id          String       @id @default(cuid())
   name        String
@@ -979,6 +1070,9 @@ model Team {
   members     TeamMember[]
   pendingSpots TeamPendingSpot[]
   events      TeamEvent[]
+  scrimPosts  ScrimPost[]               @relation("TeamScrimPosts")
+  scrimProposalsSent ScrimProposal[]    @relation("TeamScrimProposalsSent")
+  scrimProposalsReceived ScrimProposal[] @relation("TeamScrimProposalsReceived")
   notifications TeamEventNotification[]
   eventReminders TeamEventReminder[]
   

@@ -279,8 +279,8 @@ export default async function discordFeedRoutes(fastify: any) {
         return reply.status(400).send({ error: 'Missing required fields: communityId, guildId, channelId' });
       }
 
-      if (!['DUO', 'LFT'].includes(feedType)) {
-        return reply.status(400).send({ error: 'feedType must be DUO or LFT' });
+      if (!['DUO', 'LFT', 'SCRIM'].includes(feedType)) {
+        return reply.status(400).send({ error: 'feedType must be DUO, LFT, or SCRIM' });
       }
 
       // Verify community exists and matches guildId
@@ -738,6 +738,125 @@ export default async function discordFeedRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch outgoing LFT posts' });
+    }
+  });
+
+  // GET /api/discord/outgoing-scrims - Get Scrim Finder posts to mirror to Discord (bot only)
+  fastify.get('/discord/outgoing-scrims', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { since, limit = 50 } = request.query as any;
+
+      const where: any = {
+        source: 'app',
+        discordMirrored: false,
+      };
+
+      if (since) {
+        where.createdAt = { gt: new Date(since) };
+      }
+
+      const [posts, feedChannels] = await Promise.all([
+        prisma.scrimPost.findMany({
+          where,
+          take: parseInt(limit),
+          orderBy: { createdAt: 'asc' },
+          include: {
+            team: {
+              select: {
+                id: true,
+                name: true,
+                tag: true,
+                iconUrl: true,
+                region: true,
+              },
+            },
+            author: {
+              select: {
+                id: true,
+                username: true,
+                discordAccount: {
+                  select: {
+                    discordId: true,
+                    username: true,
+                  },
+                },
+              },
+            },
+            proposals: {
+              select: {
+                id: true,
+                status: true,
+              },
+            },
+          },
+        }),
+        prisma.discordFeedChannel.findMany({
+          where: { feedType: 'SCRIM' },
+        }),
+      ]);
+
+      const formatted = posts.map((post: any) => {
+        const matchingChannels = feedChannels.filter((fc: any) => {
+          if (fc.filterRegions && fc.filterRegions.length > 0) {
+            if (!fc.filterRegions.includes(post.region)) return false;
+          }
+
+          if (!rankInRange(post.averageRank, fc.filterMinRank, fc.filterMaxRank)) return false;
+          return true;
+        });
+
+        return {
+          id: post.id,
+          teamId: post.teamId,
+          createdAt: post.createdAt,
+          region: post.region,
+          teamName: post.teamName,
+          teamTag: post.teamTag,
+          averageRank: post.averageRank,
+          averageDivision: post.averageDivision,
+          startTimeUtc: post.startTimeUtc,
+          timezoneLabel: post.timezoneLabel,
+          scrimFormat: post.scrimFormat,
+          teamMultiGgUrl: post.teamMultiGgUrl,
+          opggMultisearchUrl: post.opggMultisearchUrl,
+          details: post.details,
+          status: post.status,
+          proposalCount: post.proposals.length,
+          team: post.team,
+          author: {
+            id: post.author.id,
+            username: post.author.username,
+            discordUsername: post.author.discordAccount?.username || null,
+            discordId: post.author.discordAccount?.discordId || null,
+          },
+          feedChannels: matchingChannels.map((fc: any) => ({
+            channelId: fc.channelId,
+            guildId: fc.guildId,
+          })),
+        };
+      });
+
+      return reply.send({ posts: formatted });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch outgoing scrim posts' });
+    }
+  });
+
+  // PATCH /api/discord/scrim-posts/:postId/mirrored - Mark Scrim post as mirrored (bot only)
+  fastify.patch('/discord/scrim-posts/:postId/mirrored', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { postId } = request.params as { postId: string };
+
+      const post = await prisma.scrimPost.update({
+        where: { id: postId },
+        data: { discordMirrored: true },
+      });
+
+      return reply.send({ success: true, post });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to mark scrim post as mirrored' });
     }
   });
 

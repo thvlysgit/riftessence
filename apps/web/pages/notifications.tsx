@@ -7,7 +7,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
 type Notification = {
   id: string;
-  type: 'CONTACT_REQUEST' | 'FEEDBACK_RECEIVED' | 'REPORT_RECEIVED' | 'REPORT_ACCEPTED' | 'REPORT_REJECTED' | 'PASSWORD_SETUP_REMINDER' | 'ADMIN_TEST';
+  type: 'CONTACT_REQUEST' | 'FEEDBACK_RECEIVED' | 'REPORT_RECEIVED' | 'REPORT_ACCEPTED' | 'REPORT_REJECTED' | 'PASSWORD_SETUP_REMINDER' | 'SCRIM_PROPOSAL_RECEIVED' | 'SCRIM_PROPOSAL_ACCEPTED' | 'SCRIM_PROPOSAL_REJECTED' | 'SCRIM_PROPOSAL_DELAYED' | 'SCRIM_PROPOSAL_AUTO_REJECTED' | 'ADMIN_TEST';
   fromUserId?: string;
   postId?: string;
   feedbackId?: string;
@@ -26,6 +26,11 @@ const NOTIFICATION_CONFIG: Record<Notification['type'], { icon: string; color: s
   REPORT_ACCEPTED: { icon: '✅', color: 'var(--accent-danger)', title: 'Report Accepted' },
   REPORT_REJECTED: { icon: '❌', color: 'var(--accent-success)', title: 'Report Rejected' },
   PASSWORD_SETUP_REMINDER: { icon: '🔐', color: 'var(--accent-info)', title: 'Set Password Reminder' },
+  SCRIM_PROPOSAL_RECEIVED: { icon: '⚔️', color: 'var(--accent-info)', title: 'Scrim Proposal Received' },
+  SCRIM_PROPOSAL_ACCEPTED: { icon: '✅', color: 'var(--accent-success)', title: 'Scrim Proposal Accepted' },
+  SCRIM_PROPOSAL_REJECTED: { icon: '❌', color: 'var(--accent-danger)', title: 'Scrim Proposal Rejected' },
+  SCRIM_PROPOSAL_DELAYED: { icon: '🕒', color: 'var(--accent-warning)', title: 'Scrim Proposal Delayed' },
+  SCRIM_PROPOSAL_AUTO_REJECTED: { icon: '⌛', color: 'var(--accent-danger)', title: 'Scrim Proposal Timed Out' },
   ADMIN_TEST: { icon: '🔔', color: 'var(--accent-info)', title: 'Admin Test' },
 };
 

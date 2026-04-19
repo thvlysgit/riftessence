@@ -15,6 +15,7 @@
 | Coaching | `/api` | `apps/api/src/routes/coaching.ts` |
 | Communities | `/api` | `apps/api/src/routes/communities.ts` |
 | Discord Feed | `/api` | `apps/api/src/routes/discordFeed.ts` |
+| Scrims | `/api` | `apps/api/src/routes/scrims.ts` |
 | Ads | `/api` | `apps/api/src/routes/ads.ts` |
 | Blocks | `/api/user` | `apps/api/src/routes/blocks.ts` |
 | Leaderboards | `/api` | `apps/api/src/routes/leaderboards.ts` |
@@ -54,6 +55,81 @@
 ## Authentication
 
 All protected endpoints require: `Authorization: Bearer <jwt_token>`
+
+---
+
+## Scrim Finder Endpoints (`/api/scrims`)
+
+### GET `/api/scrims/posts`
+Fetch scrim feed posts.
+
+Auth: Required
+
+Query Parameters:
+- `region` (optional)
+- `status` (optional) — `AVAILABLE`, `CANDIDATES`, `SETTLED`
+- `format` (optional) — `BO1`, `BO3`, `BO5`, `BLOCK`
+- `teamId` (optional)
+
+Notes:
+- Start times are stored in UTC and should be rendered client-side in viewer local timezone.
+- Endpoint auto-expires unanswered pending proposals after 10 minutes.
+
+### GET `/api/scrims/teams/:teamId/prefill`
+Build team-based post prefill data.
+
+Auth: Required
+
+Response includes:
+- rank/division suggestions
+- suggested start windows (UTC)
+- generated OP.GG multisearch URL
+
+### POST `/api/scrims/posts`
+Create a scrim post.
+
+Auth: Required
+
+Reliability gate:
+- linked Discord account required
+- Discord DM notifications opt-in required
+
+Core body fields:
+- `teamId`
+- `startTimeUtc`
+- `scrimFormat`
+- optional: rank/division, timezone label, multi.gg URL, OP.GG multisearch URL, notes
+
+### POST `/api/scrims/posts/:postId/proposals`
+Submit or refresh a proposal from a managed team.
+
+Auth: Required
+
+Reliability gate:
+- linked Discord account required
+- Discord DM notifications opt-in required
+
+Body:
+- `proposerTeamId`
+- optional `message`
+- optional `proposedStartTimeUtc`
+
+### GET `/api/scrims/proposals/incoming`
+List incoming proposals for teams where requester is owner/manager/coach.
+
+Auth: Required
+
+### PATCH `/api/scrims/proposals/:proposalId/decision`
+Decide proposal outcome.
+
+Auth: Required
+
+Body:
+- `action`: `ACCEPT`, `REJECT`, `DELAY`
+
+Behavior:
+- `DELAY` marks proposal as low-priority fallback (not rejection)
+- `ACCEPT` settles the post and rejects other open proposals
 
 ---
 

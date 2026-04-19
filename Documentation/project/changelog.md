@@ -1,6 +1,60 @@
 # Changelog
 
-> Last updated: 2026-04-17
+> Last updated: 2026-04-19
+
+---
+
+## 2026-04-19 - Teams Scrim Finder MVP, Proposal Lifecycle, and Discord Feed Expansion
+
+### Objective: Launch an end-to-end scrim posting and proposal workflow under Teams with timezone-safe scheduling and Discord mirroring support
+
+Overview: Added a new Teams Scrim Finder path with timezone-adaptive scheduling, team-prefilled post creation, proposal decisioning (Accept/Reject/Delay as low-priority fallback), auto-timeout for unanswered proposals, lifecycle notifications, and Discord feed/bot support for SCRIM mirror channels.
+
+Changes:
+
+- Updated [prisma/schema.prisma](prisma/schema.prisma):
+  - Added `ScrimFormat`, `ScrimPostStatus`, `ScrimProposalStatus` enums.
+  - Added `ScrimPost` and `ScrimProposal` models with team/user relations and proposal response tracking.
+  - Extended `FeedType` with `SCRIM`.
+  - Extended `NotificationType` with scrim proposal lifecycle notification keys.
+- Added [prisma/migrations/20260419150000_add_scrim_finder/migration.sql](prisma/migrations/20260419150000_add_scrim_finder/migration.sql):
+  - Guarded enum updates and creation of Scrim tables/indexes/FKs.
+- Added [apps/api/src/routes/scrims.ts](apps/api/src/routes/scrims.ts):
+  - Added Scrim feed, team prefill, post creation, proposal creation, incoming proposal inbox, and decision endpoints.
+  - Implemented 10-minute auto-timeout for unanswered proposals.
+  - Implemented decision outcomes: `ACCEPT`, `REJECT`, `DELAY` (low-priority fallback behavior).
+  - Implemented reliability gate checks (Discord link + DM opt-in) for posting/proposing.
+  - Added notification + Discord DM queue fanout for proposal lifecycle outcomes.
+- Updated [apps/api/src/routes/discordFeed.ts](apps/api/src/routes/discordFeed.ts):
+  - Extended feed channel registration validation to include `SCRIM`.
+  - Added outgoing SCRIM mirror payload endpoint and mirrored-ack endpoint.
+- Updated [apps/api/src/index.ts](apps/api/src/index.ts):
+  - Registered new scrim route module under `/api`.
+- Added [apps/web/pages/teams/scrims.tsx](apps/web/pages/teams/scrims.tsx):
+  - New Teams Scrim Finder page with filters, post publishing, proposal flow, and proposal inbox actions.
+  - Start times are entered in local time and converted to UTC for universal viewer-local rendering.
+  - Team prefill integration includes suggested windows and generated OP.GG multisearch helper.
+- Updated [apps/web/pages/teams/dashboard.tsx](apps/web/pages/teams/dashboard.tsx):
+  - Added Scrim Finder quick action card.
+- Updated [apps/web/components/Navbar.tsx](apps/web/components/Navbar.tsx):
+  - Added Scrim Finder route in Teams desktop and mobile navigation.
+- Updated [apps/web/pages/notifications.tsx](apps/web/pages/notifications.tsx):
+  - Added Scrim proposal lifecycle notification rendering.
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Added SCRIM feed setup option in `/setup`.
+  - Added outgoing SCRIM poll loop and embed mirroring delivery flow.
+
+Validation:
+
+- Pending in this session (to be run after code integration):
+  - `pnpm --filter @lfd/api build`
+  - `pnpm --filter @lfd/web build`
+  - `pnpm -C discord-bot build`
+
+Operational Notes:
+
+- Apply Prisma migration before deploying API/bot updates.
+- SCRIM Discord mirroring requires bot + API deployments together so setup and outgoing mirror paths stay compatible.
 
 ---
 
