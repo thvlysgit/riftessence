@@ -7,7 +7,18 @@ import { getAuthToken } from '../../utils/auth';
 import { useGlobalUI } from '@components/GlobalUI';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const SCRIM_FORMATS = ['BO1', 'BO3', 'BO5', 'BLOCK'];
+const ALL_REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
+const MASTER_PLUS_RANKS = new Set(['MASTER', 'GRANDMASTER', 'CHALLENGER']);
+const SCRIM_FORMAT_OPTIONS = [
+  { value: 'BO1', label: 'Regular BO1', fearless: false },
+  { value: 'BO3', label: 'Regular BO3', fearless: false },
+  { value: 'BO5', label: 'Regular BO5', fearless: false },
+  { value: 'FEARLESS_BO1', label: 'Fearless BO1', fearless: true },
+  { value: 'FEARLESS_BO3', label: 'Fearless BO3', fearless: true },
+  { value: 'FEARLESS_BO5', label: 'Fearless BO5', fearless: true },
+  { value: 'BLOCK', label: 'Fearless Block', fearless: true },
+] as const;
+const SCRIM_FORMATS = SCRIM_FORMAT_OPTIONS.map((option) => option.value);
 const SCRIM_STATUSES = ['AVAILABLE', 'CANDIDATES', 'SETTLED'];
 const MANAGEABLE_TEAM_ROLES = new Set(['OWNER', 'MANAGER', 'COACH']);
 const RANKS = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER', 'UNRANKED'];
@@ -40,6 +51,7 @@ interface ScrimFeedPost {
   region: string;
   averageRank: string | null;
   averageDivision: string | null;
+  averageLp: number | null;
   startTimeUtc: string;
   timezoneLabel: string | null;
   scrimFormat: string;
@@ -71,6 +83,7 @@ interface ScrimFeedPost {
 type PostForm = {
   averageRank: string;
   averageDivision: string;
+  averageLp: string;
   startLocalTime: string;
   scrimFormat: string;
   opggMultisearchUrl: string;
@@ -116,6 +129,23 @@ function normalizeUrl(value: string): string | null {
   return `https://${trimmed}`;
 }
 
+function isFearlessFormat(format: string | null | undefined): boolean {
+  const normalized = String(format || '').toUpperCase();
+  return normalized.startsWith('FEARLESS_') || normalized === 'BLOCK';
+}
+
+function formatLabel(format: string | null | undefined): string {
+  const normalized = String(format || '').toUpperCase();
+  if (normalized === 'FEARLESS_BO1') return 'Fearless BO1';
+  if (normalized === 'FEARLESS_BO3') return 'Fearless BO3';
+  if (normalized === 'FEARLESS_BO5') return 'Fearless BO5';
+  if (normalized === 'BLOCK') return 'Fearless Block';
+  if (normalized === 'BO1') return 'Regular BO1';
+  if (normalized === 'BO3') return 'Regular BO3';
+  if (normalized === 'BO5') return 'Regular BO5';
+  return normalized || 'Unknown';
+}
+
 function statusColor(status: string): string {
   const normalized = String(status || '').toUpperCase();
   if (normalized === 'AVAILABLE') return '#22C55E';
@@ -128,8 +158,18 @@ function statusColor(status: string): string {
   return '#9CA3AF';
 }
 
-function formatAverageRank(rank: string | null | undefined, division: string | null | undefined): string {
+function formatAverageRank(rank: string | null | undefined, division: string | null | undefined, lp?: number | string | null): string {
   if (!rank) return 'Unspecified';
+
+  const normalizedRank = String(rank).toUpperCase();
+  if (MASTER_PLUS_RANKS.has(normalizedRank)) {
+    const numericLp = typeof lp === 'number' ? lp : Number.parseInt(String(lp || ''), 10);
+    if (Number.isFinite(numericLp) && numericLp >= 0) {
+      return `${rank} ${numericLp} LP`;
+    }
+    return rank;
+  }
+
   return division ? `${rank} ${division}` : rank;
 }
 
@@ -160,6 +200,7 @@ export default function TeamsScrimsPage() {
   const [postForm, setPostForm] = useState<PostForm>({
     averageRank: '',
     averageDivision: '',
+    averageLp: '',
     startLocalTime: '',
     scrimFormat: 'BO3',
     opggMultisearchUrl: '',
@@ -181,6 +222,8 @@ export default function TeamsScrimsPage() {
   const [filterRegion, setFilterRegion] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('AVAILABLE');
   const [filterFormat, setFilterFormat] = useState('ALL');
+  const [filterFearless, setFilterFearless] = useState<'ALL' | 'REGULAR' | 'FEARLESS'>('ALL');
+  const [regionPrefilled, setRegionPrefilled] = useState(false);
 
   const manageableTeams = useMemo(() => {
     return teams.filter((team) => team.isOwner || MANAGEABLE_TEAM_ROLES.has(team.myRole));
@@ -225,6 +268,7 @@ export default function TeamsScrimsPage() {
       if (filterRegion !== 'ALL') query.set('region', filterRegion);
       if (filterStatus !== 'ALL') query.set('status', filterStatus);
       if (filterFormat !== 'ALL') query.set('format', filterFormat);
+      if (filterFormat === 'ALL' && filterFearless !== 'ALL') query.set('fearless', filterFearless);
 
       const response = await fetch(`${API_URL}/api/scrims/posts?${query.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -284,7 +328,25 @@ export default function TeamsScrimsPage() {
   useEffect(() => {
     if (!user) return;
     void fetchFeed();
-  }, [user?.id, filterRegion, filterStatus, filterFormat]);
+  }, [user?.id, filterRegion, filterStatus, filterFormat, filterFearless]);
+
+  useEffect(() => {
+    if (regionPrefilled) return;
+
+    if (!user?.region || filterRegion !== 'ALL') {
+      if (user?.region) {
+        setRegionPrefilled(true);
+      }
+      return;
+    }
+
+    const normalized = String(user.region).toUpperCase();
+    if (ALL_REGIONS.includes(normalized)) {
+      setFilterRegion(normalized);
+    }
+
+    setRegionPrefilled(true);
+  }, [user?.region, filterRegion, regionPrefilled]);
 
   useEffect(() => {
     if (!selectedTeamId) {
@@ -359,6 +421,9 @@ export default function TeamsScrimsPage() {
           teamId: selectedTeamId,
           averageRank: postForm.averageRank || null,
           averageDivision: postForm.averageDivision || null,
+          averageLp: MASTER_PLUS_RANKS.has(postForm.averageRank) && postForm.averageLp !== ''
+            ? Number.parseInt(postForm.averageLp, 10)
+            : null,
           startTimeUtc,
           timezoneLabel: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
           scrimFormat: postForm.scrimFormat,
@@ -594,9 +659,10 @@ export default function TeamsScrimsPage() {
                       onChange={(event) => setPostForm((prev) => ({
                         ...prev,
                         averageRank: event.target.value,
-                        averageDivision: ['MASTER', 'GRANDMASTER', 'CHALLENGER', 'UNRANKED'].includes(event.target.value)
+                        averageDivision: MASTER_PLUS_RANKS.has(event.target.value) || event.target.value === 'UNRANKED'
                           ? ''
                           : prev.averageDivision,
+                        averageLp: MASTER_PLUS_RANKS.has(event.target.value) ? prev.averageLp : '',
                       }))}
                       className="w-full px-3 py-2 rounded border"
                       style={{
@@ -611,27 +677,50 @@ export default function TeamsScrimsPage() {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                      Division
-                    </label>
-                    <select
-                      value={postForm.averageDivision}
-                      disabled={!postForm.averageRank || ['MASTER', 'GRANDMASTER', 'CHALLENGER', 'UNRANKED'].includes(postForm.averageRank)}
-                      onChange={(event) => setPostForm((prev) => ({ ...prev, averageDivision: event.target.value }))}
-                      className="w-full px-3 py-2 rounded border disabled:opacity-50"
-                      style={{
-                        backgroundColor: 'var(--color-bg-tertiary)',
-                        borderColor: 'var(--color-border)',
-                        color: 'var(--color-text-primary)',
-                      }}
-                    >
-                      <option value="">-</option>
-                      {DIVISIONS.map((division) => (
-                        <option key={division} value={division}>{division}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {MASTER_PLUS_RANKS.has(postForm.averageRank) ? (
+                    <div>
+                      <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                        LP
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={5000}
+                        step={1}
+                        value={postForm.averageLp}
+                        onChange={(event) => setPostForm((prev) => ({ ...prev, averageLp: event.target.value }))}
+                        className="w-full px-3 py-2 rounded border"
+                        style={{
+                          backgroundColor: 'var(--color-bg-tertiary)',
+                          borderColor: 'var(--color-border)',
+                          color: 'var(--color-text-primary)',
+                        }}
+                        placeholder="e.g. 350"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                        Division
+                      </label>
+                      <select
+                        value={postForm.averageDivision}
+                        disabled={!postForm.averageRank || postForm.averageRank === 'UNRANKED'}
+                        onChange={(event) => setPostForm((prev) => ({ ...prev, averageDivision: event.target.value }))}
+                        className="w-full px-3 py-2 rounded border disabled:opacity-50"
+                        style={{
+                          backgroundColor: 'var(--color-bg-tertiary)',
+                          borderColor: 'var(--color-border)',
+                          color: 'var(--color-text-primary)',
+                        }}
+                      >
+                        <option value="">-</option>
+                        {DIVISIONS.map((division) => (
+                          <option key={division} value={division}>{division}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -660,7 +749,7 @@ export default function TeamsScrimsPage() {
                       Average Rank Focus
                     </p>
                     <p className="text-sm font-extrabold mt-1" style={{ color: rankAccent(postForm.averageRank) }}>
-                      {formatAverageRank(postForm.averageRank, postForm.averageDivision)}
+                      {formatAverageRank(postForm.averageRank, postForm.averageDivision, postForm.averageLp)}
                     </p>
                   </div>
                 </div>
@@ -696,8 +785,8 @@ export default function TeamsScrimsPage() {
                         color: 'var(--color-text-primary)',
                       }}
                     >
-                      {SCRIM_FORMATS.map((format) => (
-                        <option key={format} value={format}>{format}</option>
+                      {SCRIM_FORMAT_OPTIONS.map((format) => (
+                        <option key={format.value} value={format.value}>{format.label}</option>
                       ))}
                     </select>
                   </div>
@@ -801,7 +890,7 @@ export default function TeamsScrimsPage() {
                     style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
                   >
                     <option value="ALL">All regions</option>
-                    {Array.from(new Set(manageableTeams.map((team) => team.region))).map((region) => (
+                    {ALL_REGIONS.map((region) => (
                       <option key={region} value={region}>{region}</option>
                     ))}
                   </select>
@@ -825,9 +914,20 @@ export default function TeamsScrimsPage() {
                     style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
                   >
                     <option value="ALL">Any format</option>
-                    {SCRIM_FORMATS.map((format) => (
-                      <option key={format} value={format}>{format}</option>
+                    {SCRIM_FORMAT_OPTIONS.map((format) => (
+                      <option key={format.value} value={format.value}>{format.label}</option>
                     ))}
+                  </select>
+
+                  <select
+                    value={filterFearless}
+                    onChange={(event) => setFilterFearless(event.target.value as 'ALL' | 'REGULAR' | 'FEARLESS')}
+                    className="px-3 py-2 rounded border text-sm"
+                    style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                  >
+                    <option value="ALL">All drafting styles</option>
+                    <option value="REGULAR">Regular BO only</option>
+                    <option value="FEARLESS">Fearless only</option>
                   </select>
                 </div>
               </div>
@@ -843,6 +943,8 @@ export default function TeamsScrimsPage() {
                   feedPosts.map((post) => {
                     const isProposalOpen = activeProposalPostId === post.id;
                     const rankColor = rankAccent(post.averageRank);
+                    const postIsFearless = isFearlessFormat(post.scrimFormat);
+                    const formatColor = postIsFearless ? '#F97316' : '#2563EB';
                     return (
                       <article
                         key={post.id}
@@ -859,7 +961,7 @@ export default function TeamsScrimsPage() {
                               {post.teamName} {post.teamTag ? `[${post.teamTag}]` : ''}
                             </h3>
                             <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                              {post.region} • {post.scrimFormat} • posted {formatLocalDateTime(post.createdAt)}
+                              {post.region} • {formatLabel(post.scrimFormat)} • posted {formatLocalDateTime(post.createdAt)}
                             </p>
                           </div>
                           <span
@@ -900,10 +1002,10 @@ export default function TeamsScrimsPage() {
                               Average Rank Target
                             </p>
                             <p className="text-lg font-extrabold mt-1" style={{ color: rankColor }}>
-                              {formatAverageRank(post.averageRank, post.averageDivision)}
+                              {formatAverageRank(post.averageRank, post.averageDivision, post.averageLp)}
                             </p>
                             <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                              Format: {post.scrimFormat}
+                              Format: {formatLabel(post.scrimFormat)}
                             </p>
                           </div>
                         </div>
@@ -913,10 +1015,18 @@ export default function TeamsScrimsPage() {
                             Pending {post.proposalStats.pendingCount} • Delayed {post.proposalStats.delayedCount}
                           </div>
                           <div className="rounded-lg border px-3 py-2" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
-                            Avg response {post.proposalStats.averageResponseMinutes ? `${post.proposalStats.averageResponseMinutes} min` : 'No data'}
+                            Team avg response {post.proposalStats.averageResponseMinutes ? `${post.proposalStats.averageResponseMinutes} min` : 'No data'}
                           </div>
-                          <div className="rounded-lg border px-3 py-2" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
-                            Accepted {post.proposalStats.acceptedCount} • Rejected {post.proposalStats.rejectedCount + post.proposalStats.autoRejectedCount}
+                          <div
+                            className="rounded-lg border px-3 py-2"
+                            style={{
+                              borderColor: `${formatColor}88`,
+                              backgroundColor: `${formatColor}20`,
+                              color: formatColor,
+                            }}
+                          >
+                            <span className="font-semibold">{postIsFearless ? 'Fearless' : 'Regular'} format</span>
+                            <span style={{ color: 'var(--color-text-secondary)' }}> • {formatLabel(post.scrimFormat)}</span>
                           </div>
                         </div>
 

@@ -1,7 +1,9 @@
 import prisma from '../prisma';
 import { getUserIdFromRequest } from '../middleware/auth';
 
-const SCRIM_FORMATS = ['BO1', 'BO3', 'BO5', 'BLOCK'] as const;
+const REGULAR_SCRIM_FORMATS = ['BO1', 'BO3', 'BO5'] as const;
+const FEARLESS_SCRIM_FORMATS = ['FEARLESS_BO1', 'FEARLESS_BO3', 'FEARLESS_BO5', 'BLOCK'] as const;
+const SCRIM_FORMATS = [...REGULAR_SCRIM_FORMATS, ...FEARLESS_SCRIM_FORMATS] as const;
 const SCRIM_POST_STATUSES = ['AVAILABLE', 'CANDIDATES', 'SETTLED'] as const;
 const SCRIM_PROPOSAL_DECISIONS = ['ACCEPT', 'REJECT', 'DELAY'] as const;
 const MANAGEABLE_TEAM_ROLES = ['OWNER', 'MANAGER', 'COACH'] as const;
@@ -18,6 +20,7 @@ const RANK_ORDER = [
   'CHALLENGER',
   'UNRANKED',
 ] as const;
+const MASTER_PLUS_RANKS = ['MASTER', 'GRANDMASTER', 'CHALLENGER'] as const;
 const DIVISION_ORDER = ['IV', 'III', 'II', 'I'] as const;
 const PROPOSAL_TIMEOUT_MS = 10 * 60 * 1000;
 const SCRIM_DISCORD_NOTIFICATION_TYPES = {
@@ -61,6 +64,24 @@ function parseDate(value: unknown): Date | null {
 
   const parsed = new Date(value);
   return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function parseOptionalNonNegativeInt(value: unknown): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) return null;
+    return Math.floor(value);
+  }
+
+  const normalized = normalizeString(value);
+  if (!normalized) return null;
+
+  const parsed = Number.parseInt(normalized, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return parsed;
 }
 
 function normalizeRegionKey(region: string): string {
@@ -108,7 +129,7 @@ function rankScore(rank: string | null, division: string | null): number | null 
   const rankIndex = RANK_ORDER.indexOf(normalizedRank);
   const baseScore = rankIndex * 4;
 
-  if (['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(normalizedRank)) {
+  if (MASTER_PLUS_RANKS.includes(normalizedRank as typeof MASTER_PLUS_RANKS[number])) {
     return baseScore + 3;
   }
 
@@ -131,7 +152,7 @@ function scoreToRank(score: number): { averageRank: string | null; averageDivisi
   const divisionIndex = Math.round(clampedScore % 4);
   const rank = RANK_ORDER[Math.max(0, Math.min(rankIndex, RANK_ORDER.length - 2))];
 
-  if (['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(rank)) {
+  if (MASTER_PLUS_RANKS.includes(rank as typeof MASTER_PLUS_RANKS[number])) {
     return {
       averageRank: rank,
       averageDivision: null,
@@ -655,10 +676,11 @@ export default async function scrimRoutes(fastify: any) {
 
       await autoRejectExpiredProposals();
 
-      const { region, status, format, teamId } = (request.query || {}) as {
+      const { region, status, format, fearless, teamId } = (request.query || {}) as {
         region?: string;
         status?: string;
         format?: string;
+        fearless?: string;
         teamId?: string;
       };
 
@@ -674,8 +696,20 @@ export default async function scrimRoutes(fastify: any) {
         where.status = { in: ['AVAILABLE', 'CANDIDATES'] };
       }
 
-      if (format && SCRIM_FORMATS.includes(normalizeString(format).toUpperCase() as any)) {
-        where.scrimFormat = normalizeString(format).toUpperCase();
+      const normalizedFormat = normalizeString(format).toUpperCase();
+      const hasSpecificFormat = SCRIM_FORMATS.includes(normalizedFormat as any);
+
+      if (hasSpecificFormat) {
+        where.scrimFormat = normalizedFormat;
+      }
+
+      const normalizedFearless = normalizeString(fearless).toUpperCase();
+      if (!hasSpecificFormat) {
+        if (normalizedFearless === 'FEARLESS') {
+          where.scrimFormat = { in: [...FEARLESS_SCRIM_FORMATS] as any };
+        } else if (normalizedFearless === 'REGULAR') {
+          where.scrimFormat = { in: [...REGULAR_SCRIM_FORMATS] as any };
+        }
       }
 
       if (teamId && normalizeString(teamId).length > 0) {
@@ -718,17 +752,34 @@ export default async function scrimRoutes(fastify: any) {
         },
       });
 
+      const teamIds = Array.from(new Set((posts as any[]).map((post: any) => post.teamId)));
+      const responseAverages = teamIds.length > 0
+        ? await prisma.scrimProposal.groupBy({
+          by: ['targetTeamId'],
+          where: {
+            targetTeamId: { in: teamIds },
+            responseSeconds: { not: null },
+          },
+          _avg: {
+            responseSeconds: true,
+          },
+        })
+        : [];
+
+      const teamAverageResponseMap = new Map<string, number>();
+      (responseAverages as Array<{ targetTeamId: string; _avg: { responseSeconds: number | null } }>).forEach((entry) => {
+        if (typeof entry._avg.responseSeconds === 'number' && Number.isFinite(entry._avg.responseSeconds)) {
+          teamAverageResponseMap.set(entry.targetTeamId, Number((entry._avg.responseSeconds / 60).toFixed(1)));
+        }
+      });
+
       const formattedPosts = posts.map((post: any) => {
         const pendingCount = post.proposals.filter((proposal: any) => proposal.status === 'PENDING').length;
         const delayedCount = post.proposals.filter((proposal: any) => proposal.status === 'DELAYED').length;
         const acceptedCount = post.proposals.filter((proposal: any) => proposal.status === 'ACCEPTED').length;
         const rejectedCount = post.proposals.filter((proposal: any) => proposal.status === 'REJECTED').length;
         const autoRejectedCount = post.proposals.filter((proposal: any) => proposal.status === 'AUTO_REJECTED').length;
-
-        const responded = post.proposals.filter((proposal: any) => typeof proposal.responseSeconds === 'number');
-        const averageResponseMinutes = responded.length > 0
-          ? Number((responded.reduce((sum: number, proposal: any) => sum + proposal.responseSeconds, 0) / responded.length / 60).toFixed(1))
-          : null;
+        const averageResponseMinutes = teamAverageResponseMap.get(post.teamId) ?? null;
 
         const myProposal = post.proposals.find((proposal: any) => manageableTeamIds.includes(proposal.proposerTeamId)) || null;
 
@@ -741,6 +792,7 @@ export default async function scrimRoutes(fastify: any) {
           region: post.region,
           averageRank: post.averageRank,
           averageDivision: post.averageDivision,
+          averageLp: post.averageLp,
           startTimeUtc: post.startTimeUtc,
           timezoneLabel: post.timezoneLabel,
           scrimFormat: post.scrimFormat,
@@ -791,6 +843,7 @@ export default async function scrimRoutes(fastify: any) {
                   teamTag: true,
                   startTimeUtc: true,
                   scrimFormat: true,
+                  averageLp: true,
                   opggMultisearchUrl: true,
                 },
               },
@@ -969,6 +1022,7 @@ export default async function scrimRoutes(fastify: any) {
         contactUserId,
         averageRank,
         averageDivision,
+        averageLp,
         startTimeUtc,
         timezoneLabel,
         scrimFormat,
@@ -996,7 +1050,28 @@ export default async function scrimRoutes(fastify: any) {
       }
 
       const normalizedRank = normalizeString(averageRank).toUpperCase();
-      const normalizedDivision = normalizeOptionalString(averageDivision)?.toUpperCase() || null;
+      const rankIsValid = RANK_ORDER.includes(normalizedRank as RankName);
+      const isMasterPlusRank = MASTER_PLUS_RANKS.includes(normalizedRank as typeof MASTER_PLUS_RANKS[number]);
+
+      const rawDivision = normalizeOptionalString(averageDivision)?.toUpperCase() || null;
+      if (rawDivision && !DIVISION_ORDER.includes(rawDivision as typeof DIVISION_ORDER[number])) {
+        return reply.status(400).send({ error: `averageDivision must be one of: ${DIVISION_ORDER.join(', ')}` });
+      }
+
+      const hasAverageLpInput = averageLp !== undefined && averageLp !== null && normalizeString(String(averageLp)).length > 0;
+      const parsedAverageLp = parseOptionalNonNegativeInt(averageLp);
+      if (hasAverageLpInput && parsedAverageLp === null) {
+        return reply.status(400).send({ error: 'averageLp must be a non-negative integer' });
+      }
+
+      if ((parsedAverageLp || 0) > 5000) {
+        return reply.status(400).send({ error: 'averageLp must be 5000 or less' });
+      }
+
+      const normalizedDivision = !rankIsValid || normalizedRank === 'UNRANKED' || isMasterPlusRank
+        ? null
+        : rawDivision;
+      const normalizedAverageLp = rankIsValid && isMasterPlusRank ? parsedAverageLp : null;
 
       const team = await prisma.team.findUnique({
         where: { id: normalizedTeamId },
@@ -1067,8 +1142,9 @@ export default async function scrimRoutes(fastify: any) {
             region: team.region,
             teamName: team.name,
             teamTag: team.tag,
-            averageRank: RANK_ORDER.includes(normalizedRank as RankName) ? normalizedRank : null,
+            averageRank: rankIsValid ? normalizedRank : null,
             averageDivision: normalizedDivision,
+            averageLp: normalizedAverageLp,
             startTimeUtc: parsedStartTime,
             timezoneLabel: normalizeOptionalString(timezoneLabel),
             scrimFormat: normalizedFormat,
@@ -1269,6 +1345,7 @@ export default async function scrimRoutes(fastify: any) {
               status: true,
               startTimeUtc: true,
               scrimFormat: true,
+              averageLp: true,
               opggMultisearchUrl: true,
             },
           },

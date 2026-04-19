@@ -68,7 +68,8 @@ Auth: Required
 Query Parameters:
 - `region` (optional)
 - `status` (optional) — `AVAILABLE`, `CANDIDATES`, `SETTLED`
-- `format` (optional) — `BO1`, `BO3`, `BO5`, `BLOCK`
+- `format` (optional) — `BO1`, `BO3`, `BO5`, `FEARLESS_BO1`, `FEARLESS_BO3`, `FEARLESS_BO5`, `BLOCK`
+- `fearless` (optional, only when `format` is omitted) — `REGULAR`, `FEARLESS`
 - `teamId` (optional)
 
 Notes:
@@ -98,10 +99,13 @@ Core body fields:
 - `teamId`
 - `startTimeUtc`
 - `scrimFormat`
-- optional: rank/division, timezone label, OP.GG multisearch URL, notes
+- optional: rank/division, `averageLp` (for `MASTER`/`GRANDMASTER`/`CHALLENGER`), timezone label, OP.GG multisearch URL, notes
 
 Behavior:
 - creating a new active post for the same team replaces older `AVAILABLE`/`CANDIDATES` posts
+
+Feed Metrics:
+- `proposalStats.averageResponseMinutes` is computed at team scope (global for the post owner team), not only from proposals on one specific post.
 
 ### POST `/api/scrims/posts/:postId/proposals`
 Submit or refresh a proposal from a managed team.

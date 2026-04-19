@@ -9,6 +9,7 @@ interface User {
   username: string;
   email?: string;
   bio?: string;
+  region?: string | null;
   verified: boolean;
   badges?: Array<{ key: string; name: string }>;
   riotAccountsCount?: number;
@@ -83,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser({
               id: data.id,
               username: data.username,
+              region: data.region || null,
               email: data.email,
               bio: data.bio,
               verified: data.verified,
@@ -180,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser({
           id: data.userId,
           username: data.username,
+          region: data.region || null,
           email: data.email,
           bio: data.bio,
           verified: data.verified,

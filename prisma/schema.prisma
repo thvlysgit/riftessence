@@ -963,6 +963,9 @@ enum ScrimFormat {
   BO1
   BO3
   BO5
+  FEARLESS_BO1
+  FEARLESS_BO3
+  FEARLESS_BO5
   BLOCK
 }
 
@@ -1000,6 +1003,7 @@ model ScrimPost {
   teamTag           String?
   averageRank       Rank?
   averageDivision   String?
+  averageLp         Int?
   startTimeUtc      DateTime
   timezoneLabel     String?
   scrimFormat       ScrimFormat

@@ -21,16 +21,25 @@ Changes:
   - Replaced scrim DM fanout through `discordDmQueue` with custom `ScrimDiscordNotification` queue writes.
   - Enforced one active scrim post per team (`AVAILABLE`/`CANDIDATES` posts are replaced on new publish).
   - Removed proposal start-time override from proposal submission path.
+  - Added optional `averageLp` support for `MASTER`/`GRANDMASTER`/`CHALLENGER` scrim rank targeting.
+  - Added fearless-aware feed filtering (`fearless=REGULAR|FEARLESS`) and expanded format set (`FEARLESS_BO1/3/5`).
+  - Switched `proposalStats.averageResponseMinutes` to team-global response aggregation (not single-post-local).
 - Updated [prisma/schema.prisma](prisma/schema.prisma):
   - Added `ScrimDiscordNotificationType` enum and `ScrimDiscordNotification` model.
+- Added optional `ScrimPost.averageLp` and extended `ScrimFormat` enum with fearless BO variants.
 - Added [prisma/migrations/20260419193000_add_scrim_discord_notifications/migration.sql](prisma/migrations/20260419193000_add_scrim_discord_notifications/migration.sql):
   - Creates scrim Discord notification enum/table/indexes/FK.
+- Added [prisma/migrations/20260419224000_scrim_lp_and_fearless_formats/migration.sql](prisma/migrations/20260419224000_scrim_lp_and_fearless_formats/migration.sql):
+  - Adds `averageLp` to `ScrimPost` and extends `ScrimFormat` enum for fearless BO variants.
 - Updated [apps/web/pages/teams/scrims.tsx](apps/web/pages/teams/scrims.tsx):
   - Removed embedded incoming-proposals decision panel (moved to Notifications page).
   - Removed proposal alternate-time input.
   - Removed redundant Team multi.gg field/button path and kept OP.GG multisearch prefill.
   - Added explicit post-publish confirmation before creating a team schedule SCRIM event (50-minute duration), so schedule creation is opt-in.
   - Refreshed page visuals (hero, filter bar, feed cards) and elevated start-time + average-rank prominence for faster scanning.
+  - Region filter now lists all supported regions and preselects the authenticated user region by default.
+  - Added master+ LP input in publish form and fearless-only/regular-only filter options.
+  - Replaced accepted/rejected counter tile with format-prominence tile using fearless vs regular color coding.
 - Updated [apps/web/pages/notifications.tsx](apps/web/pages/notifications.tsx):
   - Added actionable incoming scrim proposal cards with Accept/Delay/Reject actions.
 - Updated [apps/api/src/routes/discordFeed.ts](apps/api/src/routes/discordFeed.ts):
