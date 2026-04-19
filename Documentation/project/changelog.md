@@ -29,7 +29,8 @@ Changes:
   - Removed embedded incoming-proposals decision panel (moved to Notifications page).
   - Removed proposal alternate-time input.
   - Removed redundant Team multi.gg field/button path and kept OP.GG multisearch prefill.
-  - Post publish now auto-creates a team schedule SCRIM event (50-minute duration) instead of prompting only to open schedule.
+  - Added explicit post-publish confirmation before creating a team schedule SCRIM event (50-minute duration), so schedule creation is opt-in.
+  - Refreshed page visuals (hero, filter bar, feed cards) and elevated start-time + average-rank prominence for faster scanning.
 - Updated [apps/web/pages/notifications.tsx](apps/web/pages/notifications.tsx):
   - Added actionable incoming scrim proposal cards with Accept/Delay/Reject actions.
 - Updated [apps/api/src/routes/discordFeed.ts](apps/api/src/routes/discordFeed.ts):

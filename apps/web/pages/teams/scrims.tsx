@@ -128,9 +128,29 @@ function statusColor(status: string): string {
   return '#9CA3AF';
 }
 
+function formatAverageRank(rank: string | null | undefined, division: string | null | undefined): string {
+  if (!rank) return 'Unspecified';
+  return division ? `${rank} ${division}` : rank;
+}
+
+function rankAccent(rank: string | null | undefined): string {
+  const normalized = String(rank || '').toUpperCase();
+  if (normalized === 'CHALLENGER') return '#F59E0B';
+  if (normalized === 'GRANDMASTER') return '#EF4444';
+  if (normalized === 'MASTER') return '#A855F7';
+  if (normalized === 'DIAMOND') return '#38BDF8';
+  if (normalized === 'EMERALD') return '#10B981';
+  if (normalized === 'PLATINUM') return '#14B8A6';
+  if (normalized === 'GOLD') return '#FBBF24';
+  if (normalized === 'SILVER') return '#CBD5E1';
+  if (normalized === 'BRONZE') return '#B45309';
+  if (normalized === 'IRON') return '#6B7280';
+  return '#64748B';
+}
+
 export default function TeamsScrimsPage() {
   const { user } = useAuth();
-  const { showToast } = useGlobalUI();
+  const { showToast, confirm } = useGlobalUI();
 
   const [teams, setTeams] = useState<TeamSummary[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState('');
@@ -352,27 +372,38 @@ export default function TeamsScrimsPage() {
         throw new Error(payload.error || 'Failed to publish scrim post');
       }
 
-      const scheduleResponse = await fetch(`${API_URL}/api/teams/${selectedTeamId}/events`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: 'Scrim Finder Slot',
-          type: 'SCRIM',
-          description: postForm.details.trim() || 'Auto-created from Scrim Finder post.',
-          scheduledAt: startTimeUtc,
-          duration: 50,
-          enemyMultigg: normalizeUrl(postForm.opggMultisearchUrl),
-        }),
+      const shouldCreateSchedule = await confirm({
+        title: 'Create Schedule Event?',
+        message: 'Do you want to create a 50-minute Team Schedule event for this scrim slot?',
+        confirmText: 'Create Event',
+        cancelText: 'Skip',
       });
 
-      if (!scheduleResponse.ok) {
-        const schedulePayload = await scheduleResponse.json().catch(() => ({}));
-        showToast(schedulePayload.error || 'Scrim post published but schedule event creation failed', 'info');
+      if (shouldCreateSchedule) {
+        const scheduleResponse = await fetch(`${API_URL}/api/teams/${selectedTeamId}/events`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: 'Scrim Finder Slot',
+            type: 'SCRIM',
+            description: postForm.details.trim() || 'Created from Scrim Finder post.',
+            scheduledAt: startTimeUtc,
+            duration: 50,
+            enemyMultigg: normalizeUrl(postForm.opggMultisearchUrl),
+          }),
+        });
+
+        if (!scheduleResponse.ok) {
+          const schedulePayload = await scheduleResponse.json().catch(() => ({}));
+          showToast(schedulePayload.error || 'Scrim post published but schedule event creation failed', 'info');
+        } else {
+          showToast('Scrim post published and schedule event created', 'success');
+        }
       } else {
-        showToast('Scrim post published and schedule event created', 'success');
+        showToast('Scrim post published without creating a schedule event', 'success');
       }
 
       setPostForm((prev) => ({
@@ -436,6 +467,14 @@ export default function TeamsScrimsPage() {
     return manageableTeams.filter((team) => team.id !== post.teamId);
   }, [activeProposalPostId, manageableTeams, feedPosts]);
 
+  const feedSummary = useMemo(() => {
+    return {
+      total: feedPosts.length,
+      available: feedPosts.filter((post) => post.status === 'AVAILABLE').length,
+      candidates: feedPosts.filter((post) => post.status === 'CANDIDATES').length,
+    };
+  }, [feedPosts]);
+
   if (!user) {
     return (
       <div className="min-h-screen py-10 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
@@ -457,33 +496,71 @@ export default function TeamsScrimsPage() {
 
       <div className="min-h-screen py-8 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
         <div className="max-w-6xl mx-auto space-y-6">
-          <header className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold" style={{ color: 'var(--color-accent-1)' }}>
-                Teams Scrim Finder
-              </h1>
-              <p className="mt-1 text-sm sm:text-base" style={{ color: 'var(--color-text-secondary)' }}>
-                Start time is saved once in UTC and displayed in each viewer&apos;s local timezone automatically.
-              </p>
-              <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Proposal decisions now live in Notifications, with matching Discord decision prompts.
-              </p>
+          <header
+            className="border rounded-2xl p-6 relative overflow-hidden"
+            style={{
+              background: 'linear-gradient(120deg, var(--color-bg-secondary) 0%, rgba(59, 130, 246, 0.12) 58%, rgba(251, 191, 36, 0.1) 100%)',
+              borderColor: 'var(--color-border)',
+              boxShadow: 'var(--shadow)',
+            }}
+          >
+            <div className="absolute -right-10 -top-10 w-44 h-44 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.24) 0%, transparent 72%)' }} />
+            <div className="absolute -left-12 bottom-0 w-52 h-52 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(251,191,36,0.18) 0%, transparent 72%)' }} />
+
+            <div className="relative flex flex-wrap items-start justify-between gap-4">
+              <div className="max-w-2xl">
+                <p className="text-xs uppercase tracking-[0.18em] font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+                  RiftEssence Team Matchmaking
+                </p>
+                <h1 className="text-3xl sm:text-4xl font-extrabold mt-1" style={{ color: 'var(--color-accent-1)' }}>
+                  Teams Scrim Finder
+                </h1>
+                <p className="mt-2 text-sm sm:text-base" style={{ color: 'var(--color-text-secondary)' }}>
+                  Publish availability, evaluate opponents quickly, and decide proposals from Notifications or Discord.
+                </p>
+                <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  Start time is saved once in UTC and automatically rendered in each viewer&apos;s local timezone.
+                </p>
+              </div>
+
+              <Link
+                href="/teams/dashboard"
+                className="px-4 py-2.5 rounded-lg font-semibold border transition-all hover:opacity-85"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)', backgroundColor: 'var(--color-bg-tertiary)' }}
+              >
+                Back to Teams Dashboard
+              </Link>
             </div>
-            <Link
-              href="/teams/dashboard"
-              className="px-4 py-2 rounded font-semibold border transition-all hover:opacity-85"
-              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
-            >
-              Back to Teams Dashboard
-            </Link>
+
+            <div className="relative mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="rounded-lg px-3 py-2 border" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}>
+                <p className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Live Posts</p>
+                <p className="text-xl font-extrabold" style={{ color: 'var(--color-text-primary)' }}>{feedSummary.total}</p>
+              </div>
+              <div className="rounded-lg px-3 py-2 border" style={{ borderColor: 'rgba(34,197,94,0.45)', backgroundColor: 'rgba(34,197,94,0.12)' }}>
+                <p className="text-[11px] uppercase tracking-wide" style={{ color: '#4ADE80' }}>Available</p>
+                <p className="text-xl font-extrabold" style={{ color: '#22C55E' }}>{feedSummary.available}</p>
+              </div>
+              <div className="rounded-lg px-3 py-2 border" style={{ borderColor: 'rgba(251,191,36,0.45)', backgroundColor: 'rgba(251,191,36,0.12)' }}>
+                <p className="text-[11px] uppercase tracking-wide" style={{ color: '#FCD34D' }}>In Consideration</p>
+                <p className="text-xl font-extrabold" style={{ color: '#F59E0B' }}>{feedSummary.candidates}</p>
+              </div>
+            </div>
           </header>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <section
-              className="xl:col-span-1 border p-5 rounded-xl"
-              style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}
+              className="xl:col-span-1 border p-5 rounded-2xl"
+              style={{
+                background: 'linear-gradient(160deg, var(--color-bg-secondary) 0%, rgba(59, 130, 246, 0.08) 100%)',
+                borderColor: 'var(--color-border)',
+                boxShadow: 'var(--shadow)',
+              }}
             >
-              <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>Publish Scrim Availability</h2>
+              <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>Publish Scrim Availability</h2>
+              <p className="text-xs mb-4" style={{ color: 'var(--color-text-muted)' }}>
+                After publishing, you will be asked whether to create a schedule event.
+              </p>
 
               <form className="space-y-4" onSubmit={handleCreatePost}>
                 <div>
@@ -554,6 +631,37 @@ export default function TeamsScrimsPage() {
                         <option key={division} value={division}>{division}</option>
                       ))}
                     </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div
+                    className="rounded-xl px-3 py-2 border"
+                    style={{
+                      borderColor: 'rgba(59,130,246,0.45)',
+                      background: 'linear-gradient(145deg, rgba(59,130,246,0.18), rgba(30,64,175,0.08))',
+                    }}
+                  >
+                    <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: '#93C5FD' }}>
+                      Start Time Focus
+                    </p>
+                    <p className="text-sm font-extrabold mt-1" style={{ color: '#DBEAFE' }}>
+                      {postForm.startLocalTime ? formatLocalDateTime(toUtcIso(postForm.startLocalTime)) : 'Pick a start slot'}
+                    </p>
+                  </div>
+                  <div
+                    className="rounded-xl px-3 py-2 border"
+                    style={{
+                      borderColor: `${rankAccent(postForm.averageRank)}77`,
+                      background: `linear-gradient(145deg, ${rankAccent(postForm.averageRank)}2B, rgba(15,23,42,0.08))`,
+                    }}
+                  >
+                    <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+                      Average Rank Focus
+                    </p>
+                    <p className="text-sm font-extrabold mt-1" style={{ color: rankAccent(postForm.averageRank) }}>
+                      {formatAverageRank(postForm.averageRank, postForm.averageDivision)}
+                    </p>
                   </div>
                 </div>
 
@@ -672,11 +780,19 @@ export default function TeamsScrimsPage() {
 
             <section className="xl:col-span-2 space-y-6">
               <div
-                className="border p-4 rounded-xl"
-                style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}
+                className="border p-4 rounded-2xl"
+                style={{
+                  background: 'linear-gradient(150deg, var(--color-bg-secondary) 0%, rgba(16, 185, 129, 0.08) 100%)',
+                  borderColor: 'var(--color-border)',
+                  boxShadow: 'var(--shadow)',
+                }}
               >
                 <div className="flex flex-wrap items-center gap-3">
                   <h2 className="text-lg font-bold mr-auto" style={{ color: 'var(--color-text-primary)' }}>Scrim Feed</h2>
+
+                  <span className="text-xs px-2.5 py-1 rounded-full border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                    {feedSummary.total} listings
+                  </span>
 
                   <select
                     value={filterRegion}
@@ -726,19 +842,24 @@ export default function TeamsScrimsPage() {
                 ) : (
                   feedPosts.map((post) => {
                     const isProposalOpen = activeProposalPostId === post.id;
+                    const rankColor = rankAccent(post.averageRank);
                     return (
                       <article
                         key={post.id}
-                        className="border rounded-xl p-4"
-                        style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}
+                        className="border rounded-2xl p-5"
+                        style={{
+                          background: 'linear-gradient(160deg, var(--color-bg-secondary) 0%, rgba(15, 23, 42, 0.16) 100%)',
+                          borderColor: 'var(--color-border)',
+                          boxShadow: 'var(--shadow)',
+                        }}
                       >
-                        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                           <div>
-                            <h3 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                            <h3 className="text-xl font-extrabold" style={{ color: 'var(--color-text-primary)' }}>
                               {post.teamName} {post.teamTag ? `[${post.teamTag}]` : ''}
                             </h3>
                             <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                              {post.region} • {post.scrimFormat} • starts {formatLocalDateTime(post.startTimeUtc)}
+                              {post.region} • {post.scrimFormat} • posted {formatLocalDateTime(post.createdAt)}
                             </p>
                           </div>
                           <span
@@ -749,21 +870,67 @@ export default function TeamsScrimsPage() {
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-                          <div>Average rank: {post.averageRank || 'Unknown'} {post.averageDivision || ''}</div>
-                          <div>Pending: {post.proposalStats.pendingCount} | Delayed: {post.proposalStats.delayedCount}</div>
-                          <div>Avg response: {post.proposalStats.averageResponseMinutes ? `${post.proposalStats.averageResponseMinutes} min` : 'No data'}</div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                          <div
+                            className="rounded-xl p-3 border"
+                            style={{
+                              borderColor: 'rgba(59,130,246,0.45)',
+                              background: 'linear-gradient(145deg, rgba(59,130,246,0.18), rgba(30,64,175,0.08))',
+                            }}
+                          >
+                            <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: '#93C5FD' }}>
+                              Start Time (Your Local)
+                            </p>
+                            <p className="text-lg font-extrabold mt-1" style={{ color: '#DBEAFE' }}>
+                              {formatLocalDateTime(post.startTimeUtc)}
+                            </p>
+                            <p className="text-xs mt-1" style={{ color: '#BFDBFE' }}>
+                              {post.timezoneLabel ? `Source TZ: ${post.timezoneLabel}` : 'Automatically localized for you'}
+                            </p>
+                          </div>
+
+                          <div
+                            className="rounded-xl p-3 border"
+                            style={{
+                              borderColor: `${rankColor}88`,
+                              background: `linear-gradient(145deg, ${rankColor}2E, rgba(15,23,42,0.1))`,
+                            }}
+                          >
+                            <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+                              Average Rank Target
+                            </p>
+                            <p className="text-lg font-extrabold mt-1" style={{ color: rankColor }}>
+                              {formatAverageRank(post.averageRank, post.averageDivision)}
+                            </p>
+                            <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                              Format: {post.scrimFormat}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm mb-4">
+                          <div className="rounded-lg border px-3 py-2" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                            Pending {post.proposalStats.pendingCount} • Delayed {post.proposalStats.delayedCount}
+                          </div>
+                          <div className="rounded-lg border px-3 py-2" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                            Avg response {post.proposalStats.averageResponseMinutes ? `${post.proposalStats.averageResponseMinutes} min` : 'No data'}
+                          </div>
+                          <div className="rounded-lg border px-3 py-2" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                            Accepted {post.proposalStats.acceptedCount} • Rejected {post.proposalStats.rejectedCount + post.proposalStats.autoRejectedCount}
+                          </div>
                         </div>
 
                         {post.details && (
-                          <p className="text-sm mb-3" style={{ color: 'var(--color-text-primary)' }}>{post.details}</p>
+                          <div className="rounded-lg border px-3 py-2.5 mb-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}>
+                            <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{post.details}</p>
+                          </div>
                         )}
 
-                        <div className="flex flex-wrap gap-2 mb-3">
+                        <div className="flex flex-wrap gap-2 mb-4">
                           <Link
                             href={`/teams/${post.teamId}`}
-                            className="px-3 py-1.5 rounded text-sm font-semibold border"
-                            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                            className="px-3 py-1.5 rounded-lg text-sm font-semibold border"
+                            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)', backgroundColor: 'var(--color-bg-tertiary)' }}
                           >
                             View Team
                           </Link>
@@ -774,8 +941,8 @@ export default function TeamsScrimsPage() {
                               setActiveProposalPostId(isProposalOpen ? null : post.id);
                               setProposalForm((prev) => ({ ...prev, proposerTeamId: proposalEligibleTeams[0]?.id || prev.proposerTeamId || '' }));
                             }}
-                            className="px-3 py-1.5 rounded text-sm font-semibold"
-                            style={{ backgroundColor: '#2563EB', color: 'white' }}
+                            className="px-3 py-1.5 rounded-lg text-sm font-semibold"
+                            style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', color: 'white' }}
                           >
                             Let&apos;s Scrim!
                           </button>
@@ -785,8 +952,8 @@ export default function TeamsScrimsPage() {
                               href={normalizeUrl(post.opggMultisearchUrl) || '#'}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="px-3 py-1.5 rounded text-sm font-semibold border"
-                              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                              className="px-3 py-1.5 rounded-lg text-sm font-semibold border"
+                              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)', backgroundColor: 'var(--color-bg-tertiary)' }}
                             >
                               OP.GG multisearch
                             </a>
@@ -794,14 +961,14 @@ export default function TeamsScrimsPage() {
                         </div>
 
                         {post.myProposal && (
-                          <div className="mb-3 text-sm px-3 py-2 rounded border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                          <div className="mb-4 text-sm px-3 py-2 rounded-lg border" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-bg-tertiary)' }}>
                             Your team proposal status: <strong style={{ color: statusColor(post.myProposal.status) }}>{post.myProposal.status}</strong>
                             {post.myProposal.status === 'DELAYED' && ' (marked as low-priority fallback)'}
                           </div>
                         )}
 
                         {isProposalOpen && (
-                          <div className="mt-3 border rounded-lg p-3 space-y-3" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}>
+                          <div className="mt-3 border rounded-xl p-3 space-y-3" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}>
                             <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                               Send proposal
                             </p>
@@ -832,7 +999,7 @@ export default function TeamsScrimsPage() {
                                 type="button"
                                 onClick={() => void handleSubmitProposal(post)}
                                 disabled={proposalSubmitting}
-                                className="px-3 py-1.5 rounded font-semibold text-sm"
+                                className="px-3 py-1.5 rounded-lg font-semibold text-sm"
                                 style={{ backgroundColor: '#16A34A', color: 'white' }}
                               >
                                 {proposalSubmitting ? 'Sending...' : 'Send Proposal'}
@@ -840,7 +1007,7 @@ export default function TeamsScrimsPage() {
                               <button
                                 type="button"
                                 onClick={() => setActiveProposalPostId(null)}
-                                className="px-3 py-1.5 rounded font-semibold text-sm border"
+                                className="px-3 py-1.5 rounded-lg font-semibold text-sm border"
                                 style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
                               >
                                 Cancel
