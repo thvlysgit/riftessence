@@ -4,6 +4,77 @@
 
 ---
 
+## 2026-04-20 - Scrim Lifecycle Automation, Host Match-Code Controls, and Discord Forwarding Channels
+
+### Objective: Complete host-owned scrim code lifecycle, add automated/manual result resolution signaling, and ensure scrim lifecycle updates route cleanly across app + Discord
+
+Overview: Implemented end-to-end scrim lifecycle upgrades across schema, API, web UI, and Discord bot so host teams own code generation/regeneration, opponents receive live code-version updates, and result handling supports both Riot auto-check and manual agreement with escalation guidance when conflicts persist. Also added an optional dedicated Discord webhook override for scrim code lifecycle forwarding while keeping existing schedule webhook as default fallback.
+
+Changes:
+
+- Updated [prisma/schema.prisma](prisma/schema.prisma):
+  - Added lifecycle notification enum values (`SCRIM_SERIES_ACCEPTED`, `SCRIM_MATCH_CODE_REGENERATED`, `SCRIM_RESULT_*`).
+  - Added `ScrimAutoResultStatus` + `ScrimResultSource` enums.
+  - Extended `ScrimSeries` with match-code versioning, auto-result tracking, lobby-code trust markers, conflict counters, and escalation timestamps.
+  - Added optional `Team.discordScrimCodeWebhookUrl` override.
+- Added [prisma/migrations/20260420103000_add_scrim_series_lifecycle_and_auto_result/migration.sql](prisma/migrations/20260420103000_add_scrim_series_lifecycle_and_auto_result/migration.sql):
+  - Added guarded enum values/types and additive scrim lifecycle columns/indexes.
+  - Added optional team scrim-code webhook column.
+- Updated [apps/api/src/routes/scrims.ts](apps/api/src/routes/scrims.ts):
+  - Added lifecycle fanout helper for team-event notifications plus in-app notifications.
+  - Added host-only endpoints:
+    - `POST /api/scrims/series/:seriesId/match-code/regenerate`
+    - `POST /api/scrims/series/:seriesId/lobby-code-used`
+  - Added periodic + on-demand Riot auto-result sweep and series-level auto state metadata.
+  - Added manual conflict escalation flow with support guidance payload.
+  - Corrected lifecycle team-event notification type values to match Prisma notification enum keys (`SCRIM_RESULT_*`).
+- Updated [apps/api/src/routes/teams.ts](apps/api/src/routes/teams.ts):
+  - Added read/write/clear support for `scrimCodeWebhookUrl` with webhook validation metadata.
+- Updated [apps/api/src/routes/discordFeed.ts](apps/api/src/routes/discordFeed.ts):
+  - For `SCRIM_*` lifecycle items, routing now prefers `discordScrimCodeWebhookUrl` when configured.
+  - Falls back to standard team schedule webhook when override is absent.
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Added dedicated embed rendering for `SCRIM_*` lifecycle notifications.
+  - Added Scrim Finder link CTA for lifecycle events and skipped legacy attendance actions.
+  - Corrected lifecycle notification key handling to `SCRIM_RESULT_*` naming.
+- Updated [apps/web/pages/teams/discord.tsx](apps/web/pages/teams/discord.tsx):
+  - Added optional scrim-code webhook override field with validation feedback.
+  - Clarified default fallback behavior to the main schedule webhook.
+- Updated [apps/web/pages/teams/scrims.tsx](apps/web/pages/teams/scrims.tsx):
+  - Added no-reload pending-series refresh and match-code popup trigger by code-version marker.
+  - Added host-only match-code regenerate/mark-lobby controls in agreement card + popup.
+  - Added visible auto-result/manual/escalation status metadata and conflict guidance.
+  - Improved modal instructions to reinforce host ownership + fallback winner agreement path.
+- Updated [apps/web/pages/notifications.tsx](apps/web/pages/notifications.tsx):
+  - Added lifecycle notification type mappings for `SCRIM_SERIES_ACCEPTED`, `SCRIM_MATCH_CODE_REGENERATED`, and `SCRIM_RESULT_*` variants.
+- Updated [Documentation/architecture/api-contracts.md](Documentation/architecture/api-contracts.md):
+  - Synced contracts for host-only match-code/lobby endpoints, expanded pending-results payload, and conflict escalation response shape.
+  - Added team Discord settings contract notes for optional scrim-code webhook override.
+- Updated [Documentation/architecture/database-schema.md](Documentation/architecture/database-schema.md):
+  - Synced enum/model docs for `SCRIM_RESULT_*`, `ScrimAutoResultStatus`, `ScrimResultSource`, and `ScrimSeries` lifecycle fields/index.
+- Updated [Documentation/backend/integrations.md](Documentation/backend/integrations.md):
+  - Added scrim lifecycle delivery routing notes and auto-result environment variable reference.
+- Updated [RASPBERRY_PI_DEPLOYMENT.md](RASPBERRY_PI_DEPLOYMENT.md):
+  - Added Pi-focused environment defaults/tuning guidance for scrim auto-result sweep and conflict escalation support routing.
+
+Validation:
+
+- `pnpm prisma generate` passes.
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/web build` passes.
+- `pnpm -C discord-bot build` passes.
+- Non-blocking environment warnings observed during web build:
+  - Next.js ESLint plugin not detected in current ESLint config.
+  - Custom webpack configuration disables webpack build worker by default.
+
+Operational Notes:
+
+- Apply migration `20260420103000_add_scrim_series_lifecycle_and_auto_result` before deploying API/web/bot updates.
+- Deploy API and Discord bot together so lifecycle event delivery and rendering stay protocol-compatible.
+
+---
+
 ## 2026-04-20 - Scrim Winner Agreement UX Clarification and Notifications Theme Normalization
 
 ### Objective: Make winner agreement unambiguous, surface match code usage clearly, and align Notifications page visuals with standard theme tokens

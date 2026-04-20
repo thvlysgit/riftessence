@@ -1,6 +1,6 @@
 # API Contracts
 
-> Last updated: 2026-04-19  
+> Last updated: 2026-04-20  
 > Base URL: `NEXT_PUBLIC_API_URL` (default: `http://localhost:3333`)
 
 ## Route Modules
@@ -205,7 +205,40 @@ Scope:
 - only series where requester can manage at least one participating team
 
 Response:
-- `series[]` with `id`, `matchCode`, team summaries, first report state, proposal/post context, and `myTeamIds`
+- `series[]` with:
+  - code lifecycle: `matchCode`, `matchCodeVersion`, `matchCodeRegeneratedAt`, `matchCodeRegeneratedByTeamId`, `lobbyCodeUsedAt`, `lobbyCodeUsedByUserId`
+  - participants/context: host/guest team snapshots, `scheduledAt`, `boGames`, `hostCreatesLobby`, `myTeamIds`
+  - auto/manual resolution: `autoResultStatus`, `autoResultReadyAt`, `autoResultAttempts`, `autoResultFailureReason`, `autoResultMatchId`, `resultSource`
+  - conflict/escalation: `manualConflictCount`, `escalatedAt`
+  - first report state + proposal/post context
+
+### POST `/api/scrims/series/:seriesId/match-code/regenerate`
+Regenerate scrim match code for a pending series.
+
+Auth: Required
+
+Rules:
+- only host team staff (owner/manager/coach) can regenerate
+- blocked once winner is already confirmed
+
+Response:
+- `success: true`
+- `series` snapshot (`id`, `matchCode`, `matchCodeVersion`, team IDs, `scheduledAt`)
+
+Side effects:
+- emits lifecycle fanout to both teams (`SCRIM_MATCH_CODE_REGENERATED`) via team-event queue + in-app notifications
+- updates code version metadata for live UI refresh
+
+### POST `/api/scrims/series/:seriesId/lobby-code-used`
+Record host trust marker that lobby was created with app-provided code.
+
+Auth: Required
+
+Rules:
+- only host team staff can record usage
+
+Response:
+- `success: true`
 
 ### POST `/api/scrims/series/:seriesId/result`
 Report winner for a series with two-team agreement flow.
@@ -220,10 +253,21 @@ Behavior:
 - first report stores pending winner claim (`PENDING_CONFIRMATION`)
 - first reporter can update their own pending winner claim before opponent confirms
 - opponent matching the same winner confirms result (`CONFIRMED`)
-- opponent reporting a different winner returns conflict (`409`)
+- opponent reporting a different winner returns conflict (`409`) and increments `manualConflictCount`
+- repeated conflicts auto-escalate with support guidance payload (`support.required`, `support.url`, screenshot guidance, trust hint)
+
+Result source:
+- manual confirmation sets `resultSource: MANUAL_AGREEMENT`
+- Riot auto-confirmed series report `resultSource` as `AUTO_RIOT`
+
+Lifecycle fanout:
+- pending confirmation prompts opponent via `SCRIM_RESULT_MANUAL_REQUIRED`
+- confirmed results fan out via `SCRIM_RESULT_MANUAL_CONFIRMED`
+- escalations fan out via `SCRIM_RESULT_CONFLICT_ESCALATION`
 
 Response notes:
-- when series is already confirmed, endpoint returns `CONFIRMED` with `alreadyConfirmed: true`
+- when series is already confirmed, endpoint returns `CONFIRMED` with `alreadyConfirmed: true` and `resultSource`
+- conflict responses may include `manualConflictCount` and `support` escalation guidance
 
 ### GET `/api/scrims/reviews/candidates`
 List eligible team-vs-team directed review candidates for confirmed series.
@@ -273,6 +317,35 @@ Scrim-related response additions:
   - `averageRating` (or `null`)
   - `reviewCount`
   - `recentReviews[]` including reviewer team, three score axes, average, comment, and series metadata
+
+### GET `/api/teams/:id/discord`
+Read team Discord delivery settings.
+
+Auth: Required (team owner)
+
+Response highlights:
+- schedule/event webhook: `webhookUrl`
+- optional scrim lifecycle override channel: `scrimCodeWebhookUrl`
+- validation metadata for both webhook targets (`webhookValid`, `channelName`, `guildName`, `scrimCodeWebhookValid`, `scrimCodeChannelName`, `scrimCodeGuildName`)
+- mention and reminder settings
+
+### POST `/api/teams/:id/discord`
+Update team Discord delivery settings.
+
+Auth: Required (team owner)
+
+Body highlights:
+- optional `webhookUrl`
+- optional `scrimCodeWebhookUrl` (dedicated channel for `SCRIM_*` lifecycle notices; fallback remains `webhookUrl`)
+- mention/reminder settings and role maps
+
+### DELETE `/api/teams/:id/discord`
+Reset team Discord settings.
+
+Auth: Required (team owner)
+
+Behavior:
+- clears both `webhookUrl` and `scrimCodeWebhookUrl`
 
 ---
 

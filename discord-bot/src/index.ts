@@ -2381,6 +2381,41 @@ function buildTeamEventEmbed(notification: TeamEventNotification, teamDisplay: s
   const typeLabel = EVENT_TYPE_LABELS[notification.eventType] || notification.eventType;
   const color = EVENT_TYPE_COLORS[notification.eventType] || 0xC8AA6E;
 
+  const isScrimLifecycle = typeof notification.notificationType === 'string'
+    && notification.notificationType.startsWith('SCRIM_');
+
+  if (isScrimLifecycle) {
+    const lifecycleColor: Record<string, number> = {
+      SCRIM_SERIES_ACCEPTED: 0x2563EB,
+      SCRIM_MATCH_CODE_REGENERATED: 0xF59E0B,
+      SCRIM_RESULT_AUTO_CONFIRMED: 0x22C55E,
+      SCRIM_RESULT_MANUAL_CONFIRMED: 0x14B8A6,
+      SCRIM_RESULT_MANUAL_REQUIRED: 0xEF4444,
+      SCRIM_RESULT_CONFLICT_ESCALATION: 0xDC2626,
+    };
+
+    const embed = new EmbedBuilder()
+      .setTimestamp()
+      .setColor(lifecycleColor[notification.notificationType] || 0x2563EB)
+      .setTitle(notification.eventTitle || 'Scrim Lifecycle Update')
+      .setDescription(notification.description || 'A scrim lifecycle update is available in Scrim Finder.')
+      .addFields({
+        name: '📅 Scheduled Start',
+        value: scheduledDate.toLocaleString('en-US', {
+          weekday: 'long',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZoneName: 'short',
+        }),
+        inline: false,
+      })
+      .setFooter({ text: `Scrim Lifecycle • ${teamDisplay}` });
+
+    return embed;
+  }
+
   const embed = new EmbedBuilder().setTimestamp();
 
   const fields: Array<{ name: string; value: string; inline: boolean }> = [];
@@ -2712,6 +2747,16 @@ function buildTeamEventActionComponents(teamId: string, eventId: string): Action
 }
 
 function buildTeamEventComponents(notification: TeamEventNotification): ActionRowBuilder<ButtonBuilder>[] {
+  if (typeof notification.notificationType === 'string' && notification.notificationType.startsWith('SCRIM_')) {
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setLabel('Open Scrim Finder')
+        .setStyle(ButtonStyle.Link)
+        .setURL(`${APP_URL}/teams/scrims`)
+    );
+    return [row];
+  }
+
   if (notification.notificationType === 'DELETED') {
     return [];
   }
@@ -2902,7 +2947,7 @@ async function sendTeamEventNotification(notification: TeamEventNotification) {
     console.log(`ℹ️ Team ${notification.teamName} has no channel webhook configured; DM-only delivery path will be used`);
   }
 
-  if (channelMessageId && notification.notificationType !== 'DELETED') {
+  if (channelMessageId && (notification.notificationType === 'CREATED' || notification.notificationType === 'UPDATED')) {
     const storeResult = await apiRequest(`/api/discord/team-events/${notification.eventId}/message`, 'PATCH', { messageId: channelMessageId });
     if (!storeResult.ok) {
       console.warn(`⚠️ Could not persist Discord message ID ${channelMessageId} for event ${notification.eventId}`);

@@ -316,6 +316,12 @@ enum NotificationType {
   SCRIM_PROPOSAL_REJECTED
   SCRIM_PROPOSAL_DELAYED
   SCRIM_PROPOSAL_AUTO_REJECTED
+  SCRIM_SERIES_ACCEPTED
+  SCRIM_MATCH_CODE_REGENERATED
+  SCRIM_RESULT_AUTO_CONFIRMED
+  SCRIM_RESULT_MANUAL_CONFIRMED
+  SCRIM_RESULT_MANUAL_REQUIRED
+  SCRIM_RESULT_CONFLICT_ESCALATION
   ADMIN_TEST
 }
 
@@ -991,6 +997,20 @@ enum ScrimDiscordNotificationType {
   PROPOSAL_AUTO_REJECTED
 }
 
+enum ScrimAutoResultStatus {
+  PENDING
+  READY
+  RUNNING
+  CONFIRMED
+  MANUAL_REQUIRED
+  FAILED
+}
+
+enum ScrimResultSource {
+  MANUAL_AGREEMENT
+  AUTO_RIOT
+}
+
 model ScrimPost {
   id                String         @id @default(cuid())
   team              Team           @relation("TeamScrimPosts", fields: [teamId], references: [id], onDelete: Cascade)
@@ -1068,12 +1088,26 @@ model ScrimSeries {
   guestTeam                 Team             @relation("TeamScrimSeriesGuest", fields: [guestTeamId], references: [id], onDelete: Cascade)
   guestTeamId               String
   matchCode                 String
+  matchCodeVersion          Int              @default(1)
+  matchCodeRegeneratedAt    DateTime?
+  matchCodeRegeneratedByTeamId String?
+  lobbyCodeUsedAt           DateTime?
+  lobbyCodeUsedByUserId     String?
   scheduledAt               DateTime
   winnerTeamId              String?
   winnerConfirmedAt         DateTime?
+  resultSource              ScrimResultSource?
   firstReporterTeamId       String?
   firstReportedWinnerTeamId String?
   firstReportedAt           DateTime?
+  autoResultStatus          ScrimAutoResultStatus @default(PENDING)
+  autoResultReadyAt         DateTime?
+  autoResultAttempts        Int              @default(0)
+  autoResultLastCheckedAt   DateTime?
+  autoResultFailureReason   String?
+  autoResultMatchId         String?
+  manualConflictCount       Int              @default(0)
+  escalatedAt               DateTime?
   hostEventId               String?
   guestEventId              String?
   reviews                   ScrimTeamReview[]
@@ -1084,6 +1118,7 @@ model ScrimSeries {
   @@index([guestTeamId, scheduledAt])
   @@index([winnerTeamId, winnerConfirmedAt])
   @@index([matchCode])
+  @@index([autoResultStatus, autoResultReadyAt])
 }
 
 model ScrimTeamReview {
@@ -1134,6 +1169,7 @@ model Team {
   
   // Discord integration
   discordWebhookUrl     String?   // Discord webhook URL for team notifications
+  discordScrimCodeWebhookUrl String? // Optional override webhook URL for scrim code/lifecycle forwarding
   discordNotifyEvents   Boolean   @default(true)  // Notify on event create/update/delete
   discordNotifyMembers  Boolean   @default(false) // Notify on member join/leave
   discordMentionMode    String    @default("EVERYONE") // EVERYONE | ROLE | TEAM_ROLE_MAP

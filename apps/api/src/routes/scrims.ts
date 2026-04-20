@@ -1,6 +1,7 @@
 import prisma from '../prisma';
 import { getUserIdFromRequest } from '../middleware/auth';
 import { randomUUID } from 'crypto';
+import { getRecentMatchIds, getMatchDetails } from '../riotClient';
 
 const REGULAR_SCRIM_FORMATS = ['BO1', 'BO3', 'BO5'] as const;
 const FEARLESS_SCRIM_FORMATS = ['FEARLESS_BO1', 'FEARLESS_BO3', 'FEARLESS_BO5', 'BLOCK'] as const;
@@ -31,6 +32,23 @@ const SCRIM_DISCORD_NOTIFICATION_TYPES = {
   DELAYED: 'PROPOSAL_DELAYED',
   AUTO_REJECTED: 'PROPOSAL_AUTO_REJECTED',
 } as const;
+const SCRIM_TEAM_EVENT_NOTIFICATION_TYPES = {
+  SERIES_ACCEPTED: 'SCRIM_SERIES_ACCEPTED',
+  MATCH_CODE_REGENERATED: 'SCRIM_MATCH_CODE_REGENERATED',
+  AUTO_RESULT_CONFIRMED: 'SCRIM_RESULT_AUTO_CONFIRMED',
+  MANUAL_RESULT_CONFIRMED: 'SCRIM_RESULT_MANUAL_CONFIRMED',
+  AUTO_RESULT_MANUAL_REQUIRED: 'SCRIM_RESULT_MANUAL_REQUIRED',
+  MANUAL_CONFLICT_ESCALATED: 'SCRIM_RESULT_CONFLICT_ESCALATION',
+} as const;
+const SCRIM_AUTO_RESULT_SWEEP_INTERVAL_MS = Math.max(30_000, Number.parseInt(process.env.SCRIM_AUTO_RESULT_SWEEP_INTERVAL_MS || '120000', 10) || 120_000);
+const SCRIM_AUTO_RESULT_BATCH_SIZE = Math.max(1, Math.min(20, Number.parseInt(process.env.SCRIM_AUTO_RESULT_BATCH_SIZE || '6', 10) || 6));
+const SCRIM_AUTO_RESULT_MATCH_SCAN_LIMIT = Math.max(10, Math.min(60, Number.parseInt(process.env.SCRIM_AUTO_RESULT_MATCH_SCAN_LIMIT || '24', 10) || 24));
+const SCRIM_MANUAL_CONFLICT_ESCALATION_THRESHOLD = Math.max(1, Number.parseInt(process.env.SCRIM_CONFLICT_ESCALATION_THRESHOLD || '2', 10) || 2);
+const SCRIM_AUTO_RESULT_WINDOW_BUFFER_HOURS = Math.max(1, Number.parseInt(process.env.SCRIM_AUTO_RESULT_WINDOW_BUFFER_HOURS || '2', 10) || 2);
+const SCRIM_AUTO_RESULT_MIN_TEAM_PARTICIPANTS = Math.max(1, Number.parseInt(process.env.SCRIM_AUTO_RESULT_MIN_TEAM_PARTICIPANTS || '2', 10) || 2);
+
+let autoResultSweepRunning = false;
+let autoResultSweepLastRunAt = 0;
 
 type RankName = typeof RANK_ORDER[number];
 
@@ -187,6 +205,28 @@ function buildSuggestedStartTimes(upcomingEventsUtc: Date[]): Date[] {
   }
 
   return suggestions;
+}
+
+function buildTeamLabel(team: { name: string; tag?: string | null }): string {
+  return team.tag ? `${team.name} [${team.tag}]` : team.name;
+}
+
+function getSupportDiscordUrl(): string {
+  const direct = normalizeString(process.env.SCRIM_SUPPORT_DISCORD_URL);
+  if (direct) return direct;
+
+  const publicUrl = normalizeString(process.env.NEXT_PUBLIC_SUPPORT_DISCORD_URL);
+  if (publicUrl) return publicUrl;
+
+  return 'https://discord.gg/riftessence';
+}
+
+function scrimFormatToBoGames(scrimFormat: string | null | undefined): number | null {
+  const normalized = normalizeString(scrimFormat).toUpperCase();
+  if (normalized === 'BO1' || normalized === 'FEARLESS_BO1') return 1;
+  if (normalized === 'BO3' || normalized === 'FEARLESS_BO3') return 3;
+  if (normalized === 'BO5' || normalized === 'FEARLESS_BO5') return 5;
+  return null;
 }
 
 function isManageableRole(role: string | null | undefined): boolean {
@@ -371,6 +411,7 @@ async function ensureScrimSeriesForProposal(db: any, proposalId: string): Promis
           teamId: true,
           teamName: true,
           startTimeUtc: true,
+          scrimFormat: true,
           opggMultisearchUrl: true,
         },
       },
@@ -382,6 +423,9 @@ async function ensureScrimSeriesForProposal(db: any, proposalId: string): Promis
   }
 
   const scheduledAt = proposal.post.startTimeUtc;
+  const boGames = scrimFormatToBoGames(proposal.post.scrimFormat);
+  const autoResultReadyAt = boGames ? new Date(scheduledAt.getTime() + boGames * 60 * 60 * 1000) : null;
+  const autoResultStatus = boGames ? 'READY' : 'MANUAL_REQUIRED';
   const hostTeam = await db.team.findUnique({
     where: { id: proposal.targetTeamId },
     select: {
@@ -427,6 +471,9 @@ async function ensureScrimSeriesForProposal(db: any, proposalId: string): Promis
       hostEventId: hostEventId,
       guestEventId: guestEventId,
       scheduledAt,
+      autoResultStatus,
+      autoResultReadyAt,
+      autoResultFailureReason: boGames ? null : 'Auto-result unsupported for this scrim format. Use manual winner agreement.',
     },
     create: {
       proposalId: proposal.id,
@@ -436,7 +483,11 @@ async function ensureScrimSeriesForProposal(db: any, proposalId: string): Promis
       hostEventId: hostEventId,
       guestEventId: guestEventId,
       matchCode: generateScrimMatchCode(),
+      matchCodeVersion: 1,
       scheduledAt,
+      autoResultStatus,
+      autoResultReadyAt,
+      autoResultFailureReason: boGames ? null : 'Auto-result unsupported for this scrim format. Use manual winner agreement.',
     },
     select: { id: true },
   });
@@ -560,6 +611,411 @@ async function createScrimDiscordNotifications(db: any, entries: Array<{
 
   if (rows.length > 0) {
     await db.scrimDiscordNotification.createMany({ data: rows });
+  }
+}
+
+type ScrimLifecycleEntry = {
+  teamId: string;
+  title: string;
+  message: string;
+  appNotificationType:
+    | 'SCRIM_SERIES_ACCEPTED'
+    | 'SCRIM_MATCH_CODE_REGENERATED'
+    | 'SCRIM_RESULT_AUTO_CONFIRMED'
+    | 'SCRIM_RESULT_MANUAL_CONFIRMED'
+    | 'SCRIM_RESULT_MANUAL_REQUIRED'
+    | 'SCRIM_RESULT_CONFLICT_ESCALATION';
+};
+
+async function createScrimLifecycleFanout(db: any, params: {
+  seriesId: string;
+  scheduledAt: Date;
+  lifecycleType: keyof typeof SCRIM_TEAM_EVENT_NOTIFICATION_TYPES;
+  triggeredByUserId?: string | null;
+  triggeredByUsername?: string | null;
+  entries: ScrimLifecycleEntry[];
+}) {
+  if (!params.entries.length) {
+    return;
+  }
+
+  await db.teamEventNotification.createMany({
+    data: params.entries.map((entry) => ({
+      teamId: entry.teamId,
+      eventId: params.seriesId,
+      eventTitle: entry.title,
+      eventType: 'SCRIM',
+      scheduledAt: params.scheduledAt,
+      duration: null,
+      description: entry.message,
+      enemyLink: null,
+      concernedMemberIds: [],
+      notificationType: SCRIM_TEAM_EVENT_NOTIFICATION_TYPES[params.lifecycleType],
+      triggeredBy: params.triggeredByUsername || 'System',
+    })),
+  });
+
+  const inAppRows: Array<{
+    userId: string;
+    type: ScrimLifecycleEntry['appNotificationType'];
+    fromUserId: string | null;
+    message: string;
+  }> = [];
+  const dedupe = new Set<string>();
+
+  for (const entry of params.entries) {
+    const recipients = await getTeamDecisionRecipientIds(db, entry.teamId);
+    for (const recipientUserId of recipients) {
+      const dedupeKey = `${recipientUserId}::${entry.appNotificationType}::${entry.message}`;
+      if (dedupe.has(dedupeKey)) continue;
+      dedupe.add(dedupeKey);
+      inAppRows.push({
+        userId: recipientUserId,
+        type: entry.appNotificationType,
+        fromUserId: params.triggeredByUserId || null,
+        message: entry.message,
+      });
+    }
+  }
+
+  if (inAppRows.length > 0) {
+    await db.notification.createMany({ data: inAppRows });
+  }
+}
+
+function extractTeamRiotAccounts(team: any): Array<{ puuid: string; region: string }> {
+  const identities: Array<{ puuid: string; region: string }> = [];
+
+  for (const member of team?.members || []) {
+    const account = member?.user?.riotAccounts?.[0];
+    const puuid = normalizeString(account?.puuid);
+    const region = normalizeString(account?.region);
+    if (!puuid || !region) continue;
+
+    identities.push({ puuid, region });
+  }
+
+  const seen = new Set<string>();
+  return identities.filter((entry) => {
+    const key = `${entry.region}::${entry.puuid}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function detectAutoWinnerForSeries(series: any): Promise<{
+  winnerTeamId: string;
+  matchId: string;
+} | null> {
+  const boGames = scrimFormatToBoGames(series?.post?.scrimFormat);
+  if (!boGames) {
+    return null;
+  }
+
+  const hostAccounts = extractTeamRiotAccounts(series.hostTeam);
+  const guestAccounts = extractTeamRiotAccounts(series.guestTeam);
+  if (hostAccounts.length === 0 || guestAccounts.length === 0) {
+    return null;
+  }
+
+  const scheduledMs = series?.scheduledAt instanceof Date
+    ? series.scheduledAt.getTime()
+    : new Date(series?.scheduledAt || 0).getTime();
+
+  if (!Number.isFinite(scheduledMs)) {
+    return null;
+  }
+
+  const windowStartMs = scheduledMs - 30 * 60 * 1000;
+  const windowEndMs = scheduledMs + (boGames + SCRIM_AUTO_RESULT_WINDOW_BUFFER_HOURS) * 60 * 60 * 1000;
+
+  const hostPuuidSet = new Set(hostAccounts.map((entry) => entry.puuid));
+  const guestPuuidSet = new Set(guestAccounts.map((entry) => entry.puuid));
+  const checkedMatchIds = new Set<string>();
+  const scanAccounts = [...hostAccounts, ...guestAccounts];
+
+  for (const account of scanAccounts) {
+    let matchIds: string[] = [];
+    try {
+      matchIds = await getRecentMatchIds(account.puuid, account.region, SCRIM_AUTO_RESULT_MATCH_SCAN_LIMIT);
+    } catch {
+      continue;
+    }
+
+    for (const matchId of matchIds) {
+      if (!matchId || checkedMatchIds.has(matchId)) {
+        continue;
+      }
+      checkedMatchIds.add(matchId);
+
+      let matchData: any;
+      try {
+        matchData = await getMatchDetails(matchId, account.region);
+      } catch {
+        continue;
+      }
+
+      const gameCreationMs = Number(matchData?.info?.gameCreation);
+      if (Number.isFinite(gameCreationMs) && (gameCreationMs < windowStartMs || gameCreationMs > windowEndMs)) {
+        continue;
+      }
+
+      const participants = Array.isArray(matchData?.info?.participants)
+        ? matchData.info.participants
+        : [];
+
+      if (participants.length === 0) {
+        continue;
+      }
+
+      const hostParticipants = participants.filter((participant: any) => hostPuuidSet.has(normalizeString(participant?.puuid)));
+      const guestParticipants = participants.filter((participant: any) => guestPuuidSet.has(normalizeString(participant?.puuid)));
+
+      if (
+        hostParticipants.length < SCRIM_AUTO_RESULT_MIN_TEAM_PARTICIPANTS
+        || guestParticipants.length < SCRIM_AUTO_RESULT_MIN_TEAM_PARTICIPANTS
+      ) {
+        continue;
+      }
+
+      const hostWins = hostParticipants.reduce((sum: number, participant: any) => sum + (participant?.win ? 1 : 0), 0);
+      const guestWins = guestParticipants.reduce((sum: number, participant: any) => sum + (participant?.win ? 1 : 0), 0);
+
+      if (hostWins === guestWins) {
+        continue;
+      }
+
+      return {
+        winnerTeamId: hostWins > guestWins ? series.hostTeamId : series.guestTeamId,
+        matchId,
+      };
+    }
+  }
+
+  return null;
+}
+
+async function maybeRunDueAutoResultSweep(fastify?: any): Promise<void> {
+  if (autoResultSweepRunning) {
+    return;
+  }
+
+  const nowMs = Date.now();
+  if (nowMs - autoResultSweepLastRunAt < SCRIM_AUTO_RESULT_SWEEP_INTERVAL_MS) {
+    return;
+  }
+
+  autoResultSweepRunning = true;
+  autoResultSweepLastRunAt = nowMs;
+
+  try {
+    const dueSeries = await prisma.scrimSeries.findMany({
+      where: {
+        winnerConfirmedAt: null,
+        autoResultStatus: { in: ['READY', 'RUNNING'] },
+        autoResultReadyAt: { lte: new Date() },
+      },
+      orderBy: [{ autoResultReadyAt: 'asc' }, { scheduledAt: 'asc' }],
+      take: SCRIM_AUTO_RESULT_BATCH_SIZE,
+      include: {
+        post: {
+          select: {
+            scrimFormat: true,
+          },
+        },
+        hostTeam: {
+          select: {
+            id: true,
+            name: true,
+            tag: true,
+            members: {
+              select: {
+                user: {
+                  select: {
+                    riotAccounts: {
+                      where: { verified: true },
+                      orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
+                      take: 1,
+                      select: {
+                        puuid: true,
+                        region: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        guestTeam: {
+          select: {
+            id: true,
+            name: true,
+            tag: true,
+            members: {
+              select: {
+                user: {
+                  select: {
+                    riotAccounts: {
+                      where: { verified: true },
+                      orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
+                      take: 1,
+                      select: {
+                        puuid: true,
+                        region: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    for (const series of dueSeries as any[]) {
+      const now = new Date();
+
+      const claimed = await prisma.scrimSeries.updateMany({
+        where: {
+          id: series.id,
+          winnerConfirmedAt: null,
+          autoResultStatus: { in: ['READY', 'RUNNING'] },
+        },
+        data: {
+          autoResultStatus: 'RUNNING',
+          autoResultLastCheckedAt: now,
+        },
+      });
+
+      if (claimed.count === 0) {
+        continue;
+      }
+
+      const winner = await detectAutoWinnerForSeries(series);
+      const hostLabel = buildTeamLabel(series.hostTeam);
+      const guestLabel = buildTeamLabel(series.guestTeam);
+
+      if (winner?.winnerTeamId) {
+        const winnerLabel = winner.winnerTeamId === series.hostTeamId ? hostLabel : guestLabel;
+
+        await prisma.$transaction(async (tx: any) => {
+          const latest = await tx.scrimSeries.findUnique({
+            where: { id: series.id },
+            select: {
+              id: true,
+              winnerConfirmedAt: true,
+              hostTeamId: true,
+              guestTeamId: true,
+              scheduledAt: true,
+              matchCode: true,
+              matchCodeVersion: true,
+            },
+          });
+
+          if (!latest || latest.winnerConfirmedAt) {
+            return;
+          }
+
+          await tx.scrimSeries.update({
+            where: { id: series.id },
+            data: {
+              winnerTeamId: winner.winnerTeamId,
+              winnerConfirmedAt: now,
+              resultSource: 'AUTO_RIOT',
+              autoResultStatus: 'CONFIRMED',
+              autoResultAttempts: { increment: 1 },
+              autoResultLastCheckedAt: now,
+              autoResultFailureReason: null,
+              autoResultMatchId: winner.matchId,
+            },
+          });
+
+          const details = `Auto-detected winner: ${winnerLabel}. Match code ${latest.matchCode} (v${latest.matchCodeVersion}).`;
+          await createScrimLifecycleFanout(tx, {
+            seriesId: latest.id,
+            scheduledAt: latest.scheduledAt,
+            lifecycleType: 'AUTO_RESULT_CONFIRMED',
+            triggeredByUsername: 'Riot Auto Resolver',
+            entries: [
+              {
+                teamId: latest.hostTeamId,
+                title: `Auto Result Confirmed • ${hostLabel} vs ${guestLabel}`,
+                message: details,
+                appNotificationType: 'SCRIM_RESULT_AUTO_CONFIRMED',
+              },
+              {
+                teamId: latest.guestTeamId,
+                title: `Auto Result Confirmed • ${hostLabel} vs ${guestLabel}`,
+                message: details,
+                appNotificationType: 'SCRIM_RESULT_AUTO_CONFIRMED',
+              },
+            ],
+          });
+        });
+
+        continue;
+      }
+
+      await prisma.$transaction(async (tx: any) => {
+        const latest = await tx.scrimSeries.findUnique({
+          where: { id: series.id },
+          select: {
+            id: true,
+            winnerConfirmedAt: true,
+            hostTeamId: true,
+            guestTeamId: true,
+            scheduledAt: true,
+          },
+        });
+
+        if (!latest || latest.winnerConfirmedAt) {
+          return;
+        }
+
+        await tx.scrimSeries.update({
+          where: { id: series.id },
+          data: {
+            autoResultStatus: 'MANUAL_REQUIRED',
+            autoResultAttempts: { increment: 1 },
+            autoResultLastCheckedAt: now,
+            autoResultFailureReason: 'Auto-result scan could not confidently determine a winner from Riot match history.',
+          },
+        });
+
+        const message = `Auto-result scan could not confirm ${hostLabel} vs ${guestLabel}. Please use manual winner agreement in Scrim Finder.`;
+        await createScrimLifecycleFanout(tx, {
+          seriesId: latest.id,
+          scheduledAt: latest.scheduledAt,
+          lifecycleType: 'AUTO_RESULT_MANUAL_REQUIRED',
+          triggeredByUsername: 'Riot Auto Resolver',
+          entries: [
+            {
+              teamId: latest.hostTeamId,
+              title: `Manual Winner Agreement Needed • ${hostLabel} vs ${guestLabel}`,
+              message,
+              appNotificationType: 'SCRIM_RESULT_MANUAL_REQUIRED',
+            },
+            {
+              teamId: latest.guestTeamId,
+              title: `Manual Winner Agreement Needed • ${hostLabel} vs ${guestLabel}`,
+              message,
+              appNotificationType: 'SCRIM_RESULT_MANUAL_REQUIRED',
+            },
+          ],
+        });
+      });
+    }
+  } catch (error: any) {
+    if (fastify?.log?.error) {
+      fastify.log.error(error);
+    } else {
+      console.error('[scrims] auto-result sweep failed', error?.message || error);
+    }
+  } finally {
+    autoResultSweepRunning = false;
   }
 }
 
@@ -791,6 +1247,90 @@ async function applyScrimProposalDecision(params: {
 
       const seriesId = await ensureScrimSeriesForProposal(tx, latest.id);
 
+      if (seriesId) {
+        const series = await tx.scrimSeries.findUnique({
+          where: { id: seriesId },
+          select: {
+            id: true,
+            hostTeamId: true,
+            guestTeamId: true,
+            matchCode: true,
+            matchCodeVersion: true,
+            scheduledAt: true,
+            autoResultStatus: true,
+            hostTeam: {
+              select: {
+                name: true,
+                tag: true,
+              },
+            },
+            guestTeam: {
+              select: {
+                name: true,
+                tag: true,
+              },
+            },
+            post: {
+              select: {
+                scrimFormat: true,
+              },
+            },
+          },
+        });
+
+        if (series) {
+          const hostLabel = buildTeamLabel(series.hostTeam);
+          const guestLabel = buildTeamLabel(series.guestTeam);
+          const hostMessage = `Scrim accepted vs ${guestLabel}. Host responsibility: create the lobby with code ${series.matchCode} (v${series.matchCodeVersion}) before start.`;
+          const guestMessage = `Scrim accepted vs ${hostLabel}. Host ${hostLabel} will create the lobby with code ${series.matchCode} (v${series.matchCodeVersion}).`;
+
+          await createScrimLifecycleFanout(tx, {
+            seriesId: series.id,
+            scheduledAt: series.scheduledAt,
+            lifecycleType: 'SERIES_ACCEPTED',
+            triggeredByUserId: params.actorUserId,
+            entries: [
+              {
+                teamId: series.hostTeamId,
+                title: `Scrim Accepted • ${hostLabel} vs ${guestLabel}`,
+                message: hostMessage,
+                appNotificationType: 'SCRIM_SERIES_ACCEPTED',
+              },
+              {
+                teamId: series.guestTeamId,
+                title: `Scrim Accepted • ${hostLabel} vs ${guestLabel}`,
+                message: guestMessage,
+                appNotificationType: 'SCRIM_SERIES_ACCEPTED',
+              },
+            ],
+          });
+
+          if (series.autoResultStatus === 'MANUAL_REQUIRED') {
+            const manualMessage = `Auto-result is unavailable for format ${series.post.scrimFormat}. Use manual winner agreement after the scrim.`;
+            await createScrimLifecycleFanout(tx, {
+              seriesId: series.id,
+              scheduledAt: series.scheduledAt,
+              lifecycleType: 'AUTO_RESULT_MANUAL_REQUIRED',
+              triggeredByUsername: 'System',
+              entries: [
+                {
+                  teamId: series.hostTeamId,
+                  title: `Manual Winner Agreement Needed • ${hostLabel} vs ${guestLabel}`,
+                  message: manualMessage,
+                  appNotificationType: 'SCRIM_RESULT_MANUAL_REQUIRED',
+                },
+                {
+                  teamId: series.guestTeamId,
+                  title: `Manual Winner Agreement Needed • ${hostLabel} vs ${guestLabel}`,
+                  message: manualMessage,
+                  appNotificationType: 'SCRIM_RESULT_MANUAL_REQUIRED',
+                },
+              ],
+            });
+          }
+        }
+      }
+
       return { status: 'ACCEPTED', seriesId };
     }
 
@@ -880,6 +1420,15 @@ async function applyScrimProposalDecision(params: {
 }
 
 export default async function scrimRoutes(fastify: any) {
+  const sweepFlagKey = '__riftessenceScrimAutoResultSweepStarted__';
+  if (!(globalThis as any)[sweepFlagKey]) {
+    (globalThis as any)[sweepFlagKey] = true;
+    setInterval(() => {
+      void maybeRunDueAutoResultSweep(fastify);
+    }, SCRIM_AUTO_RESULT_SWEEP_INTERVAL_MS);
+    fastify.log.info({ intervalMs: SCRIM_AUTO_RESULT_SWEEP_INTERVAL_MS }, 'Started scrim auto-result sweep loop');
+  }
+
   // GET /api/scrims/posts - Main scrim feed with filters
   fastify.get('/scrims/posts', async (request: any, reply: any) => {
     try {
@@ -1689,11 +2238,172 @@ export default async function scrimRoutes(fastify: any) {
     }
   });
 
+  // POST /api/scrims/series/:seriesId/match-code/regenerate - Host-only match code regeneration
+  fastify.post('/scrims/series/:seriesId/match-code/regenerate', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { seriesId } = request.params as { seriesId: string };
+      const normalizedSeriesId = normalizeString(seriesId);
+      if (!normalizedSeriesId) {
+        return reply.status(400).send({ error: 'seriesId is required' });
+      }
+
+      const current = await prisma.scrimSeries.findUnique({
+        where: { id: normalizedSeriesId },
+        select: {
+          id: true,
+          hostTeamId: true,
+          winnerConfirmedAt: true,
+        },
+      });
+
+      if (!current) {
+        return reply.status(404).send({ error: 'Scrim series not found' });
+      }
+
+      if (!await canManageTeam(userId, current.hostTeamId)) {
+        return reply.status(403).send({ error: 'Only host team staff can regenerate this match code' });
+      }
+
+      if (current.winnerConfirmedAt) {
+        return reply.status(400).send({ error: 'Result already confirmed. Match code cannot be regenerated.' });
+      }
+
+      const actor = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { username: true },
+      });
+
+      const now = new Date();
+      const newCode = generateScrimMatchCode();
+
+      const updated = await prisma.$transaction(async (tx: any) => {
+        const series = await tx.scrimSeries.update({
+          where: { id: normalizedSeriesId },
+          data: {
+            matchCode: newCode,
+            matchCodeVersion: { increment: 1 },
+            matchCodeRegeneratedAt: now,
+            matchCodeRegeneratedByTeamId: current.hostTeamId,
+          },
+          select: {
+            id: true,
+            hostTeamId: true,
+            guestTeamId: true,
+            scheduledAt: true,
+            matchCode: true,
+            matchCodeVersion: true,
+            hostTeam: {
+              select: {
+                name: true,
+                tag: true,
+              },
+            },
+            guestTeam: {
+              select: {
+                name: true,
+                tag: true,
+              },
+            },
+          },
+        });
+
+        const hostLabel = buildTeamLabel(series.hostTeam);
+        const guestLabel = buildTeamLabel(series.guestTeam);
+        await createScrimLifecycleFanout(tx, {
+          seriesId: series.id,
+          scheduledAt: series.scheduledAt,
+          lifecycleType: 'MATCH_CODE_REGENERATED',
+          triggeredByUserId: userId,
+          triggeredByUsername: actor?.username || null,
+          entries: [
+            {
+              teamId: series.hostTeamId,
+              title: `Match Code Regenerated • ${hostLabel} vs ${guestLabel}`,
+              message: `You regenerated the match code to ${series.matchCode} (v${series.matchCodeVersion}). Share this updated code with your opponent before start.`,
+              appNotificationType: 'SCRIM_MATCH_CODE_REGENERATED',
+            },
+            {
+              teamId: series.guestTeamId,
+              title: `Match Code Updated • ${hostLabel} vs ${guestLabel}`,
+              message: `Host team ${hostLabel} regenerated the match code to ${series.matchCode} (v${series.matchCodeVersion}). Use this latest code.`,
+              appNotificationType: 'SCRIM_MATCH_CODE_REGENERATED',
+            },
+          ],
+        });
+
+        return series;
+      });
+
+      return reply.send({
+        success: true,
+        series: {
+          id: updated.id,
+          matchCode: updated.matchCode,
+          matchCodeVersion: updated.matchCodeVersion,
+          hostTeamId: updated.hostTeamId,
+          guestTeamId: updated.guestTeamId,
+          scheduledAt: updated.scheduledAt,
+        },
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to regenerate match code' });
+    }
+  });
+
+  // POST /api/scrims/series/:seriesId/lobby-code-used - Host confirms lobby was created with app match code
+  fastify.post('/scrims/series/:seriesId/lobby-code-used', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { seriesId } = request.params as { seriesId: string };
+      const normalizedSeriesId = normalizeString(seriesId);
+      if (!normalizedSeriesId) {
+        return reply.status(400).send({ error: 'seriesId is required' });
+      }
+
+      const series = await prisma.scrimSeries.findUnique({
+        where: { id: normalizedSeriesId },
+        select: {
+          id: true,
+          hostTeamId: true,
+        },
+      });
+
+      if (!series) {
+        return reply.status(404).send({ error: 'Scrim series not found' });
+      }
+
+      if (!await canManageTeam(userId, series.hostTeamId)) {
+        return reply.status(403).send({ error: 'Only host team staff can confirm lobby creation' });
+      }
+
+      await prisma.scrimSeries.update({
+        where: { id: series.id },
+        data: {
+          lobbyCodeUsedAt: new Date(),
+          lobbyCodeUsedByUserId: userId,
+        },
+      });
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to confirm lobby code usage' });
+    }
+  });
+
   // GET /api/scrims/series/pending-results - Series awaiting winner agreement from both teams
   fastify.get('/scrims/series/pending-results', async (request: any, reply: any) => {
     try {
       const userId = await getUserIdFromRequest(request, reply);
       if (!userId) return;
+
+      await maybeRunDueAutoResultSweep(fastify);
 
       const manageableTeamIds = await getManageableTeamIds(userId);
       if (manageableTeamIds.length === 0) {
@@ -1742,14 +2452,30 @@ export default async function scrimRoutes(fastify: any) {
 
       const payload = (series as any[]).map((entry) => {
         const myTeamIds = [entry.hostTeamId, entry.guestTeamId].filter((teamId: string) => manageableTeamIds.includes(teamId));
+        const boGames = scrimFormatToBoGames(entry?.proposal?.post?.scrimFormat);
         return {
           id: entry.id,
           matchCode: entry.matchCode,
+          matchCodeVersion: entry.matchCodeVersion,
+          matchCodeRegeneratedAt: entry.matchCodeRegeneratedAt,
+          matchCodeRegeneratedByTeamId: entry.matchCodeRegeneratedByTeamId,
+          lobbyCodeUsedAt: entry.lobbyCodeUsedAt,
+          lobbyCodeUsedByUserId: entry.lobbyCodeUsedByUserId,
           scheduledAt: entry.scheduledAt,
           hostTeamId: entry.hostTeamId,
           guestTeamId: entry.guestTeamId,
           hostTeam: entry.hostTeam,
           guestTeam: entry.guestTeam,
+          hostCreatesLobby: true,
+          boGames,
+          autoResultStatus: entry.autoResultStatus,
+          autoResultReadyAt: entry.autoResultReadyAt,
+          autoResultAttempts: entry.autoResultAttempts,
+          autoResultFailureReason: entry.autoResultFailureReason,
+          autoResultMatchId: entry.autoResultMatchId,
+          resultSource: entry.resultSource,
+          manualConflictCount: entry.manualConflictCount,
+          escalatedAt: entry.escalatedAt,
           firstReporterTeamId: entry.firstReporterTeamId,
           firstReportedWinnerTeamId: entry.firstReportedWinnerTeamId,
           firstReportedAt: entry.firstReportedAt,
@@ -1801,8 +2527,13 @@ export default async function scrimRoutes(fastify: any) {
             guestTeamId: true,
             winnerTeamId: true,
             winnerConfirmedAt: true,
+            resultSource: true,
             firstReporterTeamId: true,
             firstReportedWinnerTeamId: true,
+            scheduledAt: true,
+            manualConflictCount: true,
+            escalatedAt: true,
+            lobbyCodeUsedAt: true,
           },
         });
 
@@ -1823,6 +2554,7 @@ export default async function scrimRoutes(fastify: any) {
             status: 'CONFIRMED',
             winnerTeamId: current.winnerTeamId,
             alreadyConfirmed: true,
+            resultSource: current.resultSource || 'MANUAL_AGREEMENT',
           };
         }
 
@@ -1835,6 +2567,7 @@ export default async function scrimRoutes(fastify: any) {
               firstReporterTeamId: normalizedReportingTeamId,
               firstReportedWinnerTeamId: normalizedWinnerTeamId,
               firstReportedAt: now,
+              manualConflictCount: 0,
             },
             select: {
               id: true,
@@ -1847,6 +2580,7 @@ export default async function scrimRoutes(fastify: any) {
             status: 'PENDING_CONFIRMATION',
             firstReporterTeamId: updated.firstReporterTeamId,
             firstReportedWinnerTeamId: updated.firstReportedWinnerTeamId,
+            opponentTeamId: normalizedReportingTeamId === current.hostTeamId ? current.guestTeamId : current.hostTeamId,
           };
         }
 
@@ -1856,6 +2590,7 @@ export default async function scrimRoutes(fastify: any) {
             data: {
               firstReportedWinnerTeamId: normalizedWinnerTeamId,
               firstReportedAt: now,
+              manualConflictCount: 0,
             },
             select: {
               id: true,
@@ -1868,6 +2603,7 @@ export default async function scrimRoutes(fastify: any) {
             status: 'PENDING_CONFIRMATION',
             firstReporterTeamId: updated.firstReporterTeamId,
             firstReportedWinnerTeamId: updated.firstReportedWinnerTeamId,
+            opponentTeamId: normalizedReportingTeamId === current.hostTeamId ? current.guestTeamId : current.hostTeamId,
           };
         }
 
@@ -1877,6 +2613,9 @@ export default async function scrimRoutes(fastify: any) {
             data: {
               winnerTeamId: normalizedWinnerTeamId,
               winnerConfirmedAt: now,
+              resultSource: 'MANUAL_AGREEMENT',
+              autoResultStatus: 'CONFIRMED',
+              autoResultFailureReason: null,
             },
             select: {
               id: true,
@@ -1890,12 +2629,41 @@ export default async function scrimRoutes(fastify: any) {
             winnerTeamId: confirmed.winnerTeamId,
             winnerConfirmedAt: confirmed.winnerConfirmedAt,
             alreadyConfirmed: false,
+            resultSource: 'MANUAL_AGREEMENT',
           };
+        }
+
+        const conflictState = await tx.scrimSeries.update({
+          where: { id: current.id },
+          data: {
+            manualConflictCount: { increment: 1 },
+          },
+          select: {
+            manualConflictCount: true,
+            escalatedAt: true,
+            lobbyCodeUsedAt: true,
+          },
+        });
+
+        let escalated = false;
+        let escalatedAt = conflictState.escalatedAt;
+        if (!conflictState.escalatedAt && conflictState.manualConflictCount >= SCRIM_MANUAL_CONFLICT_ESCALATION_THRESHOLD) {
+          const escalatedSeries = await tx.scrimSeries.update({
+            where: { id: current.id },
+            data: { escalatedAt: now },
+            select: { escalatedAt: true },
+          });
+          escalated = true;
+          escalatedAt = escalatedSeries.escalatedAt;
         }
 
         return {
           status: 'CONFLICT',
           expectedWinnerTeamId: current.firstReportedWinnerTeamId,
+          manualConflictCount: conflictState.manualConflictCount,
+          escalated,
+          escalatedAt,
+          lobbyCodeUsedAt: conflictState.lobbyCodeUsedAt,
         };
       });
 
@@ -1903,10 +2671,128 @@ export default async function scrimRoutes(fastify: any) {
         return reply.status((result as any).errorCode).send({ error: (result as any).error });
       }
 
+      const seriesMeta = await prisma.scrimSeries.findUnique({
+        where: { id: normalizedSeriesId },
+        select: {
+          id: true,
+          hostTeamId: true,
+          guestTeamId: true,
+          scheduledAt: true,
+          matchCode: true,
+          matchCodeVersion: true,
+          lobbyCodeUsedAt: true,
+          hostTeam: {
+            select: {
+              name: true,
+              tag: true,
+            },
+          },
+          guestTeam: {
+            select: {
+              name: true,
+              tag: true,
+            },
+          },
+        },
+      });
+
+      if ((result as any).status === 'PENDING_CONFIRMATION' && seriesMeta && (result as any).opponentTeamId) {
+        const hostLabel = buildTeamLabel(seriesMeta.hostTeam);
+        const guestLabel = buildTeamLabel(seriesMeta.guestTeam);
+        const winnerLabel = (result as any).firstReportedWinnerTeamId === seriesMeta.guestTeamId ? guestLabel : hostLabel;
+        const reporterLabel = (result as any).firstReporterTeamId === seriesMeta.guestTeamId ? guestLabel : hostLabel;
+
+        await createScrimLifecycleFanout(prisma, {
+          seriesId: seriesMeta.id,
+          scheduledAt: seriesMeta.scheduledAt,
+          lifecycleType: 'AUTO_RESULT_MANUAL_REQUIRED',
+          triggeredByUserId: userId,
+          entries: [
+            {
+              teamId: (result as any).opponentTeamId,
+              title: `Winner Confirmation Needed • ${hostLabel} vs ${guestLabel}`,
+              message: `${reporterLabel} reported ${winnerLabel} as winner. Confirm or correct the result in Scrim Finder.`,
+              appNotificationType: 'SCRIM_RESULT_MANUAL_REQUIRED',
+            },
+          ],
+        });
+      }
+
+      if ((result as any).status === 'CONFIRMED' && !(result as any).alreadyConfirmed && seriesMeta) {
+        const hostLabel = buildTeamLabel(seriesMeta.hostTeam);
+        const guestLabel = buildTeamLabel(seriesMeta.guestTeam);
+        const winnerLabel = (result as any).winnerTeamId === seriesMeta.guestTeamId ? guestLabel : hostLabel;
+        const sourceLabel = (result as any).resultSource === 'AUTO_RIOT' ? 'Auto' : 'Manual';
+
+        await createScrimLifecycleFanout(prisma, {
+          seriesId: seriesMeta.id,
+          scheduledAt: seriesMeta.scheduledAt,
+          lifecycleType: 'MANUAL_RESULT_CONFIRMED',
+          triggeredByUserId: userId,
+          entries: [
+            {
+              teamId: seriesMeta.hostTeamId,
+              title: `${sourceLabel} Result Confirmed • ${hostLabel} vs ${guestLabel}`,
+              message: `${sourceLabel} winner agreement confirmed. Winner: ${winnerLabel}.`,
+              appNotificationType: 'SCRIM_RESULT_MANUAL_CONFIRMED',
+            },
+            {
+              teamId: seriesMeta.guestTeamId,
+              title: `${sourceLabel} Result Confirmed • ${hostLabel} vs ${guestLabel}`,
+              message: `${sourceLabel} winner agreement confirmed. Winner: ${winnerLabel}.`,
+              appNotificationType: 'SCRIM_RESULT_MANUAL_CONFIRMED',
+            },
+          ],
+        });
+      }
+
       if ((result as any).status === 'CONFLICT') {
+        const shouldEscalate = ((result as any).manualConflictCount || 0) >= SCRIM_MANUAL_CONFLICT_ESCALATION_THRESHOLD;
+        const supportDiscordUrl = getSupportDiscordUrl();
+
+        if ((result as any).escalated && seriesMeta) {
+          const hostLabel = buildTeamLabel(seriesMeta.hostTeam);
+          const guestLabel = buildTeamLabel(seriesMeta.guestTeam);
+          const trustHint = seriesMeta.lobbyCodeUsedAt
+            ? 'The host confirmed that this lobby used the RiftEssence app code. Mention that code to speed up support verification.'
+            : 'If the lobby used the app-provided code, mention it in your support report.';
+
+          await createScrimLifecycleFanout(prisma, {
+            seriesId: seriesMeta.id,
+            scheduledAt: seriesMeta.scheduledAt,
+            lifecycleType: 'MANUAL_CONFLICT_ESCALATED',
+            triggeredByUserId: userId,
+            entries: [
+              {
+                teamId: seriesMeta.hostTeamId,
+                title: `Support Escalation Recommended • ${hostLabel} vs ${guestLabel}`,
+                message: `Both teams still disagree on the winner. Join support Discord (${supportDiscordUrl}) and share scoreboard screenshots from both sides. ${trustHint}`,
+                appNotificationType: 'SCRIM_RESULT_CONFLICT_ESCALATION',
+              },
+              {
+                teamId: seriesMeta.guestTeamId,
+                title: `Support Escalation Recommended • ${hostLabel} vs ${guestLabel}`,
+                message: `Both teams still disagree on the winner. Join support Discord (${supportDiscordUrl}) and share scoreboard screenshots from both sides. ${trustHint}`,
+                appNotificationType: 'SCRIM_RESULT_CONFLICT_ESCALATION',
+              },
+            ],
+          });
+        }
+
         return reply.status(409).send({
-          error: 'Teams did not agree on winner yet. Ask the opponent to align on the reported winner.',
+          error: shouldEscalate
+            ? 'Teams still disagree on winner. Please escalate to support with screenshot evidence.'
+            : 'Teams did not agree on winner yet. Ask the opponent to align on the reported winner.',
           expectedWinnerTeamId: (result as any).expectedWinnerTeamId,
+          manualConflictCount: (result as any).manualConflictCount || 0,
+          support: shouldEscalate
+            ? {
+                required: true,
+                url: supportDiscordUrl,
+                guidance: 'Share full post-game scoreboard screenshots from both teams and mention the scrim match code.',
+                trustHint: Boolean((result as any).lobbyCodeUsedAt),
+              }
+            : undefined,
         });
       }
 

@@ -1,7 +1,7 @@
 # Database Schema
 
-> Last updated: 2026-04-19  
-> Source: `prisma/schema.prisma` (~1308 lines)
+> Last updated: 2026-04-20  
+> Source: `prisma/schema.prisma` (~1330 lines)
 
 ## Models (48 total, core highlights below)
 
@@ -29,7 +29,7 @@
 | **AuditLog** | Admin action tracking | → User |
 | **Ad + AdImpression + AdClick + AdSettings** | Ad monetization system | Complex |
 
-## Scrim Lifecycle Domain (2026-04-19)
+## Scrim Lifecycle Domain (2026-04-20)
 
 The scrim workflow now persists full lifecycle state from posting to result confirmation and team reputation.
 
@@ -37,7 +37,7 @@ The scrim workflow now persists full lifecycle state from posting to result conf
 |-------|---------|---------------|
 | **ScrimPost** | Team scrim listing with region/format/time and optional OP.GG multisearch | → Team, User (author), ScrimProposal[], ScrimSeries[] |
 | **ScrimProposal** | Directed proposal from proposer team to target post team with decision status | → ScrimPost, Team (proposer/target), User (proposedBy), ScrimSeries? |
-| **ScrimSeries** | Accepted proposal execution record (match code, schedule, winner agreement, linked team events) | → ScrimProposal (1:1), ScrimPost, Team (host/guest), ScrimTeamReview[] |
+| **ScrimSeries** | Accepted proposal execution record with host-owned match-code lifecycle, auto-result state, manual conflict tracking, and escalation metadata | → ScrimProposal (1:1), ScrimPost, Team (host/guest), ScrimTeamReview[] |
 | **ScrimTeamReview** | One-time directed pair review with 3 scoring axes and optional message | → ScrimSeries, Team (reviewer/target) |
 | **ScrimDiscordNotification** | Pending/processed Discord DM payloads for proposal decisions | → ScrimProposal |
 
@@ -50,8 +50,19 @@ Team model relations include:
 - `scrimReviewsGiven`
 - `scrimReviewsReceived`
 
+Team model scrim-delivery fields include:
+- `discordWebhookUrl` (default schedule/event channel)
+- `discordScrimCodeWebhookUrl` (optional override for `SCRIM_*` lifecycle forwarding)
+
 TeamEvent schema addition used by accepted scrims:
 - `enemyMultigg String?` (opponent multisearch URL persisted on SCRIM events)
+
+ScrimSeries lifecycle fields include:
+- match code lifecycle: `matchCodeVersion`, `matchCodeRegeneratedAt`, `matchCodeRegeneratedByTeamId`, `lobbyCodeUsedAt`, `lobbyCodeUsedByUserId`
+- result attribution: `resultSource` (`MANUAL_AGREEMENT`, `AUTO_RIOT`)
+- automation state: `autoResultStatus`, `autoResultReadyAt`, `autoResultAttempts`, `autoResultLastCheckedAt`, `autoResultFailureReason`, `autoResultMatchId`
+- manual conflict/escalation: `manualConflictCount`, `escalatedAt`
+- index: `@@index([autoResultStatus, autoResultReadyAt])`
 
 ## Enums
 
@@ -61,7 +72,7 @@ TeamEvent schema addition used by accepted scrims:
 - **VCPreference**: ALWAYS, SOMETIMES, NEVER
 - **DuoType**: RANKED, NORMAL, ARAM, FLEX, CUSTOM
 - **CommunityRole**: MEMBER, MODERATOR, ADMIN
-- **NotificationType**: CONTACT_REQUEST, FEEDBACK_RECEIVED, REPORT_RECEIVED, REPORT_ACCEPTED, REPORT_REJECTED, PASSWORD_SETUP_REMINDER, SCRIM_PROPOSAL_RECEIVED, SCRIM_PROPOSAL_ACCEPTED, SCRIM_PROPOSAL_REJECTED, SCRIM_PROPOSAL_DELAYED, SCRIM_PROPOSAL_AUTO_REJECTED, ADMIN_TEST
+- **NotificationType**: CONTACT_REQUEST, FEEDBACK_RECEIVED, REPORT_RECEIVED, REPORT_ACCEPTED, REPORT_REJECTED, PASSWORD_SETUP_REMINDER, SCRIM_PROPOSAL_RECEIVED, SCRIM_PROPOSAL_ACCEPTED, SCRIM_PROPOSAL_REJECTED, SCRIM_PROPOSAL_DELAYED, SCRIM_PROPOSAL_AUTO_REJECTED, SCRIM_SERIES_ACCEPTED, SCRIM_MATCH_CODE_REGENERATED, SCRIM_RESULT_AUTO_CONFIRMED, SCRIM_RESULT_MANUAL_CONFIRMED, SCRIM_RESULT_MANUAL_REQUIRED, SCRIM_RESULT_CONFLICT_ESCALATION, ADMIN_TEST
 - **ReportStatus**: PENDING, REVIEWED, DISMISSED, ACTION_TAKEN
 - **LftPostType**: TEAM, PLAYER
 - **CoachingPostType**: OFFERING, SEEKING
@@ -75,6 +86,8 @@ TeamEvent schema addition used by accepted scrims:
 - **ScrimPostStatus**: AVAILABLE, CANDIDATES, SETTLED
 - **ScrimProposalStatus**: PENDING, ACCEPTED, REJECTED, DELAYED, AUTO_REJECTED
 - **ScrimDiscordNotificationType**: PROPOSAL_RECEIVED, PROPOSAL_ACCEPTED, PROPOSAL_REJECTED, PROPOSAL_DELAYED, PROPOSAL_AUTO_REJECTED
+- **ScrimAutoResultStatus**: PENDING, READY, RUNNING, CONFIRMED, MANUAL_REQUIRED, FAILED
+- **ScrimResultSource**: MANUAL_AGREEMENT, AUTO_RIOT
 
 ## Key Patterns
 

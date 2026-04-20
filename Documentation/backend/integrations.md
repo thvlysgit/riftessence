@@ -1,6 +1,6 @@
 # Backend Integrations
 
-> Last updated: 2026-04-17
+> Last updated: 2026-04-20
 
 ## Riot Games API
 
@@ -60,3 +60,23 @@ The Discord bot (standalone service) communicates with the API via REST:
 	- `GET /api/discord/team-event-reminders`
 	- `PATCH /api/discord/team-event-reminders/:id/processed`
 - `PATCH .../processed` accepts `recordPing` for channel mention sends so the API can persist `discordLastChannelPingAt` and enforce recurrence rules consistently across event notifications and reminder notifications.
+
+### Scrim Lifecycle Delivery and Automation
+
+- Scrim lifecycle events (`SCRIM_*`) are emitted from `apps/api/src/routes/scrims.ts` and flow through `TeamEventNotification` queue processing.
+- Delivery routing in `apps/api/src/routes/discordFeed.ts`:
+	- default target: `Team.discordWebhookUrl`
+	- optional override for scrim lifecycle updates only: `Team.discordScrimCodeWebhookUrl`
+- In-app notification fanout is written in parallel for team decision recipients.
+
+Auto-result sweep (Riot history matching) is controlled by env vars in `apps/api/src/routes/scrims.ts`:
+- `SCRIM_AUTO_RESULT_SWEEP_INTERVAL_MS`
+- `SCRIM_AUTO_RESULT_BATCH_SIZE`
+- `SCRIM_AUTO_RESULT_MATCH_SCAN_LIMIT`
+- `SCRIM_AUTO_RESULT_WINDOW_BUFFER_HOURS`
+- `SCRIM_AUTO_RESULT_MIN_TEAM_PARTICIPANTS`
+- `SCRIM_CONFLICT_ESCALATION_THRESHOLD`
+- `SCRIM_SUPPORT_DISCORD_URL` (fallbacks to `NEXT_PUBLIC_SUPPORT_DISCORD_URL`, then hardcoded default)
+
+Operational note:
+- Prefer deploying API and Discord bot together for lifecycle protocol changes so new `SCRIM_RESULT_*` event keys and embed rendering stay aligned.

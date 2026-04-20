@@ -7,7 +7,25 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
 type Notification = {
   id: string;
-  type: 'CONTACT_REQUEST' | 'FEEDBACK_RECEIVED' | 'REPORT_RECEIVED' | 'REPORT_ACCEPTED' | 'REPORT_REJECTED' | 'PASSWORD_SETUP_REMINDER' | 'SCRIM_PROPOSAL_RECEIVED' | 'SCRIM_PROPOSAL_ACCEPTED' | 'SCRIM_PROPOSAL_REJECTED' | 'SCRIM_PROPOSAL_DELAYED' | 'SCRIM_PROPOSAL_AUTO_REJECTED' | 'ADMIN_TEST';
+  type:
+    | 'CONTACT_REQUEST'
+    | 'FEEDBACK_RECEIVED'
+    | 'REPORT_RECEIVED'
+    | 'REPORT_ACCEPTED'
+    | 'REPORT_REJECTED'
+    | 'PASSWORD_SETUP_REMINDER'
+    | 'SCRIM_PROPOSAL_RECEIVED'
+    | 'SCRIM_PROPOSAL_ACCEPTED'
+    | 'SCRIM_PROPOSAL_REJECTED'
+    | 'SCRIM_PROPOSAL_DELAYED'
+    | 'SCRIM_PROPOSAL_AUTO_REJECTED'
+    | 'SCRIM_SERIES_ACCEPTED'
+    | 'SCRIM_MATCH_CODE_REGENERATED'
+    | 'SCRIM_RESULT_AUTO_CONFIRMED'
+    | 'SCRIM_RESULT_MANUAL_CONFIRMED'
+    | 'SCRIM_RESULT_MANUAL_REQUIRED'
+    | 'SCRIM_RESULT_CONFLICT_ESCALATION'
+    | 'ADMIN_TEST';
   fromUserId?: string;
   postId?: string;
   feedbackId?: string;
@@ -53,6 +71,12 @@ const NOTIFICATION_CONFIG: Record<Notification['type'], { icon: string; color: s
   SCRIM_PROPOSAL_REJECTED: { icon: '❌', color: 'var(--accent-danger)', title: 'Scrim Proposal Rejected' },
   SCRIM_PROPOSAL_DELAYED: { icon: '🕒', color: 'var(--accent-warning)', title: 'Scrim Proposal Delayed' },
   SCRIM_PROPOSAL_AUTO_REJECTED: { icon: '⌛', color: 'var(--accent-danger)', title: 'Scrim Proposal Timed Out' },
+  SCRIM_SERIES_ACCEPTED: { icon: '🤝', color: 'var(--accent-info)', title: 'Scrim Series Accepted' },
+  SCRIM_MATCH_CODE_REGENERATED: { icon: '🔁', color: 'var(--accent-warning)', title: 'Match Code Regenerated' },
+  SCRIM_RESULT_AUTO_CONFIRMED: { icon: '🎯', color: 'var(--accent-success)', title: 'Auto Result Confirmed' },
+  SCRIM_RESULT_MANUAL_CONFIRMED: { icon: '✅', color: 'var(--accent-success)', title: 'Manual Result Confirmed' },
+  SCRIM_RESULT_MANUAL_REQUIRED: { icon: '📝', color: 'var(--accent-warning)', title: 'Manual Winner Required' },
+  SCRIM_RESULT_CONFLICT_ESCALATION: { icon: '🚨', color: 'var(--accent-danger)', title: 'Result Conflict Escalated' },
   ADMIN_TEST: { icon: '🔔', color: 'var(--accent-info)', title: 'Admin Test' },
 };
 

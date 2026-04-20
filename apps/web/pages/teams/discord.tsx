@@ -75,6 +75,7 @@ interface Team {
 
 interface DiscordSettings {
   webhookUrl: string | null;
+  scrimCodeWebhookUrl: string | null;
   notifyEvents: boolean;
   notifyMembers: boolean;
   mentionMode: MentionMode;
@@ -86,6 +87,9 @@ interface DiscordSettings {
   webhookValid?: boolean;
   channelName?: string;
   guildName?: string;
+  scrimCodeWebhookValid?: boolean;
+  scrimCodeChannelName?: string;
+  scrimCodeGuildName?: string;
 }
 
 const DiscordSettingsPage: React.FC = () => {
@@ -102,6 +106,7 @@ const DiscordSettingsPage: React.FC = () => {
   
   // Form state
   const [webhookUrl, setWebhookUrl] = useState('');
+  const [scrimCodeWebhookUrl, setScrimCodeWebhookUrl] = useState('');
   const [notifyEvents, setNotifyEvents] = useState(true);
   const [notifyMembers, setNotifyMembers] = useState(false);
   const [mentionMode, setMentionMode] = useState<MentionMode>('EVERYONE');
@@ -188,6 +193,7 @@ const DiscordSettingsPage: React.FC = () => {
 
           setSettings(data);
           setWebhookUrl(data.webhookUrl || '');
+          setScrimCodeWebhookUrl(data.scrimCodeWebhookUrl || '');
           setNotifyEvents(data.notifyEvents ?? true);
           setNotifyMembers(data.notifyMembers ?? false);
           setMentionMode(fetchedMentionMode);
@@ -264,6 +270,7 @@ const DiscordSettingsPage: React.FC = () => {
         },
         body: JSON.stringify({
           webhookUrl: webhookUrl.trim() || null,
+          scrimCodeWebhookUrl: scrimCodeWebhookUrl.trim() || null,
           notifyEvents,
           notifyMembers,
           mentionMode,
@@ -283,6 +290,8 @@ const DiscordSettingsPage: React.FC = () => {
       }
       
       setSettings(data);
+      setWebhookUrl(data.webhookUrl || '');
+      setScrimCodeWebhookUrl(data.scrimCodeWebhookUrl || '');
       setMentionMode(data.mentionMode === 'ROLE' || data.mentionMode === 'TEAM_ROLE_MAP' ? data.mentionMode : 'EVERYONE');
       setMentionRoleId(data.mentionRoleId || '');
       setRoleMentions(
@@ -360,6 +369,7 @@ const DiscordSettingsPage: React.FC = () => {
       if (res.ok) {
         setSettings(null);
         setWebhookUrl('');
+        setScrimCodeWebhookUrl('');
         setNotifyEvents(true);
         setNotifyMembers(false);
         setPingRecurrence(true);
@@ -613,7 +623,7 @@ const DiscordSettingsPage: React.FC = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                      Webhook URL
+                      Team Schedule Webhook URL
                     </label>
                     <input
                       type="url"
@@ -641,6 +651,43 @@ const DiscordSettingsPage: React.FC = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                         Invalid or expired webhook URL
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                      Scrim Code Forwarding Webhook (Optional Override)
+                    </label>
+                    <input
+                      type="url"
+                      value={scrimCodeWebhookUrl}
+                      onChange={e => setScrimCodeWebhookUrl(e.target.value)}
+                      placeholder="Leave empty to reuse the schedule webhook channel"
+                      className="w-full px-4 py-3 rounded-lg border text-sm transition-all focus:ring-2 focus:ring-offset-2 focus:ring-[#5865F2]"
+                      style={{
+                        backgroundColor: 'var(--color-bg-tertiary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
+                    />
+                    <p className="mt-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                      By default, scrim code lifecycle updates use your schedule webhook channel. Set this only if you want a dedicated channel for scrim codes.
+                    </p>
+                    {settings?.scrimCodeWebhookValid === true && settings?.scrimCodeChannelName && (
+                      <p className="mt-2 text-sm flex items-center gap-2" style={{ color: '#22C55E' }}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Scrim updates connected to #{settings.scrimCodeChannelName} in {settings.scrimCodeGuildName}
+                      </p>
+                    )}
+                    {settings?.scrimCodeWebhookValid === false && (
+                      <p className="mt-2 text-sm flex items-center gap-2" style={{ color: '#EF4444' }}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Invalid scrim code webhook URL
                       </p>
                     )}
                   </div>

@@ -18,7 +18,6 @@ const SCRIM_FORMAT_OPTIONS = [
   { value: 'FEARLESS_BO5', label: 'Fearless BO5', fearless: true },
   { value: 'BLOCK', label: 'Fearless Block', fearless: true },
 ] as const;
-const SCRIM_FORMATS = SCRIM_FORMAT_OPTIONS.map((option) => option.value);
 const SCRIM_STATUSES = ['AVAILABLE', 'CANDIDATES', 'SETTLED'];
 const MANAGEABLE_TEAM_ROLES = new Set(['OWNER', 'MANAGER', 'COACH']);
 const RANKS = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER', 'UNRANKED'];
@@ -84,9 +83,24 @@ interface ScrimFeedPost {
 interface PendingScrimSeries {
   id: string;
   matchCode: string;
+  matchCodeVersion: number;
+  matchCodeRegeneratedAt: string | null;
+  matchCodeRegeneratedByTeamId: string | null;
+  lobbyCodeUsedAt: string | null;
+  lobbyCodeUsedByUserId: string | null;
   scheduledAt: string;
   hostTeamId: string;
   guestTeamId: string;
+  hostCreatesLobby: boolean;
+  boGames: number | null;
+  autoResultStatus: 'PENDING' | 'READY' | 'RUNNING' | 'CONFIRMED' | 'MANUAL_REQUIRED' | 'FAILED';
+  autoResultReadyAt: string | null;
+  autoResultAttempts: number;
+  autoResultFailureReason: string | null;
+  autoResultMatchId: string | null;
+  resultSource: 'MANUAL_AGREEMENT' | 'AUTO_RIOT' | null;
+  manualConflictCount: number;
+  escalatedAt: string | null;
   hostTeam: {
     id: string;
     name: string;
@@ -246,6 +260,15 @@ function formatTeamLabel(team: { name: string; tag: string | null }): string {
   return team.tag ? `${team.name} [${team.tag}]` : team.name;
 }
 
+function formatAutoResultStatus(status: PendingScrimSeries['autoResultStatus']): { label: string; color: string } {
+  if (status === 'READY') return { label: 'Auto-check scheduled', color: '#2563EB' };
+  if (status === 'RUNNING') return { label: 'Auto-check running', color: '#F59E0B' };
+  if (status === 'CONFIRMED') return { label: 'Auto-check confirmed winner', color: '#22C55E' };
+  if (status === 'MANUAL_REQUIRED') return { label: 'Manual winner agreement required', color: '#EF4444' };
+  if (status === 'FAILED') return { label: 'Auto-check failed', color: '#EF4444' };
+  return { label: 'Awaiting auto-check scheduling', color: '#64748B' };
+}
+
 export default function TeamsScrimsPage() {
   const { user } = useAuth();
   const { showToast, confirm } = useGlobalUI();
@@ -276,6 +299,8 @@ export default function TeamsScrimsPage() {
   const [proposalSubmitting, setProposalSubmitting] = useState(false);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [resultSubmittingSeriesId, setResultSubmittingSeriesId] = useState<string | null>(null);
+  const [regeneratingSeriesId, setRegeneratingSeriesId] = useState<string | null>(null);
+  const [markingLobbySeriesId, setMarkingLobbySeriesId] = useState<string | null>(null);
   const [reviewSubmittingKey, setReviewSubmittingKey] = useState<string | null>(null);
   const [focusedMatchCodeSeriesId, setFocusedMatchCodeSeriesId] = useState<string | null>(null);
 
@@ -481,6 +506,18 @@ export default function TeamsScrimsPage() {
     void fetchPendingSeries();
     void fetchReviewCandidates();
   }, [user?.id, filterRegion, filterStatus, filterFormat, filterFearless]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = window.setInterval(() => {
+      void fetchPendingSeries();
+    }, 15000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (regionPrefilled) return;
@@ -742,12 +779,16 @@ export default function TeamsScrimsPage() {
 
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
+        if (response.status === 409 && payload?.support?.required && payload?.support?.url) {
+          throw new Error(`${payload.error} Support: ${payload.support.url}`);
+        }
         throw new Error(payload.error || 'Failed to submit result');
       }
 
       const status = payload?.result?.status || 'PENDING_CONFIRMATION';
       if (status === 'CONFIRMED') {
-        showToast('Result confirmed by both teams', 'success');
+        const source = payload?.result?.resultSource;
+        showToast(source === 'AUTO_RIOT' ? 'Result auto-confirmed from Riot history' : 'Result confirmed by both teams', 'success');
       } else {
         showToast('Result submitted. Waiting for opponent confirmation.', 'info');
       }
@@ -761,6 +802,65 @@ export default function TeamsScrimsPage() {
       showToast(error?.message || 'Failed to submit scrim result', 'error');
     } finally {
       setResultSubmittingSeriesId(null);
+    }
+  };
+
+  const handleRegenerateMatchCode = async (series: PendingScrimSeries) => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    setRegeneratingSeriesId(series.id);
+
+    try {
+      const response = await fetch(`${API_URL}/api/scrims/series/${series.id}/match-code/regenerate`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to regenerate match code');
+      }
+
+      showToast('Match code regenerated and sent to both teams', 'success');
+      setFocusedMatchCodeSeriesId(series.id);
+      await fetchPendingSeries();
+    } catch (error: any) {
+      console.error('Failed to regenerate match code', error);
+      showToast(error?.message || 'Failed to regenerate match code', 'error');
+    } finally {
+      setRegeneratingSeriesId(null);
+    }
+  };
+
+  const handleMarkLobbyCreated = async (series: PendingScrimSeries) => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    setMarkingLobbySeriesId(series.id);
+
+    try {
+      const response = await fetch(`${API_URL}/api/scrims/series/${series.id}/lobby-code-used`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to record lobby creation');
+      }
+
+      showToast('Lobby creation recorded. This helps trust support review if needed.', 'success');
+      await fetchPendingSeries();
+    } catch (error: any) {
+      console.error('Failed to record lobby creation', error);
+      showToast(error?.message || 'Failed to record lobby creation', 'error');
+    } finally {
+      setMarkingLobbySeriesId(null);
     }
   };
 
@@ -830,6 +930,16 @@ export default function TeamsScrimsPage() {
     return pendingSeries.find((series) => series.id === focusedMatchCodeSeriesId) || null;
   }, [focusedMatchCodeSeriesId, pendingSeries]);
 
+  const focusedSeriesHostManaged = useMemo(() => {
+    if (!focusedMatchCodeSeries) return false;
+    return focusedMatchCodeSeries.myTeamIds.includes(focusedMatchCodeSeries.hostTeamId);
+  }, [focusedMatchCodeSeries]);
+
+  const focusedSeriesAutoResultMeta = useMemo(() => {
+    if (!focusedMatchCodeSeries) return null;
+    return formatAutoResultStatus(focusedMatchCodeSeries.autoResultStatus);
+  }, [focusedMatchCodeSeries]);
+
   const copyMatchCode = async (matchCode: string) => {
     try {
       if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
@@ -842,6 +952,23 @@ export default function TeamsScrimsPage() {
       showToast('Could not copy match code automatically. Copy it manually from the popup.', 'info');
     }
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (focusedMatchCodeSeriesId) return;
+    if (pendingSeries.length === 0) return;
+
+    const candidate = pendingSeries[0];
+    const marker = `${candidate.matchCode}::${candidate.matchCodeVersion}`;
+    const seenKey = `riftessence_scrim_popup_seen_${candidate.id}`;
+    const seenMarker = window.localStorage.getItem(seenKey);
+    if (seenMarker === marker) {
+      return;
+    }
+
+    window.localStorage.setItem(seenKey, marker);
+    setFocusedMatchCodeSeriesId(candidate.id);
+  }, [pendingSeries, focusedMatchCodeSeriesId]);
 
   useEffect(() => {
     if (!focusedMatchCodeSeriesId) return;
@@ -1269,7 +1396,7 @@ export default function TeamsScrimsPage() {
                       Match Code + Winner Agreement
                     </p>
                     <p className="text-xs mt-1" style={{ color: '#DBEAFE' }}>
-                      Use the match code to create your custom game lobby, or skip lobby creation and submit winner plus loser agreement below.
+                      Host team (the original scrim post) creates and can regenerate the lobby code. Opponent receives updates automatically. Winner agreement remains the fallback path.
                     </p>
                   </div>
 
@@ -1284,10 +1411,12 @@ export default function TeamsScrimsPage() {
                           reportingTeamId: series.myTeamIds?.[0] || '',
                           winnerTeamId: series.firstReportedWinnerTeamId || series.hostTeamId,
                         };
+                        const iAmHost = series.myTeamIds.includes(series.hostTeamId);
                         const resolvedWinnerTeamId = draft.winnerTeamId === series.guestTeamId ? series.guestTeamId : series.hostTeamId;
                         const loserTeamId = resolvedWinnerTeamId === series.hostTeamId ? series.guestTeamId : series.hostTeamId;
                         const winnerTeam = resolvedWinnerTeamId === series.hostTeamId ? series.hostTeam : series.guestTeam;
                         const loserTeam = loserTeamId === series.hostTeamId ? series.hostTeam : series.guestTeam;
+                        const autoResultMeta = formatAutoResultStatus(series.autoResultStatus);
                         const firstReporterLabel = series.firstReporterTeamId === series.guestTeamId
                           ? formatTeamLabel(series.guestTeam)
                           : formatTeamLabel(series.hostTeam);
@@ -1307,6 +1436,32 @@ export default function TeamsScrimsPage() {
                             <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                               Scheduled {formatLocalDateTime(series.scheduledAt)}
                             </p>
+
+                            <div className="mt-2 rounded-lg border p-2.5" style={{ borderColor: 'rgba(37,99,235,0.45)', backgroundColor: 'rgba(37,99,235,0.12)' }}>
+                              <p className="text-xs font-semibold" style={{ color: '#BFDBFE' }}>
+                                Host team (original scrim post): {formatTeamLabel(series.hostTeam)}
+                              </p>
+                              <p className="text-[11px] mt-1" style={{ color: '#DBEAFE' }}>
+                                Host creates the lobby with the current match code. Opponent joins with the same code.
+                              </p>
+                            </div>
+
+                            <div className="mt-2 rounded-lg border p-2.5" style={{ borderColor: `${autoResultMeta.color}66`, backgroundColor: `${autoResultMeta.color}22` }}>
+                              <p className="text-xs font-semibold" style={{ color: autoResultMeta.color }}>
+                                {autoResultMeta.label}
+                              </p>
+                              {series.autoResultReadyAt && (
+                                <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                                  First automated scan target: {formatLocalDateTime(series.autoResultReadyAt)}
+                                  {series.boGames ? ` (${series.boGames}h after start for BO${series.boGames})` : ''}
+                                </p>
+                              )}
+                              {series.autoResultFailureReason && (
+                                <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                                  {series.autoResultFailureReason}
+                                </p>
+                              )}
+                            </div>
 
                             <div
                               className="mt-2 rounded-lg border p-3"
@@ -1330,6 +1485,9 @@ export default function TeamsScrimsPage() {
                                 >
                                   {series.matchCode}
                                 </span>
+                                <span className="text-[11px] font-semibold px-2 py-1 rounded border" style={{ borderColor: 'rgba(191,219,254,0.35)', color: '#BFDBFE' }}>
+                                  v{series.matchCodeVersion}
+                                </span>
                                 <button
                                   type="button"
                                   onClick={() => void copyMatchCode(series.matchCode)}
@@ -1347,9 +1505,44 @@ export default function TeamsScrimsPage() {
                                   Open popup
                                 </button>
                               </div>
+                              {series.matchCodeRegeneratedAt && (
+                                <p className="text-[11px] mt-2" style={{ color: '#BFDBFE' }}>
+                                  Last regenerated: {formatLocalDateTime(series.matchCodeRegeneratedAt)}
+                                </p>
+                              )}
+                              {series.lobbyCodeUsedAt && (
+                                <p className="text-[11px] mt-1" style={{ color: '#86EFAC' }}>
+                                  Host confirmed lobby created with app code at {formatLocalDateTime(series.lobbyCodeUsedAt)}.
+                                </p>
+                              )}
                               <p className="text-[11px] mt-2" style={{ color: '#BFDBFE' }}>
                                 You can create the game with this code, or directly agree on winner and loser below.
                               </p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  disabled={!iAmHost || regeneratingSeriesId === series.id}
+                                  onClick={() => void handleRegenerateMatchCode(series)}
+                                  className="px-2.5 py-1 rounded-md text-xs font-semibold border disabled:opacity-50"
+                                  style={{ borderColor: 'rgba(245,158,11,0.6)', color: '#FCD34D' }}
+                                >
+                                  {regeneratingSeriesId === series.id ? 'Regenerating...' : 'Host: Regenerate Code'}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={!iAmHost || markingLobbySeriesId === series.id}
+                                  onClick={() => void handleMarkLobbyCreated(series)}
+                                  className="px-2.5 py-1 rounded-md text-xs font-semibold border disabled:opacity-50"
+                                  style={{ borderColor: 'rgba(34,197,94,0.6)', color: '#86EFAC' }}
+                                >
+                                  {markingLobbySeriesId === series.id ? 'Saving...' : 'Host: Mark Lobby Created'}
+                                </button>
+                              </div>
+                              {!iAmHost && (
+                                <p className="text-[11px] mt-2" style={{ color: '#FDE68A' }}>
+                                  Waiting for host {formatTeamLabel(series.hostTeam)} to create and maintain the lobby code.
+                                </p>
+                              )}
                             </div>
 
                             {series.firstReporterTeamId && (
@@ -1840,15 +2033,119 @@ export default function TeamsScrimsPage() {
               >
                 {focusedMatchCodeSeries.matchCode}
               </p>
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                <span className="text-[11px] font-semibold px-2 py-1 rounded border" style={{ borderColor: 'rgba(191,219,254,0.4)', color: '#BFDBFE' }}>
+                  Version v{focusedMatchCodeSeries.matchCodeVersion}
+                </span>
+                {focusedMatchCodeSeries.matchCodeRegeneratedAt && (
+                  <span className="text-[11px]" style={{ color: '#BFDBFE' }}>
+                    Last regen {formatLocalDateTime(focusedMatchCodeSeries.matchCodeRegeneratedAt)}
+                  </span>
+                )}
+              </div>
             </div>
+
+            {focusedSeriesAutoResultMeta && (
+              <div
+                className="mt-3 rounded-xl border p-3"
+                style={{
+                  borderColor: `${focusedSeriesAutoResultMeta.color}66`,
+                  backgroundColor: `${focusedSeriesAutoResultMeta.color}22`,
+                }}
+              >
+                <p className="text-xs font-semibold" style={{ color: focusedSeriesAutoResultMeta.color }}>
+                  {focusedSeriesAutoResultMeta.label}
+                </p>
+                {focusedMatchCodeSeries.autoResultReadyAt && (
+                  <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    First Riot auto-check target: {formatLocalDateTime(focusedMatchCodeSeries.autoResultReadyAt)}
+                    {focusedMatchCodeSeries.boGames ? ` (${focusedMatchCodeSeries.boGames}h after start)` : ''}
+                  </p>
+                )}
+                {focusedMatchCodeSeries.autoResultFailureReason && (
+                  <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    {focusedMatchCodeSeries.autoResultFailureReason}
+                  </p>
+                )}
+                {(focusedMatchCodeSeries.autoResultAttempts || 0) > 0 && (
+                  <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    Auto-check attempts: {focusedMatchCodeSeries.autoResultAttempts}
+                    {focusedMatchCodeSeries.autoResultMatchId ? ` • Match ${focusedMatchCodeSeries.autoResultMatchId}` : ''}
+                  </p>
+                )}
+                {focusedMatchCodeSeries.resultSource && (
+                  <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    Last result source: {focusedMatchCodeSeries.resultSource === 'AUTO_RIOT' ? 'Riot auto-confirmation' : 'Manual team agreement'}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {focusedMatchCodeSeries.manualConflictCount > 0 && (
+              <div
+                className="mt-3 rounded-xl border p-3"
+                style={{ borderColor: 'rgba(239,68,68,0.45)', backgroundColor: 'rgba(239,68,68,0.12)' }}
+              >
+                <p className="text-xs font-semibold" style={{ color: '#FCA5A5' }}>
+                  Manual conflict count: {focusedMatchCodeSeries.manualConflictCount}
+                </p>
+                <p className="text-[11px] mt-1" style={{ color: '#FECACA' }}>
+                  If disagreement repeats, the app escalates both teams to support with screenshot guidance.
+                </p>
+                {focusedMatchCodeSeries.escalatedAt && (
+                  <p className="text-[11px] mt-1" style={{ color: '#FECACA' }}>
+                    Escalated at {formatLocalDateTime(focusedMatchCodeSeries.escalatedAt)}.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="mt-4 space-y-2">
               <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                Option A: create the game lobby with this code.
+                Option A: host team creates the game lobby with this code.
               </p>
               <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
                 Option B: if scrim already happened, close this popup and submit winner plus loser agreement.
               </p>
+              {focusedMatchCodeSeries.lobbyCodeUsedAt && (
+                <p className="text-xs" style={{ color: '#86EFAC' }}>
+                  Host confirmed app code usage at {formatLocalDateTime(focusedMatchCodeSeries.lobbyCodeUsedAt)}.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-3 rounded-xl border p-3" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}>
+              <p className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                Host Controls
+              </p>
+              <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                Only {formatTeamLabel(focusedMatchCodeSeries.hostTeam)} can regenerate code or mark lobby creation.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={!focusedSeriesHostManaged || regeneratingSeriesId === focusedMatchCodeSeries.id}
+                  onClick={() => void handleRegenerateMatchCode(focusedMatchCodeSeries)}
+                  className="px-2.5 py-1.5 rounded-md text-xs font-semibold border disabled:opacity-50"
+                  style={{ borderColor: 'rgba(245,158,11,0.6)', color: '#FCD34D' }}
+                >
+                  {regeneratingSeriesId === focusedMatchCodeSeries.id ? 'Regenerating...' : 'Regenerate Match Code'}
+                </button>
+                <button
+                  type="button"
+                  disabled={!focusedSeriesHostManaged || markingLobbySeriesId === focusedMatchCodeSeries.id}
+                  onClick={() => void handleMarkLobbyCreated(focusedMatchCodeSeries)}
+                  className="px-2.5 py-1.5 rounded-md text-xs font-semibold border disabled:opacity-50"
+                  style={{ borderColor: 'rgba(34,197,94,0.6)', color: '#86EFAC' }}
+                >
+                  {markingLobbySeriesId === focusedMatchCodeSeries.id ? 'Saving...' : 'Mark Lobby Created'}
+                </button>
+              </div>
+              {!focusedSeriesHostManaged && (
+                <p className="text-[11px] mt-2" style={{ color: '#FDE68A' }}>
+                  You are not on the host team, so code control is read-only here.
+                </p>
+              )}
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2 justify-end">

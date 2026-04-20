@@ -1602,6 +1602,7 @@ export default async function teamsRoutes(fastify: any) {
         where: { id },
         select: {
           discordWebhookUrl: true,
+          discordScrimCodeWebhookUrl: true,
           discordNotifyEvents: true,
           discordNotifyMembers: true,
           discordMentionMode: true,
@@ -1621,6 +1622,9 @@ export default async function teamsRoutes(fastify: any) {
       let webhookValid: boolean | undefined;
       let channelName: string | undefined;
       let guildName: string | undefined;
+      let scrimCodeWebhookValid: boolean | undefined;
+      let scrimCodeChannelName: string | undefined;
+      let scrimCodeGuildName: string | undefined;
       
       if (team.discordWebhookUrl) {
         try {
@@ -1633,8 +1637,20 @@ export default async function teamsRoutes(fastify: any) {
         }
       }
 
+      if (team.discordScrimCodeWebhookUrl) {
+        try {
+          const validation = await validateDiscordWebhook(team.discordScrimCodeWebhookUrl);
+          scrimCodeWebhookValid = validation.valid;
+          scrimCodeChannelName = validation.channelName;
+          scrimCodeGuildName = validation.guildName;
+        } catch {
+          scrimCodeWebhookValid = false;
+        }
+      }
+
       return reply.send({
         webhookUrl: team.discordWebhookUrl,
+        scrimCodeWebhookUrl: team.discordScrimCodeWebhookUrl,
         notifyEvents: team.discordNotifyEvents,
         notifyMembers: team.discordNotifyMembers,
         mentionMode: team.discordMentionMode || 'EVERYONE',
@@ -1648,6 +1664,9 @@ export default async function teamsRoutes(fastify: any) {
         webhookValid,
         channelName,
         guildName,
+        scrimCodeWebhookValid,
+        scrimCodeChannelName,
+        scrimCodeGuildName,
       });
     } catch (error: any) {
       fastify.log.error(error);
@@ -1664,6 +1683,7 @@ export default async function teamsRoutes(fastify: any) {
       const { id } = request.params as any;
       const {
         webhookUrl,
+        scrimCodeWebhookUrl,
         notifyEvents,
         notifyMembers,
         mentionMode,
@@ -1683,6 +1703,7 @@ export default async function teamsRoutes(fastify: any) {
         where: { id },
         select: {
           discordWebhookUrl: true,
+          discordScrimCodeWebhookUrl: true,
           discordNotifyEvents: true,
           discordNotifyMembers: true,
           discordMentionMode: true,
@@ -1702,6 +1723,9 @@ export default async function teamsRoutes(fastify: any) {
       let channelName: string | undefined;
       let guildName: string | undefined;
       let webhookValid = false;
+      let scrimCodeChannelName: string | undefined;
+      let scrimCodeGuildName: string | undefined;
+      let scrimCodeWebhookValid = false;
 
       const reminderDelaysProvided = Object.prototype.hasOwnProperty.call(request.body || {}, 'reminderDelaysMinutes');
       let normalizedReminderDelaysFromPayload: number[] | undefined;
@@ -1750,6 +1774,21 @@ export default async function teamsRoutes(fastify: any) {
         }
       }
 
+      if (scrimCodeWebhookUrl !== undefined) {
+        if (scrimCodeWebhookUrl) {
+          const validation = await validateDiscordWebhook(scrimCodeWebhookUrl);
+          if (!validation.valid) {
+            return reply.status(400).send({ error: 'Invalid scrim code webhook URL. Please check the URL and try again.' });
+          }
+          updateData.discordScrimCodeWebhookUrl = scrimCodeWebhookUrl;
+          scrimCodeChannelName = validation.channelName;
+          scrimCodeGuildName = validation.guildName;
+          scrimCodeWebhookValid = true;
+        } else {
+          updateData.discordScrimCodeWebhookUrl = null;
+        }
+      }
+
       // Update notification settings
       if (typeof notifyEvents === 'boolean') updateData.discordNotifyEvents = notifyEvents;
       if (typeof notifyMembers === 'boolean') updateData.discordNotifyMembers = notifyMembers;
@@ -1787,6 +1826,7 @@ export default async function teamsRoutes(fastify: any) {
           name: true,
           tag: true,
           discordWebhookUrl: true,
+          discordScrimCodeWebhookUrl: true,
           discordNotifyEvents: true,
           discordNotifyMembers: true,
           discordMentionMode: true,
@@ -1809,6 +1849,7 @@ export default async function teamsRoutes(fastify: any) {
       return reply.send({
         success: true,
         webhookUrl: team.discordWebhookUrl,
+        scrimCodeWebhookUrl: team.discordScrimCodeWebhookUrl,
         notifyEvents: team.discordNotifyEvents,
         notifyMembers: team.discordNotifyMembers,
         mentionMode: team.discordMentionMode || 'EVERYONE',
@@ -1822,6 +1863,9 @@ export default async function teamsRoutes(fastify: any) {
         webhookValid: team.discordWebhookUrl ? webhookValid : undefined,
         channelName,
         guildName,
+        scrimCodeWebhookValid: team.discordScrimCodeWebhookUrl ? scrimCodeWebhookValid : undefined,
+        scrimCodeChannelName,
+        scrimCodeGuildName,
       });
     } catch (error: any) {
       fastify.log.error(error);
@@ -1847,6 +1891,7 @@ export default async function teamsRoutes(fastify: any) {
           where: { id },
           data: {
             discordWebhookUrl: null,
+            discordScrimCodeWebhookUrl: null,
             discordNotifyEvents: true,
             discordNotifyMembers: false,
             discordPingRecurrence: true,

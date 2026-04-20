@@ -48,7 +48,20 @@ JWT_SECRET=<generate-secure-secret>
 RIOT_API_KEY=<your-riot-key>
 PORT=3333
 ALLOW_ORIGIN=true
+
+# Scrim lifecycle auto-result tuning
+SCRIM_AUTO_RESULT_SWEEP_INTERVAL_MS=120000
+SCRIM_AUTO_RESULT_BATCH_SIZE=4
+SCRIM_AUTO_RESULT_MATCH_SCAN_LIMIT=20
+SCRIM_AUTO_RESULT_WINDOW_BUFFER_HOURS=2
+SCRIM_AUTO_RESULT_MIN_TEAM_PARTICIPANTS=2
+SCRIM_CONFLICT_ESCALATION_THRESHOLD=2
+SCRIM_SUPPORT_DISCORD_URL=https://discord.gg/riftessence
 ```
+
+Notes for Pi resource constraints:
+- Start with lower `SCRIM_AUTO_RESULT_BATCH_SIZE` (for example `2-4`) and increase only after observing stable CPU/network usage.
+- Keep `SCRIM_AUTO_RESULT_MATCH_SCAN_LIMIT` conservative to reduce Riot API pressure on low-power hardware.
 
 ### 4. Update Docker Compose for Production
 

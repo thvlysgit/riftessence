@@ -1352,6 +1352,7 @@ export default async function discordFeedRoutes(fastify: any) {
               name: true,
               tag: true,
               discordWebhookUrl: true,
+              discordScrimCodeWebhookUrl: true,
               discordNotifyEvents: true,
               discordMentionMode: true,
               discordMentionRoleId: true,
@@ -1378,12 +1379,18 @@ export default async function discordFeedRoutes(fastify: any) {
       });
 
       const formatted = notifications.map((n: any) => ({
+        ...(function resolveDelivery() {
+          const isScrimLifecycle = typeof n.notificationType === 'string' && n.notificationType.startsWith('SCRIM_');
+          const webhookUrl = isScrimLifecycle && n.team.discordScrimCodeWebhookUrl
+            ? n.team.discordScrimCodeWebhookUrl
+            : n.team.discordWebhookUrl;
+          const notifyEnabled = isScrimLifecycle ? true : n.team.discordNotifyEvents;
+          return { webhookUrl, notifyEnabled };
+        })(),
         id: n.id,
         teamId: n.teamId,
         teamName: n.team.name,
         teamTag: n.team.tag,
-        webhookUrl: n.team.discordWebhookUrl,
-        notifyEnabled: n.team.discordNotifyEvents,
         eventId: n.eventId,
         eventTitle: n.eventTitle,
         eventType: n.eventType,
