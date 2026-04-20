@@ -1,6 +1,34 @@
 # Changelog
 
-> Last updated: 2026-04-19
+> Last updated: 2026-04-20
+
+---
+
+## 2026-04-20 - Scrim Winner Agreement UX Clarification and Notifications Theme Normalization
+
+### Objective: Make winner agreement unambiguous, surface match code usage clearly, and align Notifications page visuals with standard theme tokens
+
+Overview: Refined the Scrim Finder winner agreement experience so teams now interact with explicit Winner and Loser sections, while making match code more prominent through inline emphasis plus a dedicated popup with copy action and decision guidance. Also normalized Notifications page styling to stable theme variables so it follows the regular theme-dependent appearance without undefined-style artifacts.
+
+Changes:
+
+- Updated [apps/web/pages/teams/scrims.tsx](apps/web/pages/teams/scrims.tsx):
+  - Reworked winner agreement cards with clear `Winner Section` and `Loser Section` blocks.
+  - Added prominent match code card per pending series with copy action.
+  - Added match code popup modal with explicit flow guidance:
+    - Option A: create lobby with code.
+    - Option B: skip lobby creation and submit winner/loser agreement.
+  - Improved first-report status messaging to show reported winner context.
+  - Updated submit CTA to reflect selected winner.
+- Updated [apps/web/pages/notifications.tsx](apps/web/pages/notifications.tsx):
+  - Replaced legacy/undefined style tokens (`bg-main`, `bg-elevated`, `shadow-md`, etc.) with standard theme tokens (`color-bg-*`, `color-text-*`, `color-border`, `shadow`).
+  - Ensured cards and containers render with regular theme-dependent surfaces/colors.
+
+Validation:
+
+- `pnpm --filter ./apps/web build` passes.
+- Non-blocking warning remains:
+  - `pages/teams/scrims.tsx`: unused `SCRIM_FORMATS` constant.
 
 ---
 
@@ -37,12 +65,17 @@ Changes:
   - Added post-scrim review panel (Politeness/Punctuality/Gameplay 1-5 + comment).
 - Updated [apps/web/pages/teams/[id].tsx](apps/web/pages/teams/[id].tsx):
   - Added Scrim Performance & Reputation section showing winrate, W/L record, average rating, and recent public review comments.
+- Updated [Documentation/architecture/api-contracts.md](Documentation/architecture/api-contracts.md):
+  - Synced scrim contracts for post deletion permissions, accepted-proposal series/event bootstrap, winner agreement endpoints, review endpoints, and `/api/teams/:id` scrim aggregate payload fields.
+- Updated [Documentation/architecture/database-schema.md](Documentation/architecture/database-schema.md):
+  - Synced schema architecture docs for `ScrimSeries`, `ScrimTeamReview`, scrim relations on `Team`, scrim enums, and `TeamEvent.enemyMultigg`.
 
 Validation:
 
 - `pnpm prisma generate` passes.
 - `pnpm --filter @lfd/api build` passes.
 - `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter ./apps/web build` passes (non-blocking lint warning remains in `pages/teams/scrims.tsx` for unused `SCRIM_FORMATS`).
 
 ---
 

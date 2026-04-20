@@ -277,6 +277,7 @@ export default function TeamsScrimsPage() {
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [resultSubmittingSeriesId, setResultSubmittingSeriesId] = useState<string | null>(null);
   const [reviewSubmittingKey, setReviewSubmittingKey] = useState<string | null>(null);
+  const [focusedMatchCodeSeriesId, setFocusedMatchCodeSeriesId] = useState<string | null>(null);
 
   const [activeProposalPostId, setActiveProposalPostId] = useState<string | null>(null);
   const [proposalForm, setProposalForm] = useState<ProposalForm>({
@@ -720,7 +721,7 @@ export default function TeamsScrimsPage() {
 
     const draft = resultDrafts[seriesId];
     if (!draft?.reportingTeamId || !draft?.winnerTeamId) {
-      showToast('Select both reporting team and winner team', 'error');
+      showToast('Choose a reporting team and winner team', 'error');
       return;
     }
 
@@ -823,6 +824,32 @@ export default function TeamsScrimsPage() {
       candidates: feedPosts.filter((post) => post.status === 'CANDIDATES').length,
     };
   }, [feedPosts]);
+
+  const focusedMatchCodeSeries = useMemo(() => {
+    if (!focusedMatchCodeSeriesId) return null;
+    return pendingSeries.find((series) => series.id === focusedMatchCodeSeriesId) || null;
+  }, [focusedMatchCodeSeriesId, pendingSeries]);
+
+  const copyMatchCode = async (matchCode: string) => {
+    try {
+      if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+        throw new Error('Clipboard unavailable');
+      }
+
+      await navigator.clipboard.writeText(matchCode);
+      showToast('Match code copied to clipboard', 'success');
+    } catch {
+      showToast('Could not copy match code automatically. Copy it manually from the popup.', 'info');
+    }
+  };
+
+  useEffect(() => {
+    if (!focusedMatchCodeSeriesId) return;
+    const stillExists = pendingSeries.some((series) => series.id === focusedMatchCodeSeriesId);
+    if (!stillExists) {
+      setFocusedMatchCodeSeriesId(null);
+    }
+  }, [focusedMatchCodeSeriesId, pendingSeries]);
 
   if (!user) {
     return (
@@ -1231,6 +1258,21 @@ export default function TeamsScrimsPage() {
                     </span>
                   </div>
 
+                  <div
+                    className="rounded-xl border p-3 mb-3"
+                    style={{
+                      borderColor: 'rgba(59,130,246,0.4)',
+                      background: 'linear-gradient(135deg, rgba(37,99,235,0.16), rgba(15,23,42,0.22))',
+                    }}
+                  >
+                    <p className="text-sm font-semibold" style={{ color: '#BFDBFE' }}>
+                      Match Code + Winner Agreement
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: '#DBEAFE' }}>
+                      Use the match code to create your custom game lobby, or skip lobby creation and submit winner plus loser agreement below.
+                    </p>
+                  </div>
+
                   {pendingSeriesLoading ? (
                     <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading pending scrim result confirmations...</p>
                   ) : pendingSeries.length === 0 ? (
@@ -1242,6 +1284,16 @@ export default function TeamsScrimsPage() {
                           reportingTeamId: series.myTeamIds?.[0] || '',
                           winnerTeamId: series.firstReportedWinnerTeamId || series.hostTeamId,
                         };
+                        const resolvedWinnerTeamId = draft.winnerTeamId === series.guestTeamId ? series.guestTeamId : series.hostTeamId;
+                        const loserTeamId = resolvedWinnerTeamId === series.hostTeamId ? series.guestTeamId : series.hostTeamId;
+                        const winnerTeam = resolvedWinnerTeamId === series.hostTeamId ? series.hostTeam : series.guestTeam;
+                        const loserTeam = loserTeamId === series.hostTeamId ? series.hostTeam : series.guestTeam;
+                        const firstReporterLabel = series.firstReporterTeamId === series.guestTeamId
+                          ? formatTeamLabel(series.guestTeam)
+                          : formatTeamLabel(series.hostTeam);
+                        const firstWinnerLabel = series.firstReportedWinnerTeamId === series.guestTeamId
+                          ? formatTeamLabel(series.guestTeam)
+                          : formatTeamLabel(series.hostTeam);
 
                         return (
                           <div
@@ -1253,52 +1305,149 @@ export default function TeamsScrimsPage() {
                               {formatTeamLabel(series.hostTeam)} vs {formatTeamLabel(series.guestTeam)}
                             </p>
                             <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                              {series.matchCode} • {formatLocalDateTime(series.scheduledAt)}
+                              Scheduled {formatLocalDateTime(series.scheduledAt)}
                             </p>
+
+                            <div
+                              className="mt-2 rounded-lg border p-3"
+                              style={{
+                                borderColor: 'rgba(59,130,246,0.45)',
+                                background: 'linear-gradient(145deg, rgba(59,130,246,0.14), rgba(30,64,175,0.08))',
+                              }}
+                            >
+                              <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: '#BFDBFE' }}>
+                                Match Code
+                              </p>
+                              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                <span
+                                  className="px-2.5 py-1 rounded-md border text-sm font-extrabold tracking-wide"
+                                  style={{
+                                    borderColor: 'rgba(147,197,253,0.45)',
+                                    backgroundColor: 'rgba(15,23,42,0.35)',
+                                    color: '#DBEAFE',
+                                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                                  }}
+                                >
+                                  {series.matchCode}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => void copyMatchCode(series.matchCode)}
+                                  className="px-2.5 py-1 rounded-md text-xs font-semibold border"
+                                  style={{ borderColor: 'rgba(147,197,253,0.45)', color: '#BFDBFE' }}
+                                >
+                                  Copy code
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setFocusedMatchCodeSeriesId(series.id)}
+                                  className="px-2.5 py-1 rounded-md text-xs font-semibold border"
+                                  style={{ borderColor: 'rgba(191,219,254,0.45)', color: '#DBEAFE' }}
+                                >
+                                  Open popup
+                                </button>
+                              </div>
+                              <p className="text-[11px] mt-2" style={{ color: '#BFDBFE' }}>
+                                You can create the game with this code, or directly agree on winner and loser below.
+                              </p>
+                            </div>
 
                             {series.firstReporterTeamId && (
                               <p className="text-xs mt-1" style={{ color: '#F59E0B' }}>
-                                First report submitted. Opponent confirmation required.
+                                First report: {firstReporterLabel} marked {firstWinnerLabel} as winner. Opponent confirmation required.
                               </p>
                             )}
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-                              <select
-                                value={draft.reportingTeamId}
-                                onChange={(event) => setResultDrafts((prev) => ({
-                                  ...prev,
-                                  [series.id]: {
-                                    ...draft,
-                                    reportingTeamId: event.target.value,
-                                  },
-                                }))}
-                                className="px-3 py-2 rounded border text-sm"
-                                style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
-                              >
-                                <option value="">Reporting team</option>
-                                {series.myTeamIds.map((teamId) => {
-                                  const label = teamId === series.hostTeamId ? formatTeamLabel(series.hostTeam) : formatTeamLabel(series.guestTeam);
-                                  return (
-                                    <option key={teamId} value={teamId}>{label}</option>
-                                  );
-                                })}
-                              </select>
+                            <label className="mt-3 block text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                              Reporting Team
+                            </label>
+                            <select
+                              value={draft.reportingTeamId}
+                              onChange={(event) => setResultDrafts((prev) => ({
+                                ...prev,
+                                [series.id]: {
+                                  ...draft,
+                                  reportingTeamId: event.target.value,
+                                },
+                              }))}
+                              className="mt-1 w-full px-3 py-2 rounded border text-sm"
+                              style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                            >
+                              <option value="">Choose reporting team</option>
+                              {series.myTeamIds.map((teamId) => {
+                                const label = teamId === series.hostTeamId ? formatTeamLabel(series.hostTeam) : formatTeamLabel(series.guestTeam);
+                                return (
+                                  <option key={teamId} value={teamId}>{label}</option>
+                                );
+                              })}
+                            </select>
 
-                              <select
-                                value={draft.winnerTeamId}
-                                onChange={(event) => setResultDrafts((prev) => ({
-                                  ...prev,
-                                  [series.id]: {
-                                    ...draft,
-                                    winnerTeamId: event.target.value,
-                                  },
-                                }))}
-                                className="px-3 py-2 rounded border text-sm"
-                                style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
+                              <div
+                                className="rounded-lg border p-3"
+                                style={{
+                                  borderColor: 'rgba(34,197,94,0.45)',
+                                  background: 'linear-gradient(145deg, rgba(34,197,94,0.15), rgba(15,23,42,0.12))',
+                                }}
                               >
-                                <option value={series.hostTeamId}>{formatTeamLabel(series.hostTeam)} won</option>
-                                <option value={series.guestTeamId}>{formatTeamLabel(series.guestTeam)} won</option>
-                              </select>
+                                <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: '#86EFAC' }}>
+                                  Winner Section
+                                </p>
+                                <p className="text-xs mt-1" style={{ color: '#BBF7D0' }}>
+                                  Select the team that won.
+                                </p>
+                                <div className="mt-2 grid grid-cols-1 gap-2">
+                                  {[series.hostTeam, series.guestTeam].map((team) => {
+                                    const isSelected = resolvedWinnerTeamId === team.id;
+                                    return (
+                                      <button
+                                        key={team.id}
+                                        type="button"
+                                        onClick={() => setResultDrafts((prev) => ({
+                                          ...prev,
+                                          [series.id]: {
+                                            ...draft,
+                                            winnerTeamId: team.id,
+                                          },
+                                        }))}
+                                        className="px-3 py-2 rounded-md border text-sm text-left font-semibold"
+                                        style={{
+                                          borderColor: isSelected ? 'rgba(34,197,94,0.7)' : 'var(--color-border)',
+                                          backgroundColor: isSelected ? 'rgba(34,197,94,0.2)' : 'var(--color-bg-secondary)',
+                                          color: isSelected ? '#DCFCE7' : 'var(--color-text-primary)',
+                                        }}
+                                      >
+                                        {formatTeamLabel(team)}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              <div
+                                className="rounded-lg border p-3"
+                                style={{
+                                  borderColor: 'rgba(239,68,68,0.45)',
+                                  background: 'linear-gradient(145deg, rgba(239,68,68,0.14), rgba(15,23,42,0.12))',
+                                }}
+                              >
+                                <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: '#FCA5A5' }}>
+                                  Loser Section
+                                </p>
+                                <p className="text-xs mt-1" style={{ color: '#FECACA' }}>
+                                  Auto-filled from the selected winner.
+                                </p>
+                                <div
+                                  className="mt-2 px-3 py-2 rounded-md border text-sm font-semibold"
+                                  style={{
+                                    borderColor: 'rgba(239,68,68,0.5)',
+                                    backgroundColor: 'rgba(127,29,29,0.35)',
+                                    color: '#FEE2E2',
+                                  }}
+                                >
+                                  {formatTeamLabel(loserTeam)}
+                                </div>
+                              </div>
                             </div>
 
                             <button
@@ -1308,7 +1457,7 @@ export default function TeamsScrimsPage() {
                               className="mt-3 px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
                               style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', color: 'white' }}
                             >
-                              {resultSubmittingSeriesId === series.id ? 'Submitting...' : 'Submit Result'}
+                              {resultSubmittingSeriesId === series.id ? 'Submitting...' : `Submit Winner: ${formatTeamLabel(winnerTeam)}`}
                             </button>
                           </div>
                         );
@@ -1649,6 +1798,80 @@ export default function TeamsScrimsPage() {
           </div>
         </div>
       </div>
+
+      {focusedMatchCodeSeries && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(2, 6, 23, 0.7)' }}>
+          <div
+            className="w-full max-w-xl rounded-2xl border p-5"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              borderColor: 'var(--color-border)',
+              boxShadow: 'var(--shadow-lg)',
+            }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>Scrim Match Code</h4>
+                <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  {formatTeamLabel(focusedMatchCodeSeries.hostTeam)} vs {formatTeamLabel(focusedMatchCodeSeries.guestTeam)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFocusedMatchCodeSeriesId(null)}
+                className="px-2 py-1 rounded border text-xs font-semibold"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+              >
+                Close
+              </button>
+            </div>
+
+            <div
+              className="mt-4 rounded-xl border p-4 text-center"
+              style={{
+                borderColor: 'rgba(59,130,246,0.45)',
+                background: 'linear-gradient(140deg, rgba(37,99,235,0.22), rgba(15,23,42,0.24))',
+              }}
+            >
+              <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: '#BFDBFE' }}>Match Code</p>
+              <p
+                className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-wider"
+                style={{ color: '#DBEAFE', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+              >
+                {focusedMatchCodeSeries.matchCode}
+              </p>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                Option A: create the game lobby with this code.
+              </p>
+              <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                Option B: if scrim already happened, close this popup and submit winner plus loser agreement.
+              </p>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => void copyMatchCode(focusedMatchCodeSeries.matchCode)}
+                className="px-3 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', color: 'white' }}
+              >
+                Copy Match Code
+              </button>
+              <button
+                type="button"
+                onClick={() => setFocusedMatchCodeSeriesId(null)}
+                className="px-3 py-2 rounded-lg text-sm font-semibold border"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+              >
+                Back to Agreement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

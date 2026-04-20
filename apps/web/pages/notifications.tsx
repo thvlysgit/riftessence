@@ -181,7 +181,7 @@ export default function NotificationsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen py-8 px-4" style={{ background: 'var(--bg-main)' }}>
+      <div className="min-h-screen py-8 px-4" style={{ background: 'var(--color-bg-primary)' }}>
         <div className="max-w-2xl mx-auto flex items-center justify-center py-20">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-t-transparent" style={{ borderColor: 'var(--accent-primary)', borderTopColor: 'transparent' }}></div>
         </div>
@@ -191,9 +191,9 @@ export default function NotificationsPage() {
 
   if (!userId) {
     return (
-      <div className="min-h-screen py-8 px-4" style={{ background: 'var(--bg-main)' }}>
+      <div className="min-h-screen py-8 px-4" style={{ background: 'var(--color-bg-primary)' }}>
         <div className="max-w-2xl mx-auto text-center py-20">
-          <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>Please log in to view notifications.</p>
+          <p className="text-lg" style={{ color: 'var(--color-text-secondary)' }}>Please log in to view notifications.</p>
         </div>
       </div>
     );
@@ -202,13 +202,13 @@ export default function NotificationsPage() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <div className="min-h-screen py-8 px-4" style={{ background: 'var(--bg-main)' }}>
+    <div className="min-h-screen py-8 px-4" style={{ background: 'var(--color-bg-primary)' }}>
       <div className="max-w-2xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold" style={{ color: 'var(--accent-primary)' }}>Notifications</h1>
             {unreadCount > 0 && (
-              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+              <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
                 {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
               </p>
             )}
@@ -225,8 +225,8 @@ export default function NotificationsPage() {
         </div>
 
         {incomingProposals.length > 0 && (
-          <section className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)' }}>
-            <h2 className="text-lg font-bold mb-3" style={{ color: 'var(--text-main)' }}>
+          <section className="rounded-xl p-4" style={{ background: 'var(--color-bg-secondary)', border: '2px solid var(--color-border)' }}>
+            <h2 className="text-lg font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
               Incoming Scrim Proposals
             </h2>
             <div className="space-y-3">
@@ -236,10 +236,10 @@ export default function NotificationsPage() {
                   <div
                     key={proposal.id}
                     className="rounded-lg p-3 border"
-                    style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-card)' }}
+                    style={{ background: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
+                      <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                         {proposal.proposerTeam.name} {proposal.proposerTeam.tag ? `[${proposal.proposerTeam.tag}]` : ''} wants to scrim {proposal.post.teamName}
                       </p>
                       <span
@@ -253,12 +253,12 @@ export default function NotificationsPage() {
                       </span>
                     </div>
 
-                    <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
+                    <p className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
                       {new Date(proposal.post.startTimeUtc).toLocaleString()} • {proposal.post.scrimFormat}
                     </p>
 
                     {proposal.message && (
-                      <p className="text-sm mb-2" style={{ color: 'var(--text-main)' }}>
+                      <p className="text-sm mb-2" style={{ color: 'var(--color-text-primary)' }}>
                         {proposal.message}
                       </p>
                     )}
@@ -294,7 +294,7 @@ export default function NotificationsPage() {
                       <Link
                         href="/teams/scrims"
                         className="px-3 py-1.5 rounded text-xs font-semibold border"
-                        style={{ borderColor: 'var(--border-card)', color: 'var(--accent-primary)' }}
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--accent-primary)' }}
                       >
                         Open Scrim Finder
                       </Link>
@@ -307,12 +307,12 @@ export default function NotificationsPage() {
         )}
 
         {notifications.length === 0 ? (
-          <div className="rounded-xl p-12 text-center" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)' }}>
-            <svg className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="rounded-xl p-12 text-center" style={{ background: 'var(--color-bg-secondary)', border: '2px solid var(--color-border)' }}>
+            <svg className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--color-text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
-            <p className="text-lg font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>No notifications</p>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>You're all caught up!</p>
+            <p className="text-lg font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>No notifications</p>
+            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>You're all caught up!</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -323,9 +323,9 @@ export default function NotificationsPage() {
                   key={n.id}
                   className="rounded-xl p-4 border-2 transition-all hover:scale-[1.01]"
                   style={{
-                    background: n.read ? 'var(--bg-card)' : 'var(--bg-elevated)',
-                    borderColor: n.read ? 'var(--border-card)' : config.color,
-                    boxShadow: n.read ? 'none' : 'var(--shadow-md)',
+                    background: n.read ? 'var(--color-bg-secondary)' : 'var(--color-bg-tertiary)',
+                    borderColor: n.read ? 'var(--color-border)' : config.color,
+                    boxShadow: n.read ? 'none' : 'var(--shadow)',
                   }}
                 >
                   <div className="flex items-start gap-3">
@@ -345,14 +345,14 @@ export default function NotificationsPage() {
                           </Link>
                         )}
                         {!n.read && (
-                          <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: config.color, color: 'var(--bg-card)' }}>
+                          <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: config.color, color: 'var(--color-bg-primary)' }}>
                             NEW
                           </span>
                         )}
                       </div>
-                      {n.message && <p className="text-sm mb-2" style={{ color: 'var(--text-main)' }}>{n.message}</p>}
+                      {n.message && <p className="text-sm mb-2" style={{ color: 'var(--color-text-primary)' }}>{n.message}</p>}
                       <div className="flex items-center justify-between gap-2 mt-2">
-                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                           {new Date(n.createdAt).toLocaleString()}
                         </p>
                         {!n.read && (

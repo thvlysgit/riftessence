@@ -1,6 +1,6 @@
 # API Contracts
 
-> Last updated: 2026-02-24  
+> Last updated: 2026-04-19  
 > Base URL: `NEXT_PUBLIC_API_URL` (default: `http://localhost:3333`)
 
 ## Route Modules
@@ -15,6 +15,7 @@
 | Coaching | `/api` | `apps/api/src/routes/coaching.ts` |
 | Communities | `/api` | `apps/api/src/routes/communities.ts` |
 | Discord Feed | `/api` | `apps/api/src/routes/discordFeed.ts` |
+| Teams | `/api` | `apps/api/src/routes/teams.ts` |
 | Scrims | `/api` | `apps/api/src/routes/scrims.ts` |
 | Ads | `/api` | `apps/api/src/routes/ads.ts` |
 | Blocks | `/api/user` | `apps/api/src/routes/blocks.ts` |
@@ -36,6 +37,8 @@
 ```json
 { "success": true, "data": { ... }, "pagination": { "hasMore": true, "total": 100 } }
 ```
+
+Note: Some route modules (including Teams/Scrims) return direct payload roots (for example `posts`, `proposals`, `series`) instead of a shared `data` envelope.
 
 ### Success (auth)
 ```json
@@ -76,15 +79,29 @@ Notes:
 - Start times are stored in UTC and should be rendered client-side in viewer local timezone.
 - Endpoint auto-expires unanswered pending proposals after 10 minutes.
 
+Response highlights:
+- `canDelete` for each post (`true` when viewer is post author, team manager/coach/owner for the post team, or admin)
+- `proposalStats` (pending/delayed/accepted/rejected/autoRejected counts + avg response minutes)
+- `myProposal` for managed teams
+- `proposalsPreview` first proposals snapshot
+
 ### GET `/api/scrims/teams/:teamId/prefill`
 Build team-based post prefill data.
 
 Auth: Required
 
+Access rule:
+- requester must be a member of `:teamId`
+
 Response includes:
-- rank/division suggestions
-- suggested start windows (UTC)
-- generated OP.GG multisearch URL
+- `team` snapshot (id/name/tag/region + member role/rank/account identifiers)
+- `suggestedAverageRank`
+- `suggestedAverageDivision`
+- `suggestedStartTimesUtc`
+- `defaultStartTimeUtc`
+- `generatedOpggMultisearchUrl`
+- `riotIds`
+- `disclaimer`
 
 ### POST `/api/scrims/posts`
 Create a scrim post.
@@ -103,9 +120,20 @@ Core body fields:
 
 Behavior:
 - creating a new active post for the same team replaces older `AVAILABLE`/`CANDIDATES` posts
+- pending/delayed proposals on replaced posts are cleared and proposers receive rejection notifications (app + Discord DM when eligible)
 
 Feed Metrics:
 - `proposalStats.averageResponseMinutes` is computed at team scope (global for the post owner team), not only from proposals on one specific post.
+
+### DELETE `/api/scrims/posts/:postId`
+Delete a scrim post.
+
+Auth: Required
+
+Allowed actors:
+- post author
+- owner/manager/coach of the post's team
+- admin badge holders
 
 ### POST `/api/scrims/posts/:postId/proposals`
 Submit or refresh a proposal from a managed team.
@@ -138,7 +166,13 @@ Body:
 
 Behavior:
 - `DELAY` marks proposal as low-priority fallback (not rejection)
-- `ACCEPT` settles the post and rejects other open proposals
+- `ACCEPT` settles the post, rejects other open proposals, and creates/updates a `ScrimSeries`
+- On `ACCEPT`, server also auto-creates/reuses team `SCRIM` calendar events (10-minute matching window) and fills `enemyMultigg` with opponent OP.GG multisearch when available
+
+Response:
+- `success`
+- `status`
+- `seriesId` (`null` unless decision produced/linked a series)
 
 ### GET `/api/scrims/discord-notifications`
 Poll pending scrim-specific Discord notifications with proposal context.
@@ -158,6 +192,87 @@ Auth: Bot API key required (`Authorization: Bearer <DISCORD_BOT_API_KEY>`)
 Body:
 - `discordId`
 - `action`: `ACCEPT`, `REJECT`, `DELAY`
+
+Response:
+- same shape as proposal decision (`success`, `status`, `seriesId`)
+
+### GET `/api/scrims/series/pending-results`
+List scrim series where winner agreement is still pending between host and guest team.
+
+Auth: Required
+
+Scope:
+- only series where requester can manage at least one participating team
+
+Response:
+- `series[]` with `id`, `matchCode`, team summaries, first report state, proposal/post context, and `myTeamIds`
+
+### POST `/api/scrims/series/:seriesId/result`
+Report winner for a series with two-team agreement flow.
+
+Auth: Required
+
+Body:
+- `reportingTeamId`
+- `winnerTeamId`
+
+Behavior:
+- first report stores pending winner claim (`PENDING_CONFIRMATION`)
+- first reporter can update their own pending winner claim before opponent confirms
+- opponent matching the same winner confirms result (`CONFIRMED`)
+- opponent reporting a different winner returns conflict (`409`)
+
+Response notes:
+- when series is already confirmed, endpoint returns `CONFIRMED` with `alreadyConfirmed: true`
+
+### GET `/api/scrims/reviews/candidates`
+List eligible team-vs-team directed review candidates for confirmed series.
+
+Auth: Required
+
+Rules:
+- only for teams requester can manage
+- excludes directed pairs that already reviewed (`reviewerTeamId -> targetTeamId`)
+
+### POST `/api/scrims/reviews`
+Submit a scrim review for one directed team pair.
+
+Auth: Required
+
+Body:
+- `seriesId`
+- `reviewerTeamId`
+- `targetTeamId`
+- `politeness` (1-5)
+- `punctuality` (1-5)
+- `gameplay` (1-5)
+- optional `message`
+
+Rules:
+- series must exist and have confirmed winner
+- reviewer team must be manageable by requester
+- reviewer/target must match the two teams in that series
+- one-time per directed pair (`409` on duplicate)
+
+---
+
+## Team Endpoints (`/api/teams`)
+
+### GET `/api/teams/:id`
+Fetch team detail payload used by the team profile page.
+
+Auth: Required
+
+Scrim-related response additions:
+- `scrimPerformance`
+  - `totalSeries`
+  - `wins`
+  - `losses`
+  - `winRate` (percentage or `null`)
+- `scrimReputation`
+  - `averageRating` (or `null`)
+  - `reviewCount`
+  - `recentReviews[]` including reviewer team, three score axes, average, comment, and series metadata
 
 ---
 
