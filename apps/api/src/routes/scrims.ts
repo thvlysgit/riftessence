@@ -1633,7 +1633,32 @@ export default async function scrimRoutes(fastify: any) {
         },
       });
 
-      return reply.send({ notifications });
+      const proposerTeamIds = Array.from(new Set((notifications as any[])
+        .map((entry: any) => normalizeString(entry?.proposal?.proposerTeam?.id))
+        .filter((value: string) => value.length > 0)));
+
+      const proposerTeamOpggMap = new Map<string, string | null>();
+      await Promise.all(proposerTeamIds.map(async (teamId) => {
+        const teamOpgg = await buildTeamOpggMultisearchUrl(prisma, teamId);
+        proposerTeamOpggMap.set(teamId, teamOpgg);
+      }));
+
+      const mappedNotifications = (notifications as any[]).map((entry: any) => {
+        const proposerTeamId = normalizeString(entry?.proposal?.proposerTeam?.id);
+        const proposerTeamOpgg = proposerTeamOpggMap.get(proposerTeamId) || null;
+        return {
+          ...entry,
+          proposal: {
+            ...entry.proposal,
+            post: {
+              ...entry.proposal?.post,
+              opggMultisearchUrl: proposerTeamOpgg,
+            },
+          },
+        };
+      });
+
+      return reply.send({ notifications: mappedNotifications });
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch scrim Discord notifications' });
@@ -1812,6 +1837,10 @@ export default async function scrimRoutes(fastify: any) {
       const parsedStartTime = parseDate(startTimeUtc);
       if (!parsedStartTime) {
         return reply.status(400).send({ error: 'startTimeUtc must be a valid ISO date' });
+      }
+
+      if (parsedStartTime.getTime() < Date.now()) {
+        return reply.status(400).send({ error: 'startTimeUtc cannot be in the past' });
       }
 
       const normalizedRank = normalizeString(averageRank).toUpperCase();
@@ -2028,6 +2057,25 @@ export default async function scrimRoutes(fastify: any) {
 
       const now = new Date();
       const upserted = await prisma.$transaction(async (tx: any) => {
+        const proposerTeam = await tx.team.findUnique({
+          where: { id: normalizedProposerTeamId },
+          select: {
+            id: true,
+            name: true,
+            tag: true,
+          },
+        });
+
+        if (!proposerTeam) {
+          throw new Error('Proposer team not found');
+        }
+
+        const proposerTeamLabel = buildTeamLabel(proposerTeam);
+        const proposerTeamOpgg = await buildTeamOpggMultisearchUrl(tx, normalizedProposerTeamId);
+        const proposalNotificationMessage = proposerTeamOpgg
+          ? `${proposerTeamLabel} sent a new scrim proposal. OP.GG: ${proposerTeamOpgg}`
+          : `${proposerTeamLabel} sent a new scrim proposal.`;
+
         const existing = await tx.scrimProposal.findUnique({
           where: {
             postId_proposerTeamId: {
@@ -2086,7 +2134,7 @@ export default async function scrimRoutes(fastify: any) {
               userId: receiverId,
               type: 'SCRIM_PROPOSAL_RECEIVED',
               fromUserId: userId,
-              message: 'A new scrim proposal has arrived. Review it in Notifications.',
+              message: proposalNotificationMessage,
             })),
           });
 
@@ -2094,7 +2142,7 @@ export default async function scrimRoutes(fastify: any) {
             proposalId: proposal.id,
             recipientUserId: receiverId,
             type: 'RECEIVED',
-            message: 'A new scrim proposal needs your decision.',
+            message: proposalNotificationMessage,
             actionRequired: true,
           })));
         }
@@ -2162,7 +2210,29 @@ export default async function scrimRoutes(fastify: any) {
         },
       });
 
-      return reply.send({ proposals });
+      const proposerTeamIds = Array.from(new Set((proposals as any[])
+        .map((proposal: any) => normalizeString(proposal.proposerTeamId))
+        .filter((value: string) => value.length > 0)));
+
+      const proposerTeamOpggMap = new Map<string, string | null>();
+      await Promise.all(proposerTeamIds.map(async (teamId) => {
+        const teamOpgg = await buildTeamOpggMultisearchUrl(prisma, teamId);
+        proposerTeamOpggMap.set(teamId, teamOpgg);
+      }));
+
+      const mappedProposals = (proposals as any[]).map((proposal: any) => {
+        const proposerTeamOpgg = proposerTeamOpggMap.get(proposal.proposerTeamId) || null;
+        return {
+          ...proposal,
+          proposerTeamOpggMultisearchUrl: proposerTeamOpgg,
+          post: {
+            ...proposal.post,
+            opggMultisearchUrl: proposerTeamOpgg,
+          },
+        };
+      });
+
+      return reply.send({ proposals: mappedProposals });
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch incoming scrim proposals' });

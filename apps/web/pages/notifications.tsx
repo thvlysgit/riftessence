@@ -42,6 +42,7 @@ type IncomingScrimProposal = {
   status: 'PENDING' | 'DELAYED';
   message: string | null;
   createdAt: string;
+  proposerTeamOpggMultisearchUrl: string | null;
   proposerTeam: {
     id: string;
     name: string;
@@ -58,6 +59,14 @@ type IncomingScrimProposal = {
     opggMultisearchUrl: string | null;
   };
 };
+
+function normalizeExternalUrl(url: string): string {
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+
+  return `https://${url}`;
+}
 
 const NOTIFICATION_CONFIG: Record<Notification['type'], { icon: string; color: string; title: string }> = {
   CONTACT_REQUEST: { icon: '💬', color: 'var(--accent-primary)', title: 'Contact Request' },
@@ -287,6 +296,12 @@ export default function NotificationsPage() {
                       </p>
                     )}
 
+                    {proposal.proposerTeamOpggMultisearchUrl && (
+                      <p className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                        Proposer OP.GG available for quick scouting.
+                      </p>
+                    )}
+
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -322,6 +337,17 @@ export default function NotificationsPage() {
                       >
                         Open Scrim Finder
                       </Link>
+                      {proposal.proposerTeamOpggMultisearchUrl && (
+                        <a
+                          href={normalizeExternalUrl(proposal.proposerTeamOpggMultisearchUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded text-xs font-semibold border"
+                          style={{ borderColor: '#0EA5E9', color: '#0EA5E9' }}
+                        >
+                          Proposer OP.GG
+                        </a>
+                      )}
                     </div>
                   </div>
                 );

@@ -21,6 +21,12 @@ import LivingBadge from '../src/components/LivingBadge';
 import NoAccess from '@components/NoAccess';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+const CHAMPION_TIER_LABELS: Record<'S' | 'A' | 'B' | 'C', string> = {
+  S: 'Fully Mastered',
+  A: 'Mains',
+  B: 'Playable',
+  C: 'Want to Train',
+};
 
 // Role icon helper (League of Legends client style)
 const getRoleIcon = (role: string) => {
@@ -2559,7 +2565,7 @@ export default function ProfilePage() {
                           {tier}
                         </div>
                         <span className="font-semibold text-sm" style={{ color: colors.text }}>
-                          {tier} Tier
+                          {CHAMPION_TIER_LABELS[tier]}
                         </span>
                         <span className="text-xs px-2 py-0.5 rounded-full ml-auto" style={{ background: `${colors.bg}20`, color: colors.text }}>
                           {championTierlist[tier].length}
@@ -2627,7 +2633,7 @@ export default function ProfilePage() {
                       <div key={tier}>
                         <div className="flex items-center gap-2 mb-2">
                           <span className="inline-block px-2 py-0.5 rounded text-xs font-bold" style={{ backgroundColor: `${colors.bg}20`, borderWidth: '1px', borderStyle: 'solid', borderColor: colors.border, color: colors.text }}>{tier}</span>
-                          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Tier</span>
+                          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{CHAMPION_TIER_LABELS[tier]}</span>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {user.championTierlist && Array.isArray(user.championTierlist[tier]) && user.championTierlist[tier].length > 0 ? (

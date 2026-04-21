@@ -23,6 +23,7 @@ const MANAGEABLE_TEAM_ROLES = new Set(['OWNER', 'MANAGER', 'COACH']);
 const RANKS = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER', 'UNRANKED'];
 const DIVISIONS = ['IV', 'III', 'II', 'I'];
 const DRAFT_KEY = 'riftessence_scrim_finder_draft_v1';
+const SCRIMS_EXPLAINER_VIDEO_URL = process.env.NEXT_PUBLIC_SCRIMS_EXPLAINER_VIDEO_URL || '';
 
 interface TeamSummary {
   id: string;
@@ -171,6 +172,10 @@ function toLocalInputValue(isoUtc: string | null | undefined): string {
   return new Date(date.getTime() - tzOffsetMs).toISOString().slice(0, 16);
 }
 
+function nowLocalInputValue(): string {
+  return toLocalInputValue(new Date().toISOString());
+}
+
 function toUtcIso(localDateTime: string): string | null {
   if (!localDateTime) return null;
   const date = new Date(localDateTime);
@@ -195,6 +200,37 @@ function normalizeUrl(value: string): string | null {
     return trimmed;
   }
   return `https://${trimmed}`;
+}
+
+function toYoutubeEmbedUrl(rawUrl: string): string | null {
+  const normalized = normalizeUrl(rawUrl || '');
+  if (!normalized) return null;
+
+  try {
+    const parsed = new URL(normalized);
+    const hostname = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    let videoId = '';
+
+    if (hostname === 'youtu.be') {
+      videoId = parsed.pathname.split('/').filter(Boolean)[0] || '';
+    } else if (hostname === 'youtube.com' || hostname === 'm.youtube.com') {
+      if (parsed.pathname === '/watch') {
+        videoId = parsed.searchParams.get('v') || '';
+      } else if (parsed.pathname.startsWith('/embed/')) {
+        videoId = parsed.pathname.split('/')[2] || '';
+      } else if (parsed.pathname.startsWith('/shorts/')) {
+        videoId = parsed.pathname.split('/')[2] || '';
+      }
+    }
+
+    if (!videoId || !/^[A-Za-z0-9_-]{6,}$/.test(videoId)) {
+      return null;
+    }
+
+    return `https://www.youtube.com/embed/${videoId}?rel=0`;
+  } catch {
+    return null;
+  }
 }
 
 function isFearlessFormat(format: string | null | undefined): boolean {
@@ -303,6 +339,9 @@ export default function TeamsScrimsPage() {
   const [markingLobbySeriesId, setMarkingLobbySeriesId] = useState<string | null>(null);
   const [reviewSubmittingKey, setReviewSubmittingKey] = useState<string | null>(null);
   const [focusedMatchCodeSeriesId, setFocusedMatchCodeSeriesId] = useState<string | null>(null);
+  const [hideWinnerAgreementQueue, setHideWinnerAgreementQueue] = useState(false);
+  const [hidePostScrimReviews, setHidePostScrimReviews] = useState(false);
+  const [explainerVideoUrl, setExplainerVideoUrl] = useState(SCRIMS_EXPLAINER_VIDEO_URL);
 
   const [activeProposalPostId, setActiveProposalPostId] = useState<string | null>(null);
   const [proposalForm, setProposalForm] = useState<ProposalForm>({
@@ -323,6 +362,8 @@ export default function TeamsScrimsPage() {
   }, [teams]);
 
   const selectedTeam = useMemo(() => manageableTeams.find((team) => team.id === selectedTeamId) || null, [manageableTeams, selectedTeamId]);
+  const minimumStartLocalTime = useMemo(() => nowLocalInputValue(), []);
+  const scrimsExplainerEmbedUrl = useMemo(() => toYoutubeEmbedUrl(explainerVideoUrl), [explainerVideoUrl]);
 
   const reviewPairKey = (candidate: Pick<ScrimReviewCandidate, 'reviewerTeamId' | 'targetTeamId'>): string => {
     return `${candidate.reviewerTeamId}::${candidate.targetTeamId}`;
@@ -594,6 +635,11 @@ export default function TeamsScrimsPage() {
     const startTimeUtc = toUtcIso(postForm.startLocalTime);
     if (!startTimeUtc) {
       showToast('Invalid date/time', 'error');
+      return;
+    }
+
+    if (new Date(startTimeUtc).getTime() < Date.now()) {
+      showToast('Start time cannot be in the past', 'error');
       return;
     }
 
@@ -1051,6 +1097,67 @@ export default function TeamsScrimsPage() {
             </div>
           </header>
 
+          <section
+            className="border rounded-2xl p-5"
+            style={{
+              background: 'linear-gradient(155deg, var(--color-bg-secondary) 0%, rgba(14,165,233,0.09) 100%)',
+              borderColor: 'var(--color-border)',
+              boxShadow: 'var(--shadow)',
+            }}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>How Scrim Finder Works</h2>
+                <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  Add a YouTube explainer link so new teams can understand host ownership, match code flow, and winner agreement quickly.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
+                YouTube Video URL
+              </label>
+              <input
+                type="text"
+                value={explainerVideoUrl}
+                onChange={(event) => setExplainerVideoUrl(event.target.value)}
+                placeholder="Paste a YouTube link (watch, shorts, or youtu.be)"
+                className="mt-1 w-full px-3 py-2 rounded border text-sm"
+                style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+              />
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                This field is temporary (resets on reload). For a persistent default, set NEXT_PUBLIC_SCRIMS_EXPLAINER_VIDEO_URL.
+              </p>
+            </div>
+
+            {scrimsExplainerEmbedUrl ? (
+              <div className="mt-4 rounded-xl overflow-hidden border" style={{ borderColor: 'var(--color-border)' }}>
+                <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
+                  <iframe
+                    src={scrimsExplainerEmbedUrl}
+                    title="Scrim Finder explainer"
+                    className="absolute inset-0 w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+            ) : (
+              <div
+                className="mt-4 rounded-xl border p-4"
+                style={{ borderColor: 'rgba(14,165,233,0.45)', backgroundColor: 'rgba(14,165,233,0.1)' }}
+              >
+                <p className="text-sm font-semibold" style={{ color: '#7DD3FC' }}>
+                  Video placeholder ready
+                </p>
+                <p className="text-xs mt-1" style={{ color: '#BAE6FD' }}>
+                  Paste your YouTube link above and the embedded explainer will render automatically.
+                </p>
+              </div>
+            )}
+          </section>
+
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <section
               className="xl:col-span-1 border p-5 rounded-2xl"
@@ -1199,6 +1306,7 @@ export default function TeamsScrimsPage() {
                     </label>
                     <input
                       type="datetime-local"
+                      min={minimumStartLocalTime}
                       value={postForm.startLocalTime}
                       onChange={(event) => setPostForm((prev) => ({ ...prev, startLocalTime: event.target.value }))}
                       className="w-full px-3 py-2 rounded border"
@@ -1380,9 +1488,19 @@ export default function TeamsScrimsPage() {
                 >
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Winner Agreement Queue</h3>
-                    <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
-                      {pendingSeries.length} pending
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                        {pendingSeries.length} pending
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setHideWinnerAgreementQueue((prev) => !prev)}
+                        className="text-xs px-2 py-1 rounded-full border font-semibold"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                      >
+                        {hideWinnerAgreementQueue ? 'Show' : 'Hide'}
+                      </button>
+                    </div>
                   </div>
 
                   <div
@@ -1400,7 +1518,11 @@ export default function TeamsScrimsPage() {
                     </p>
                   </div>
 
-                  {pendingSeriesLoading ? (
+                  {hideWinnerAgreementQueue ? (
+                    <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                      Winner agreement queue is hidden for this session. Click Show to reopen.
+                    </p>
+                  ) : pendingSeriesLoading ? (
                     <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading pending scrim result confirmations...</p>
                   ) : pendingSeries.length === 0 ? (
                     <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>No pending result agreements right now.</p>
@@ -1668,12 +1790,26 @@ export default function TeamsScrimsPage() {
                 >
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>Post-Scrim Reviews</h3>
-                    <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
-                      {reviewCandidates.length} available
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+                        {reviewCandidates.length} available
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setHidePostScrimReviews((prev) => !prev)}
+                        className="text-xs px-2 py-1 rounded-full border font-semibold"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                      >
+                        {hidePostScrimReviews ? 'Show' : 'Hide'}
+                      </button>
+                    </div>
                   </div>
 
-                  {reviewCandidatesLoading ? (
+                  {hidePostScrimReviews ? (
+                    <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                      Post-scrim reviews are hidden for this session. Click Show to reopen.
+                    </p>
+                  ) : reviewCandidatesLoading ? (
                     <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading review candidates...</p>
                   ) : reviewCandidates.length === 0 ? (
                     <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>No review candidates. Confirm winners first.</p>

@@ -1,6 +1,50 @@
 # Changelog
 
-> Last updated: 2026-04-20
+> Last updated: 2026-04-21
+
+---
+
+## 2026-04-21 - Scrim Date Guardrails, Proposal OP.GG Source Fix, Queue Visibility Toggles, and Tier Label Renames
+
+### Objective: Improve scrim UX safety/clarity and align champion tier naming with player expectations
+
+Overview: Added both frontend and backend guardrails to prevent publishing scrim posts in the past, corrected proposal notification OP.GG source to use the proposing team instead of the target post context, introduced temporary hide/show controls for Winner Agreement Queue and Post-Scrim Reviews (session-only, no database persistence), renamed champion tier labels in Profile and LFT surfaces, and added a built-in YouTube explainer placeholder flow on the scrims page that accepts a link directly.
+
+Changes:
+
+- Updated [apps/api/src/routes/scrims.ts](apps/api/src/routes/scrims.ts):
+  - Added server-side validation rejecting `startTimeUtc` values in the past for `POST /api/scrims/posts`.
+  - Updated scrim proposal notification message content to include the proposing team identity and OP.GG multisearch URL when available.
+  - Updated incoming proposal payload shaping so proposal OP.GG data uses proposer team OP.GG.
+  - Updated bot-facing scrim proposal notification payload shaping so OP.GG references proposer team scouting data.
+- Updated [apps/web/pages/teams/scrims.tsx](apps/web/pages/teams/scrims.tsx):
+  - Added client-side guard against submitting past start times.
+  - Added `min` datetime constraint on scrim post start time input.
+  - Added temporary hide/show toggles for `Winner Agreement Queue` and `Post-Scrim Reviews` (resets on reload by design).
+  - Added YouTube explainer block with:
+    - direct URL input placeholder,
+    - automatic YouTube URL-to-embed conversion,
+    - session-only preview behavior,
+    - optional persistent default via `NEXT_PUBLIC_SCRIMS_EXPLAINER_VIDEO_URL`.
+- Updated [apps/web/pages/notifications.tsx](apps/web/pages/notifications.tsx):
+  - Added proposer OP.GG quick-access link to incoming scrim proposal cards.
+- Updated [apps/web/pages/profile.tsx](apps/web/pages/profile.tsx):
+  - Renamed champion tier labels:
+    - `S` → `Fully Mastered`
+    - `A` → `Mains`
+    - `B` → `Playable`
+    - `C` → `Want to Train`
+- Updated [apps/web/pages/lft.tsx](apps/web/pages/lft.tsx):
+  - Applied the same champion tier label rename mapping on LFT champion pool cards.
+
+Validation:
+
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/web build` passes.
+- Non-blocking environment warnings observed during web build:
+  - Next.js ESLint plugin not detected in current ESLint config.
+  - Custom webpack configuration disables webpack build worker by default.
 
 ---
 

@@ -64,6 +64,12 @@ const CANDIDATE_TYPE_COLORS: Record<string, string> = {
   COACH: '#F97316',
   OTHER: '#A855F7',
 };
+const CHAMPION_TIER_LABELS: Record<'S' | 'A' | 'B' | 'C', string> = {
+  S: 'Fully Mastered',
+  A: 'Mains',
+  B: 'Playable',
+  C: 'Want to Train',
+};
 
 // Role icon helper (League of Legends client style)
 const getRoleIcon = (role: string) => {
@@ -1304,7 +1310,7 @@ export default function LFTPage() {
                                           >
                                             {tier}
                                           </span>
-                                          <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>Tier</span>
+                                          <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{CHAMPION_TIER_LABELS[tier]}</span>
                                         </div>
                                         <div className="flex flex-wrap gap-2">
                                           {champions.length > 0 ? (
