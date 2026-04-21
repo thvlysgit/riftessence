@@ -341,7 +341,6 @@ export default function TeamsScrimsPage() {
   const [focusedMatchCodeSeriesId, setFocusedMatchCodeSeriesId] = useState<string | null>(null);
   const [hideWinnerAgreementQueue, setHideWinnerAgreementQueue] = useState(false);
   const [hidePostScrimReviews, setHidePostScrimReviews] = useState(false);
-  const [explainerVideoUrl, setExplainerVideoUrl] = useState(SCRIMS_EXPLAINER_VIDEO_URL);
 
   const [activeProposalPostId, setActiveProposalPostId] = useState<string | null>(null);
   const [proposalForm, setProposalForm] = useState<ProposalForm>({
@@ -363,7 +362,7 @@ export default function TeamsScrimsPage() {
 
   const selectedTeam = useMemo(() => manageableTeams.find((team) => team.id === selectedTeamId) || null, [manageableTeams, selectedTeamId]);
   const minimumStartLocalTime = useMemo(() => nowLocalInputValue(), []);
-  const scrimsExplainerEmbedUrl = useMemo(() => toYoutubeEmbedUrl(explainerVideoUrl), [explainerVideoUrl]);
+  const scrimsExplainerEmbedUrl = useMemo(() => toYoutubeEmbedUrl(SCRIMS_EXPLAINER_VIDEO_URL), []);
 
   const reviewPairKey = (candidate: Pick<ScrimReviewCandidate, 'reviewerTeamId' | 'targetTeamId'>): string => {
     return `${candidate.reviewerTeamId}::${candidate.targetTeamId}`;
@@ -1109,26 +1108,9 @@ export default function TeamsScrimsPage() {
               <div>
                 <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>How Scrim Finder Works</h2>
                 <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  Add a YouTube explainer link so new teams can understand host ownership, match code flow, and winner agreement quickly.
+                  A quick tutorial video will be available soon to explain host ownership, match code flow, and winner agreement.
                 </p>
               </div>
-            </div>
-
-            <div className="mt-3">
-              <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
-                YouTube Video URL
-              </label>
-              <input
-                type="text"
-                value={explainerVideoUrl}
-                onChange={(event) => setExplainerVideoUrl(event.target.value)}
-                placeholder="Paste a YouTube link (watch, shorts, or youtu.be)"
-                className="mt-1 w-full px-3 py-2 rounded border text-sm"
-                style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
-              />
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                This field is temporary (resets on reload). For a persistent default, set NEXT_PUBLIC_SCRIMS_EXPLAINER_VIDEO_URL.
-              </p>
             </div>
 
             {scrimsExplainerEmbedUrl ? (
@@ -1149,10 +1131,10 @@ export default function TeamsScrimsPage() {
                 style={{ borderColor: 'rgba(14,165,233,0.45)', backgroundColor: 'rgba(14,165,233,0.1)' }}
               >
                 <p className="text-sm font-semibold" style={{ color: '#7DD3FC' }}>
-                  Video placeholder ready
+                  Tutorial coming soon
                 </p>
                 <p className="text-xs mt-1" style={{ color: '#BAE6FD' }}>
-                  Paste your YouTube link above and the embedded explainer will render automatically.
+                  This section will automatically show the explainer once NEXT_PUBLIC_SCRIMS_EXPLAINER_VIDEO_URL is configured.
                 </p>
               </div>
             )}

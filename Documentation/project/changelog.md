@@ -4,6 +4,55 @@
 
 ---
 
+## 2026-04-21 - Accessibility Updates for Auth Recovery, Scrims Tutorial Placeholder, and Onboarding Flexibility
+
+### Objective: Reduce login friction and remove hard blockers during first-time setup
+
+Overview: Added end-to-end password recovery by email (with Riot sign-in still supported as an alternate recovery path), removed public editing of the scrims tutorial video URL in favor of an env-controlled placeholder, and made onboarding no longer block users who cannot link Riot immediately.
+
+Changes:
+
+- Updated [apps/api/src/validation.ts](apps/api/src/validation.ts):
+  - Added `ForgotPasswordSchema` for email-based reset requests.
+  - Added `ResetPasswordSchema` for token + new password reset submissions.
+- Updated [apps/api/src/routes/auth.ts](apps/api/src/routes/auth.ts):
+  - Added `POST /api/auth/forgot-password` with non-enumerating account responses.
+  - Added `POST /api/auth/reset-password` with expiring JWT reset tokens.
+  - Added token fingerprint invalidation so reset links become unusable after password changes.
+  - Added SMTP mailer integration for reset email dispatch.
+- Updated [apps/api/src/env.ts](apps/api/src/env.ts):
+  - Added optional SMTP/password-reset environment variable validation keys.
+- Updated [apps/api/package.json](apps/api/package.json):
+  - Added `nodemailer` dependency and `@types/nodemailer` dev dependency.
+- Updated [apps/web/pages/login.tsx](apps/web/pages/login.tsx):
+  - Added `Password Forgotten?` link.
+  - Added explicit hint that Riot login can recover access and email recovery is available when linked.
+- Added [apps/web/pages/forgot-password.tsx](apps/web/pages/forgot-password.tsx):
+  - Implemented email recovery request UI.
+  - Included Riot-vs-email recovery guidance messaging.
+- Added [apps/web/pages/reset-password.tsx](apps/web/pages/reset-password.tsx):
+  - Implemented reset link password update UI.
+  - Added client-side password complexity checks before submit.
+- Updated [apps/web/pages/teams/scrims.tsx](apps/web/pages/teams/scrims.tsx):
+  - Removed public YouTube URL input.
+  - Kept env-driven embed rendering via `NEXT_PUBLIC_SCRIMS_EXPLAINER_VIDEO_URL`.
+  - Updated placeholder copy to communicate upcoming tutorial availability.
+- Updated [apps/web/components/OnboardingWizard.tsx](apps/web/components/OnboardingWizard.tsx):
+  - Made Riot-linking step skippable.
+  - Added explicit `Link Riot Account Now` and `Skip Riot for Now` options.
+  - Removed hard requirement that blocked closing onboarding without a Riot link.
+
+Validation:
+
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/web build` passes.
+- Non-blocking environment warnings observed during web build:
+  - Next.js ESLint plugin not detected in current ESLint config.
+  - Custom webpack configuration disables webpack build worker by default.
+
+---
+
 ## 2026-04-21 - Scrim Date Guardrails, Proposal OP.GG Source Fix, Queue Visibility Toggles, and Tier Label Renames
 
 ### Objective: Improve scrim UX safety/clarity and align champion tier naming with player expectations

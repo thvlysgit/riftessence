@@ -22,6 +22,16 @@ const envSchema = z.object({
   
   // CAPTCHA (optional)
   TURNSTILE_SECRET_KEY: z.string().optional(),
+
+  // Email recovery (optional)
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.string().optional(),
+  SMTP_SECURE: z.string().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM_EMAIL: z.string().email().optional(),
+  SMTP_FROM_NAME: z.string().optional(),
+  PASSWORD_RESET_TOKEN_TTL_MINUTES: z.string().optional(),
   
   // Server config
   PORT: z.string().default('3333'),

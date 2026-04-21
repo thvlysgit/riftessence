@@ -115,6 +115,17 @@ export default function LoginPage() {
                 placeholder={t('auth.enterPassword')}
                 required
               />
+              <div className="mt-2 flex items-center justify-between">
+                <Link href="/forgot-password" className="text-xs font-semibold" style={{ color: 'var(--color-accent-1)' }}>
+                  Password Forgotten?
+                </Link>
+                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  Riot login can recover access too
+                </span>
+              </div>
+              <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                If your email is linked, you can reset by email. Otherwise, sign in with Riot and set a new password later.
+              </p>
             </div>
 
             <button

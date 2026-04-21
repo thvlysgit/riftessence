@@ -1,10 +1,20 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../prisma';
 import bcrypt from 'bcryptjs';
-import { RegisterSchema, LoginSchema, SetPasswordSchema, validateRequest, TurnstileVerifySchema } from '../validation';
+import {
+  RegisterSchema,
+  LoginSchema,
+  SetPasswordSchema,
+  ForgotPasswordSchema,
+  ResetPasswordSchema,
+  validateRequest,
+  TurnstileVerifySchema,
+} from '../validation';
 import { logError } from '../middleware/logger';
 import { Errors } from '../middleware/errors';
 import { sendDiscordWebhook, createNewUserEmbed } from '../utils/discord-webhook';
+import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 
 function normalizeClientIp(rawIp: string | null | undefined): string | null {
   if (!rawIp) return null;
@@ -21,6 +31,106 @@ function extractClientIp(request: any): string | null {
   const firstForwarded = typeof forwarded === 'string' ? forwarded.split(',')[0] : null;
   const candidate = firstForwarded || request.ip || request.socket?.remoteAddress || null;
   return normalizeClientIp(candidate);
+}
+
+function toPositiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(String(value || ''), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
+function getFrontendBaseUrl(): string {
+  if (process.env.FRONTEND_URL) {
+    return process.env.FRONTEND_URL.replace(/\/$/, '');
+  }
+
+  const firstAllowedOrigin = String(process.env.ALLOW_ORIGIN || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .find(Boolean);
+
+  if (firstAllowedOrigin) {
+    return firstAllowedOrigin.replace(/\/$/, '');
+  }
+
+  return 'http://localhost:3000';
+}
+
+function getPasswordHashFingerprint(password: string | null | undefined): string {
+  return crypto
+    .createHash('sha256')
+    .update(password || 'NO_PASSWORD_SET')
+    .digest('hex');
+}
+
+function passwordResetEmailConfigured(): boolean {
+  return Boolean(
+    process.env.SMTP_HOST &&
+      process.env.SMTP_USER &&
+      process.env.SMTP_PASS &&
+      process.env.SMTP_FROM_EMAIL
+  );
+}
+
+let passwordResetTransporter: nodemailer.Transporter | null = null;
+
+function getPasswordResetTransporter(): nodemailer.Transporter | null {
+  if (!passwordResetEmailConfigured()) {
+    return null;
+  }
+
+  if (passwordResetTransporter) {
+    return passwordResetTransporter;
+  }
+
+  const smtpPort = toPositiveInt(process.env.SMTP_PORT, 587);
+  const secureSetting = String(process.env.SMTP_SECURE || '').toLowerCase();
+  const secure = secureSetting === '1' || secureSetting === 'true';
+
+  passwordResetTransporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: smtpPort,
+    secure,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  return passwordResetTransporter;
+}
+
+async function sendPasswordResetEmail(
+  recipientEmail: string,
+  resetUrl: string,
+  expiresInMinutes: number
+): Promise<boolean> {
+  const transporter = getPasswordResetTransporter();
+  if (!transporter || !process.env.SMTP_FROM_EMAIL) {
+    return false;
+  }
+
+  const fromName = process.env.SMTP_FROM_NAME || 'RiftEssence';
+  const from = `${fromName} <${process.env.SMTP_FROM_EMAIL}>`;
+
+  await transporter.sendMail({
+    from,
+    to: recipientEmail,
+    subject: 'Reset your RiftEssence password',
+    text:
+      `We received a request to reset your RiftEssence password.\n\n` +
+      `Use this link within ${expiresInMinutes} minutes:\n${resetUrl}\n\n` +
+      `You can also recover access by signing in with Riot.\n\n` +
+      `If you did not request this, you can ignore this email.`,
+    html:
+      `<p>We received a request to reset your RiftEssence password.</p>` +
+      `<p><a href=\"${resetUrl}\">Reset password</a></p>` +
+      `<p>This link expires in <strong>${expiresInMinutes} minutes</strong>.</p>` +
+      `<p>You can also recover access by signing in with Riot.</p>` +
+      `<p>If you did not request this, you can ignore this email.</p>`,
+  });
+
+  return true;
 }
 
 export default async function authRoutes(fastify: FastifyInstance) {
@@ -211,6 +321,114 @@ export default async function authRoutes(fastify: FastifyInstance) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to set password' });
+    }
+  });
+
+  // Request password reset email
+  fastify.post('/forgot-password', async (request: any, reply: any) => {
+    try {
+      if (!passwordResetEmailConfigured()) {
+        return reply.code(503).send({
+          error:
+            'Password recovery email is not configured yet. Use Riot sign-in to recover access, then set a password from your profile settings.',
+        });
+      }
+
+      const validation = validateRequest(ForgotPasswordSchema, request.body);
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid input', details: validation.errors });
+      }
+
+      const { email } = validation.data;
+      const genericResponse = {
+        message: 'If an account exists for this email, a recovery link has been sent.',
+      };
+
+      const user = await prisma.user.findFirst({
+        where: {
+          email: { equals: email, mode: 'insensitive' },
+        },
+        select: {
+          id: true,
+          password: true,
+          email: true,
+        },
+      });
+
+      if (!user?.email) {
+        return reply.send(genericResponse);
+      }
+
+      const expiresInMinutes = toPositiveInt(process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES, 30);
+      const resetToken = fastify.jwt.sign(
+        {
+          userId: user.id,
+          purpose: 'password_reset',
+          passwordHashFingerprint: getPasswordHashFingerprint(user.password),
+        },
+        { expiresIn: `${expiresInMinutes}m` }
+      );
+
+      const baseUrl = getFrontendBaseUrl();
+      const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
+
+      try {
+        await sendPasswordResetEmail(user.email, resetUrl, expiresInMinutes);
+      } catch (mailError) {
+        fastify.log.error({ err: mailError, userId: user.id }, 'Failed to send password reset email');
+      }
+
+      return reply.send(genericResponse);
+    } catch (error: any) {
+      Errors.serverError(reply, request, 'forgot-password', error);
+    }
+  });
+
+  // Reset password with a valid reset token
+  fastify.post('/reset-password', async (request: any, reply: any) => {
+    try {
+      const validation = validateRequest(ResetPasswordSchema, request.body);
+      if (!validation.success) {
+        return reply.code(400).send({ error: 'Invalid input', details: validation.errors });
+      }
+
+      const { token, password } = validation.data;
+
+      let payload: any;
+      try {
+        payload = request.server.jwt.verify(token);
+      } catch {
+        return reply.code(400).send({ error: 'Invalid or expired reset link' });
+      }
+
+      if (!payload || payload.purpose !== 'password_reset' || typeof payload.userId !== 'string') {
+        return reply.code(400).send({ error: 'Invalid or expired reset link' });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { id: true, password: true },
+      });
+
+      if (!user) {
+        return reply.code(400).send({ error: 'Invalid or expired reset link' });
+      }
+
+      const currentFingerprint = getPasswordHashFingerprint(user.password);
+      if (currentFingerprint !== payload.passwordHashFingerprint) {
+        return reply.code(400).send({ error: 'Invalid or expired reset link' });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { password: hashedPassword },
+      });
+
+      return reply.send({ message: 'Password reset successfully' });
+    } catch (error: any) {
+      Errors.serverError(reply, request, 'reset-password', error);
     }
   });
 

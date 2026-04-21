@@ -65,12 +65,6 @@ export default function OnboardingWizard() {
   }
 
   const handleClose = async () => {
-    // Can only close if user has riot account
-    if (!hasRiotAccount) {
-      showToast(t('onboarding.linkRiotRequired'), 'error');
-      return;
-    }
-
     // Mark onboarding as completed
     try {
       await fetch(`${API_URL}/api/user/onboarding-complete`, {
@@ -85,14 +79,7 @@ export default function OnboardingWizard() {
 
   const handleNextStep = () => {
     if (currentStep === 0) {
-      // Step 0: Link Riot Account
-      if (!hasRiotAccount) {
-        // User needs to link account - navigate to authenticate page
-        const onboardingReturnUrl = '/profile?onboarding=champion-pool';
-        router.push(`/authenticate?returnUrl=${encodeURIComponent(onboardingReturnUrl)}`);
-        return;
-      }
-      // User already has riot account - advance to next step
+      // Step 0: Riot linking can be skipped
       setCurrentStep(currentStep + 1);
       return;
     }
@@ -207,8 +194,36 @@ export default function OnboardingWizard() {
                 }}>
                   <span style={{ color: 'var(--color-accent-1)' }}>3.</span>
                   <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    Return here to finish setup and configure your champion pool
+                    Continue onboarding now, then link Riot later if needed
                   </p>
+                </div>
+
+                <div className="pt-2 space-y-2">
+                  <button
+                    onClick={() => {
+                      const onboardingReturnUrl = '/profile?onboarding=champion-pool';
+                      router.push(`/authenticate?returnUrl=${encodeURIComponent(onboardingReturnUrl)}`);
+                    }}
+                    className="w-full px-4 py-2 font-semibold rounded border transition-all"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    Link Riot Account Now
+                  </button>
+                  <button
+                    onClick={() => setCurrentStep(1)}
+                    className="w-full px-4 py-2 font-semibold rounded border transition-all"
+                    style={{
+                      backgroundColor: 'transparent',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-secondary)',
+                    }}
+                  >
+                    Skip Riot for Now
+                  </button>
                 </div>
               </div>
             )}
@@ -397,18 +412,16 @@ export default function OnboardingWizard() {
             <h1 className="text-xl font-bold" style={{ color: 'var(--color-accent-1)' }}>
               Welcome to RiftEssence
             </h1>
-            {hasRiotAccount && (
-              <button
-                onClick={handleClose}
-                className="text-sm px-3 py-1 rounded transition-colors"
-                style={{
-                  color: 'var(--color-text-muted)',
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                }}
-              >
-                Skip
-              </button>
-            )}
+            <button
+              onClick={handleClose}
+              className="text-sm px-3 py-1 rounded transition-colors"
+              style={{
+                color: 'var(--color-text-muted)',
+                backgroundColor: 'var(--color-bg-tertiary)',
+              }}
+            >
+              Skip
+            </button>
           </div>
           
           {/* Progress bar */}
@@ -456,7 +469,7 @@ export default function OnboardingWizard() {
               color: 'var(--color-bg-primary)',
             }}
           >
-            {saving ? 'Saving...' : currentStep === 3 ? 'Finish & Set Champion Pool' : currentStep === 0 && !hasRiotAccount ? 'Link Account' : 'Next'}
+            {saving ? 'Saving...' : currentStep === 3 ? 'Finish & Set Champion Pool' : 'Next'}
           </button>
         </div>
       </div>
