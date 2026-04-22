@@ -368,6 +368,18 @@ type UserProfile = {
 const AVAILABLE_PLAYSTYLES = ['Controlled Chaos', 'FUNDAMENTALS', 'CoinFlips', 'Scaling', 'Snowball'];
 const AVAILABLE_LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Polish', 'Russian', 'Turkish', 'Korean', 'Japanese', 'Chinese'];
 
+const PLAYSTYLE_DESCRIPTION_MAP: Record<string, string> = {
+  FUNDAMENTALS: 'I rely on basic elements like wave management, playing safe and general game knowledge, less mistakes = win.',
+  Scaling: 'I rely on playing safe, maximizing farm and only taking favorable fights in order to get into late game and overwhelm my opponents.',
+  Snowball: 'I rely on getting a lead early into the game, and using it to impact the game more and more and further my lead until the opponents can\'t manage me anymore.',
+  CoinFlips: 'I like to jump into fights and outplay mechanically, try for a backdoor, or look for ballsy traps! things might not go as planned though...',
+  'Controlled Chaos': 'I roam a lot, provoke unexpected outnumbered moves, times flashes perfectly and always end up on the winning side.',
+};
+
+function getPlaystyleDescription(style: string): string {
+  return PLAYSTYLE_DESCRIPTION_MAP[style] || style;
+}
+
 type PlaystyleTheme = {
   icon: string;
   baseBg: string;
@@ -2265,43 +2277,68 @@ export default function ProfilePage() {
                   const isSelected = selectedPlaystyles.includes(style);
                   const isLocked = !isSelected && selectedPlaystyles.length >= 2;
                   const theme = getPlaystyleTheme(style);
+                  const tooltipId = `playstyle-tooltip-${style.replace(/\s+/g, '-').toLowerCase()}`;
                   return (
-                    <button
-                      key={style}
-                      type="button"
-                      onClick={() => {
-                        if (isSelected) {
-                          setSelectedPlaystyles(selectedPlaystyles.filter((s) => s !== style));
-                        } else if (selectedPlaystyles.length < 2) {
-                          setSelectedPlaystyles([...selectedPlaystyles, style]);
-                        }
-                      }}
-                      className="relative min-h-[96px] p-3 rounded-lg border text-left transition-all overflow-hidden"
-                      style={{
-                        background: isSelected ? theme.selectedBg : theme.baseBg,
-                        borderColor: isSelected ? theme.selectedBorder : theme.baseBorder,
-                        color: isSelected ? theme.selectedText : theme.baseText,
-                        boxShadow: isSelected ? `0 10px 20px ${theme.glow}` : 'none',
-                        opacity: isLocked ? 0.72 : 1,
-                        cursor: isLocked ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      <div className="absolute inset-0 pointer-events-none">
-                        {renderPlaystyleIllustration(style, isSelected)}
-                        <div
-                          className="absolute inset-0"
+                    <div key={style} className="relative group">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedPlaystyles(selectedPlaystyles.filter((s) => s !== style));
+                          } else if (selectedPlaystyles.length < 2) {
+                            setSelectedPlaystyles([...selectedPlaystyles, style]);
+                          }
+                        }}
+                        aria-describedby={tooltipId}
+                        className="relative min-h-[96px] w-full p-3 rounded-lg border text-left transition-all overflow-hidden focus-visible:outline-none focus-visible:ring-2"
+                        style={{
+                          background: isSelected ? theme.selectedBg : theme.baseBg,
+                          borderColor: isSelected ? theme.selectedBorder : theme.baseBorder,
+                          color: isSelected ? theme.selectedText : theme.baseText,
+                          boxShadow: isSelected ? `0 10px 20px ${theme.glow}` : 'none',
+                          opacity: isLocked ? 0.72 : 1,
+                          cursor: isLocked ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        <div className="absolute inset-0 pointer-events-none">
+                          {renderPlaystyleIllustration(style, isSelected)}
+                          <div
+                            className="absolute inset-0"
+                            style={{
+                              background: isSelected
+                                ? 'linear-gradient(180deg, rgba(2,6,23,0.04), rgba(2,6,23,0.36))'
+                                : 'linear-gradient(180deg, rgba(2,6,23,0.08), rgba(2,6,23,0.46))',
+                            }}
+                          />
+                        </div>
+                        <span className="relative z-10 inline-flex items-center gap-2 text-sm font-semibold">
+                          <span className="text-base drop-shadow-[0_0_6px_rgba(255,255,255,0.35)]">{theme.icon}</span>
+                          <span>{style}</span>
+                        </span>
+                      </button>
+                      <div
+                        id={tooltipId}
+                        role="tooltip"
+                        className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-[min(22rem,calc(100vw-2.5rem))] -translate-x-1/2 rounded-lg border px-3 py-2 text-xs leading-relaxed opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+                        style={{
+                          background: 'rgba(2, 6, 23, 0.96)',
+                          borderColor: 'var(--accent-primary-border)',
+                          color: 'var(--text-main)',
+                          boxShadow: 'var(--shadow-lg)',
+                        }}
+                      >
+                        {getPlaystyleDescription(style)}
+                        <span
+                          className="absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border"
                           style={{
-                            background: isSelected
-                              ? 'linear-gradient(180deg, rgba(2,6,23,0.04), rgba(2,6,23,0.36))'
-                              : 'linear-gradient(180deg, rgba(2,6,23,0.08), rgba(2,6,23,0.46))',
+                            background: 'rgba(2, 6, 23, 0.96)',
+                            borderColor: 'var(--accent-primary-border)',
+                            borderBottom: 'none',
+                            borderRight: 'none',
                           }}
                         />
                       </div>
-                      <span className="relative z-10 inline-flex items-center gap-2 text-sm font-semibold">
-                        <span className="text-base drop-shadow-[0_0_6px_rgba(255,255,255,0.35)]">{theme.icon}</span>
-                        <span>{style}</span>
-                      </span>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -2311,26 +2348,52 @@ export default function ProfilePage() {
               {user.playstyles.length > 0 ? (
                 user.playstyles.map((style) => {
                   const theme = getPlaystyleTheme(style);
+                  const tooltipId = `playstyle-tooltip-${style.replace(/\s+/g, '-').toLowerCase()}`;
                   return (
-                    <div
-                      key={style}
-                      className="relative min-h-[96px] px-3 py-2.5 border rounded-lg overflow-hidden"
-                      style={{
-                        background: theme.selectedBg,
-                        borderColor: theme.selectedBorder,
-                        boxShadow: `0 10px 20px ${theme.glow}`,
-                      }}
-                    >
-                      <div className="absolute inset-0 pointer-events-none">
-                        {renderPlaystyleIllustration(style, true)}
-                        <div
-                          className="absolute inset-0"
-                          style={{ background: 'linear-gradient(180deg, rgba(2,6,23,0.06), rgba(2,6,23,0.36))' }}
+                    <div key={style} className="relative group">
+                      <div
+                        tabIndex={0}
+                        aria-describedby={tooltipId}
+                        className="relative min-h-[96px] px-3 py-2.5 border rounded-lg overflow-hidden focus-visible:outline-none focus-visible:ring-2"
+                        style={{
+                          background: theme.selectedBg,
+                          borderColor: theme.selectedBorder,
+                          boxShadow: `0 10px 20px ${theme.glow}`,
+                        }}
+                      >
+                        <div className="absolute inset-0 pointer-events-none">
+                          {renderPlaystyleIllustration(style, true)}
+                          <div
+                            className="absolute inset-0"
+                            style={{ background: 'linear-gradient(180deg, rgba(2,6,23,0.06), rgba(2,6,23,0.36))' }}
+                          />
+                        </div>
+                        <p className="relative z-10 text-sm font-semibold" style={{ color: theme.selectedText }}>
+                          {theme.icon} {style}
+                        </p>
+                      </div>
+                      <div
+                        id={tooltipId}
+                        role="tooltip"
+                        className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-[min(22rem,calc(100vw-2.5rem))] -translate-x-1/2 rounded-lg border px-3 py-2 text-xs leading-relaxed opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+                        style={{
+                          background: 'rgba(2, 6, 23, 0.96)',
+                          borderColor: 'var(--accent-primary-border)',
+                          color: 'var(--text-main)',
+                          boxShadow: 'var(--shadow-lg)',
+                        }}
+                      >
+                        {getPlaystyleDescription(style)}
+                        <span
+                          className="absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border"
+                          style={{
+                            background: 'rgba(2, 6, 23, 0.96)',
+                            borderColor: 'var(--accent-primary-border)',
+                            borderBottom: 'none',
+                            borderRight: 'none',
+                          }}
                         />
                       </div>
-                      <p className="relative z-10 text-sm font-semibold" style={{ color: theme.selectedText }}>
-                        {theme.icon} {style}
-                      </p>
                     </div>
                   );
                 })
@@ -2902,18 +2965,48 @@ export default function ProfilePage() {
                 <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                   {anonymousMode ? 'Profile is hidden from public searches' : 'Profile is visible to everyone'}
                 </p>
-                <button
-                  onClick={handleToggleAnonymous}
-                  className="relative inline-flex h-8 w-14 items-center rounded-full transition-colors"
-                  style={{ background: anonymousMode ? 'var(--accent-primary)' : 'var(--btn-disabled-bg)' }}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 transform rounded-full transition-transform border ${
-                      anonymousMode ? 'translate-x-7' : 'translate-x-1'
-                    }`}
-                    style={{ background: anonymousMode ? 'var(--color-bg-primary)' : 'var(--btn-disabled-bg)', borderColor: anonymousMode ? 'var(--accent-primary)' : 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}
-                  />
-                </button>
+                <div className="flex items-center gap-2">
+                  <div className="relative group">
+                    <button
+                      type="button"
+                      aria-label="Anonymous mode info"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2"
+                      style={{
+                        background: 'var(--bg-input)',
+                        borderColor: 'var(--border-card)',
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </button>
+                    <div
+                      role="tooltip"
+                      className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-56 rounded-lg border px-3 py-2 text-xs leading-relaxed opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+                      style={{
+                        background: 'rgba(2, 6, 23, 0.96)',
+                        borderColor: 'var(--accent-primary-border)',
+                        color: 'var(--text-main)',
+                        boxShadow: 'var(--shadow-lg)',
+                      }}
+                    >
+                      Controls public search/discoverability visibility.
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleToggleAnonymous}
+                    className="relative inline-flex h-8 w-14 items-center rounded-full transition-colors"
+                    style={{ background: anonymousMode ? 'var(--accent-primary)' : 'var(--btn-disabled-bg)' }}
+                  >
+                    <span
+                      className={`inline-block h-6 w-6 transform rounded-full transition-transform border ${
+                        anonymousMode ? 'translate-x-7' : 'translate-x-1'
+                      }`}
+                      style={{ background: anonymousMode ? 'var(--color-bg-primary)' : 'var(--btn-disabled-bg)', borderColor: anonymousMode ? 'var(--accent-primary)' : 'var(--color-border)', boxShadow: 'var(--shadow-sm)' }}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           )}

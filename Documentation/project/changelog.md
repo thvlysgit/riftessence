@@ -1,6 +1,51 @@
 # Changelog
 
-> Last updated: 2026-04-21
+> Last updated: 2026-04-22
+
+---
+
+## 2026-04-22 - Profile Playstyle Tooltip Bubbles and Anonymous Discoverability Hint
+
+### Objective: Improve profile clarity by exposing playstyle meanings and anonymous-mode discoverability impact without changing behavior
+
+Overview: Added hover/focus tooltip bubbles for all playstyle cards in both edit and read-only profile modes using exact description mappings, and added an info icon tooltip beside the anonymous mode switch to clarify discoverability scope.
+
+Changes:
+
+- Updated [apps/web/pages/profile.tsx](apps/web/pages/profile.tsx):
+  - Added explicit playstyle description mappings for `FUNDAMENTALS`, `Scaling`, `Snowball`, `CoinFlips`, and `Controlled Chaos` using the provided copy.
+  - Added hover/focus tooltip bubbles to every playstyle card in edit mode.
+  - Added hover/focus tooltip bubbles to every playstyle card in read-only mode.
+  - Added a small info icon next to the anonymous mode toggle with tooltip copy: `Controls public search/discoverability visibility.`
+  - Kept existing selection, save, and anonymous mode toggle behavior unchanged.
+
+Validation:
+
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/web build` passes.
+- Non-blocking build warnings observed:
+  - Next.js ESLint plugin not detected in current ESLint configuration.
+  - Custom webpack configuration disables webpack build worker by default.
+
+---
+
+## 2026-04-21 - Password Recovery SMTP Runtime Config Clarification
+
+### Objective: Prevent false confusion where user email exists but reset mail is disabled by missing SMTP runtime config
+
+Overview: Clarified and wired password-recovery SMTP runtime variables so deployments can enable forgot-password emails without code changes. The forgot-password flow correctly checks SMTP transport availability before checking account records, so these settings must be present in runtime env.
+
+Changes:
+
+- Updated [docker-compose.yml](docker-compose.yml):
+  - Added API service environment passthrough/defaults for `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, and `PASSWORD_RESET_TOKEN_TTL_MINUTES`.
+- Updated [.env.example](.env.example):
+  - Added `FRONTEND_URL` sample value.
+  - Added dedicated email recovery section documenting all SMTP/password-reset variables.
+
+Validation:
+
+- Compose/env shape validated by repository parsing (no application code path changes).
 
 ---
 
