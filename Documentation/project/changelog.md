@@ -1,6 +1,95 @@
 # Changelog
 
-> Last updated: 2026-04-22
+> Last updated: 2026-04-23
+
+---
+
+## 2026-04-23 - Team Draft Room with Centralized Champion Pools
+
+### Objective: Add a dedicated Teams page for centralized member champion pools and scenario-based draft planning
+
+Overview: Added a new Teams Draft Room page that mirrors existing team-selector patterns, aggregates each team member's champion pool into a centralized view, and provides an interactive draft imager for planning blue/red side picks and bans per scenario.
+
+Changes:
+
+- Added [apps/web/pages/teams/drafts.tsx](apps/web/pages/teams/drafts.tsx):
+  - Added authenticated Teams Draft Room route at `/teams/drafts`.
+  - Implemented team selector flow using existing `/api/teams` access pattern.
+  - Added centralized member champion pool view by resolving member profile pools through `/api/user/profile?username=...`.
+  - Added combined team-priority champion suggestions based on shared pool coverage.
+  - Added interactive draft imager with:
+    - blue/red side toggle,
+    - five bans per side,
+    - role-locked pick slots (`TOP`, `JGL`, `MID`, `ADC`, `SUP`),
+    - per-slot member assignment,
+    - slot-targeted champion quick-fill suggestions.
+- Updated [apps/web/components/Navbar.tsx](apps/web/components/Navbar.tsx):
+  - Added `Draft Room` link under Teams desktop dropdown.
+  - Added `Draft Room` link in mobile Teams navigation list.
+- Updated [apps/web/pages/teams/dashboard.tsx](apps/web/pages/teams/dashboard.tsx):
+  - Added localized `draftRoom` label to page text dictionaries.
+  - Added a new quick-action card linking to `/teams/drafts`.
+
+Validation:
+
+- Pending after code edits in this session.
+
+---
+
+## 2026-04-22 - Teams and Purse Localization, Matchup Tag Simplification, and Riot Branding
+
+### Objective: Translate the remaining Teams and purse surfaces, simplify matchup marketplace featured labeling, and normalize Riot-branded auth buttons
+
+Overview: Added localized copy coverage to the main Teams dashboard, Team Schedule, Team Discord settings, team detail header, purse overview, and purse gamble pages; removed the separate Trending/Best Rated marketplace sections in favor of inline tags; and replaced the login/register/settings Riot action styling with a Riot-branded button using the Riot logo.
+
+Changes:
+
+- Updated [apps/web/pages/teams/dashboard.tsx](apps/web/pages/teams/dashboard.tsx):
+  - Added page-local bilingual copy for the primary Teams dashboard header, empty state, and quick action cards.
+- Updated [apps/web/pages/teams/schedule.tsx](apps/web/pages/teams/schedule.tsx):
+  - Added bilingual labels for the main schedule header, view toggles, and key action button.
+- Updated [apps/web/pages/teams/discord.tsx](apps/web/pages/teams/discord.tsx):
+  - Added bilingual labels for the main Discord settings header, empty state, webhook intro, and bot invite CTA.
+- Updated [apps/web/pages/teams/[id].tsx](apps/web/pages/teams/[id].tsx):
+  - Added localized title/fallback copy for the team detail header.
+- Updated [apps/web/pages/purse.tsx](apps/web/pages/purse.tsx):
+  - Added bilingual purse overview copy for the login state, hero section, summary cards, quests, quick actions, and transaction timeline.
+- Updated [apps/web/pages/purse/gamble.tsx](apps/web/pages/purse/gamble.tsx):
+  - Added bilingual game copy for the login card, page hero, available-games panel, round play panel, and last-result summary.
+- Updated [apps/web/pages/matchups/marketplace.tsx](apps/web/pages/matchups/marketplace.tsx):
+  - Removed the separate Trending and Best Rated featured sections.
+  - Kept featured matchups as inline labels only.
+- Added [apps/web/components/RiotBrand.tsx](apps/web/components/RiotBrand.tsx):
+  - Added a reusable Riot-auth button with Riot logo styling.
+- Updated [apps/web/pages/login.tsx](apps/web/pages/login.tsx), [apps/web/pages/register.tsx](apps/web/pages/register.tsx), and [apps/web/pages/settings.tsx](apps/web/pages/settings.tsx):
+  - Swapped the Riot auth action buttons to the new Riot-branded button component.
+
+Validation:
+
+- Pending after code edits in this session.
+
+---
+
+## 2026-04-22 - French Locale Completion and Gameplay Glossary Alignment
+
+### Objective: Complete and humanize French UI localization while keeping core gameplay terms in English
+
+Overview: Finalized French locale quality in the web translation dictionary with more natural phrasing across major user flows, while enforcing a consistent glossary policy that keeps competitive League terminology in English for clarity.
+
+Changes:
+
+- Updated [apps/web/translations/index.ts](apps/web/translations/index.ts):
+  - Polished FR wording for clearer, more natural user-facing language across auth, feed, LFT, coaching, profile, legal, and matchup surfaces.
+  - Enforced glossary-driven English gameplay terms (for example: LFT, Duo/Flex, Top/Jungle/Mid/Bot/Support, rank names Iron through Unranked, Winrate/Elo/Tier, and coaching/matchup terms such as Wave Management, Teamfighting, Skill Matchup, and Items & Runes).
+  - Preserved all translation key coverage and runtime placeholders used by the app.
+  - Corrected FR `terms.section4Description1` so ownership/licensing meaning now matches EN legal text.
+
+Validation:
+
+- `pnpm --filter @lfd/web lint` passes.
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- Non-blocking lint warning observed:
+  - Next.js ESLint plugin not detected in current ESLint configuration.
 
 ---
 

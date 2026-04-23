@@ -458,6 +458,22 @@ export default function Navbar() {
                     >
                       Scrim Finder
                     </Link>
+                    <Link
+                      href="/teams/drafts"
+                      onClick={() => setIsTeamsMenuOpen(false)}
+                      className="block px-4 py-2 text-sm transition-colors"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
+                        e.currentTarget.style.color = 'var(--color-accent-1)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = 'var(--color-text-secondary)';
+                      }}
+                    >
+                      Draft Room
+                    </Link>
                   </div>
                 )}
               </div>
@@ -921,6 +937,7 @@ export default function Navbar() {
             <MobileNavLink href="/teams/dashboard">Teams Dashboard</MobileNavLink>
             <MobileNavLink href="/teams/schedule">Team Schedule</MobileNavLink>
             <MobileNavLink href="/teams/scrims">Scrim Finder</MobileNavLink>
+            <MobileNavLink href="/teams/drafts">Draft Room</MobileNavLink>
             <MobileNavLink href="/matchups">Matchups</MobileNavLink>
             <MobileNavLink href="/coaching">Coaching</MobileNavLink>
             <MobileNavLink href="/profile">Profile</MobileNavLink>

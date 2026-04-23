@@ -4,6 +4,7 @@ import SEOHead from '@components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAuthToken } from '../../utils/auth';
 import NoAccess from '@components/NoAccess';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface TeamMember {
   userId: string;
@@ -119,6 +120,7 @@ const localDateTimeInputToUtcIso = (value: string): string | null => {
 
 const TeamSchedulePage: React.FC = () => {
   const { user } = useAuth();
+  const { currentLanguage } = useLanguage();
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
@@ -152,6 +154,34 @@ const TeamSchedulePage: React.FC = () => {
   // Post-creation availability prompt
   const [showAvailabilityPrompt, setShowAvailabilityPrompt] = useState(false);
   const [newlyCreatedEvent, setNewlyCreatedEvent] = useState<TeamEvent | null>(null);
+
+  const text = currentLanguage === 'fr'
+    ? {
+        title: 'Planning d’équipe',
+        subtitle: 'Voir et gérer le planning de votre équipe.',
+        week: 'Semaine',
+        month: 'Mois',
+        newEvent: 'Nouvel événement',
+        missingEnemy: 'Infos adverses manquantes',
+        time: 'Heure',
+        attendance: 'Présence',
+        setStatus: 'Définir le statut',
+        changeStatus: 'Modifier le statut',
+        attendanceTitle: 'Présence',
+      }
+    : {
+        title: 'Team Schedule',
+        subtitle: "View and manage your team's schedule.",
+        week: 'Week',
+        month: 'Month',
+        newEvent: 'New Event',
+        missingEnemy: 'Missing enemy info',
+        time: 'TIME',
+        attendance: 'Attendance',
+        setStatus: 'Set Status',
+        changeStatus: 'Change Status',
+        attendanceTitle: 'Attendance',
+      };
 
   // Get coaches from team members for VOD Review assignment
   const getTeamCoaches = (): { userId: string; username: string }[] => {
@@ -605,10 +635,10 @@ const TeamSchedulePage: React.FC = () => {
                   </div>
                   <div>
                     <h1 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                      Team Schedule
+                      {text.title}
                     </h1>
                     <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                      {selectedTeam ? `${selectedTeam.name}${selectedTeam.tag ? ` [${selectedTeam.tag}]` : ''}` : 'Select a team'}
+                      {selectedTeam ? `${selectedTeam.name}${selectedTeam.tag ? ` [${selectedTeam.tag}]` : ''}` : (currentLanguage === 'fr' ? 'Sélectionnez une équipe' : 'Select a team')}
                     </p>
                   </div>
                 </div>
@@ -661,7 +691,7 @@ const TeamSchedulePage: React.FC = () => {
                       color: viewMode === 'week' ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
                     }}
                   >
-                    Week
+                    {text.week}
                   </button>
                   <button
                     onClick={() => setViewMode('month')}
@@ -671,7 +701,7 @@ const TeamSchedulePage: React.FC = () => {
                       color: viewMode === 'month' ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
                     }}
                   >
-                    Month
+                    {text.month}
                   </button>
                 </div>
 
@@ -733,7 +763,7 @@ const TeamSchedulePage: React.FC = () => {
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
-                    <span className="hidden lg:inline">Missing enemy info</span>
+                    <span className="hidden lg:inline">{text.missingEnemy}</span>
                   </div>
                 )}
                 
@@ -750,7 +780,7 @@ const TeamSchedulePage: React.FC = () => {
                   <svg className="w-4 h-4 transition-transform group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  <span className="hidden sm:inline">New Event</span>
+                  <span className="hidden sm:inline">{text.newEvent}</span>
                 </button>
               </div>
             </div>

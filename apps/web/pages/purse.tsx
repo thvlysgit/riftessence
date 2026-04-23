@@ -17,6 +17,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGlobalUI } from '@components/GlobalUI';
 import { getAuthHeader } from '../utils/auth';
 import PrismaticEssenceIcon from '../src/components/PrismaticEssenceIcon';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -126,6 +127,7 @@ function transactionLabel(type: string) {
 
 export default function PursePage() {
   const { user } = useAuth();
+  const { currentLanguage } = useLanguage();
   const { showToast } = useGlobalUI();
 
   const [loading, setLoading] = useState(true);
@@ -135,6 +137,42 @@ export default function PursePage() {
   const [quests, setQuests] = useState<WalletQuest[]>([]);
   const [questLoadingMap, setQuestLoadingMap] = useState<Record<string, boolean>>({});
   const [transactionFilter, setTransactionFilter] = useState<TransactionCurrencyFilter>('ALL');
+
+  const text = currentLanguage === 'fr'
+    ? {
+        loginTitle: 'Bourse prismatique',
+        loginDesc: 'Connectez-vous pour réclamer des quêtes, ouvrir des caches et débloquer des cosmétiques prismatiques exclusifs.',
+        loginButton: 'Se connecter pour ouvrir la bourse',
+        title: 'Bourse',
+        subtitle: 'Gagnez des PE grâce aux quêtes, puis dépensez-les en cosmétiques, publicités et jeux solo désavantageux.',
+        currentBalance: 'Solde actuel',
+        lastUpdate: 'Dernière mise à jour',
+        totalEarned: 'Total gagné',
+        totalSpent: 'Total dépensé',
+        level: 'Niveau prismatique',
+        quests: 'Quêtes',
+        quickActions: 'Actions rapides',
+        transactions: 'Historique des transactions',
+        loadingTransactions: 'Chargement des transactions...',
+        noTransactions: 'Aucune transaction pour le moment.',
+      }
+    : {
+        loginTitle: 'Prismatic Purse',
+        loginDesc: 'Log in to claim quests, open caches, and forge exclusive prismatic cosmetics.',
+        loginButton: 'Log in to open purse',
+        title: 'Purse',
+        subtitle: 'Earn PE from quests, then spend it on cosmetics, adspace campaigns, and house-favored solo gambling.',
+        currentBalance: 'Current Balance',
+        lastUpdate: 'Last update',
+        totalEarned: 'Total Earned',
+        totalSpent: 'Total Spent',
+        level: 'Prismatic Level',
+        quests: 'Quests',
+        quickActions: 'Quick Actions',
+        transactions: 'Transaction Timeline',
+        loadingTransactions: 'Loading transactions...',
+        noTransactions: 'No transactions yet.',
+      };
 
   const authHeaders = useCallback(() => {
     const headers = getAuthHeader();
@@ -310,10 +348,10 @@ export default function PursePage() {
         >
           <h1 className="text-3xl font-bold mb-3 flex items-center justify-center gap-2" style={{ color: '#93c5fd' }}>
             <PrismaticEssenceIcon className="text-3xl" />
-            Prismatic Purse
+            {text.loginTitle}
           </h1>
           <p className="text-sm mb-6" style={{ color: 'var(--color-text-secondary)' }}>
-            Log in to claim quests, open caches, and forge exclusive prismatic cosmetics.
+            {text.loginDesc}
           </p>
           <Link
             href="/login"
@@ -324,7 +362,7 @@ export default function PursePage() {
             }}
           >
             <FaWallet />
-            Log in to open purse
+            {text.loginButton}
           </Link>
         </div>
       </div>
@@ -359,23 +397,23 @@ export default function PursePage() {
               </p>
               <h1 className="text-3xl sm:text-4xl font-black mb-2 flex items-center gap-3" style={{ color: '#e2e8f0' }}>
                 <PrismaticEssenceIcon className="text-4xl" />
-                Purse
+                {text.title}
               </h1>
               <p className="text-sm max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
-                Earn PE from quests, then spend it on cosmetics, adspace campaigns, and house-favored solo gambling.
+                {text.subtitle}
               </p>
             </div>
 
             <div className="text-right">
               <p className="text-xs uppercase tracking-wide" style={{ color: '#93c5fd' }}>
-                Current Balance
+                {text.currentBalance}
               </p>
               <p className="text-3xl font-black inline-flex items-center gap-2" style={{ color: '#f8fafc' }}>
                 <PrismaticEssenceIcon className="text-3xl" />
                 {(summary?.wallet.prismaticEssence || 0).toLocaleString()} PE
               </p>
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Last update: {summary ? new Date(summary.wallet.updatedAt).toLocaleString() : '-'}
+                {text.lastUpdate}: {summary ? new Date(summary.wallet.updatedAt).toLocaleString() : '-'}
               </p>
             </div>
           </div>
@@ -398,7 +436,7 @@ export default function PursePage() {
         <section className="grid gap-4 md:grid-cols-3">
           <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(56,189,248,0.42)', background: 'rgba(56,189,248,0.12)' }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Total Earned</span>
+              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>{text.totalEarned}</span>
               <FaArrowUp style={{ color: '#7dd3fc' }} />
             </div>
             <p className="text-3xl font-black" style={{ color: 'var(--color-text-primary)' }}>
@@ -409,7 +447,7 @@ export default function PursePage() {
 
           <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(244,114,182,0.42)', background: 'rgba(244,114,182,0.12)' }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Total Spent</span>
+              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>{text.totalSpent}</span>
               <FaArrowDown style={{ color: '#f9a8d4' }} />
             </div>
             <p className="text-3xl font-black" style={{ color: 'var(--color-text-primary)' }}>
@@ -420,7 +458,7 @@ export default function PursePage() {
 
           <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(167,139,250,0.42)', background: 'rgba(167,139,250,0.12)' }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>Prismatic Level</span>
+              <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>{text.level}</span>
               <FaGem style={{ color: '#c4b5fd' }} />
             </div>
             <p className="text-3xl font-black" style={{ color: 'var(--color-text-primary)' }}>
@@ -436,7 +474,7 @@ export default function PursePage() {
           <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(16,20,30,0.9)' }}>
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: '#93c5fd' }}>
               <FaBolt />
-              Quests
+              {text.quests}
             </h2>
             <div className="space-y-3 max-h-[620px] overflow-y-auto pr-1">
               {quests.map((quest) => (
@@ -538,7 +576,7 @@ export default function PursePage() {
           <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(14,20,34,0.9)' }}>
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: '#c4b5fd' }}>
               <FaMagic />
-              Quick Actions
+              {text.quickActions}
             </h2>
             <p className="text-xs mb-4" style={{ color: 'var(--color-text-secondary)' }}>
               Jump directly to the places where Prismatic Essence is spent or risked.
@@ -598,7 +636,7 @@ export default function PursePage() {
 
         <section className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(15,20,30,0.88)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-xl font-bold" style={{ color: '#93c5fd' }}>Transaction Timeline</h2>
+            <h2 className="text-xl font-bold" style={{ color: '#93c5fd' }}>{text.transactions}</h2>
             <div className="flex gap-2">
               {(['ALL', 'PRISMATIC_ESSENCE'] as TransactionCurrencyFilter[]).map((filterKey) => (
                 <button
@@ -620,11 +658,11 @@ export default function PursePage() {
           <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
             {transactionsLoading ? (
               <div className="rounded-lg border p-4" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
-                Loading transactions...
+                {text.loadingTransactions}
               </div>
             ) : transactions.length === 0 ? (
               <div className="rounded-lg border p-4" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
-                No transactions yet.
+                {text.noTransactions}
               </div>
             ) : transactions.map((tx) => {
               const positive = tx.amount >= 0;

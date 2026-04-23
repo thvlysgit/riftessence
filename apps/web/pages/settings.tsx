@@ -6,6 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { LoadingSpinner } from '@components/LoadingSpinner';
 import { getAuthHeader } from '../utils/auth';
 import { DiscordIcon } from '../src/components/DiscordBrand';
+import { RiotAuthButton } from '@components/RiotBrand';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 const DISCORD_USER_APP_INSTALL_URL = 'https://discord.com/oauth2/authorize?client_id=1363678859471491312&integration_type=1&scope=applications.commands';
@@ -505,19 +506,9 @@ export default function SettingsPage() {
           <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
             {t('settings.riot.description')}
           </p>
-          <a
-            href="/authenticate"
-            className="inline-block px-6 py-3 font-bold rounded-lg transition-colors"
-            style={{
-              backgroundColor: 'var(--color-bg-tertiary)',
-              borderColor: 'var(--color-accent-1)',
-              color: 'var(--color-accent-1)',
-              border: 'var(--border-width) solid',
-              borderRadius: 'var(--border-radius)'
-            }}
-          >
-            {t('settings.riot.manage')}
-          </a>
+          <div className="max-w-xs">
+            <RiotAuthButton label={t('settings.riot.manage')} />
+          </div>
         </div>
       </div>
     </div>

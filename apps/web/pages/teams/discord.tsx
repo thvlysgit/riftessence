@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getAuthToken } from '../../utils/auth';
 import NoAccess from '@components/NoAccess';
 import { DiscordIcon } from '../../src/components/DiscordBrand';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 type MentionMode = 'EVERYONE' | 'ROLE' | 'TEAM_ROLE_MAP';
 
@@ -95,6 +96,7 @@ interface DiscordSettings {
 const DiscordSettingsPage: React.FC = () => {
   const _router = useRouter();
   const { user } = useAuth();
+  const { currentLanguage } = useLanguage();
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [settings, setSettings] = useState<DiscordSettings | null>(null);
@@ -117,6 +119,34 @@ const DiscordSettingsPage: React.FC = () => {
   const [reminderDelaysMinutes, setReminderDelaysMinutes] = useState<number[]>([]);
   const [discordDmEnabled, setDiscordDmEnabled] = useState(false);
   const [discordUsername, setDiscordUsername] = useState<string | null>(null);
+
+  const text = currentLanguage === 'fr'
+    ? {
+        back: 'Retour au tableau de bord',
+        noTeams: 'Aucune équipe possédée',
+        noTeamsDesc: 'Vous devez posséder une équipe pour configurer les notifications Discord.',
+        createTeam: 'Créer une équipe',
+        title: 'Notifications Discord',
+        subtitle: 'Envoyez les mises à jour du planning vers votre serveur Discord',
+        selectTeam: 'Sélectionner une équipe',
+        deliveryTitle: 'Fonctionnement de la diffusion Discord',
+        inviteBot: 'Inviter le bot RiftEssence',
+        webhookTitle: 'Configuration du webhook',
+        webhookGuide: 'Configurez le webhook de votre canal',
+      }
+    : {
+        back: 'Back to Dashboard',
+        noTeams: 'No Teams Owned',
+        noTeamsDesc: 'You need to own a team to configure Discord notifications.',
+        createTeam: 'Create a Team',
+        title: 'Discord Notifications',
+        subtitle: 'Send schedule updates to your Discord server',
+        selectTeam: 'Select Team',
+        deliveryTitle: 'How Team Discord Delivery Works',
+        inviteBot: 'Invite RiftEssence Bot',
+        webhookTitle: 'Webhook Configuration',
+        webhookGuide: 'Set up your channel webhook',
+      };
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -420,21 +450,21 @@ const DiscordSettingsPage: React.FC = () => {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Back to Dashboard
+              {text.back}
             </Link>
             
             <div className="text-center py-12 border rounded-xl" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
               <DiscordIcon className="w-16 h-16 mx-auto mb-4" style={{ color: '#5865F2' }} />
-              <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>No Teams Owned</h2>
+              <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>{text.noTeams}</h2>
               <p className="mb-6" style={{ color: 'var(--color-text-secondary)' }}>
-                You need to own a team to configure Discord notifications.
+                {text.noTeamsDesc}
               </p>
               <Link 
                 href="/teams/dashboard" 
                 className="inline-flex items-center gap-2 px-6 py-3 font-semibold rounded-lg"
                 style={{ background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))', color: 'var(--color-bg-primary)' }}
               >
-                Create a Team
+                {text.createTeam}
               </Link>
             </div>
           </div>
@@ -502,7 +532,7 @@ const DiscordSettingsPage: React.FC = () => {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Back to Dashboard
+              {text.back}
             </Link>
             
             <div className="flex items-center gap-4">
@@ -510,9 +540,9 @@ const DiscordSettingsPage: React.FC = () => {
                 <DiscordIcon className="w-8 h-8" style={{ color: '#5865F2' }} />
               </div>
               <div>
-                <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>Discord Notifications</h1>
+                <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{text.title}</h1>
                 <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  Send schedule updates to your Discord server
+                  {text.subtitle}
                 </p>
               </div>
             </div>
@@ -522,7 +552,7 @@ const DiscordSettingsPage: React.FC = () => {
           {teams.length > 1 && (
             <div className="border rounded-xl p-4" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
               <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                Select Team
+                {text.selectTeam}
               </label>
               <div className="flex flex-wrap gap-2">
                 {teams.map(team => (
@@ -575,7 +605,7 @@ const DiscordSettingsPage: React.FC = () => {
               {/* Delivery behavior */}
               <div className="border rounded-xl p-5" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
                 <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  How Team Discord Delivery Works
+                  {text.deliveryTitle}
                 </h2>
                 <ul className="text-sm space-y-2 mb-4" style={{ color: 'var(--color-text-secondary)' }}>
                   <li>• Channel updates are sent through your webhook, so notifications still go out even if the bot cannot directly post to the channel.</li>
@@ -589,7 +619,7 @@ const DiscordSettingsPage: React.FC = () => {
                   className="discord-cta inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm"
                 >
                   <DiscordIcon className="w-4 h-4" />
-                  Invite RiftEssence Bot
+                  {text.inviteBot}
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3h7m0 0v7m0-7L10 14" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5h5M5 5v14h14v-5" />
@@ -600,13 +630,13 @@ const DiscordSettingsPage: React.FC = () => {
               {/* Webhook Configuration */}
               <div className="border rounded-xl p-6" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
                 <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
-                  Webhook Configuration
+                  {text.webhookTitle}
                 </h2>
 
                 {/* Instructions */}
                 <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
                   <h3 className="text-sm font-medium mb-2" style={{ color: '#5865F2' }}>
-                    Set up your channel webhook:
+                    {text.webhookGuide}:
                   </h3>
                   <ol className="text-sm space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
                     <li>1. Open Discord and go to your server settings</li>

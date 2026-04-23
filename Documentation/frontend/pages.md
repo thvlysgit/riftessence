@@ -1,6 +1,6 @@
 # Frontend Pages
 
-> Last updated: 2026-04-16  
+> Last updated: 2026-04-22  
 > All pages in `apps/web/pages/`
 
 ## Page Inventory
@@ -45,6 +45,20 @@
 ---
 
 ## Page Details
+
+### Profile Page (`/profile`)
+
+**Purpose**: Manage own profile identity, playstyle tags, and discoverability controls.
+
+**Key Features**:
+- **Playstyle Selection**: Up to 2 playstyles can be selected in edit mode.
+- **Playstyle Explanations**: Each playstyle card shows a hover/focus tooltip bubble with explicit meaning text for `FUNDAMENTALS`, `Scaling`, `Snowball`, `CoinFlips`, and `Controlled Chaos`.
+- **Anonymous Mode Helper**: A small info icon beside the anonymous toggle shows a hover/focus tooltip explaining that the setting controls public search/discoverability visibility.
+- **Behavior Stability**: Existing profile save behavior remains unchanged (selection cap and anonymous toggle flow).
+
+**Accessibility Notes**:
+- Playstyle tooltips are exposed on hover and keyboard focus in both edit and read-only profile states.
+- Anonymous info tooltip is exposed on hover and keyboard focus.
 
 ### Feed Page (`/feed`)
 

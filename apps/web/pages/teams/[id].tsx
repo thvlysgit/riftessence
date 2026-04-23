@@ -6,6 +6,7 @@ import SEOHead from '@components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAuthToken } from '../../utils/auth';
 import NoAccess from '@components/NoAccess';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface TeamMember {
   id: string;
@@ -189,6 +190,7 @@ const TeamDetailPage: React.FC = () => {
   const router = useRouter();
   const { id } = router.query;
   const { user } = useAuth();
+  const { currentLanguage } = useLanguage();
   const [team, setTeam] = useState<TeamDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -214,6 +216,20 @@ const TeamDetailPage: React.FC = () => {
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
+  const text = currentLanguage === 'fr'
+    ? {
+        loading: 'Chargement de l’équipe...',
+        notFound: 'Équipe introuvable',
+        back: 'Retour au tableau de bord',
+        titleSuffix: 'Détails de l’équipe',
+      }
+    : {
+        loading: 'Loading team...',
+        notFound: 'Team not found',
+        back: 'Back to Dashboard',
+        titleSuffix: 'Team Details',
+      };
+
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
   const REGIONS = ['EUW', 'EUNE', 'NA', 'KR', 'JP', 'BR', 'LAN', 'LAS', 'OCE', 'TR', 'RU', 'PH', 'SG', 'TH', 'TW', 'VN', 'ME'];
 
@@ -231,13 +247,13 @@ const TeamDetailPage: React.FC = () => {
         setTeam(data);
         setError(null);
       } else if (res.status === 404) {
-        setError('Team not found');
+        setError(text.notFound);
       } else {
         const data = await res.json();
         setError(data.error || 'Failed to load team');
       }
     } catch (err) {
-      setError('Failed to load team');
+      setError(text.notFound);
     } finally {
       setLoading(false);
     }
@@ -484,7 +500,7 @@ const TeamDetailPage: React.FC = () => {
       <div className="min-h-screen py-10 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
         <div className="max-w-4xl mx-auto text-center">
           <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full mx-auto mb-4" style={{ borderColor: 'var(--color-accent-1)', borderTopColor: 'transparent' }} />
-          <p style={{ color: 'var(--color-text-muted)' }}>Loading team...</p>
+          <p style={{ color: 'var(--color-text-muted)' }}>{text.loading}</p>
         </div>
       </div>
     );
@@ -495,7 +511,7 @@ const TeamDetailPage: React.FC = () => {
       <div className="min-h-screen py-10 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
-            {error || 'Team not found'}
+            {error || text.notFound}
           </h1>
           <Link
             href="/teams/dashboard"
@@ -515,8 +531,10 @@ const TeamDetailPage: React.FC = () => {
   return (
     <>
       <SEOHead
-        title={`${team.name} - Team Details`}
-        description={`View and manage ${team.name} team roster and schedule.`}
+        title={`${team.name} - ${text.titleSuffix}`}
+        description={currentLanguage === 'fr'
+          ? `Voir et gérer le roster et le planning de ${team.name}.`
+          : `View and manage ${team.name} team roster and schedule.`}
         path={`/teams/${team.id}`}
       />
       <div className="min-h-screen py-10 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
@@ -539,7 +557,7 @@ const TeamDetailPage: React.FC = () => {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
-                Back to Dashboard
+                {text.back}
               </Link>
             </div>
             

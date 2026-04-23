@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { RiotAuthButton } from '@components/RiotBrand';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -155,23 +156,7 @@ export default function LoginPage() {
           </div>
 
           {/* Riot Login Option */}
-          <Link
-            href="/authenticate"
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 border font-semibold transition-colors"
-            style={{
-              backgroundColor: 'var(--color-bg-tertiary)',
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text-primary)',
-              borderRadius: 'var(--border-radius)',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--color-bg-primary)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)'; }}
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
-            </svg>
-            {t('auth.signInWithRiot')}
-          </Link>
+          <RiotAuthButton label={t('auth.signInWithRiot')} />
 
           {/* Sign Up Link */}
           <p className="mt-6 text-center text-sm" style={{ color: 'var(--color-text-muted)' }}>

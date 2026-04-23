@@ -11,6 +11,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalUI } from '@components/GlobalUI';
 import { getAuthHeader } from '../../utils/auth';
 import PrismaticEssenceIcon from '../../src/components/PrismaticEssenceIcon';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -59,6 +60,7 @@ type GambleResult = {
 
 export default function PurseGamblePage() {
   const { user } = useAuth();
+  const { currentLanguage } = useLanguage();
   const { showToast } = useGlobalUI();
 
   const [loading, setLoading] = useState(true);
@@ -69,6 +71,42 @@ export default function PurseGamblePage() {
   const [wagerInput, setWagerInput] = useState('100');
   const [choice, setChoice] = useState('');
   const [lastResult, setLastResult] = useState<GambleResult | null>(null);
+
+  const text = currentLanguage === 'fr'
+    ? {
+        loginTitle: 'Jeu prismatique',
+        loginDesc: 'Connectez-vous pour accéder aux modes solo.',
+        loginButton: 'Se connecter pour continuer',
+        backToPurse: 'Retour à la bourse',
+        title: 'Jeu prismatique',
+        subtitle: 'Modes solo uniquement. Choisissez un mode, misez et obtenez un résultat instantané.',
+        balance: 'Solde actuel',
+        warning: 'Solo uniquement. Aucun pari entre joueurs.',
+        availableGames: 'Jeux disponibles',
+        playRound: 'Jouer un tour',
+        noGame: 'Aucun jeu sélectionné.',
+        pickSide: 'Choisissez votre camp',
+        play: 'Jouer',
+        playing: 'En cours...',
+        lastResult: 'Dernier résultat',
+      }
+    : {
+        loginTitle: 'Prismatic Gamble',
+        loginDesc: 'Sign in to access single-player gamble modes.',
+        loginButton: 'Log in to continue',
+        backToPurse: 'Back to Purse',
+        title: 'Prismatic Gamble',
+        subtitle: 'Solo PE games only. Pick a mode, place your wager, and see instant results.',
+        balance: 'Current Balance',
+        warning: 'Single-player only. No player-to-player betting or wagering.',
+        availableGames: 'Available Games',
+        playRound: 'Play Round',
+        noGame: 'No game selected.',
+        pickSide: 'Pick your side',
+        play: 'Play Round',
+        playing: 'Playing...',
+        lastResult: 'Last Result',
+      };
 
   const authHeaders = useCallback(() => {
     const headers = getAuthHeader();
@@ -247,10 +285,10 @@ export default function PurseGamblePage() {
         >
           <h1 className="text-3xl font-bold mb-3 flex items-center justify-center gap-2" style={{ color: '#ddd6fe' }}>
             <FaDice />
-            Prismatic Gamble
+            {text.loginTitle}
           </h1>
           <p className="text-sm mb-6" style={{ color: 'var(--color-text-secondary)' }}>
-            Sign in to access single-player gamble modes.
+            {text.loginDesc}
           </p>
           <Link
             href="/login"
@@ -261,7 +299,7 @@ export default function PurseGamblePage() {
             }}
           >
             <FaBolt />
-            Log in to continue
+            {text.loginButton}
           </Link>
         </div>
       </div>
@@ -296,20 +334,20 @@ export default function PurseGamblePage() {
                 className="inline-flex items-center gap-2 text-xs font-semibold mb-3"
                 style={{ color: '#93c5fd' }}
               >
-                <FaArrowLeft /> Back to Purse
+                <FaArrowLeft /> {text.backToPurse}
               </Link>
               <h1 className="text-3xl font-black inline-flex items-center gap-3" style={{ color: '#f8fafc' }}>
                 <FaDice style={{ color: '#ddd6fe' }} />
-                Prismatic Gamble
+                {text.title}
               </h1>
               <p className="text-sm mt-2 max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
-                Solo PE games only. Pick a mode, place your wager, and see instant results.
+                {text.subtitle}
               </p>
             </div>
 
             <div className="text-right">
               <p className="text-xs uppercase tracking-wide" style={{ color: '#c4b5fd' }}>
-                Current Balance
+                {text.balance}
               </p>
               <p className="text-3xl font-black inline-flex items-center gap-2" style={{ color: '#f8fafc' }}>
                 <PrismaticEssenceIcon className="text-3xl" />
@@ -324,13 +362,13 @@ export default function PurseGamblePage() {
             color: '#bae6fd',
           }}>
             <FaDice />
-            Single-player only. No player-to-player betting or wagering.
+            {text.warning}
           </div>
         </header>
 
         <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
           <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(16,20,30,0.9)' }}>
-            <h2 className="text-xl font-bold mb-4" style={{ color: '#c4b5fd' }}>Available Games</h2>
+            <h2 className="text-xl font-bold mb-4" style={{ color: '#c4b5fd' }}>{text.availableGames}</h2>
             <div className="space-y-3">
               {games.map((game) => {
                 const selected = selectedGameKey === game.key;
@@ -362,11 +400,11 @@ export default function PurseGamblePage() {
           </div>
 
           <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(14,20,34,0.9)' }}>
-            <h2 className="text-xl font-bold mb-4" style={{ color: '#93c5fd' }}>Play Round</h2>
+            <h2 className="text-xl font-bold mb-4" style={{ color: '#93c5fd' }}>{text.playRound}</h2>
 
             {!selectedGame ? (
               <div className="rounded-lg border p-4 text-sm" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
-                No game selected.
+                {text.noGame}
               </div>
             ) : (
               <>
@@ -394,7 +432,7 @@ export default function PurseGamblePage() {
 
                 {Array.isArray(selectedGame.choices) && selectedGame.choices.length > 0 && (
                   <>
-                    <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>Pick your side</p>
+                    <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>{text.pickSide}</p>
                     <div className="flex flex-wrap gap-2 mb-4">
                       {selectedGame.choices.map((entry) => (
                         <button
@@ -426,11 +464,13 @@ export default function PurseGamblePage() {
                     opacity: playing ? 0.7 : 1,
                   }}
                 >
-                  {playing ? 'Playing...' : 'Play Round'}
+                  {playing ? text.playing : text.play}
                 </button>
 
                 <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-muted)' }}>
-                  This is strictly single-player gambling. No PvP or player-to-player transfer is involved.
+                  {currentLanguage === 'fr'
+                    ? 'Ceci est strictement un jeu solo. Aucun échange entre joueurs n’est impliqué.'
+                    : 'This is strictly single-player gambling. No PvP or player-to-player transfer is involved.'}
                 </p>
               </>
             )}
@@ -444,7 +484,7 @@ export default function PurseGamblePage() {
           }}>
             <h2 className="text-lg font-bold mb-3 inline-flex items-center gap-2" style={{ color: lastResult.won ? '#86efac' : '#fda4af' }}>
               {lastResult.won ? <FaGem /> : <FaSkull />}
-              Last Result
+              {text.lastResult}
             </h2>
             <div className="grid gap-2 sm:grid-cols-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
               <p>Game: <strong>{lastResult.title}</strong></p>
