@@ -321,7 +321,7 @@ const TeamDetailPage: React.FC = () => {
     const token = getAuthToken();
     if (!token || !id || !transferTarget) return;
 
-    if (!confirm(`Are you sure you want to transfer ownership? You will become a Manager and cannot undo this action.`)) {
+    if (!confirm(`Are you sure you want to transfer ownership? This action cannot be undone.`)) {
       return;
     }
 
@@ -896,6 +896,7 @@ const TeamDetailPage: React.FC = () => {
                   const rankColor = getRankColor(member.rank);
                   const roleColor = getRoleColor(member.role);
                   const hasRiotAccount = member.gameName && member.tagLine;
+                  const isOwnerMember = member.userId === team.ownerId;
                   
                   return (
                     <div
@@ -931,6 +932,17 @@ const TeamDetailPage: React.FC = () => {
                                 >
                                   {member.username}
                                 </Link>
+                                {isOwnerMember && (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold"
+                                    style={{ backgroundColor: 'rgba(255, 215, 0, 0.15)', color: '#FFD700', border: '1px solid rgba(255, 215, 0, 0.3)' }}
+                                  >
+                                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                                      <path d="M12 1l3.22 3.22h4.56v4.56L23 12l-3.22 3.22v4.56h-4.56L12 23l-3.22-3.22H4.22v-4.56L1 12l3.22-3.22V4.22h4.56L12 1z"/>
+                                    </svg>
+                                    Owner
+                                  </span>
+                                )}
                               </div>
                               
                               {/* Riot Account */}
@@ -998,7 +1010,7 @@ const TeamDetailPage: React.FC = () => {
                           
                           {/* Right side - Role & Actions */}
                           <div className="flex items-center gap-3 flex-shrink-0">
-                            {team.canManageRoster && member.role !== 'OWNER' ? (
+                            {team.canManageRoster ? (
                               <select
                                 value={member.role}
                                 onChange={(e) => handleUpdateRole(member.userId, e.target.value)}
@@ -1021,7 +1033,7 @@ const TeamDetailPage: React.FC = () => {
                                 {getRoleIcon(member.role)} {member.role}
                               </span>
                             )}
-                            {team.canManageRoster && member.role !== 'OWNER' && (
+                            {team.canManageRoster && member.userId !== team.ownerId && (
                               <button
                                 onClick={() => handleRemoveMember(member.userId)}
                                 className="p-2 rounded-lg transition-all hover:opacity-80"
@@ -1725,7 +1737,7 @@ const TeamDetailPage: React.FC = () => {
                 Transfer Ownership
               </h3>
               <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                This action cannot be undone. You will become a Manager.
+                This action cannot be undone.
               </p>
             </div>
             <div className="p-6 space-y-4">
@@ -1753,7 +1765,7 @@ const TeamDetailPage: React.FC = () => {
                   }}
                 >
                   <option value="">Select a team member...</option>
-                  {team.members.filter(m => m.role !== 'OWNER').map((member) => (
+                  {team.members.filter(m => m.userId !== team.ownerId).map((member) => (
                     <option key={member.userId} value={member.userId}>
                       {member.username} ({member.role})
                     </option>

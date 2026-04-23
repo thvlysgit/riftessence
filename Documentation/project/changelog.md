@@ -4,6 +4,41 @@
 
 ---
 
+## 2026-04-23 - Owner Crown Decoupling and Draft Room Interaction Overhaul
+
+### Objective: Decouple ownership from rigid team role constraints and align draft tooling with player-only, pick-order-first workflows
+
+Overview: Updated team ownership behavior so ownership is represented as a crown/permission marker rather than a hard role constraint, while preserving role-based roster workflows. Reworked the Teams Draft Room to use player-only pools, tier-aware icon presentation, drag-and-drop interactions, and pick-order-first planning with icon-only role assignment controls.
+
+Changes:
+
+- Updated [apps/api/src/routes/teams.ts](apps/api/src/routes/teams.ts):
+  - Team creation now seeds the owner member record with a normal role (`SUBS`) while ownership permissions remain tied to `team.ownerId`.
+  - Ownership transfer no longer force-overwrites both members into `MANAGER`/`OWNER` role states.
+  - Added backward-compatibility conversion for legacy previous-owner `OWNER` role entries to `MANAGER` at transfer time.
+  - Removed the API guard that blocked editing the team owner's role, so owners can hold normal player/staff roles.
+- Updated [apps/web/pages/teams/[id].tsx](apps/web/pages/teams/[id].tsx):
+  - Ownership transfer confirmation copy now reflects non-destructive role semantics.
+  - Transfer target picker now excludes only the current owner (instead of filtering by `OWNER` role).
+  - Added explicit owner crown badge next to owner usernames in roster rows.
+  - Role editing UI no longer blocks owner rows based on role value.
+  - Remove-member button visibility now correctly keys off `ownerId`, not `OWNER` role.
+- Updated [apps/web/pages/teams/dashboard.tsx](apps/web/pages/teams/dashboard.tsx):
+  - Dashboard role chips now present ownership as a crown marker while keeping the actual role visible (`Owner • <role>`).
+- Reworked [apps/web/pages/teams/drafts.tsx](apps/web/pages/teams/drafts.tsx):
+  - Champion pool source is now player-only (staff excluded).
+  - Left panel now renders tier-grouped champion icons with tier-colored borders and discreet tier labels.
+  - Added drag-and-drop champion assignment into bans and picks.
+  - Draft flow now uses pick order slots instead of static role-member pairing.
+  - Added icon-only role picker controls per pick slot (no text dropdown role selector).
+
+Validation:
+
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/api build` passes.
+
+---
+
 ## 2026-04-23 - Team Draft Room with Centralized Champion Pools
 
 ### Objective: Add a dedicated Teams page for centralized member champion pools and scenario-based draft planning

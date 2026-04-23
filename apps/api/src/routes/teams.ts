@@ -412,7 +412,8 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(400).send({ error: 'You can own up to 5 teams' });
       }
 
-      // Create team and add owner as first member with OWNER role
+      // Create team and add owner as first member with a normal team role.
+      // Ownership permissions are derived from team.ownerId, not member.role.
       const team = await prisma.team.create({
         data: {
           name,
@@ -423,7 +424,7 @@ export default async function teamsRoutes(fastify: any) {
           members: {
             create: {
               userId,
-              role: 'OWNER'
+              role: 'SUBS'
             }
           }
         },
@@ -771,7 +772,8 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(400).send({ error: 'New owner must be a team member' });
       }
 
-      // Use transaction to update both team owner and member roles
+      // Ownership transfer updates ownership only.
+      // Member roles remain role-based responsibilities and are not overwritten.
       await prisma.$transaction(async (tx: any) => {
         // Update team owner
         await tx.team.update({
@@ -779,17 +781,19 @@ export default async function teamsRoutes(fastify: any) {
           data: { ownerId: newOwnerId }
         });
 
-        // Update old owner's role to a regular role (keep as MANAGER)
-        await tx.teamMember.update({
+        // Backward compatibility: if previous owner still has legacy OWNER role,
+        // map it to MANAGER so OWNER is no longer used as a hard role.
+        const previousOwnerMember = await tx.teamMember.findUnique({
           where: { teamId_userId: { teamId: id, userId: userId } },
-          data: { role: 'MANAGER' }
+          select: { role: true },
         });
 
-        // Update new owner's role to OWNER
-        await tx.teamMember.update({
-          where: { teamId_userId: { teamId: id, userId: newOwnerId } },
-          data: { role: 'OWNER' }
-        });
+        if (previousOwnerMember?.role === 'OWNER') {
+          await tx.teamMember.update({
+            where: { teamId_userId: { teamId: id, userId: userId } },
+            data: { role: 'MANAGER' },
+          });
+        }
       });
 
       return reply.send({ success: true, message: 'Ownership transferred successfully' });
@@ -1110,12 +1114,6 @@ export default async function teamsRoutes(fastify: any) {
 
       if (!member) {
         return reply.status(404).send({ error: 'Member not found' });
-      }
-
-      // Cannot change owner's role
-      const team = await prisma.team.findUnique({ where: { id } });
-      if (team?.ownerId === memberId) {
-        return reply.status(400).send({ error: 'Cannot change team owner\'s role' });
       }
 
       const updated = await prisma.teamMember.update({

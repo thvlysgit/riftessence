@@ -609,7 +609,7 @@ const TeamsDashboardPage: React.FC = () => {
                                   <path d="M12 1l3.22 3.22h4.56v4.56L23 12l-3.22 3.22v4.56h-4.56L12 23l-3.22-3.22H4.22v-4.56L1 12l3.22-3.22V4.22h4.56L12 1z"/>
                                 </svg>
                               )}
-                              {team.myRole}
+                              {team.isOwner ? `Owner${team.myRole ? ` • ${team.myRole}` : ''}` : team.myRole}
                             </div>
                             {team.upcomingEventCount > 0 && (
                               <div 
@@ -1213,7 +1213,7 @@ const TeamsDashboardPage: React.FC = () => {
                         <span>•</span>
                         <span>{team.memberCount} members</span>
                         <span>•</span>
-                        <span>Your role: {team.myRole}</span>
+                        <span>Your role: {team.isOwner ? `Owner${team.myRole ? ` • ${team.myRole}` : ''}` : team.myRole}</span>
                       </div>
                     </div>
                     <svg 
