@@ -59,6 +59,88 @@ type ChampionSuggestion = {
   bestTier: TierKey;
 };
 
+const CHAMPION_ROLE_HINTS: Record<string, DraftRole> = {
+  Aatrox: 'TOP',
+  Ahri: 'MID',
+  Akali: 'MID',
+  Alistar: 'SUP',
+  Ashe: 'ADC',
+  Blitzcrank: 'SUP',
+  Camille: 'TOP',
+  Caitlyn: 'ADC',
+  ChoGath: 'TOP',
+  Darius: 'TOP',
+  Draven: 'ADC',
+  Ezreal: 'ADC',
+  Galio: 'MID',
+  Garen: 'TOP',
+  Gragas: 'JGL',
+  Hecarim: 'JGL',
+  Irelia: 'MID',
+  Janna: 'SUP',
+  JarvanIV: 'JGL',
+  Jinx: 'ADC',
+  KaiSa: 'ADC',
+  Karthus: 'JGL',
+  Katarina: 'MID',
+  Kayle: 'TOP',
+  KhaZix: 'JGL',
+  LeeSin: 'JGL',
+  Leona: 'SUP',
+  Lucian: 'ADC',
+  Lux: 'MID',
+  Malphite: 'TOP',
+  Maokai: 'SUP',
+  MissFortune: 'ADC',
+  Morgana: 'SUP',
+  Nasus: 'TOP',
+  Nautilus: 'SUP',
+  Nilah: 'ADC',
+  Nunu: 'JGL',
+  Orianna: 'MID',
+  Pyke: 'SUP',
+  Rakan: 'SUP',
+  Renekton: 'TOP',
+  Rengar: 'JGL',
+  Sejuani: 'JGL',
+  Senna: 'SUP',
+  Seraphine: 'SUP',
+  Sett: 'TOP',
+  Shen: 'TOP',
+  Singed: 'TOP',
+  Sion: 'TOP',
+  Sivir: 'ADC',
+  Soraka: 'SUP',
+  Sylas: 'MID',
+  Syndra: 'MID',
+  TahmKench: 'SUP',
+  Taliyah: 'MID',
+  Taric: 'SUP',
+  Teemo: 'TOP',
+  Thresh: 'SUP',
+  Tristana: 'ADC',
+  Tryndamere: 'TOP',
+  TwistedFate: 'MID',
+  Udyr: 'JGL',
+  Urgot: 'TOP',
+  Vayne: 'ADC',
+  Veigar: 'MID',
+  Vi: 'JGL',
+  Vladimir: 'MID',
+  Volibear: 'TOP',
+  Warwick: 'JGL',
+  Wukong: 'TOP',
+  Xayah: 'ADC',
+  Xerath: 'MID',
+  Yasuo: 'MID',
+  Zac: 'JGL',
+  Zed: 'MID',
+  Ziggs: 'MID',
+  Zilean: 'SUP',
+  Zeri: 'ADC',
+  Zyra: 'SUP',
+};
+
 const PLAYER_ROLES = new Set(['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS', 'OWNER']);
 const ROLE_ORDER: DraftRole[] = ['TOP', 'JGL', 'MID', 'ADC', 'SUP'];
 
@@ -122,9 +204,18 @@ function getRoleIcon(role: DraftRole): React.ReactNode {
     return <svg className="w-4 h-4" viewBox="0 0 136 136" fill="currentColor"><path d="M16 16c22.67 0 45.33 0 67.99.01C78.62 21.34 73.28 26.69 67.88 32c-11.96 0-23.92-.01-35.88 0-.01 12 .01 24-.01 36-5.32 5.3-10.64 10.6-15.98 15.89C15.99 61.26 16 38.63 16 16zm87.95 51.9c5.32-5.37 10.69-10.68 16.04-16.02.02 22.71.01 45.41 0 68.12-22.65 0-45.31.01-67.97-.01 5.33-5.33 10.65-10.67 15.99-15.99 12-.01 23.99.01 35.99 0 .04-12.04-.05-24.07-.05-36.1z" opacity="0.75"/><path d="M100.02 16H120v19.99C92 64 64 92 35.99 120H16v-19.99C44 72 72 43.99 100.02 16z"/></svg>;
   }
   if (role === 'ADC') {
-    return <Image src="/assets/BotLane.png" alt="Bot" width={16} height={16} className="w-4 h-4" style={{ filter: 'brightness(0) saturate(100%) invert(73%) sepia(16%) saturate(1018%) hue-rotate(8deg) brightness(91%) contrast(85%)' }} />;
+    return <svg className="w-4 h-4" viewBox="0 0 136 136" fill="currentColor"><path d="M17.5 33.94c15.61-1.78 31.4-1.87 47.1-1.83 4.07.43 5.1 4.48 5.22 7.87.07 6.75-.2 13.5.13 20.24 13.26-7.74 26.62-15.29 40.11-22.56 2.46-1.86 6.21-1.48 8.15 1.04 4.03 4.73 4.93 11.34 4.58 17.39-.41 8.85-3.04 17.7-7.93 25.09-13.09 18.99-34.61 31.66-57.24 34.4-12.57 1.7-25.25 1.43-37.9 1.1-4.39.05-9.31-.5-12.51-3.94-2.58-2.63-2.84-6.66-3.1-10.07-.76-10.14.28-20.62 4.96-29.77 4.3-8.52 11.04-15.58 18.6-21.21 6.1-4.69 12.83-8.47 19.73-11.96-9.68.92-19.46.92-29.18 1.04-.35-2.6.17-5.96 2.38-7.83 1.59-1.32 3.79-1.68 5.99-1.98Z"/></svg>;
   }
   return <svg className="w-4 h-4" viewBox="0 0 136 136" fill="currentColor"><path d="M52.21 12.03c10.33-.1 20.66.06 30.99-.08 1.71 2.62 3.2 5.37 4.79 8.07C81.32 28 74.68 36.01 68 43.98 61.32 36 54.66 28 48.01 19.99c1.4-2.65 2.82-5.29 4.2-7.96ZM0 36.3c14.64-.68 29.33-.11 43.99-.3C48 40 52 44 56 48.01c-2.67 9.32-5.32 18.66-8.01 27.98-6.66-2.65-13.32-5.32-19.98-7.99 3.97-5.35 8.02-10.63 11.96-15.99-5.01-.08-10.15.4-15-1.14C15.58 48.12 7.75 42.05 0 36.34v-.04ZM92.02 36c14.66.05 29.32-.09 43.98.07v.03c-7.3 5.9-15.1 11.53-24.1 14.5-5.11 1.85-10.59 1.34-15.91 1.41 4.01 5.32 8 10.65 11.99 15.98-6.64 2.7-13.31 5.34-19.97 8-2.69-9.32-5.34-18.65-8.01-27.98C84.01 44 88 39.99 92.02 36ZM64.01 52.11c1.36 1.26 2.7 2.55 3.99 3.89 1.32-1.33 2.65-2.65 3.99-3.97 4.04 19.97 7.97 39.96 12.02 59.92-5.31 4.05-10.66 8.07-16.04 12.03-5.32-4.01-10.67-7.97-15.98-12.01 4.04-19.94 7.96-39.92 12.02-59.86Z"/></svg>;
+}
+
+function normalizeChampionKey(name: string): string {
+  return name.replace(/[^a-zA-Z]/g, '');
+}
+
+function getChampionRoleHint(champion: string): DraftRole | null {
+  const normalized = normalizeChampionKey(champion);
+  return CHAMPION_ROLE_HINTS[normalized] || null;
 }
 
 const TeamDraftsPage: React.FC = () => {
@@ -357,6 +448,10 @@ const TeamDraftsPage: React.FC = () => {
       applyChampionToBan(target.side, target.index, draggingChampion.champion);
     } else if (target.kind === 'pick') {
       applyChampionToPick(target.index, draggingChampion.champion);
+      setPicks((prev) => prev.map((entry, i) => {
+        if (i !== target.index || entry.assignedRole) return entry;
+        return { ...entry, assignedRole: getChampionRoleHint(draggingChampion.champion) };
+      }));
     }
     setDraggingChampion(null);
   };
