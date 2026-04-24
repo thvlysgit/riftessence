@@ -14,7 +14,8 @@ Changes:
 
 - Updated [apps/web/pages/teams/drafts.tsx](apps/web/pages/teams/drafts.tsx):
   - Replaced draft role icon rendering with the same lane visual set used elsewhere in the app (Top/Jungle/Mid/ADC/Support).
-  - Normalized role icon coloring so every lane button renders through the same `currentColor` path.
+  - Normalized role icon coloring so every lane button now uses one neutral shared color instead of the previous yellow tint.
+  - Swapped the ADC lane icon to the existing bot-lane asset used elsewhere in the app.
   - Switched pick panel presentation to tournament-style rows labeled `R1` through `R5`, with blue-side picks consistently on the left and red-side picks on the right.
   - Preserved true pick turn ordering metadata while improving side readability (`Turn 1` through `Turn 10`).
   - Removed champion picker truncation and now surfaces the full merged champion list.
