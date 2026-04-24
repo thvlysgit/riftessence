@@ -14,7 +14,7 @@ Changes:
 
 - Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
   - Added `/import-champion-emojis` slash command for bulk champion emoji import from Data Dragon.
-  - Supports deterministic `batch` selection (`1` to `4`) so champion icons can be split across four Discord servers with 50-emoji limits.
+  - Supports deterministic `batch` selection (`1` to `4`) and respects the guild's real emoji capacity based on boost tier.
   - Added optional `replace_existing` mode for re-imports.
   - Added import summary reporting (created/failed/skipped/capacity) and structured logging for troubleshooting.
 - Updated [prisma/schema.prisma](prisma/schema.prisma):

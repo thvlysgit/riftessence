@@ -61,7 +61,6 @@ const SETUP_FILTER_RANK_RANGE = 'filter_rank_range';
 const SEND_DRAFT_TEAM_SELECT = 'send_draft_team_select';
 const SEND_DRAFT_PICK_SELECT = 'send_draft_pick_select';
 const CHAMPION_EMOJI_BATCH_COUNT = 4;
-const DISCORD_STATIC_EMOJI_LIMIT = 50;
 
 const ROLE_FORWARDING_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_ROLE_FORWARDING_POLL_INTERVAL_MS || '300000', 10);
 
@@ -540,6 +539,19 @@ function splitIntoBatches<T>(values: T[], totalBatches: number): T[][] {
   return result;
 }
 
+function getGuildStaticEmojiLimit(guild: Guild): number {
+  switch (guild.premiumTier) {
+    case 1:
+      return 100;
+    case 2:
+      return 150;
+    case 3:
+      return 250;
+    default:
+      return 50;
+  }
+}
+
 async function fetchChampionIconsForBatch(batchNumber: number): Promise<{ version: string; assets: ChampionIconAsset[] }> {
   const versionsResponse = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
   if (!versionsResponse.ok) {
@@ -613,6 +625,8 @@ async function handleImportChampionEmojis(interaction: ChatInputCommandInteracti
       return interaction.editReply(`❌ No champions found for batch ${batch}/${CHAMPION_EMOJI_BATCH_COUNT}.`);
     }
 
+    const guildStaticEmojiLimit = getGuildStaticEmojiLimit(guild);
+
     const existingStatic = guild.emojis.cache.filter((emoji) => !emoji.animated);
     const existingByName = new Map(existingStatic.map((emoji) => [emoji.name?.toLowerCase() || '', emoji]));
 
@@ -636,7 +650,7 @@ async function handleImportChampionEmojis(interaction: ChatInputCommandInteracti
     const existingAfterDelete = guild.emojis.cache.filter((emoji) => !emoji.animated).size;
     const alreadyPresent = assets.filter((asset) => guild.emojis.cache.some((emoji) => !emoji.animated && (emoji.name || '').toLowerCase() === asset.emojiName.toLowerCase()));
     const candidates = assets.filter((asset) => !alreadyPresent.some((present) => present.emojiName === asset.emojiName));
-    const availableSlots = Math.max(0, DISCORD_STATIC_EMOJI_LIMIT - existingAfterDelete);
+  const availableSlots = Math.max(0, guildStaticEmojiLimit - existingAfterDelete);
     const uploadQueue = candidates.slice(0, availableSlots);
 
     let created = 0;
@@ -665,7 +679,7 @@ async function handleImportChampionEmojis(interaction: ChatInputCommandInteracti
     console.log(
       `[ChampionEmojiImport] guild=${guild.id} batch=${batch}/${CHAMPION_EMOJI_BATCH_COUNT} ` +
       `version=${version} total=${assets.length} created=${created} failed=${failed} ` +
-      `skippedExisting=${skippedExisting} skippedCapacity=${skippedForCapacity} replaced=${deletedCount}`
+      `skippedExisting=${skippedExisting} skippedCapacity=${skippedForCapacity} replaced=${deletedCount} limit=${guildStaticEmojiLimit}`
     );
 
     const embed = new EmbedBuilder()
@@ -678,7 +692,7 @@ async function handleImportChampionEmojis(interaction: ChatInputCommandInteracti
         { name: 'Skipped (Existing)', value: String(skippedExisting), inline: true },
         { name: 'Skipped (Capacity)', value: String(skippedForCapacity), inline: true },
         { name: 'Replaced', value: String(deletedCount), inline: true },
-        { name: 'Server Static Emoji Count', value: `${guild.emojis.cache.filter((emoji) => !emoji.animated).size}/${DISCORD_STATIC_EMOJI_LIMIT}`, inline: true },
+        { name: 'Server Static Emoji Count', value: `${guild.emojis.cache.filter((emoji) => !emoji.animated).size}/${guildStaticEmojiLimit}`, inline: true },
       )
       .setFooter({ text: 'Run this command with batch 1, 2, 3, and 4 across your four emoji servers.' })
       .setTimestamp();
