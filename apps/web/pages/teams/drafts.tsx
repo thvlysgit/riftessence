@@ -71,11 +71,6 @@ type SavedDraft = {
   picks: PickSlot[];
 };
 
-type DraftLibraryState = {
-  activeDraftId: string | null;
-  drafts: SavedDraft[];
-};
-
 const CHAMPION_ROLE_HINTS: Record<string, DraftRole> = {
   Aatrox: 'TOP',
   Ahri: 'MID',
@@ -158,8 +153,6 @@ const CHAMPION_ROLE_HINTS: Record<string, DraftRole> = {
   Zyra: 'SUP',
 };
 
-const DRAFT_LIBRARY_KEY = 'riftessence_team_draft_library_v1';
-
 const PLAYER_ROLES = new Set(['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS', 'OWNER']);
 const ROLE_ORDER: DraftRole[] = ['TOP', 'JGL', 'MID', 'ADC', 'SUP'];
 
@@ -237,6 +230,38 @@ function getChampionRoleHint(champion: string): DraftRole | null {
   return CHAMPION_ROLE_HINTS[normalized] || null;
 }
 
+function normalizeSavedDraft(raw: any): SavedDraft {
+  const picksRaw = Array.isArray(raw?.picks) ? raw.picks : [];
+  const picks = (picksRaw.length === PICK_ORDER.length ? picksRaw : PICK_ORDER.map((side) => ({ side, champion: '', assignedRole: null }))).map((pick: any, index: number) => {
+    const role = typeof pick?.assignedRole === 'string' ? pick.assignedRole.toUpperCase() : null;
+    const normalizedRole = ROLE_ORDER.includes(role as DraftRole) ? (role as DraftRole) : null;
+    return {
+      side: PICK_ORDER[index],
+      champion: typeof pick?.champion === 'string' ? pick.champion : '',
+      assignedRole: normalizedRole,
+    } as PickSlot;
+  });
+
+  const normalizeBans = (value: any) => {
+    if (!Array.isArray(value) || value.length !== 5) {
+      return ['', '', '', '', ''];
+    }
+    return value.map((entry: any) => (typeof entry === 'string' ? entry : ''));
+  };
+
+  return {
+    id: String(raw?.id || ''),
+    name: String(raw?.name || 'New Draft'),
+    teamId: String(raw?.teamId || raw?.team?.id || ''),
+    teamName: String(raw?.team?.name || 'Unknown Team'),
+    createdAt: String(raw?.createdAt || new Date().toISOString()),
+    updatedAt: String(raw?.updatedAt || new Date().toISOString()),
+    blueBans: normalizeBans(raw?.blueBans),
+    redBans: normalizeBans(raw?.redBans),
+    picks,
+  };
+}
+
 const TeamDraftsPage: React.FC = () => {
   const { user } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
@@ -244,6 +269,8 @@ const TeamDraftsPage: React.FC = () => {
   const [memberPools, setMemberPools] = useState<TeamMemberPool[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [loadingPools, setLoadingPools] = useState(false);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [allChampions, setAllChampions] = useState<string[]>([]);
@@ -414,49 +441,40 @@ const TeamDraftsPage: React.FC = () => {
   }, [apiUrl]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    try {
-      const savedRaw = window.localStorage.getItem(DRAFT_LIBRARY_KEY);
-      if (!savedRaw) return;
-      const saved = JSON.parse(savedRaw) as DraftLibraryState;
-      if (Array.isArray(saved.drafts)) {
-        setSavedDrafts(saved.drafts);
+    const loadSavedDrafts = async () => {
+      const token = getAuthToken();
+      if (!token || !selectedTeamId) {
+        setSavedDrafts([]);
+        setActiveDraftId(null);
+        return;
       }
-      if (saved.activeDraftId && Array.isArray(saved.drafts)) {
-        const activeDraft = saved.drafts.find((draft) => draft.id === saved.activeDraftId) || null;
-        if (activeDraft) {
-          setActiveDraftId(activeDraft.id);
-          setDraftName(activeDraft.name);
-          setSelectedTeamId(activeDraft.teamId);
-          setBlueBans(activeDraft.blueBans.length === 5 ? activeDraft.blueBans : ['', '', '', '', '']);
-          setRedBans(activeDraft.redBans.length === 5 ? activeDraft.redBans : ['', '', '', '', '']);
-          setPicks(
-            (activeDraft.picks.length === PICK_ORDER.length ? activeDraft.picks : PICK_ORDER.map((side) => ({ side, champion: '', assignedRole: null }))).map((pick, index) => ({
-              side: PICK_ORDER[index],
-              champion: pick.champion || '',
-              assignedRole: pick.assignedRole || null,
-            }))
-          );
+
+      setLoadingDrafts(true);
+
+      try {
+        const res = await fetch(`${apiUrl}/api/teams/${selectedTeamId}/drafts`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to fetch saved drafts');
         }
+
+        const data = await res.json();
+        const drafts = Array.isArray(data?.drafts) ? data.drafts.map((entry: any) => normalizeSavedDraft(entry)) : [];
+
+        setSavedDrafts(drafts);
+        setActiveDraftId((current) => (current && drafts.some((draft: SavedDraft) => draft.id === current) ? current : null));
+      } catch (loadError) {
+        console.error('Failed to load saved drafts:', loadError);
+        setError('Failed to load saved drafts.');
+      } finally {
+        setLoadingDrafts(false);
       }
-    } catch (error) {
-      console.warn('Could not restore team draft library', error);
-    }
-  }, []);
+    };
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    try {
-      window.localStorage.setItem(DRAFT_LIBRARY_KEY, JSON.stringify({
-        activeDraftId,
-        drafts: savedDrafts,
-      } satisfies DraftLibraryState));
-    } catch {
-      // Ignore write failures.
-    }
-  }, [activeDraftId, savedDrafts]);
+    void loadSavedDrafts();
+  }, [apiUrl, selectedTeamId]);
 
   useEffect(() => {
     const loadPools = async () => {
@@ -537,17 +555,12 @@ const TeamDraftsPage: React.FC = () => {
     setPicks((prev) => prev.map((pick, i) => (i === index ? { ...pick, assignedRole: role } : pick)));
   };
 
-  const buildDraftSnapshot = () => ({
-    id: activeDraftId || (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `draft-${Date.now()}`),
+  const buildDraftPayload = () => ({
     name: draftName.trim() || 'New Draft',
-    teamId: selectedTeam?.id || selectedTeamId || '',
-    teamName: selectedTeam?.name || 'Unknown Team',
-    createdAt: activeSavedDraft?.createdAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
     blueBans,
     redBans,
     picks,
-  } satisfies SavedDraft);
+  });
 
   const applySavedDraft = (draft: SavedDraft) => {
     setSelectedTeamId(draft.teamId);
@@ -564,22 +577,71 @@ const TeamDraftsPage: React.FC = () => {
     setActiveDraftId(draft.id);
   };
 
-  const saveCurrentDraft = (mode: 'overwrite' | 'duplicate') => {
-    const snapshot = buildDraftSnapshot();
-    setSavedDrafts((prev) => {
-      if (mode === 'overwrite' && activeDraftId && prev.some((draft) => draft.id === activeDraftId)) {
-        return prev.map((draft) => (draft.id === activeDraftId ? { ...snapshot, id: draft.id, createdAt: draft.createdAt } : draft));
+  const saveCurrentDraft = async (mode: 'overwrite' | 'duplicate') => {
+    const token = getAuthToken();
+    if (!token || !selectedTeamId) {
+      setError('Select a team before saving drafts.');
+      return;
+    }
+
+    const payload = buildDraftPayload();
+    const shouldOverwrite = mode === 'overwrite' && Boolean(activeDraftId);
+    const endpoint = shouldOverwrite
+      ? `${apiUrl}/api/teams/${selectedTeamId}/drafts/${activeDraftId}`
+      : `${apiUrl}/api/teams/${selectedTeamId}/drafts`;
+    const method = shouldOverwrite ? 'PUT' : 'POST';
+
+    setSavingDraft(true);
+    setError(null);
+
+    try {
+      const res = await fetch(endpoint, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.draft) {
+        throw new Error(data?.error || 'Failed to save draft');
       }
 
-      return [snapshot, ...prev.filter((draft) => draft.id !== snapshot.id)];
-    });
-    setActiveDraftId(snapshot.id);
-    setDraftName(snapshot.name);
+      const normalized = normalizeSavedDraft(data.draft);
+      setSavedDrafts((prev) => [normalized, ...prev.filter((draft) => draft.id !== normalized.id)]);
+      setActiveDraftId(normalized.id);
+      setDraftName(normalized.name);
+    } catch (saveError: any) {
+      console.error('Failed to save draft:', saveError);
+      setError(saveError?.message || 'Failed to save draft.');
+    } finally {
+      setSavingDraft(false);
+    }
   };
 
-  const deleteSavedDraft = (draftId: string) => {
-    setSavedDrafts((prev) => prev.filter((draft) => draft.id !== draftId));
-    setActiveDraftId((current) => (current === draftId ? null : current));
+  const deleteSavedDraft = async (draftId: string) => {
+    const token = getAuthToken();
+    if (!token || !selectedTeamId) return;
+
+    try {
+      const res = await fetch(`${apiUrl}/api/teams/${selectedTeamId}/drafts/${draftId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Failed to delete draft');
+      }
+
+      setSavedDrafts((prev) => prev.filter((draft) => draft.id !== draftId));
+      setActiveDraftId((current) => (current === draftId ? null : current));
+    } catch (deleteError: any) {
+      console.error('Failed to delete draft:', deleteError);
+      setError(deleteError?.message || 'Failed to delete draft.');
+    }
   };
 
   const resetDraft = () => {
@@ -754,17 +816,19 @@ const TeamDraftsPage: React.FC = () => {
                     </div>
                     <button
                       onClick={() => saveCurrentDraft('duplicate')}
+                      disabled={savingDraft || !selectedTeamId}
                       className="px-3 py-2 rounded-md text-sm"
-                      style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+                      style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', opacity: savingDraft || !selectedTeamId ? 0.6 : 1 }}
                     >
-                      Save as New
+                      {savingDraft ? 'Saving...' : 'Save as New'}
                     </button>
                     <button
                       onClick={() => saveCurrentDraft('overwrite')}
+                      disabled={savingDraft || !selectedTeamId}
                       className="px-3 py-2 rounded-md text-sm"
-                      style={{ backgroundColor: 'var(--color-accent-1)', color: '#111', border: '1px solid transparent' }}
+                      style={{ backgroundColor: 'var(--color-accent-1)', color: '#111', border: '1px solid transparent', opacity: savingDraft || !selectedTeamId ? 0.6 : 1 }}
                     >
-                      Save Current
+                      {savingDraft ? 'Saving...' : 'Save Current'}
                     </button>
                     <button
                       onClick={() => {
@@ -782,7 +846,11 @@ const TeamDraftsPage: React.FC = () => {
                     <span>
                       {activeSavedDraft ? `Loaded: ${activeSavedDraft.name}` : 'No saved draft loaded'}
                     </span>
-                    <span>{visibleSavedDrafts.length} saved draft{visibleSavedDrafts.length === 1 ? '' : 's'} for this team</span>
+                    <span>
+                      {loadingDrafts
+                        ? 'Loading saved drafts...'
+                        : `${visibleSavedDrafts.length} saved draft${visibleSavedDrafts.length === 1 ? '' : 's'} for this team`}
+                    </span>
                   </div>
 
                   <div className="space-y-2 max-h-40 overflow-auto pr-1">

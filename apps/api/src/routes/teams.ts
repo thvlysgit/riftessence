@@ -15,6 +15,10 @@ const DISCORD_MENTION_MODES = ['EVERYONE', 'ROLE', 'TEAM_ROLE_MAP'] as const;
 const MIN_TEAM_REMINDER_MINUTES = 5;
 const MAX_TEAM_REMINDER_MINUTES = 7 * 24 * 60;
 const MAX_TEAM_REMINDER_OPTIONS = 8;
+const DRAFT_ALLOWED_SIDES = ['BLUE', 'RED'] as const;
+const DRAFT_ALLOWED_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP'] as const;
+const DRAFT_BAN_COUNT = 5;
+const DRAFT_PICK_COUNT = 10;
 
 export default async function teamsRoutes(fastify: any) {
   const isSchemaOutOfDateError = (error: any) => {
@@ -240,6 +244,109 @@ export default async function teamsRoutes(fastify: any) {
     return { value: uniqueMemberIds, error: null };
   };
 
+  const normalizeDraftChampionValue = (value: any): string => {
+    if (typeof value !== 'string') return '';
+    return value.trim().slice(0, 64);
+  };
+
+  const parseDraftPayload = (raw: any): {
+    value: {
+      name: string;
+      blueBans: string[];
+      redBans: string[];
+      picks: Array<{ side: 'BLUE' | 'RED'; champion: string; assignedRole: 'TOP' | 'JGL' | 'MID' | 'ADC' | 'SUP' | null }>;
+    } | null;
+    error: string | null;
+  } => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return { value: null, error: 'Invalid payload' };
+    }
+
+    const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+    if (!name) {
+      return { value: null, error: 'Draft name is required' };
+    }
+    if (name.length > 80) {
+      return { value: null, error: 'Draft name must be 80 characters or less' };
+    }
+
+    const normalizeBans = (value: any, label: string): { value: string[] | null; error: string | null } => {
+      if (!Array.isArray(value) || value.length !== DRAFT_BAN_COUNT) {
+        return { value: null, error: `${label} must contain exactly ${DRAFT_BAN_COUNT} slots` };
+      }
+      return {
+        value: value.map((entry: any) => normalizeDraftChampionValue(entry)),
+        error: null,
+      };
+    };
+
+    const blue = normalizeBans(raw.blueBans, 'blueBans');
+    if (blue.error) return { value: null, error: blue.error };
+    const red = normalizeBans(raw.redBans, 'redBans');
+    if (red.error) return { value: null, error: red.error };
+
+    if (!Array.isArray(raw.picks) || raw.picks.length !== DRAFT_PICK_COUNT) {
+      return { value: null, error: `picks must contain exactly ${DRAFT_PICK_COUNT} slots` };
+    }
+
+    const picks: Array<{ side: 'BLUE' | 'RED'; champion: string; assignedRole: 'TOP' | 'JGL' | 'MID' | 'ADC' | 'SUP' | null }> = [];
+    for (const entry of raw.picks) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        return { value: null, error: 'Each pick slot must be an object' };
+      }
+
+      const side = typeof entry.side === 'string' ? entry.side.toUpperCase() : '';
+      if (!DRAFT_ALLOWED_SIDES.includes(side as any)) {
+        return { value: null, error: 'Pick side must be BLUE or RED' };
+      }
+
+      const assignedRoleRaw = entry.assignedRole;
+      const assignedRole = typeof assignedRoleRaw === 'string' ? assignedRoleRaw.toUpperCase() : null;
+      if (assignedRole !== null && !DRAFT_ALLOWED_ROLES.includes(assignedRole as any)) {
+        return { value: null, error: 'Pick assignedRole must be TOP, JGL, MID, ADC, SUP, or null' };
+      }
+
+      picks.push({
+        side: side as 'BLUE' | 'RED',
+        champion: normalizeDraftChampionValue(entry.champion),
+        assignedRole: assignedRole as 'TOP' | 'JGL' | 'MID' | 'ADC' | 'SUP' | null,
+      });
+    }
+
+    return {
+      value: {
+        name,
+        blueBans: blue.value || [],
+        redBans: red.value || [],
+        picks,
+      },
+      error: null,
+    };
+  };
+
+  const getDiscordBotAuthorized = (request: any, reply: any): boolean => {
+    const authHeader = request.headers.authorization;
+    const expectedKey = process.env.DISCORD_BOT_API_KEY;
+
+    if (!expectedKey) {
+      reply.status(500).send({ error: 'Bot API key not configured on server' });
+      return false;
+    }
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      reply.status(401).send({ error: 'Missing or invalid authorization header' });
+      return false;
+    }
+
+    const providedKey = authHeader.substring(7);
+    if (providedKey !== expectedKey) {
+      reply.status(403).send({ error: 'Invalid bot API key' });
+      return false;
+    }
+
+    return true;
+  };
+
   // Helper to extract userId from JWT
   const getUserIdFromRequest = async (request: any, reply: any): Promise<string | null> => {
     const authHeader = request.headers['authorization'];
@@ -303,6 +410,11 @@ export default async function teamsRoutes(fastify: any) {
       where: { teamId_userId: { teamId, userId } }
     });
     return !!member;
+  };
+
+  const canAccessTeamDrafts = async (userId: string, teamId: string): Promise<boolean> => {
+    if (await isTeamOwner(userId, teamId)) return true;
+    return isTeamMember(userId, teamId);
   };
 
   // Helper to get user's Riot account PUUID
@@ -1975,6 +2087,265 @@ export default async function teamsRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to send test notification' });
+    }
+  });
+
+  // ==================== TEAM DRAFTS ====================
+
+  // GET /api/teams/:id/drafts - List saved drafts for a team
+  fastify.get('/teams/:id/drafts', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id } = request.params as { id: string };
+      if (!await canAccessTeamDrafts(userId, id)) {
+        return reply.status(403).send({ error: 'Only team members can access team drafts' });
+      }
+
+      const drafts = await prisma.teamDraft.findMany({
+        where: { teamId: id },
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          team: { select: { name: true, tag: true } },
+        },
+      });
+
+      return reply.send({ drafts });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch team drafts' });
+    }
+  });
+
+  // POST /api/teams/:id/drafts - Create a saved draft
+  fastify.post('/teams/:id/drafts', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id } = request.params as { id: string };
+      if (!await canAccessTeamDrafts(userId, id)) {
+        return reply.status(403).send({ error: 'Only team members can save team drafts' });
+      }
+
+      const parsed = parseDraftPayload(request.body);
+      if (parsed.error || !parsed.value) {
+        return reply.status(400).send({ error: parsed.error || 'Invalid draft payload' });
+      }
+
+      const created = await prisma.teamDraft.create({
+        data: {
+          teamId: id,
+          createdById: userId,
+          name: parsed.value.name,
+          blueBans: parsed.value.blueBans,
+          redBans: parsed.value.redBans,
+          picks: parsed.value.picks,
+        },
+        include: {
+          team: { select: { name: true, tag: true } },
+        },
+      });
+
+      return reply.status(201).send({ draft: created });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to save draft' });
+    }
+  });
+
+  // PUT /api/teams/:id/drafts/:draftId - Update a saved draft
+  fastify.put('/teams/:id/drafts/:draftId', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id, draftId } = request.params as { id: string; draftId: string };
+      if (!await canAccessTeamDrafts(userId, id)) {
+        return reply.status(403).send({ error: 'Only team members can update team drafts' });
+      }
+
+      const existing = await prisma.teamDraft.findFirst({ where: { id: draftId, teamId: id } });
+      if (!existing) {
+        return reply.status(404).send({ error: 'Draft not found' });
+      }
+
+      const parsed = parseDraftPayload(request.body);
+      if (parsed.error || !parsed.value) {
+        return reply.status(400).send({ error: parsed.error || 'Invalid draft payload' });
+      }
+
+      const updated = await prisma.teamDraft.update({
+        where: { id: draftId },
+        data: {
+          name: parsed.value.name,
+          blueBans: parsed.value.blueBans,
+          redBans: parsed.value.redBans,
+          picks: parsed.value.picks,
+          createdById: userId,
+        },
+        include: {
+          team: { select: { name: true, tag: true } },
+        },
+      });
+
+      return reply.send({ draft: updated });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to update draft' });
+    }
+  });
+
+  // DELETE /api/teams/:id/drafts/:draftId - Delete a saved draft
+  fastify.delete('/teams/:id/drafts/:draftId', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id, draftId } = request.params as { id: string; draftId: string };
+      if (!await canAccessTeamDrafts(userId, id)) {
+        return reply.status(403).send({ error: 'Only team members can delete team drafts' });
+      }
+
+      const existing = await prisma.teamDraft.findFirst({ where: { id: draftId, teamId: id } });
+      if (!existing) {
+        return reply.status(404).send({ error: 'Draft not found' });
+      }
+
+      await prisma.teamDraft.delete({ where: { id: draftId } });
+      return reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to delete draft' });
+    }
+  });
+
+  // GET /api/teams/discord-drafts/options?guildId=...&discordId=...
+  // Bot-only route used by /send-draft menu flow.
+  fastify.get('/teams/discord-drafts/options', async (request: any, reply: any) => {
+    if (!getDiscordBotAuthorized(request, reply)) return;
+
+    try {
+      const { guildId, discordId } = request.query as { guildId?: string; discordId?: string };
+
+      if (!guildId || !discordId) {
+        return reply.status(400).send({ error: 'Missing required query parameters: guildId, discordId' });
+      }
+
+      const user = await prisma.discordAccount.findUnique({
+        where: { discordId },
+        select: { userId: true },
+      });
+
+      if (!user?.userId) {
+        fastify.log.warn({ guildId, discordId }, 'Discord send-draft rejected: account not linked');
+        return reply.status(200).send({
+          status: 'MISSING_DISCORD_LINK',
+          teams: [],
+        });
+      }
+
+      const teams = await prisma.team.findMany({
+        where: {
+          OR: [
+            { ownerId: user.userId },
+            { members: { some: { userId: user.userId } } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          tag: true,
+          drafts: {
+            select: {
+              id: true,
+              name: true,
+              updatedAt: true,
+            },
+            orderBy: { updatedAt: 'desc' },
+            take: 25,
+          },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 25,
+      });
+
+      if (teams.length === 0) {
+        fastify.log.warn({ guildId, discordId, userId: user.userId }, 'Discord send-draft rejected: no team membership');
+        return reply.status(200).send({
+          status: 'NO_TEAM_MEMBERSHIP',
+          teams: [],
+        });
+      }
+
+      const totalDrafts = teams.reduce((sum: number, team: any) => sum + (team.drafts?.length || 0), 0);
+      if (totalDrafts === 0) {
+        fastify.log.warn({ guildId, discordId, userId: user.userId }, 'Discord send-draft rejected: no saved drafts');
+        return reply.status(200).send({
+          status: 'NO_SAVED_DRAFTS',
+          teams,
+        });
+      }
+
+      return reply.send({
+        status: 'READY',
+        teams,
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch draft options' });
+    }
+  });
+
+  // GET /api/teams/discord-drafts/:draftId?discordId=...
+  // Bot-only route to fetch one draft once selected in Discord menu.
+  fastify.get('/teams/discord-drafts/:draftId', async (request: any, reply: any) => {
+    if (!getDiscordBotAuthorized(request, reply)) return;
+
+    try {
+      const { draftId } = request.params as { draftId: string };
+      const { discordId } = request.query as { discordId?: string };
+
+      if (!draftId || !discordId) {
+        return reply.status(400).send({ error: 'Missing required parameters: draftId and discordId' });
+      }
+
+      const user = await prisma.discordAccount.findUnique({
+        where: { discordId },
+        select: { userId: true },
+      });
+
+      if (!user?.userId) {
+        fastify.log.warn({ draftId, discordId }, 'Discord send-draft rejected during draft fetch: account not linked');
+        return reply.status(404).send({ error: 'Linked RiftEssence account not found for this Discord user' });
+      }
+
+      const draft = await prisma.teamDraft.findFirst({
+        where: {
+          id: draftId,
+          team: {
+            OR: [
+              { ownerId: user.userId },
+              { members: { some: { userId: user.userId } } },
+            ],
+          },
+        },
+        include: {
+          team: { select: { id: true, name: true, tag: true } },
+          createdBy: { select: { id: true, username: true } },
+        },
+      });
+
+      if (!draft) {
+        fastify.log.warn({ draftId, discordId, userId: user.userId }, 'Discord send-draft rejected during draft fetch: missing access');
+        return reply.status(404).send({ error: 'Draft not found or inaccessible' });
+      }
+
+      return reply.send({ draft });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch selected draft' });
     }
   });
 }

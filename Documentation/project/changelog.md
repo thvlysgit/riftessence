@@ -4,6 +4,40 @@
 
 ---
 
+## 2026-04-24 - Discord /send-draft and Server-Backed Team Draft Library
+
+### Objective: Allow Discord staff to send a saved RiftEssence draft directly into a Discord channel using guided menus and strict prerequisite checks
+
+Overview: Added persistent team draft storage on the backend (instead of browser-only state) and introduced a new Discord bot slash command `/send-draft` that enforces account-link, team-membership, permission, and saved-draft prerequisites before posting a draft embed.
+
+Changes:
+
+- Updated [prisma/schema.prisma](prisma/schema.prisma):
+  - Added `TeamDraft` model with team relation, author relation, ban arrays, and pick JSON payload.
+  - Linked `TeamDraft` to `Team` and `User` relations for ownership/audit and access control.
+- Added [add_team_drafts.sql](add_team_drafts.sql):
+  - SQL script to create the `TeamDraft` table and supporting indexes in PostgreSQL.
+- Updated [apps/api/src/routes/teams.ts](apps/api/src/routes/teams.ts):
+  - Added authenticated team draft CRUD routes:
+    - `GET /api/teams/:id/drafts`
+    - `POST /api/teams/:id/drafts`
+    - `PUT /api/teams/:id/drafts/:draftId`
+    - `DELETE /api/teams/:id/drafts/:draftId`
+  - Added bot-authenticated routes used by Discord `/send-draft`:
+    - `GET /api/teams/discord-drafts/options`
+    - `GET /api/teams/discord-drafts/:draftId`
+  - Added defensive payload validation and explicit server-side rejection reasons for missing prerequisites.
+- Updated [apps/web/pages/teams/drafts.tsx](apps/web/pages/teams/drafts.tsx):
+  - Switched multi-draft save/load/delete from localStorage to backend API persistence per selected team.
+  - Kept team-level draft library UX (save as new, overwrite, load, delete) while making drafts available cross-device and to the Discord bot.
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Added new `/send-draft` slash command.
+  - Added interactive menu flow:
+    - choose team,
+    - choose saved draft,
+    - post formatted draft embed to the current channel.
+  - Enforced Discord-side permission gate (`Manage Server` or `Administrator`) and surfaced clear error messaging for account-link/team-membership/no-draft cases.
+
 ## 2026-04-24 - Teams Draft Room Tournament Layout and Suggestion Enhancements
 
 ### Objective: Correct draft UX flow for tournament-style picks, fix lane-role icon fidelity, and expose full champion selection coverage

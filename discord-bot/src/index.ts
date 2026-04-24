@@ -58,6 +58,8 @@ const ROLE_MENU_ROLES_PER_PAGE = 25;
 
 const SETUP_FILTER_LANGUAGE = 'filter_language';
 const SETUP_FILTER_RANK_RANGE = 'filter_rank_range';
+const SEND_DRAFT_TEAM_SELECT = 'send_draft_team_select';
+const SEND_DRAFT_PICK_SELECT = 'send_draft_pick_select';
 
 const ROLE_FORWARDING_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_ROLE_FORWARDING_POLL_INTERVAL_MS || '300000', 10);
 
@@ -250,6 +252,26 @@ type PendingRoleMenuSession = {
   rolePage: number;
 };
 
+type SendDraftOption = {
+  id: string;
+  name: string;
+  updatedAt: string;
+};
+
+type SendDraftTeamOption = {
+  id: string;
+  name: string;
+  tag: string | null;
+  drafts: SendDraftOption[];
+};
+
+type PendingSendDraftSession = {
+  guildId: string;
+  discordUserId: string;
+  teams: SendDraftTeamOption[];
+  selectedTeamId: string | null;
+};
+
 // ============================================================
 // Slash Commands
 // ============================================================
@@ -269,6 +291,11 @@ const commands = [
     .setName('rolemenu')
     .setDescription('Configure automatic Discord roles from RiftEssence rank/language profile data')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('send-draft')
+    .setDescription('Send a saved team draft embed to this channel')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .toJSON(),
 ];
 
@@ -340,9 +367,129 @@ async function apiRequest(endpoint: string, method = 'GET', body?: any) {
 }
 
 const pendingRoleMenuSessions = new Map<string, PendingRoleMenuSession>();
+const pendingSendDraftSessions = new Map<string, PendingSendDraftSession>();
 
 function getRoleMenuSessionKey(userId: string, guildId: string) {
   return `${userId}-${guildId}`;
+}
+
+function getSendDraftSessionKey(userId: string, guildId: string) {
+  return `${userId}-${guildId}`;
+}
+
+function hasSendDraftPermission(member: any): boolean {
+  return Boolean(
+    member?.permissions?.has?.(PermissionFlagsBits.Administrator)
+    || member?.permissions?.has?.(PermissionFlagsBits.ManageGuild)
+  );
+}
+
+async function fetchSendDraftOptions(guildId: string, discordId: string) {
+  const endpoint = `/api/teams/discord-drafts/options?guildId=${encodeURIComponent(guildId)}&discordId=${encodeURIComponent(discordId)}`;
+  const result = await apiRequest(endpoint);
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: result.data?.error || 'Failed to fetch draft options',
+      status: 'ERROR',
+      teams: [] as SendDraftTeamOption[],
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+    status: String(result.data?.status || 'ERROR'),
+    teams: Array.isArray(result.data?.teams) ? (result.data.teams as SendDraftTeamOption[]) : [],
+  };
+}
+
+async function fetchSendDraftById(draftId: string, discordId: string) {
+  const endpoint = `/api/teams/discord-drafts/${encodeURIComponent(draftId)}?discordId=${encodeURIComponent(discordId)}`;
+  const result = await apiRequest(endpoint);
+  if (!result.ok || !result.data?.draft) {
+    return { ok: false, error: result.data?.error || 'Failed to fetch selected draft', draft: null };
+  }
+
+  return { ok: true, error: null, draft: result.data.draft };
+}
+
+function buildSendDraftTeamChooserEmbed(guildName: string, teams: SendDraftTeamOption[]) {
+  const lines = teams.map((team) => `• **${team.name}${team.tag ? ` [${team.tag}]` : ''}** (${team.drafts.length} drafts)`);
+  return new EmbedBuilder()
+    .setColor(0x3B82F6)
+    .setTitle('📋 Send Saved Draft')
+    .setDescription(
+      `Server: **${guildName}**\n` +
+      `Choose a team first, then pick one of its saved drafts.`
+    )
+    .addFields({
+      name: 'Eligible Teams',
+      value: lines.join('\n').slice(0, 1024) || 'No eligible teams found.',
+    })
+    .setFooter({ text: 'Requires linked Discord account, team membership, and at least one saved draft.' })
+    .setTimestamp();
+}
+
+function buildSendDraftPickChooserEmbed(team: SendDraftTeamOption) {
+  return new EmbedBuilder()
+    .setColor(0x2563EB)
+    .setTitle('🧠 Choose Draft')
+    .setDescription(`Team: **${team.name}${team.tag ? ` [${team.tag}]` : ''}**\nPick a saved draft to send to this channel.`)
+    .setTimestamp();
+}
+
+function buildDraftRoundLine(label: string, champion: string | null | undefined, role: string | null | undefined) {
+  const champ = (champion || '').trim() || '—';
+  const rolePart = role ? ` (${role})` : '';
+  return `${label}: ${champ}${rolePart}`;
+}
+
+function buildSendDraftEmbed(draft: any, requestedBy: string) {
+  const picks = Array.isArray(draft?.picks) ? draft.picks : [];
+  const blueIndexes = [0, 3, 4, 7, 8];
+  const redIndexes = [1, 2, 5, 6, 9];
+
+  const blueRounds = blueIndexes.map((pickIndex, i) => {
+    const slot = picks[pickIndex] || {};
+    return buildDraftRoundLine(`B${i + 1}`, slot?.champion, slot?.assignedRole || null);
+  });
+  const redRounds = redIndexes.map((pickIndex, i) => {
+    const slot = picks[pickIndex] || {};
+    return buildDraftRoundLine(`R${i + 1}`, slot?.champion, slot?.assignedRole || null);
+  });
+
+  const blueBans = Array.isArray(draft?.blueBans) ? draft.blueBans : [];
+  const redBans = Array.isArray(draft?.redBans) ? draft.redBans : [];
+
+  return new EmbedBuilder()
+    .setColor(0x1D4ED8)
+    .setTitle(`Draft • ${draft?.name || 'Unnamed Draft'}`)
+    .setDescription(`Team: **${draft?.team?.name || 'Unknown Team'}${draft?.team?.tag ? ` [${draft.team.tag}]` : ''}**`)
+    .addFields(
+      {
+        name: '🔵 Blue Bans',
+        value: (blueBans.map((entry: string, i: number) => `B${i + 1}: ${entry || '—'}`).join('\n') || 'None').slice(0, 1024),
+        inline: true,
+      },
+      {
+        name: '🔴 Red Bans',
+        value: (redBans.map((entry: string, i: number) => `R${i + 1}: ${entry || '—'}`).join('\n') || 'None').slice(0, 1024),
+        inline: true,
+      },
+      {
+        name: '🔵 Blue Picks (Rounds)',
+        value: blueRounds.join('\n').slice(0, 1024),
+        inline: true,
+      },
+      {
+        name: '🔴 Red Picks (Rounds)',
+        value: redRounds.join('\n').slice(0, 1024),
+        inline: true,
+      },
+    )
+    .setFooter({ text: `Sent by ${requestedBy} • Last updated ${new Date(draft?.updatedAt || Date.now()).toLocaleString()}` })
+    .setTimestamp();
 }
 
 function modeLabel(mode: 'RANK' | 'LANGUAGE') {
@@ -890,6 +1037,66 @@ async function handleRoleMenu(interaction: ChatInputCommandInteraction) {
   });
 }
 
+async function handleSendDraft(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const guildId = interaction.guildId;
+  const guild = interaction.guild;
+  if (!guildId || !guild) {
+    return interaction.editReply('❌ This command must be used in a server.');
+  }
+
+  const member = interaction.member as any;
+  if (!hasSendDraftPermission(member)) {
+    return interaction.editReply('❌ You need **Manage Server** or **Administrator** permission to send drafts.');
+  }
+
+  const options = await fetchSendDraftOptions(guildId, interaction.user.id);
+  if (!options.ok) {
+    return interaction.editReply(`❌ ${options.error || 'Failed to load draft options.'}`);
+  }
+
+  if (options.status === 'MISSING_DISCORD_LINK') {
+    return interaction.editReply('❌ Your Discord account is not linked to RiftEssence. Link it from your profile first.');
+  }
+
+  if (options.status === 'NO_TEAM_MEMBERSHIP') {
+    return interaction.editReply('❌ You are not part of any RiftEssence team. Join or create a team first.');
+  }
+
+  const teamsWithDrafts = options.teams.filter((team) => Array.isArray(team.drafts) && team.drafts.length > 0);
+  if (options.status === 'NO_SAVED_DRAFTS' || teamsWithDrafts.length === 0) {
+    return interaction.editReply('❌ No saved drafts found. Create and save at least one draft in the Team Draft Room first.');
+  }
+
+  const sessionKey = getSendDraftSessionKey(interaction.user.id, guildId);
+  pendingSendDraftSessions.set(sessionKey, {
+    guildId,
+    discordUserId: interaction.user.id,
+    teams: teamsWithDrafts,
+    selectedTeamId: null,
+  });
+
+  const teamOptions = teamsWithDrafts.slice(0, 25).map((team) =>
+    new StringSelectMenuOptionBuilder()
+      .setLabel(`${team.name}${team.tag ? ` [${team.tag}]` : ''}`.slice(0, 100))
+      .setValue(team.id)
+      .setDescription(`${team.drafts.length} saved drafts`.slice(0, 100))
+  );
+
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(SEND_DRAFT_TEAM_SELECT)
+      .setPlaceholder('Choose a team')
+      .addOptions(teamOptions)
+  );
+
+  return interaction.editReply({
+    embeds: [buildSendDraftTeamChooserEmbed(guild.name, teamsWithDrafts)],
+    components: [row],
+  });
+}
+
 function describeFilters(fc: any): string {
   const parts: string[] = [];
   if (fc.filterRegions?.length > 0) parts.push(`Regions: ${fc.filterRegions.join(', ')}`);
@@ -1315,6 +1522,89 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
   const key = `${interaction.user.id}-${interaction.channelId}`;
   const customId = interaction.customId;
   const guildId = interaction.guildId;
+
+  if (customId === SEND_DRAFT_TEAM_SELECT || customId === SEND_DRAFT_PICK_SELECT) {
+    if (!guildId) {
+      return interaction.update({ content: '❌ This action must be used in a server.', embeds: [], components: [] });
+    }
+
+    const sessionKey = getSendDraftSessionKey(interaction.user.id, guildId);
+    const session = pendingSendDraftSessions.get(sessionKey);
+    if (!session) {
+      return interaction.update({ content: '❌ Draft menu expired. Run `/send-draft` again.', embeds: [], components: [] });
+    }
+
+    if (customId === SEND_DRAFT_TEAM_SELECT) {
+      const teamId = interaction.values[0];
+      const selectedTeam = session.teams.find((team) => team.id === teamId);
+      if (!selectedTeam) {
+        return interaction.update({ content: '❌ Selected team is no longer available.', embeds: [], components: [] });
+      }
+
+      session.selectedTeamId = selectedTeam.id;
+      pendingSendDraftSessions.set(sessionKey, session);
+
+      const draftOptions = selectedTeam.drafts.slice(0, 25).map((draft) =>
+        new StringSelectMenuOptionBuilder()
+          .setLabel(draft.name.slice(0, 100))
+          .setValue(`${selectedTeam.id}::${draft.id}`)
+          .setDescription(`Updated ${new Date(draft.updatedAt).toLocaleString()}`.slice(0, 100))
+      );
+
+      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(SEND_DRAFT_PICK_SELECT)
+          .setPlaceholder('Choose a saved draft')
+          .addOptions(draftOptions)
+      );
+
+      return interaction.update({
+        embeds: [buildSendDraftPickChooserEmbed(selectedTeam)],
+        components: [row],
+      });
+    }
+
+    const encoded = interaction.values[0] || '';
+    const [teamId, draftId] = encoded.split('::');
+    if (!teamId || !draftId) {
+      return interaction.update({ content: '❌ Invalid draft selection.', embeds: [], components: [] });
+    }
+
+    const selectedTeam = session.teams.find((team) => team.id === teamId);
+    if (!selectedTeam) {
+      return interaction.update({ content: '❌ Selected team is no longer available.', embeds: [], components: [] });
+    }
+
+    const draftResult = await fetchSendDraftById(draftId, interaction.user.id);
+    if (!draftResult.ok || !draftResult.draft) {
+      return interaction.update({ content: `❌ ${draftResult.error || 'Failed to load selected draft.'}`, embeds: [], components: [] });
+    }
+
+    const embed = buildSendDraftEmbed(draftResult.draft, interaction.user.username);
+
+    try {
+      if (!interaction.channel || !interaction.channel.isTextBased()) {
+        return interaction.update({ content: '❌ Could not find a text channel to post this draft.', embeds: [], components: [] });
+      }
+
+      const channel = interaction.channel as TextChannel;
+      await channel.send({ embeds: [embed] });
+
+      pendingSendDraftSessions.delete(sessionKey);
+      return interaction.update({
+        content: '✅ Draft sent to this channel.',
+        embeds: [],
+        components: [],
+      });
+    } catch (error: any) {
+      console.error('❌ Failed to send selected draft embed:', error?.message || error);
+      return interaction.update({
+        content: '❌ Failed to send the draft embed to this channel. Check bot channel permissions and try again.',
+        embeds: [],
+        components: [],
+      });
+    }
+  }
 
   if (customId === ROLE_MENU_SELECT_KEY) {
     if (!guildId) return interaction.deferUpdate();
@@ -3196,6 +3486,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleSetup(interaction);
     } else if (commandName === 'rolemenu') {
       await handleRoleMenu(interaction);
+    } else if (commandName === 'send-draft') {
+      await handleSendDraft(interaction);
     }
     return;
   }
@@ -3232,6 +3524,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // Select menu interactions (filter menus)
   if (interaction.isStringSelectMenu()) {
     const member = interaction.member as any;
+    const isSendDraftMenu = interaction.customId === SEND_DRAFT_TEAM_SELECT || interaction.customId === SEND_DRAFT_PICK_SELECT;
+
+    if (isSendDraftMenu) {
+      if (!hasSendDraftPermission(member)) {
+        return interaction.reply({ content: '❌ You need **Manage Server** or **Administrator** permission to send drafts.', ephemeral: true });
+      }
+      await handleSelectMenuInteraction(interaction as StringSelectMenuInteraction);
+      return;
+    }
+
     if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
       return interaction.reply({ content: '❌ Only administrators can configure bot settings.', ephemeral: true });
     }
