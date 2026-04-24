@@ -59,6 +59,23 @@ type ChampionSuggestion = {
   bestTier: TierKey;
 };
 
+type SavedDraft = {
+  id: string;
+  name: string;
+  teamId: string;
+  teamName: string;
+  createdAt: string;
+  updatedAt: string;
+  blueBans: string[];
+  redBans: string[];
+  picks: PickSlot[];
+};
+
+type DraftLibraryState = {
+  activeDraftId: string | null;
+  drafts: SavedDraft[];
+};
+
 const CHAMPION_ROLE_HINTS: Record<string, DraftRole> = {
   Aatrox: 'TOP',
   Ahri: 'MID',
@@ -140,6 +157,8 @@ const CHAMPION_ROLE_HINTS: Record<string, DraftRole> = {
   Zeri: 'ADC',
   Zyra: 'SUP',
 };
+
+const DRAFT_LIBRARY_KEY = 'riftessence_team_draft_library_v1';
 
 const PLAYER_ROLES = new Set(['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS', 'OWNER']);
 const ROLE_ORDER: DraftRole[] = ['TOP', 'JGL', 'MID', 'ADC', 'SUP'];
@@ -230,6 +249,9 @@ const TeamDraftsPage: React.FC = () => {
   const [allChampions, setAllChampions] = useState<string[]>([]);
   const [championSearch, setChampionSearch] = useState('');
   const [draggingChampion, setDraggingChampion] = useState<DragPayload | null>(null);
+  const [draftName, setDraftName] = useState('New Draft');
+  const [savedDrafts, setSavedDrafts] = useState<SavedDraft[]>([]);
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
   const [blueBans, setBlueBans] = useState<string[]>(['', '', '', '', '']);
   const [redBans, setRedBans] = useState<string[]>(['', '', '', '', '']);
   const [picks, setPicks] = useState<PickSlot[]>(PICK_ORDER.map((side) => ({ side, champion: '', assignedRole: null })));
@@ -327,6 +349,16 @@ const TeamDraftsPage: React.FC = () => {
       .slice(0, 16);
   }, [playerPools, usedChampions]);
 
+  const visibleSavedDrafts = useMemo(() => {
+    if (!selectedTeamId) return savedDrafts;
+    return savedDrafts.filter((draft) => draft.teamId === selectedTeamId);
+  }, [savedDrafts, selectedTeamId]);
+
+  const activeSavedDraft = useMemo(
+    () => savedDrafts.find((draft) => draft.id === activeDraftId) || null,
+    [savedDrafts, activeDraftId]
+  );
+
   useEffect(() => {
     const loadChampions = async () => {
       try {
@@ -380,6 +412,51 @@ const TeamDraftsPage: React.FC = () => {
 
     void loadTeams();
   }, [apiUrl]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const savedRaw = window.localStorage.getItem(DRAFT_LIBRARY_KEY);
+      if (!savedRaw) return;
+      const saved = JSON.parse(savedRaw) as DraftLibraryState;
+      if (Array.isArray(saved.drafts)) {
+        setSavedDrafts(saved.drafts);
+      }
+      if (saved.activeDraftId && Array.isArray(saved.drafts)) {
+        const activeDraft = saved.drafts.find((draft) => draft.id === saved.activeDraftId) || null;
+        if (activeDraft) {
+          setActiveDraftId(activeDraft.id);
+          setDraftName(activeDraft.name);
+          setSelectedTeamId(activeDraft.teamId);
+          setBlueBans(activeDraft.blueBans.length === 5 ? activeDraft.blueBans : ['', '', '', '', '']);
+          setRedBans(activeDraft.redBans.length === 5 ? activeDraft.redBans : ['', '', '', '', '']);
+          setPicks(
+            (activeDraft.picks.length === PICK_ORDER.length ? activeDraft.picks : PICK_ORDER.map((side) => ({ side, champion: '', assignedRole: null }))).map((pick, index) => ({
+              side: PICK_ORDER[index],
+              champion: pick.champion || '',
+              assignedRole: pick.assignedRole || null,
+            }))
+          );
+        }
+      }
+    } catch (error) {
+      console.warn('Could not restore team draft library', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      window.localStorage.setItem(DRAFT_LIBRARY_KEY, JSON.stringify({
+        activeDraftId,
+        drafts: savedDrafts,
+      } satisfies DraftLibraryState));
+    } catch {
+      // Ignore write failures.
+    }
+  }, [activeDraftId, savedDrafts]);
 
   useEffect(() => {
     const loadPools = async () => {
@@ -460,11 +537,58 @@ const TeamDraftsPage: React.FC = () => {
     setPicks((prev) => prev.map((pick, i) => (i === index ? { ...pick, assignedRole: role } : pick)));
   };
 
+  const buildDraftSnapshot = () => ({
+    id: activeDraftId || (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `draft-${Date.now()}`),
+    name: draftName.trim() || 'New Draft',
+    teamId: selectedTeam?.id || selectedTeamId || '',
+    teamName: selectedTeam?.name || 'Unknown Team',
+    createdAt: activeSavedDraft?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    blueBans,
+    redBans,
+    picks,
+  } satisfies SavedDraft);
+
+  const applySavedDraft = (draft: SavedDraft) => {
+    setSelectedTeamId(draft.teamId);
+    setDraftName(draft.name);
+    setBlueBans(draft.blueBans.length === 5 ? draft.blueBans : ['', '', '', '', '']);
+    setRedBans(draft.redBans.length === 5 ? draft.redBans : ['', '', '', '', '']);
+    setPicks(
+      (draft.picks.length === PICK_ORDER.length ? draft.picks : PICK_ORDER.map((side) => ({ side, champion: '', assignedRole: null }))).map((pick, index) => ({
+        side: PICK_ORDER[index],
+        champion: pick.champion || '',
+        assignedRole: pick.assignedRole || null,
+      }))
+    );
+    setActiveDraftId(draft.id);
+  };
+
+  const saveCurrentDraft = (mode: 'overwrite' | 'duplicate') => {
+    const snapshot = buildDraftSnapshot();
+    setSavedDrafts((prev) => {
+      if (mode === 'overwrite' && activeDraftId && prev.some((draft) => draft.id === activeDraftId)) {
+        return prev.map((draft) => (draft.id === activeDraftId ? { ...snapshot, id: draft.id, createdAt: draft.createdAt } : draft));
+      }
+
+      return [snapshot, ...prev.filter((draft) => draft.id !== snapshot.id)];
+    });
+    setActiveDraftId(snapshot.id);
+    setDraftName(snapshot.name);
+  };
+
+  const deleteSavedDraft = (draftId: string) => {
+    setSavedDrafts((prev) => prev.filter((draft) => draft.id !== draftId));
+    setActiveDraftId((current) => (current === draftId ? null : current));
+  };
+
   const resetDraft = () => {
     setBlueBans(['', '', '', '', '']);
     setRedBans(['', '', '', '', '']);
     setPicks(PICK_ORDER.map((side) => ({ side, champion: '', assignedRole: null })));
     setDraggingChampion(null);
+    setActiveDraftId(null);
+    setDraftName('New Draft');
   };
 
   if (!user) {
@@ -610,6 +734,90 @@ const TeamDraftsPage: React.FC = () => {
                   </button>
                 </div>
 
+                <div className="border rounded-lg p-3 space-y-3" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}>
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="flex-1 min-w-[220px]">
+                      <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                        Draft Name
+                      </label>
+                      <input
+                        value={draftName}
+                        onChange={(event) => setDraftName(event.target.value)}
+                        placeholder="New Draft"
+                        className="w-full px-3 py-2 rounded-md text-sm"
+                        style={{
+                          backgroundColor: 'var(--color-bg-secondary)',
+                          border: '1px solid var(--color-border)',
+                          color: 'var(--color-text-primary)',
+                        }}
+                      />
+                    </div>
+                    <button
+                      onClick={() => saveCurrentDraft('duplicate')}
+                      className="px-3 py-2 rounded-md text-sm"
+                      style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+                    >
+                      Save as New
+                    </button>
+                    <button
+                      onClick={() => saveCurrentDraft('overwrite')}
+                      className="px-3 py-2 rounded-md text-sm"
+                      style={{ backgroundColor: 'var(--color-accent-1)', color: '#111', border: '1px solid transparent' }}
+                    >
+                      Save Current
+                    </button>
+                    <button
+                      onClick={() => {
+                        resetDraft();
+                        setDraftName('New Draft');
+                      }}
+                      className="px-3 py-2 rounded-md text-sm"
+                      style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
+                    >
+                      New Blank Draft
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    <span>
+                      {activeSavedDraft ? `Loaded: ${activeSavedDraft.name}` : 'No saved draft loaded'}
+                    </span>
+                    <span>{visibleSavedDrafts.length} saved draft{visibleSavedDrafts.length === 1 ? '' : 's'} for this team</span>
+                  </div>
+
+                  <div className="space-y-2 max-h-40 overflow-auto pr-1">
+                    {visibleSavedDrafts.map((draft) => (
+                      <div
+                        key={draft.id}
+                        className="flex items-center justify-between gap-3 border rounded-lg px-3 py-2"
+                        style={{ borderColor: draft.id === activeDraftId ? 'var(--color-accent-1)' : 'var(--color-border)', backgroundColor: 'var(--color-bg-secondary)' }}
+                      >
+                        <button
+                          onClick={() => applySavedDraft(draft)}
+                          className="flex-1 text-left min-w-0"
+                        >
+                          <span className="block text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>{draft.name}</span>
+                          <span className="block text-[11px] truncate" style={{ color: 'var(--color-text-muted)' }}>
+                            {draft.teamName} • Updated {new Date(draft.updatedAt).toLocaleString()}
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => deleteSavedDraft(draft.id)}
+                          className="px-2 py-1 rounded text-xs"
+                          style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', color: '#FCA5A5', border: '1px solid rgba(239, 68, 68, 0.35)' }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ))}
+                    {visibleSavedDrafts.length === 0 && (
+                      <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                        No saved drafts for this team yet.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs uppercase tracking-wide mb-2" style={{ color: '#93C5FD' }}>Blue Bans</p>
@@ -712,7 +920,7 @@ const TeamDraftsPage: React.FC = () => {
                                           style={{
                                             borderColor: selected ? sideColor : 'var(--color-border)',
                                             backgroundColor: selected ? `${sideColor}30` : 'transparent',
-                                            color: selected ? sideColor : 'var(--color-text-muted)',
+                                            color: '#FACC15',
                                           }}
                                           title={role}
                                         >

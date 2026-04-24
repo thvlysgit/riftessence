@@ -8,7 +8,7 @@
 
 ### Objective: Correct draft UX flow for tournament-style picks, fix lane-role icon fidelity, and expose full champion selection coverage
 
-Overview: Updated the Teams Draft Room to match tournament pick expectations (round-labeled lanes with blue-left and red-right picks), corrected role iconography to match existing project role visuals, made the champion picker include all available champions with search, and added draft suggestions derived from player champion pools.
+Overview: Updated the Teams Draft Room to match tournament pick expectations (round-labeled lanes with blue-left and red-right picks), corrected role iconography to match existing project role visuals, added a local multi-draft library, made the champion picker include all available champions with search, and added draft suggestions derived from player champion pools.
 
 Changes:
 
@@ -19,6 +19,7 @@ Changes:
   - Preserved true pick turn ordering metadata while improving side readability (`Turn 1` through `Turn 10`).
   - Removed champion picker truncation and now surfaces the full merged champion list.
   - Added champion search input for large-list usability.
+  - Added a local draft library that can save multiple named drafts, reopen the last active draft, and delete or overwrite saved entries.
   - Added pool-based drafting suggestions section:
     - scores champions by tier-weighted presence across player pools,
     - highlights strongest available picks not yet used in bans/picks,
