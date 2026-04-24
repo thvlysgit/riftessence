@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import SEOHead from '@components/SEOHead';
 import NoAccess from '@components/NoAccess';
 import { useAuth } from '../../contexts/AuthContext';
@@ -51,9 +52,20 @@ type DragPayload = {
   tier: TierKey;
 };
 
+type ChampionSuggestion = {
+  champion: string;
+  score: number;
+  players: number;
+  bestTier: TierKey;
+};
+
 const PLAYER_ROLES = new Set(['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS', 'OWNER']);
 const ROLE_ORDER: DraftRole[] = ['TOP', 'JGL', 'MID', 'ADC', 'SUP'];
+
+// Tournament pick order: B1 R1 R2 B2 B3 R3 R4 B4 B5 R5
 const PICK_ORDER: DraftSide[] = ['BLUE', 'RED', 'RED', 'BLUE', 'BLUE', 'RED', 'RED', 'BLUE', 'BLUE', 'RED'];
+const BLUE_PICK_SLOT_INDEXES = [0, 3, 4, 7, 8];
+const RED_PICK_SLOT_INDEXES = [1, 2, 5, 6, 9];
 
 const TIER_STYLE: Record<TierKey, { border: string; bg: string }> = {
   S: { border: '#FFD700', bg: 'rgba(255, 215, 0, 0.16)' },
@@ -61,6 +73,8 @@ const TIER_STYLE: Record<TierKey, { border: string; bg: string }> = {
   B: { border: '#CD7F32', bg: 'rgba(205, 127, 50, 0.16)' },
   C: { border: '#7A7A7A', bg: 'rgba(122, 122, 122, 0.16)' },
 };
+
+const TIER_WEIGHT: Record<TierKey, number> = { S: 4, A: 3, B: 2, C: 1 };
 
 function normalizeChampion(value: unknown): string | null {
   if (typeof value !== 'string') return null;
@@ -102,15 +116,15 @@ function getRoleIcon(role: DraftRole): React.ReactNode {
     return <svg className="w-4 h-4" viewBox="0 0 136 136" fill="currentColor"><path d="M16 16c32.06 0 64.12-.01 96.18.01-6.72 6.67-13.45 13.33-20.19 19.99H36v56c-6.66 6.73-13.33 13.46-19.99 20.18-.02-32.06 0-64.12-.01-96.18Z"/><path d="M104 44.02c5.32-5.33 10.65-10.64 15.99-15.94.02 30.64.01 61.28.01 91.92-30.64 0-61.28.01-91.93-.01 5.33-5.34 10.66-10.66 16-15.99 19.97-.01 39.95.01 59.93 0V44.02Z" opacity="0.75"/><path d="M56 56h28v28H56V56Z" opacity="0.75"/></svg>;
   }
   if (role === 'JGL') {
-    return <svg className="w-4 h-4" viewBox="0 0 136 136" fill="currentColor"><path d="M72.13 57.86C78.7 41.1 90.04 26.94 99.94 12.1 93 29.47 84.31 46.87 84.04 65.97c-.73 4.81-2.83 9.31-4 14.03-2.08-7.57-4.91-14.9-7.91-22.14Z"/><path d="M36.21 12.35c13.06 20.19 26.67 40.61 33.61 63.87 4.77 15.49 5.42 32.94-1.8 47.8-5.58-6.1-11.08-12.29-16.71-18.34-4.97-4.72-10.26-9.1-15.32-13.71-1.55-11.73-2.97-23.87-8.72-34.42-2.75-5.24-6.71-9.72-11.19-13.55 9.67 4.75 19.18 10.41 26.23 18.72 4.37 4.98 7.46 10.94 9.69 17.15 1.15-10.29.58-20.79-2.05-30.81-3.31-12.68-8.99-24.55-13.74-36.71Z"/></svg>;
+    return <svg className="w-4 h-4" viewBox="0 0 136 136" fill="currentColor"><path d="M72.13 57.86C78.7 41.1 90.04 26.94 99.94 12.1 93 29.47 84.31 46.87 84.04 65.97c-.73 4.81-2.83 9.31-4 14.03-2.08-7.57-4.91-14.9-7.91-22.14ZM36.21 12.35c13.06 20.19 26.67 40.61 33.61 63.87 4.77 15.49 5.42 32.94-1.8 47.8-5.58-6.1-11.08-12.29-16.71-18.34-4.97-4.72-10.26-9.1-15.32-13.71-1.55-11.73-2.97-23.87-8.72-34.42-2.75-5.24-6.71-9.72-11.19-13.55 9.67 4.75 19.18 10.41 26.23 18.72 4.37 4.98 7.46 10.94 9.69 17.15 1.15-10.29.58-20.79-2.05-30.81-3.31-12.68-8.99-24.55-13.74-36.71ZM105.84 53.83c4.13-4 8.96-7.19 14.04-9.84-4.4 3.88-8.4 8.32-11.14 13.55-5.75 10.56-7.18 22.71-8.74 34.45-5.32 5.35-10.68 10.65-15.98 16.01.15-4.37-.25-8.84 1.02-13.1 3.39-15.08 9.48-30.18 20.8-41.07Z"/></svg>;
   }
   if (role === 'MID') {
-    return <svg className="w-4 h-4" viewBox="0 0 136 136" fill="currentColor"><path d="M16 16c22.67 0 45.33 0 67.99.01C78.62 21.34 73.28 26.69 67.88 32c-11.96 0-23.92-.01-35.88 0-.01 12 .01 24-.01 36-5.32 5.3-10.64 10.6-15.98 15.89C15.99 61.26 16 38.63 16 16zm87.95 51.9c5.32-5.37 10.69-10.68 16.04-16.02.02 22.71.01 45.41 0 68.12-22.65 0-45.31.01-67.97-.01 5.33-5.33 10.65-10.67 15.99-15.99 12-.01 23.99.01 35.99 0 .04-12.04-.05-24.07-.05-36.1z" opacity="0.75"/></svg>;
+    return <svg className="w-4 h-4" viewBox="0 0 136 136" fill="currentColor"><path d="M16 16c22.67 0 45.33 0 67.99.01C78.62 21.34 73.28 26.69 67.88 32c-11.96 0-23.92-.01-35.88 0-.01 12 .01 24-.01 36-5.32 5.3-10.64 10.6-15.98 15.89C15.99 61.26 16 38.63 16 16zm87.95 51.9c5.32-5.37 10.69-10.68 16.04-16.02.02 22.71.01 45.41 0 68.12-22.65 0-45.31.01-67.97-.01 5.33-5.33 10.65-10.67 15.99-15.99 12-.01 23.99.01 35.99 0 .04-12.04-.05-24.07-.05-36.1z" opacity="0.75"/><path d="M100.02 16H120v19.99C92 64 64 92 35.99 120H16v-19.99C44 72 72 43.99 100.02 16z"/></svg>;
   }
   if (role === 'ADC') {
-    return <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 4h10l2 4-7 12-7-12 2-4z"/></svg>;
+    return <Image src="/assets/BotLane.png" alt="Bot" width={16} height={16} className="w-4 h-4" style={{ filter: 'brightness(0) saturate(100%) invert(73%) sepia(16%) saturate(1018%) hue-rotate(8deg) brightness(91%) contrast(85%)' }} />;
   }
-  return <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>;
+  return <svg className="w-4 h-4" viewBox="0 0 136 136" fill="currentColor"><path d="M52.21 12.03c10.33-.1 20.66.06 30.99-.08 1.71 2.62 3.2 5.37 4.79 8.07C81.32 28 74.68 36.01 68 43.98 61.32 36 54.66 28 48.01 19.99c1.4-2.65 2.82-5.29 4.2-7.96ZM0 36.3c14.64-.68 29.33-.11 43.99-.3C48 40 52 44 56 48.01c-2.67 9.32-5.32 18.66-8.01 27.98-6.66-2.65-13.32-5.32-19.98-7.99 3.97-5.35 8.02-10.63 11.96-15.99-5.01-.08-10.15.4-15-1.14C15.58 48.12 7.75 42.05 0 36.34v-.04ZM92.02 36c14.66.05 29.32-.09 43.98.07v.03c-7.3 5.9-15.1 11.53-24.1 14.5-5.11 1.85-10.59 1.34-15.91 1.41 4.01 5.32 8 10.65 11.99 15.98-6.64 2.7-13.31 5.34-19.97 8-2.69-9.32-5.34-18.65-8.01-27.98C84.01 44 88 39.99 92.02 36ZM64.01 52.11c1.36 1.26 2.7 2.55 3.99 3.89 1.32-1.33 2.65-2.65 3.99-3.97 4.04 19.97 7.97 39.96 12.02 59.92-5.31 4.05-10.66 8.07-16.04 12.03-5.32-4.01-10.67-7.97-15.98-12.01 4.04-19.94 7.96-39.92 12.02-59.86Z"/></svg>;
 }
 
 const TeamDraftsPage: React.FC = () => {
@@ -123,6 +137,7 @@ const TeamDraftsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [allChampions, setAllChampions] = useState<string[]>([]);
+  const [championSearch, setChampionSearch] = useState('');
   const [draggingChampion, setDraggingChampion] = useState<DragPayload | null>(null);
   const [blueBans, setBlueBans] = useState<string[]>(['', '', '', '', '']);
   const [redBans, setRedBans] = useState<string[]>(['', '', '', '', '']);
@@ -150,6 +165,76 @@ const TeamDraftsPage: React.FC = () => {
     }
     return used;
   }, [blueBans, redBans, picks]);
+
+  const pickerChampions = useMemo(() => {
+    const merged = new Map<string, string>();
+    for (const champion of allChampions) {
+      merged.set(champion.toLowerCase(), champion);
+    }
+    for (const member of playerPools) {
+      for (const tier of Object.keys(member.tiers) as TierKey[]) {
+        for (const champion of member.tiers[tier]) {
+          const key = champion.toLowerCase();
+          if (!merged.has(key)) merged.set(key, champion);
+        }
+      }
+    }
+    return Array.from(merged.values()).sort((a, b) => a.localeCompare(b));
+  }, [allChampions, playerPools]);
+
+  const filteredPickerChampions = useMemo(() => {
+    const query = championSearch.trim().toLowerCase();
+    if (!query) return pickerChampions;
+    return pickerChampions.filter((champion) => champion.toLowerCase().includes(query));
+  }, [pickerChampions, championSearch]);
+
+  const suggestions = useMemo(() => {
+    const bucket = new Map<string, { champion: string; score: number; players: Set<string>; bestTierWeight: number }>();
+
+    for (const member of playerPools) {
+      const localBest = new Map<string, number>();
+      for (const tier of Object.keys(member.tiers) as TierKey[]) {
+        for (const champion of member.tiers[tier]) {
+          const key = champion.toLowerCase();
+          const weight = TIER_WEIGHT[tier];
+          localBest.set(key, Math.max(localBest.get(key) || 0, weight));
+          if (!bucket.has(key)) {
+            bucket.set(key, { champion, score: 0, players: new Set<string>(), bestTierWeight: weight });
+          }
+          const entry = bucket.get(key)!;
+          if (weight > entry.bestTierWeight) entry.bestTierWeight = weight;
+        }
+      }
+
+      for (const [key, weight] of localBest) {
+        const entry = bucket.get(key)!;
+        entry.score += weight;
+        entry.players.add(member.userId);
+      }
+    }
+
+    const toTier = (weight: number): TierKey => {
+      if (weight >= 4) return 'S';
+      if (weight >= 3) return 'A';
+      if (weight >= 2) return 'B';
+      return 'C';
+    };
+
+    return Array.from(bucket.values())
+      .filter((entry) => !usedChampions.has(entry.champion.toLowerCase()))
+      .map((entry) => ({
+        champion: entry.champion,
+        score: entry.score,
+        players: entry.players.size,
+        bestTier: toTier(entry.bestTierWeight),
+      } as ChampionSuggestion))
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.players !== a.players) return b.players - a.players;
+        return a.champion.localeCompare(b.champion);
+      })
+      .slice(0, 16);
+  }, [playerPools, usedChampions]);
 
   useEffect(() => {
     const loadChampions = async () => {
@@ -284,6 +369,7 @@ const TeamDraftsPage: React.FC = () => {
     setBlueBans(['', '', '', '', '']);
     setRedBans(['', '', '', '', '']);
     setPicks(PICK_ORDER.map((side) => ({ side, champion: '', assignedRole: null })));
+    setDraggingChampion(null);
   };
 
   if (!user) {
@@ -313,7 +399,7 @@ const TeamDraftsPage: React.FC = () => {
                 Team Draft Room
               </h1>
               <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                Player champion pools only. Drag champions into bans and pick order slots.
+                Player champion pools only. Drag champions into bans and tournament pick slots.
               </p>
             </div>
             <Link href="/teams/dashboard" className="text-sm hover:opacity-80" style={{ color: 'var(--color-accent-1)' }}>
@@ -386,11 +472,6 @@ const TeamDraftsPage: React.FC = () => {
                                     setDraggingChampion({ champion, sourceUserId: member.userId, tier });
                                   }}
                                   onDragEnd={() => setDraggingChampion(null)}
-                                  onClick={() => {
-                                    if (!disabled) {
-                                      setDraggingChampion({ champion, sourceUserId: member.userId, tier });
-                                    }
-                                  }}
                                   className="relative w-10 h-10 rounded-md overflow-hidden"
                                   style={{
                                     border: `2px solid ${TIER_STYLE[tier].border}`,
@@ -478,56 +559,80 @@ const TeamDraftsPage: React.FC = () => {
 
                 <div className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}>
                   <p className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                    Pick Order (Blue/Red)
+                    Tournament Pick Rounds
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {picks.map((slot, index) => {
-                      const sideColor = slot.side === 'BLUE' ? '#93C5FD' : '#FCA5A5';
-                      return (
-                        <div
-                          key={`pick-${index}`}
-                          className="border rounded-lg p-2 flex items-center gap-2"
-                          style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-secondary)' }}
-                        >
-                          <div className="text-xs font-semibold w-14" style={{ color: sideColor }}>
-                            {slot.side[0]}{index + 1}
-                          </div>
-                          <button
-                            className="w-12 h-12 rounded-md border overflow-hidden flex items-center justify-center text-xs"
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={() => onDropChampion({ kind: 'pick', index })}
-                            onClick={() => {
-                              if (draggingChampion) onDropChampion({ kind: 'pick', index });
-                            }}
-                            style={{ borderColor: 'var(--color-border)', backgroundColor: slot.side === 'BLUE' ? 'rgba(30, 64, 175, 0.15)' : 'rgba(153, 27, 27, 0.15)' }}
-                            title={slot.champion || 'Drop champion'}
-                          >
-                            {slot.champion ? (
-                              <img src={getChampionIconUrl(slot.champion)} alt={slot.champion} className="w-full h-full object-cover" />
-                            ) : (
-                              <span style={{ color: 'var(--color-text-muted)' }}>+</span>
-                            )}
-                          </button>
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-[1fr_auto_1fr] gap-2 px-1 text-[11px] uppercase tracking-wide">
+                      <p style={{ color: '#93C5FD' }}>Blue Side</p>
+                      <p style={{ color: 'var(--color-text-muted)' }}>Round</p>
+                      <p className="text-right" style={{ color: '#FCA5A5' }}>Red Side</p>
+                    </div>
 
-                          <div className="flex items-center gap-1 flex-1">
-                            {ROLE_ORDER.map((role) => {
-                              const selected = slot.assignedRole === role;
-                              return (
-                                <button
-                                  key={`${index}-${role}`}
-                                  onClick={() => setPickRole(index, role)}
-                                  className="w-7 h-7 rounded-md border flex items-center justify-center"
-                                  style={{
-                                    borderColor: selected ? sideColor : 'var(--color-border)',
-                                    backgroundColor: selected ? `${sideColor}30` : 'transparent',
-                                    color: selected ? sideColor : 'var(--color-text-muted)',
-                                  }}
-                                  title={role}
-                                >
-                                  {getRoleIcon(role)}
-                                </button>
-                              );
-                            })}
+                    {Array.from({ length: 5 }).map((_, roundIndex) => {
+                      const bluePickIndex = BLUE_PICK_SLOT_INDEXES[roundIndex];
+                      const redPickIndex = RED_PICK_SLOT_INDEXES[roundIndex];
+                      const blueSlot = picks[bluePickIndex];
+                      const redSlot = picks[redPickIndex];
+
+                      return (
+                        <div key={`round-${roundIndex}`} className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                          {[{ slot: blueSlot, index: bluePickIndex }, { slot: redSlot, index: redPickIndex }].map(({ slot, index }, sideIndex) => {
+                            const sideColor = slot.side === 'BLUE' ? '#93C5FD' : '#FCA5A5';
+                            return (
+                              <div
+                                key={`${slot.side}-${index}`}
+                                className="border rounded-lg p-2"
+                                style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-secondary)' }}
+                              >
+                                <div className="flex items-center justify-between mb-2 text-[11px]">
+                                  <span style={{ color: sideColor }}>{slot.side === 'BLUE' ? `B${roundIndex + 1}` : `R${roundIndex + 1}`}</span>
+                                  <span style={{ color: 'var(--color-text-muted)' }}>Turn {index + 1}</span>
+                                </div>
+                                <div className={`flex items-center gap-2 ${sideIndex === 1 ? 'justify-end' : ''}`}>
+                                  <button
+                                    className="w-12 h-12 rounded-md border overflow-hidden flex items-center justify-center text-xs"
+                                    onDragOver={(e) => e.preventDefault()}
+                                    onDrop={() => onDropChampion({ kind: 'pick', index })}
+                                    onClick={() => {
+                                      if (draggingChampion) onDropChampion({ kind: 'pick', index });
+                                    }}
+                                    style={{ borderColor: 'var(--color-border)', backgroundColor: slot.side === 'BLUE' ? 'rgba(30, 64, 175, 0.15)' : 'rgba(153, 27, 27, 0.15)' }}
+                                    title={slot.champion || 'Drop champion'}
+                                  >
+                                    {slot.champion ? (
+                                      <img src={getChampionIconUrl(slot.champion)} alt={slot.champion} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <span style={{ color: 'var(--color-text-muted)' }}>+</span>
+                                    )}
+                                  </button>
+
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    {ROLE_ORDER.map((role) => {
+                                      const selected = slot.assignedRole === role;
+                                      return (
+                                        <button
+                                          key={`${index}-${role}`}
+                                          onClick={() => setPickRole(index, role)}
+                                          className="w-7 h-7 rounded-md border flex items-center justify-center"
+                                          style={{
+                                            borderColor: selected ? sideColor : 'var(--color-border)',
+                                            backgroundColor: selected ? `${sideColor}30` : 'transparent',
+                                            color: selected ? sideColor : 'var(--color-text-muted)',
+                                          }}
+                                          title={role}
+                                        >
+                                          {getRoleIcon(role)}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          <div className="text-xs font-semibold text-center" style={{ color: 'var(--color-text-muted)' }}>
+                            R{roundIndex + 1}
                           </div>
                         </div>
                       );
@@ -539,8 +644,19 @@ const TeamDraftsPage: React.FC = () => {
                   <p className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
                     Manual Champion Search
                   </p>
-                  <div className="flex flex-wrap gap-2 max-h-40 overflow-auto">
-                    {allChampions.slice(0, 80).map((champion) => (
+                  <input
+                    value={championSearch}
+                    onChange={(event) => setChampionSearch(event.target.value)}
+                    placeholder="Search champion..."
+                    className="w-full mb-2 px-3 py-2 rounded-md text-sm"
+                    style={{
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      border: '1px solid var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  />
+                  <div className="flex flex-wrap gap-2 max-h-56 overflow-auto">
+                    {filteredPickerChampions.map((champion) => (
                       <button
                         key={champion}
                         draggable={!usedChampions.has(champion.toLowerCase())}
@@ -557,6 +673,43 @@ const TeamDraftsPage: React.FC = () => {
                       </button>
                     ))}
                   </div>
+                  <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                    Showing {filteredPickerChampions.length} of {pickerChampions.length} champions.
+                  </p>
+                </div>
+
+                <div className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}>
+                  <p className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                    Drafting Suggestions (From Team Pools)
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {suggestions.map((entry) => (
+                      <button
+                        key={`suggestion-${entry.champion}`}
+                        draggable={!usedChampions.has(entry.champion.toLowerCase())}
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData('text/plain', entry.champion);
+                          setDraggingChampion({ champion: entry.champion, sourceUserId: 'suggestion', tier: entry.bestTier });
+                        }}
+                        onDragEnd={() => setDraggingChampion(null)}
+                        className="border rounded-lg p-2 flex items-center gap-2 text-left"
+                        style={{ borderColor: TIER_STYLE[entry.bestTier].border, backgroundColor: TIER_STYLE[entry.bestTier].bg }}
+                      >
+                        <img src={getChampionIconUrl(entry.champion)} alt={entry.champion} className="w-8 h-8 rounded" />
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-xs truncate" style={{ color: 'var(--color-text-primary)' }}>{entry.champion}</span>
+                          <span className="block text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                            Tier {entry.bestTier} | {entry.players} players
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {suggestions.length === 0 && (
+                    <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                      No suggestions available (all pool candidates may already be used).
+                    </p>
+                  )}
                 </div>
               </section>
             </div>

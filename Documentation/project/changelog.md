@@ -1,6 +1,31 @@
 # Changelog
 
-> Last updated: 2026-04-23
+> Last updated: 2026-04-24
+
+---
+
+## 2026-04-24 - Teams Draft Room Tournament Layout and Suggestion Enhancements
+
+### Objective: Correct draft UX flow for tournament-style picks, fix lane-role icon fidelity, and expose full champion selection coverage
+
+Overview: Updated the Teams Draft Room to match tournament pick expectations (round-labeled lanes with blue-left and red-right picks), corrected role iconography to match existing project role visuals, made the champion picker include all available champions with search, and added draft suggestions derived from player champion pools.
+
+Changes:
+
+- Updated [apps/web/pages/teams/drafts.tsx](apps/web/pages/teams/drafts.tsx):
+  - Replaced draft role icon rendering with the same lane visual set used elsewhere in the app (Top/Jungle/Mid/ADC/Support).
+  - Switched pick panel presentation to tournament-style rows labeled `R1` through `R5`, with blue-side picks consistently on the left and red-side picks on the right.
+  - Preserved true pick turn ordering metadata while improving side readability (`Turn 1` through `Turn 10`).
+  - Removed champion picker truncation and now surfaces the full merged champion list.
+  - Added champion search input for large-list usability.
+  - Added pool-based drafting suggestions section:
+    - scores champions by tier-weighted presence across player pools,
+    - highlights strongest available picks not yet used in bans/picks,
+    - supports drag-and-drop directly from suggestions.
+
+Validation:
+
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
 
 ---
 
