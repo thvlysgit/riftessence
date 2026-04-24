@@ -60,6 +60,8 @@ const SETUP_FILTER_LANGUAGE = 'filter_language';
 const SETUP_FILTER_RANK_RANGE = 'filter_rank_range';
 const SEND_DRAFT_TEAM_SELECT = 'send_draft_team_select';
 const SEND_DRAFT_PICK_SELECT = 'send_draft_pick_select';
+const CHAMPION_EMOJI_BATCH_COUNT = 4;
+const DISCORD_STATIC_EMOJI_LIMIT = 50;
 
 const ROLE_FORWARDING_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_ROLE_FORWARDING_POLL_INTERVAL_MS || '300000', 10);
 
@@ -272,6 +274,12 @@ type PendingSendDraftSession = {
   selectedTeamId: string | null;
 };
 
+type ChampionIconAsset = {
+  id: string;
+  emojiName: string;
+  iconUrl: string;
+};
+
 // ============================================================
 // Slash Commands
 // ============================================================
@@ -296,6 +304,29 @@ const commands = [
     .setName('send-draft')
     .setDescription('Send a saved team draft embed to this channel')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('import-champion-emojis')
+    .setDescription('Import one quarter of champion icons as custom emojis in this server')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuildExpressions)
+    .addIntegerOption((option) =>
+      option
+        .setName('batch')
+        .setDescription('Batch number to import')
+        .setRequired(true)
+        .addChoices(
+          { name: 'Batch 1/4', value: 1 },
+          { name: 'Batch 2/4', value: 2 },
+          { name: 'Batch 3/4', value: 3 },
+          { name: 'Batch 4/4', value: 4 },
+        )
+    )
+    .addBooleanOption((option) =>
+      option
+        .setName('replace_existing')
+        .setDescription('Delete existing matching champion emojis before import')
+        .setRequired(false)
+    )
     .toJSON(),
 ];
 
@@ -490,6 +521,173 @@ function buildSendDraftEmbed(draft: any, requestedBy: string) {
     )
     .setFooter({ text: `Sent by ${requestedBy} • Last updated ${new Date(draft?.updatedAt || Date.now()).toLocaleString()}` })
     .setTimestamp();
+}
+
+function sanitizeChampionEmojiName(championId: string): string {
+  const normalized = championId.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  const trimmed = normalized.replace(/^_+|_+$/g, '');
+  const safe = trimmed.length >= 2 ? trimmed : `c_${trimmed || 'x'}`;
+  return safe.slice(0, 32);
+}
+
+function splitIntoBatches<T>(values: T[], totalBatches: number): T[][] {
+  const result: T[][] = [];
+  const batchSize = Math.ceil(values.length / totalBatches);
+  for (let i = 0; i < totalBatches; i += 1) {
+    const start = i * batchSize;
+    result.push(values.slice(start, start + batchSize));
+  }
+  return result;
+}
+
+async function fetchChampionIconsForBatch(batchNumber: number): Promise<{ version: string; assets: ChampionIconAsset[] }> {
+  const versionsResponse = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+  if (!versionsResponse.ok) {
+    throw new Error(`Failed to fetch Data Dragon versions (${versionsResponse.status})`);
+  }
+
+  const versions = (await versionsResponse.json()) as string[];
+  const latestVersion = Array.isArray(versions) && versions.length > 0 ? versions[0] : null;
+  if (!latestVersion) {
+    throw new Error('No Data Dragon version available');
+  }
+
+  const championListResponse = await fetch(`https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`);
+  if (!championListResponse.ok) {
+    throw new Error(`Failed to fetch champion list (${championListResponse.status})`);
+  }
+
+  const championListPayload = await championListResponse.json() as { data?: Record<string, { id: string }> };
+  const champions = Object.values(championListPayload?.data || {})
+    .map((entry) => entry.id)
+    .filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
+    .sort((a, b) => a.localeCompare(b));
+
+  if (champions.length === 0) {
+    throw new Error('Champion list from Data Dragon is empty');
+  }
+
+  if (batchNumber < 1 || batchNumber > CHAMPION_EMOJI_BATCH_COUNT) {
+    throw new Error(`Batch must be between 1 and ${CHAMPION_EMOJI_BATCH_COUNT}`);
+  }
+
+  const batches = splitIntoBatches(champions, CHAMPION_EMOJI_BATCH_COUNT);
+  const selected = batches[batchNumber - 1] || [];
+
+  return {
+    version: latestVersion,
+    assets: selected.map((championId) => ({
+      id: championId,
+      emojiName: sanitizeChampionEmojiName(championId),
+      iconUrl: `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/img/champion/${championId}.png`,
+    })),
+  };
+}
+
+async function handleImportChampionEmojis(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const guild = interaction.guild;
+  if (!guild) {
+    return interaction.editReply('❌ This command must be used in a server.');
+  }
+
+  const member = interaction.member as any;
+  if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator) && !member?.permissions?.has?.(PermissionFlagsBits.ManageGuild)) {
+    return interaction.editReply('❌ You need **Manage Server** or **Administrator** permission to import champion emojis.');
+  }
+
+  const me = guild.members.me;
+  if (!me?.permissions?.has(PermissionFlagsBits.ManageGuildExpressions)) {
+    return interaction.editReply('❌ Bot is missing **Manage Expressions** permission in this server.');
+  }
+
+  const batch = interaction.options.getInteger('batch', true);
+  const replaceExisting = interaction.options.getBoolean('replace_existing') === true;
+
+  try {
+    await guild.emojis.fetch();
+
+    const { version, assets } = await fetchChampionIconsForBatch(batch);
+    if (assets.length === 0) {
+      return interaction.editReply(`❌ No champions found for batch ${batch}/${CHAMPION_EMOJI_BATCH_COUNT}.`);
+    }
+
+    const existingStatic = guild.emojis.cache.filter((emoji) => !emoji.animated);
+    const existingByName = new Map(existingStatic.map((emoji) => [emoji.name?.toLowerCase() || '', emoji]));
+
+    const preexisting = assets.filter((asset) => existingByName.has(asset.emojiName.toLowerCase()));
+
+    let deletedCount = 0;
+    if (replaceExisting && preexisting.length > 0) {
+      for (const asset of preexisting) {
+        const existing = existingByName.get(asset.emojiName.toLowerCase());
+        if (!existing) continue;
+        try {
+          await existing.delete(`Re-importing champion emoji ${asset.id}`);
+          deletedCount += 1;
+        } catch (error: any) {
+          console.warn(`⚠️ Could not delete existing emoji ${asset.emojiName}: ${error?.message || error}`);
+        }
+      }
+      await guild.emojis.fetch();
+    }
+
+    const existingAfterDelete = guild.emojis.cache.filter((emoji) => !emoji.animated).size;
+    const alreadyPresent = assets.filter((asset) => guild.emojis.cache.some((emoji) => !emoji.animated && (emoji.name || '').toLowerCase() === asset.emojiName.toLowerCase()));
+    const candidates = assets.filter((asset) => !alreadyPresent.some((present) => present.emojiName === asset.emojiName));
+    const availableSlots = Math.max(0, DISCORD_STATIC_EMOJI_LIMIT - existingAfterDelete);
+    const uploadQueue = candidates.slice(0, availableSlots);
+
+    let created = 0;
+    let failed = 0;
+    for (const asset of uploadQueue) {
+      try {
+        const iconResponse = await fetch(asset.iconUrl);
+        if (!iconResponse.ok) {
+          console.warn(`⚠️ Champion icon fetch failed for ${asset.id}: ${iconResponse.status}`);
+          failed += 1;
+          continue;
+        }
+
+        const iconBuffer = Buffer.from(await iconResponse.arrayBuffer());
+        await guild.emojis.create({ attachment: iconBuffer, name: asset.emojiName });
+        created += 1;
+      } catch (error: any) {
+        console.error(`❌ Failed to create emoji for champion ${asset.id}:`, error?.message || error);
+        failed += 1;
+      }
+    }
+
+    const skippedForCapacity = Math.max(0, candidates.length - uploadQueue.length);
+    const skippedExisting = alreadyPresent.length;
+
+    console.log(
+      `[ChampionEmojiImport] guild=${guild.id} batch=${batch}/${CHAMPION_EMOJI_BATCH_COUNT} ` +
+      `version=${version} total=${assets.length} created=${created} failed=${failed} ` +
+      `skippedExisting=${skippedExisting} skippedCapacity=${skippedForCapacity} replaced=${deletedCount}`
+    );
+
+    const embed = new EmbedBuilder()
+      .setColor(created > 0 ? 0x22C55E : 0xEAB308)
+      .setTitle('Champion Emoji Import Summary')
+      .setDescription(`Batch **${batch}/${CHAMPION_EMOJI_BATCH_COUNT}** from Data Dragon **${version}**`)
+      .addFields(
+        { name: 'Created', value: String(created), inline: true },
+        { name: 'Failed', value: String(failed), inline: true },
+        { name: 'Skipped (Existing)', value: String(skippedExisting), inline: true },
+        { name: 'Skipped (Capacity)', value: String(skippedForCapacity), inline: true },
+        { name: 'Replaced', value: String(deletedCount), inline: true },
+        { name: 'Server Static Emoji Count', value: `${guild.emojis.cache.filter((emoji) => !emoji.animated).size}/${DISCORD_STATIC_EMOJI_LIMIT}`, inline: true },
+      )
+      .setFooter({ text: 'Run this command with batch 1, 2, 3, and 4 across your four emoji servers.' })
+      .setTimestamp();
+
+    return interaction.editReply({ embeds: [embed] });
+  } catch (error: any) {
+    console.error('❌ Champion emoji import failed:', error?.message || error);
+    return interaction.editReply(`❌ Import failed: ${error?.message || 'Unknown error'}`);
+  }
 }
 
 function modeLabel(mode: 'RANK' | 'LANGUAGE') {
@@ -3488,6 +3686,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleRoleMenu(interaction);
     } else if (commandName === 'send-draft') {
       await handleSendDraft(interaction);
+    } else if (commandName === 'import-champion-emojis') {
+      await handleImportChampionEmojis(interaction);
     }
     return;
   }

@@ -12,6 +12,11 @@ Overview: Added persistent team draft storage on the backend (instead of browser
 
 Changes:
 
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Added `/import-champion-emojis` slash command for bulk champion emoji import from Data Dragon.
+  - Supports deterministic `batch` selection (`1` to `4`) so champion icons can be split across four Discord servers with 50-emoji limits.
+  - Added optional `replace_existing` mode for re-imports.
+  - Added import summary reporting (created/failed/skipped/capacity) and structured logging for troubleshooting.
 - Updated [prisma/schema.prisma](prisma/schema.prisma):
   - Added `TeamDraft` model with team relation, author relation, ban arrays, and pick JSON payload.
   - Linked `TeamDraft` to `Team` and `User` relations for ownership/audit and access control.
