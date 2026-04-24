@@ -26,6 +26,13 @@ export default async function teamsRoutes(fastify: any) {
     return code === 'P2021' || code === 'P2022';
   };
 
+  const sendDraftSchemaOutdated = (reply: any) => {
+    return reply.status(503).send({
+      error: 'TeamDraft schema is not applied on this environment. Run add_team_drafts.sql and redeploy API.',
+      code: 'TEAM_DRAFT_SCHEMA_OUTDATED',
+    });
+  };
+
   const buildConcernedEventFilter = (userId: string) => ({
     OR: [
       { concernedMemberIds: { isEmpty: true } },
@@ -2113,6 +2120,10 @@ export default async function teamsRoutes(fastify: any) {
 
       return reply.send({ drafts });
     } catch (error: any) {
+      if (isSchemaOutOfDateError(error)) {
+        fastify.log.error({ err: error }, 'Team drafts list failed: schema out of date');
+        return sendDraftSchemaOutdated(reply);
+      }
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch team drafts' });
     }
@@ -2150,6 +2161,10 @@ export default async function teamsRoutes(fastify: any) {
 
       return reply.status(201).send({ draft: created });
     } catch (error: any) {
+      if (isSchemaOutOfDateError(error)) {
+        fastify.log.error({ err: error }, 'Team drafts create failed: schema out of date');
+        return sendDraftSchemaOutdated(reply);
+      }
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to save draft' });
     }
@@ -2192,6 +2207,10 @@ export default async function teamsRoutes(fastify: any) {
 
       return reply.send({ draft: updated });
     } catch (error: any) {
+      if (isSchemaOutOfDateError(error)) {
+        fastify.log.error({ err: error }, 'Team drafts update failed: schema out of date');
+        return sendDraftSchemaOutdated(reply);
+      }
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to update draft' });
     }
@@ -2216,6 +2235,10 @@ export default async function teamsRoutes(fastify: any) {
       await prisma.teamDraft.delete({ where: { id: draftId } });
       return reply.send({ success: true });
     } catch (error: any) {
+      if (isSchemaOutOfDateError(error)) {
+        fastify.log.error({ err: error }, 'Team drafts delete failed: schema out of date');
+        return sendDraftSchemaOutdated(reply);
+      }
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to delete draft' });
     }
@@ -2293,6 +2316,10 @@ export default async function teamsRoutes(fastify: any) {
         teams,
       });
     } catch (error: any) {
+      if (isSchemaOutOfDateError(error)) {
+        fastify.log.error({ err: error }, 'Discord draft options failed: schema out of date');
+        return sendDraftSchemaOutdated(reply);
+      }
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch draft options' });
     }
@@ -2344,6 +2371,10 @@ export default async function teamsRoutes(fastify: any) {
 
       return reply.send({ draft });
     } catch (error: any) {
+      if (isSchemaOutOfDateError(error)) {
+        fastify.log.error({ err: error }, 'Discord draft fetch failed: schema out of date');
+        return sendDraftSchemaOutdated(reply);
+      }
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch selected draft' });
     }

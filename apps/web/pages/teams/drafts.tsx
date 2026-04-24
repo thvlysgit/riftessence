@@ -457,7 +457,8 @@ const TeamDraftsPage: React.FC = () => {
         });
 
         if (!res.ok) {
-          throw new Error('Failed to fetch saved drafts');
+          const errorBody = await res.json().catch(() => ({}));
+          throw new Error(errorBody?.error || 'Failed to fetch saved drafts');
         }
 
         const data = await res.json();
