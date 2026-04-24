@@ -4,6 +4,29 @@
 
 ---
 
+## 2026-04-24 - Discord Emoji Rendering for Drafts and LFT Mirrors
+
+### Objective: Make Discord posts actually use imported champion, role, and rank emojis while widening the emoji import tool
+
+Overview: Expanded the Discord bot so forwarded duo and LFT posts can render champion pool visuals from RiftEssence champion data, and upgraded the emoji importer from champion-only batches to a typed importer that can clone champion, role, or rank emoji sets.
+
+Changes:
+
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Added shared champion emoji formatting helpers so imported champion icons can be used in forwarded embeds and draft posts.
+  - Updated `/send-draft` embeds to render bans and picks with champion emojis plus role icons.
+  - Updated duo and LFT forward embeds to render champion pool summaries and LFT tierlists with custom emoji-backed labels when the payload includes champion data.
+  - Expanded `/import-champion-emojis` into a typed importer with `asset_type` choices for champion, role, and rank icons.
+  - Kept champion imports split into four batches while allowing role and rank icons to be cloned from the shared emoji source guild.
+- Updated [apps/api/src/routes/discordFeed.ts](apps/api/src/routes/discordFeed.ts):
+  - Exposed champion pool fields on outgoing duo and LFT payloads so the bot can render them directly.
+  - Included champion tierlist data in the bot-facing payloads for player posts.
+
+Validation:
+
+- `pnpm --filter @lfd/api build` passes.
+- `cd discord-bot && pnpm build` passes.
+
 ## 2026-04-24 - Discord /send-draft and Server-Backed Team Draft Library
 
 ### Objective: Allow Discord staff to send a saved RiftEssence draft directly into a Discord channel using guided menus and strict prerequisite checks

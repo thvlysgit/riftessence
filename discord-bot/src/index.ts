@@ -61,6 +61,7 @@ const SETUP_FILTER_RANK_RANGE = 'filter_rank_range';
 const SEND_DRAFT_TEAM_SELECT = 'send_draft_team_select';
 const SEND_DRAFT_PICK_SELECT = 'send_draft_pick_select';
 const CHAMPION_EMOJI_BATCH_COUNT = 4;
+const CHAMPION_POOL_TIER_ORDER = ['S', 'A', 'B', 'C'] as const;
 
 const ROLE_FORWARDING_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_ROLE_FORWARDING_POLL_INTERVAL_MS || '300000', 10);
 
@@ -207,6 +208,87 @@ function formatLanguagesForDiscord(languages: string[] | null | undefined, guild
   return `${resolveEmoji(guild, 'language', '🗣️')} ${cleaned.join(', ')}`;
 }
 
+function normalizeChampionEmojiName(champion: string): string {
+  const normalized = champion.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  const trimmed = normalized.replace(/^_+|_+$/g, '');
+  const safe = trimmed.length >= 2 ? trimmed : `c_${trimmed || 'x'}`;
+  return safe.slice(0, 32);
+}
+
+function formatChampionLabelForDiscord(champion: string | null | undefined, guild: Guild | null | undefined): string {
+  const cleaned = String(champion || '').trim();
+  if (!cleaned) {
+    return `${resolveEmoji(guild, undefined, '🧩')} Unknown`;
+  }
+
+  return `${resolveEmoji(guild, normalizeChampionEmojiName(cleaned), '🧩')} ${cleaned}`;
+}
+
+function formatChampionListForDiscord(
+  champions: string[] | null | undefined,
+  guild: Guild | null | undefined,
+  limit = 8,
+): string | null {
+  if (!Array.isArray(champions) || champions.length === 0) return null;
+
+  const uniqueChampions: string[] = [];
+  const seen = new Set<string>();
+
+  for (const champion of champions) {
+    const cleaned = String(champion || '').trim();
+    if (!cleaned) continue;
+    const key = cleaned.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueChampions.push(cleaned);
+  }
+
+  if (uniqueChampions.length === 0) return null;
+
+  const visibleChampions = uniqueChampions.slice(0, Math.max(1, limit));
+  const overflow = uniqueChampions.length - visibleChampions.length;
+  const championText = visibleChampions.map((champion) => formatChampionLabelForDiscord(champion, guild)).join(' • ');
+  return overflow > 0 ? `${championText} • +${overflow} more` : championText;
+}
+
+function buildChampionTierlistFields(
+  championTierlist: { S?: string[]; A?: string[]; B?: string[]; C?: string[] } | null | undefined,
+  guild: Guild | null | undefined,
+) {
+  if (!championTierlist || typeof championTierlist !== 'object') return [];
+
+  return CHAMPION_POOL_TIER_ORDER
+    .map((tier) => {
+      const champions = Array.isArray(championTierlist[tier]) ? championTierlist[tier] || [] : [];
+      const championText = formatChampionListForDiscord(champions, guild, 8);
+      if (!championText) return null;
+
+      return {
+        name: `${tier} Tier`,
+        value: championText.slice(0, 1024),
+        inline: false,
+      };
+    })
+    .filter((field): field is { name: string; value: string; inline: boolean } => Boolean(field));
+}
+
+function buildChampionPoolSummary(
+  championPoolMode: string | null | undefined,
+  championList: string[] | null | undefined,
+  championTierlist: { S?: string[]; A?: string[]; B?: string[]; C?: string[] } | null | undefined,
+  guild: Guild | null | undefined,
+): string | null {
+  const mode = String(championPoolMode || '').toUpperCase();
+  if (mode === 'TIERLIST' || (!mode && championTierlist)) {
+    const fields = buildChampionTierlistFields(championTierlist, guild);
+    if (fields.length > 0) {
+      return fields.map((field) => `${field.name}: ${field.value}`).join('\n');
+    }
+  }
+
+  return formatChampionListForDiscord(championList, guild, 8);
+}
+
 type RoleForwardingConfig = {
   guildId: string;
   communityId: string;
@@ -306,13 +388,24 @@ const commands = [
     .toJSON(),
   new SlashCommandBuilder()
     .setName('import-champion-emojis')
-    .setDescription('Import one quarter of champion icons as custom emojis in this server')
+    .setDescription('Import champion, role, or rank icons as custom emojis in this server')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuildExpressions)
+    .addStringOption((option) =>
+      option
+        .setName('asset_type')
+        .setDescription('Which icon set to import')
+        .setRequired(true)
+        .addChoices(
+          { name: 'Champion icons', value: 'CHAMPION' },
+          { name: 'Role icons', value: 'ROLE' },
+          { name: 'Rank icons', value: 'RANK' },
+        )
+    )
     .addIntegerOption((option) =>
       option
         .setName('batch')
-        .setDescription('Batch number to import')
-        .setRequired(true)
+        .setDescription('Champion batch to import (only used for champion icons)')
+        .setRequired(false)
         .addChoices(
           { name: 'Batch 1/4', value: 1 },
           { name: 'Batch 2/4', value: 2 },
@@ -469,28 +562,33 @@ function buildSendDraftPickChooserEmbed(team: SendDraftTeamOption) {
     .setTimestamp();
 }
 
-function buildDraftRoundLine(label: string, champion: string | null | undefined, role: string | null | undefined) {
-  const champ = (champion || '').trim() || '—';
-  const rolePart = role ? ` (${role})` : '';
+function buildDraftRoundLine(label: string, champion: string | null | undefined, role: string | null | undefined, guild: Guild | null | undefined) {
+  const champ = formatChampionLabelForDiscord(champion, guild);
+  const rolePart = role ? ` (${formatRoleLabelForDiscord(role, guild)})` : '';
   return `${label}: ${champ}${rolePart}`;
 }
 
-function buildSendDraftEmbed(draft: any, requestedBy: string) {
+function buildSendDraftEmbed(draft: any, requestedBy: string, guild: Guild | null | undefined) {
   const picks = Array.isArray(draft?.picks) ? draft.picks : [];
   const blueIndexes = [0, 3, 4, 7, 8];
   const redIndexes = [1, 2, 5, 6, 9];
 
   const blueRounds = blueIndexes.map((pickIndex, i) => {
     const slot = picks[pickIndex] || {};
-    return buildDraftRoundLine(`B${i + 1}`, slot?.champion, slot?.assignedRole || null);
+    return buildDraftRoundLine(`B${i + 1}`, slot?.champion, slot?.assignedRole || null, guild);
   });
   const redRounds = redIndexes.map((pickIndex, i) => {
     const slot = picks[pickIndex] || {};
-    return buildDraftRoundLine(`R${i + 1}`, slot?.champion, slot?.assignedRole || null);
+    return buildDraftRoundLine(`R${i + 1}`, slot?.champion, slot?.assignedRole || null, guild);
   });
 
   const blueBans = Array.isArray(draft?.blueBans) ? draft.blueBans : [];
   const redBans = Array.isArray(draft?.redBans) ? draft.redBans : [];
+
+  const buildBanLine = (label: string, champion: string | null | undefined) => {
+    const championLabel = formatChampionLabelForDiscord(champion, guild);
+    return `${label}: ${championLabel}`;
+  };
 
   return new EmbedBuilder()
     .setColor(0x1D4ED8)
@@ -499,12 +597,12 @@ function buildSendDraftEmbed(draft: any, requestedBy: string) {
     .addFields(
       {
         name: '🔵 Blue Bans',
-        value: (blueBans.map((entry: string, i: number) => `B${i + 1}: ${entry || '—'}`).join('\n') || 'None').slice(0, 1024),
+        value: (blueBans.map((entry: string, i: number) => buildBanLine(`B${i + 1}`, entry)).join('\n') || 'None').slice(0, 1024),
         inline: true,
       },
       {
         name: '🔴 Red Bans',
-        value: (redBans.map((entry: string, i: number) => `R${i + 1}: ${entry || '—'}`).join('\n') || 'None').slice(0, 1024),
+        value: (redBans.map((entry: string, i: number) => buildBanLine(`R${i + 1}`, entry)).join('\n') || 'None').slice(0, 1024),
         inline: true,
       },
       {
@@ -520,13 +618,6 @@ function buildSendDraftEmbed(draft: any, requestedBy: string) {
     )
     .setFooter({ text: `Sent by ${requestedBy} • Last updated ${new Date(draft?.updatedAt || Date.now()).toLocaleString()}` })
     .setTimestamp();
-}
-
-function sanitizeChampionEmojiName(championId: string): string {
-  const normalized = championId.toLowerCase().replace(/[^a-z0-9_]/g, '_');
-  const trimmed = normalized.replace(/^_+|_+$/g, '');
-  const safe = trimmed.length >= 2 ? trimmed : `c_${trimmed || 'x'}`;
-  return safe.slice(0, 32);
 }
 
 function splitIntoBatches<T>(values: T[], totalBatches: number): T[][] {
@@ -590,10 +681,42 @@ async function fetchChampionIconsForBatch(batchNumber: number): Promise<{ versio
     version: latestVersion,
     assets: selected.map((championId) => ({
       id: championId,
-      emojiName: sanitizeChampionEmojiName(championId),
+      emojiName: normalizeChampionEmojiName(championId),
       iconUrl: `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/img/champion/${championId}.png`,
     })),
   };
+}
+
+type EmojiImportKind = 'CHAMPION' | 'ROLE' | 'RANK';
+
+type EmojiImportAsset = {
+  id: string;
+  emojiName: string;
+  iconUrl: string;
+};
+
+function getSourceGuildEmojiNames(kind: 'ROLE' | 'RANK'): string[] {
+  return kind === 'ROLE'
+    ? Object.values(ROLE_CUSTOM_EMOJI_NAMES)
+    : Object.values(RANK_CUSTOM_EMOJI_NAMES);
+}
+
+async function fetchSourceGuildEmojiAssets(kind: 'ROLE' | 'RANK'): Promise<EmojiImportAsset[]> {
+  const sourceGuild = await client.guilds.fetch(EMOJI_SOURCE_GUILD_ID);
+  await sourceGuild.emojis.fetch();
+
+  return getSourceGuildEmojiNames(kind).map((emojiName) => {
+    const emoji = sourceGuild.emojis.cache.find((entry) => (entry.name || '').toLowerCase() === emojiName.toLowerCase());
+    if (!emoji) {
+      throw new Error(`Could not find ${kind.toLowerCase()} emoji ${emojiName} in source guild`);
+    }
+
+    return {
+      id: emoji.name || emojiName,
+      emojiName: emoji.name || emojiName,
+      iconUrl: emoji.url,
+    };
+  });
 }
 
 async function handleImportChampionEmojis(interaction: ChatInputCommandInteraction) {
@@ -614,15 +737,26 @@ async function handleImportChampionEmojis(interaction: ChatInputCommandInteracti
     return interaction.editReply('❌ Bot is missing **Manage Expressions** permission in this server.');
   }
 
-  const batch = interaction.options.getInteger('batch', true);
+  const assetType = String(interaction.options.getString('asset_type', true) || 'CHAMPION').toUpperCase() as EmojiImportKind;
+  const batch = interaction.options.getInteger('batch') || 1;
   const replaceExisting = interaction.options.getBoolean('replace_existing') === true;
+
+  if (assetType === 'CHAMPION' && (batch < 1 || batch > CHAMPION_EMOJI_BATCH_COUNT)) {
+    return interaction.editReply(`❌ Batch must be between 1 and ${CHAMPION_EMOJI_BATCH_COUNT}.`);
+  }
 
   try {
     await guild.emojis.fetch();
 
-    const { version, assets } = await fetchChampionIconsForBatch(batch);
+    const assetsResult = assetType === 'ROLE'
+      ? { description: 'role icons', assets: await fetchSourceGuildEmojiAssets('ROLE'), version: null as string | null }
+      : assetType === 'RANK'
+        ? { description: 'rank icons', assets: await fetchSourceGuildEmojiAssets('RANK'), version: null as string | null }
+        : { description: `champion icons batch ${batch}/${CHAMPION_EMOJI_BATCH_COUNT}`, ...(await fetchChampionIconsForBatch(batch)) };
+
+    const { version, assets, description } = assetsResult;
     if (assets.length === 0) {
-      return interaction.editReply(`❌ No champions found for batch ${batch}/${CHAMPION_EMOJI_BATCH_COUNT}.`);
+      return interaction.editReply(`❌ No emoji assets found for ${description}.`);
     }
 
     const guildStaticEmojiLimit = getGuildStaticEmojiLimit(guild);
@@ -650,7 +784,7 @@ async function handleImportChampionEmojis(interaction: ChatInputCommandInteracti
     const existingAfterDelete = guild.emojis.cache.filter((emoji) => !emoji.animated).size;
     const alreadyPresent = assets.filter((asset) => guild.emojis.cache.some((emoji) => !emoji.animated && (emoji.name || '').toLowerCase() === asset.emojiName.toLowerCase()));
     const candidates = assets.filter((asset) => !alreadyPresent.some((present) => present.emojiName === asset.emojiName));
-  const availableSlots = Math.max(0, guildStaticEmojiLimit - existingAfterDelete);
+    const availableSlots = Math.max(0, guildStaticEmojiLimit - existingAfterDelete);
     const uploadQueue = candidates.slice(0, availableSlots);
 
     let created = 0;
@@ -659,7 +793,7 @@ async function handleImportChampionEmojis(interaction: ChatInputCommandInteracti
       try {
         const iconResponse = await fetch(asset.iconUrl);
         if (!iconResponse.ok) {
-          console.warn(`⚠️ Champion icon fetch failed for ${asset.id}: ${iconResponse.status}`);
+          console.warn(`⚠️ Emoji asset fetch failed for ${asset.id}: ${iconResponse.status}`);
           failed += 1;
           continue;
         }
@@ -677,15 +811,19 @@ async function handleImportChampionEmojis(interaction: ChatInputCommandInteracti
     const skippedExisting = alreadyPresent.length;
 
     console.log(
-      `[ChampionEmojiImport] guild=${guild.id} batch=${batch}/${CHAMPION_EMOJI_BATCH_COUNT} ` +
-      `version=${version} total=${assets.length} created=${created} failed=${failed} ` +
+      `[EmojiImport] guild=${guild.id} type=${assetType} ${description} ` +
+      `version=${version || 'source'} total=${assets.length} created=${created} failed=${failed} ` +
       `skippedExisting=${skippedExisting} skippedCapacity=${skippedForCapacity} replaced=${deletedCount} limit=${guildStaticEmojiLimit}`
     );
 
     const embed = new EmbedBuilder()
       .setColor(created > 0 ? 0x22C55E : 0xEAB308)
-      .setTitle('Champion Emoji Import Summary')
-      .setDescription(`Batch **${batch}/${CHAMPION_EMOJI_BATCH_COUNT}** from Data Dragon **${version}**`)
+      .setTitle('Emoji Import Summary')
+      .setDescription(
+        assetType === 'CHAMPION'
+          ? `Batch **${batch}/${CHAMPION_EMOJI_BATCH_COUNT}** from Data Dragon **${version}**`
+          : `Imported **${description}** from the RiftEssence source guild`
+      )
       .addFields(
         { name: 'Created', value: String(created), inline: true },
         { name: 'Failed', value: String(failed), inline: true },
@@ -694,12 +832,12 @@ async function handleImportChampionEmojis(interaction: ChatInputCommandInteracti
         { name: 'Replaced', value: String(deletedCount), inline: true },
         { name: 'Server Static Emoji Count', value: `${guild.emojis.cache.filter((emoji) => !emoji.animated).size}/${guildStaticEmojiLimit}`, inline: true },
       )
-      .setFooter({ text: 'Run this command with batch 1, 2, 3, and 4 across your four emoji servers.' })
+      .setFooter({ text: assetType === 'CHAMPION' ? 'Run this command with batches 1, 2, 3, and 4 across your emoji servers.' : 'Use the import type that matches the asset pack you want to clone.' })
       .setTimestamp();
 
     return interaction.editReply({ embeds: [embed] });
   } catch (error: any) {
-    console.error('❌ Champion emoji import failed:', error?.message || error);
+    console.error('❌ Emoji import failed:', error?.message || error);
     return interaction.editReply(`❌ Import failed: ${error?.message || 'Unknown error'}`);
   }
 }
@@ -1792,14 +1930,13 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
       return interaction.update({ content: `❌ ${draftResult.error || 'Failed to load selected draft.'}`, embeds: [], components: [] });
     }
 
-    const embed = buildSendDraftEmbed(draftResult.draft, interaction.user.username);
-
     try {
       if (!interaction.channel || !interaction.channel.isTextBased()) {
         return interaction.update({ content: '❌ Could not find a text channel to post this draft.', embeds: [], components: [] });
       }
 
       const channel = interaction.channel as TextChannel;
+      const embed = buildSendDraftEmbed(draftResult.draft, interaction.user.username, channel.guild);
       await channel.send({ embeds: [embed] });
 
       pendingSendDraftSessions.delete(sessionKey);
@@ -2074,6 +2211,7 @@ function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): Embed
     : null;
   const vcLine = formatVcLabelForDiscord(vcPreference, guild);
   const languagesLine = formatLanguagesForDiscord(languages, guild);
+  const championSummary = buildChampionPoolSummary(post.championPoolMode, post.championList, post.championTierlist, guild);
 
   const descriptionParts = [
     truncateForDiscord(message, 320) ? `> ${truncateForDiscord(message, 320)}` : null,
@@ -2082,6 +2220,7 @@ function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): Embed
     [rankLine, winrateLine].filter(Boolean).join(' • ') || null,
     vcLine,
     languagesLine,
+    championSummary ? `🗡️ Champion Pool\n${championSummary}` : null,
     communityName ? `🏠 ${communityName}` : null,
     `↗ [open in app](${postUrl})`,
   ].filter(Boolean);
@@ -2230,6 +2369,8 @@ function buildLftForwardEmbed(post: any, guild: Guild | null | undefined): Embed
   const listingName = customOtherName || authorName;
   const rankLabel = formatRankLabelForDiscord(post.rank, post.division, guild);
   const languagesLine = formatLanguagesForDiscord(post.languages, guild);
+  const championTierFields = buildChampionTierlistFields(post.championTierlist, guild);
+  const championPoolSummary = buildChampionPoolSummary(post.championPoolMode, post.championPool, post.championTierlist, guild);
 
   const descriptionParts = [
     truncateForDiscord(post.details || post.description, 340) ? `> ${truncateForDiscord(post.details || post.description, 340)}` : null,
@@ -2239,17 +2380,24 @@ function buildLftForwardEmbed(post: any, guild: Guild | null | undefined): Embed
     post.experience ? `🧩 Experience: ${post.experience}` : null,
     post.availability ? `📅 Availability: ${post.availability}` : null,
     languagesLine,
+    candidateType === 'PLAYER' && championPoolSummary ? `🗡️ Champion Pool\n${championPoolSummary}` : null,
     post.author?.discordUsername ? `💬 ${post.author.discordUsername}` : null,
     `↗ [open in app](${appUrl})`,
   ].filter(Boolean);
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(candidateColorMap[candidateType] ?? candidateColorMap.PLAYER)
     .setTitle(`${candidateLabel} LFT • ${listingName}`)
     .setURL(appUrl)
     .setDescription(descriptionParts.join('\n'))
     .setFooter({ text: 'RiftEssence' })
     .setTimestamp();
+
+  if (candidateType === 'PLAYER' && championTierFields.length > 0) {
+    embed.addFields(championTierFields);
+  }
+
+  return embed;
 }
 
 async function mirrorLftPostToDiscord(post: any) {

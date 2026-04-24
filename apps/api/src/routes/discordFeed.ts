@@ -571,6 +571,9 @@ export default async function discordFeedRoutes(fastify: any) {
               include: {
                 riotAccounts: true,
                 discordAccount: true,
+                championPoolMode: true,
+                championList: true,
+                championTierlist: true,
               },
             },
             community: true,
@@ -626,6 +629,9 @@ export default async function discordFeedRoutes(fastify: any) {
             gameName: postingAccount.gameName,
             tagLine: postingAccount.tagLine,
           } : null,
+          championPoolMode: post.author.championPoolMode || null,
+          championList: Array.isArray(post.author.championList) ? post.author.championList : [],
+          championTierlist: post.author.championTierlist || null,
           communityId: post.community?.id || null,
           communitySlug: post.community?.slug || null,
           communityName: post.community?.name || null,
@@ -667,6 +673,9 @@ export default async function discordFeedRoutes(fastify: any) {
               include: {
                 riotAccounts: true,
                 discordAccount: true,
+                championPoolMode: true,
+                championList: true,
+                championTierlist: true,
               },
             },
           },
@@ -710,6 +719,7 @@ export default async function discordFeedRoutes(fastify: any) {
             discordUsername: post.author.discordAccount?.username,
             discordId: post.author.discordAccount?.discordId,
           },
+          championPoolMode: post.author.championPoolMode || null,
           // TEAM fields
           teamName: post.teamName,
           rolesNeeded: post.rolesNeeded,
@@ -723,6 +733,15 @@ export default async function discordFeedRoutes(fastify: any) {
           mainRole: post.mainRole,
           rank: post.rank,
           division: post.division,
+          championPool: post.author.championPoolMode === 'TIERLIST' && post.author.championTierlist
+            ? [
+                ...(Array.isArray(post.author.championTierlist.S) ? post.author.championTierlist.S : []),
+                ...(Array.isArray(post.author.championTierlist.A) ? post.author.championTierlist.A : []),
+                ...(Array.isArray(post.author.championTierlist.B) ? post.author.championTierlist.B : []),
+                ...(Array.isArray(post.author.championTierlist.C) ? post.author.championTierlist.C : []),
+              ]
+            : Array.isArray(post.author.championList) ? post.author.championList : [],
+          championTierlist: post.author.championTierlist || null,
           experience: post.experience,
           languages: post.languages,
           skills: post.skills,
