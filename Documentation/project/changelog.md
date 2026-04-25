@@ -4,6 +4,34 @@
 
 ---
 
+## 2026-04-26 - Discord Forwarding Recovery + Delete Sync
+
+### Objective: Restore broken forwarding after champion icon payload changes and keep Discord mirrors in sync when app posts are deleted
+
+Overview: Fixed the outgoing forwarding regression that stopped DUO/LFT forwarding, then added a lightweight delete-sync pipeline so app-side post deletions remove mirrored Discord messages without storing message IDs in the database.
+
+Changes:
+
+- Updated [apps/api/src/routes/discordFeed.ts](apps/api/src/routes/discordFeed.ts):
+  - Fixed outgoing DUO and LFT Prisma query shapes by removing invalid scalar fields from nested `author.include`, restoring successful payload generation for bot polling.
+  - Added bot-auth mirror deletion queue endpoints:
+    - `GET /api/discord/mirror-deletions`
+    - `PATCH /api/discord/mirror-deletions/:eventId/acked`
+- Added [apps/api/src/services/discordMirrorDeletionQueue.ts](apps/api/src/services/discordMirrorDeletionQueue.ts):
+  - Introduced an in-memory, leased deletion queue with deduplication and acknowledgement.
+  - Keeps queue bounded to prevent unbounded growth.
+- Updated [apps/api/src/routes/posts.ts](apps/api/src/routes/posts.ts):
+  - Enqueues DUO mirror deletions when a post is admin-deleted.
+  - Enqueues DUO mirror deletions when older app posts are replaced during new post creation.
+- Updated [apps/api/src/routes/lft.ts](apps/api/src/routes/lft.ts):
+  - Enqueues LFT mirror deletions for both explicit deletes and replacement deletes (player/team listing replacement).
+- Updated [apps/api/src/routes/scrims.ts](apps/api/src/routes/scrims.ts):
+  - Enqueues SCRIM mirror deletions for explicit deletes and replacement deletes when a newer slot displaces active posts.
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Stores mirrored message references in-memory (post type + post id -> sent message IDs).
+  - Added mirror-deletion polling loop that leases deletion jobs from API, deletes tracked Discord messages, and acknowledges completion.
+  - Added paced deletion handling to reduce burst pressure; discord.js route-level rate limiting remains in effect.
+
 ## 2026-04-24 - Discord League Icon Rendering for Drafts and LFT Mirrors
 
 ### Objective: Make Discord posts actually use imported champion, role, and rank icons while widening the import tool

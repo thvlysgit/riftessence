@@ -1,4 +1,5 @@
 import prisma from '../prisma';
+import { ackMirrorDeletion, leaseMirrorDeletions } from '../services/discordMirrorDeletionQueue';
 
 // Ordered ranks for filter comparison (index = strength)
 const RANK_ORDER = [
@@ -571,9 +572,6 @@ export default async function discordFeedRoutes(fastify: any) {
               include: {
                 riotAccounts: true,
                 discordAccount: true,
-                championPoolMode: true,
-                championList: true,
-                championTierlist: true,
               },
             },
             community: true,
@@ -673,9 +671,6 @@ export default async function discordFeedRoutes(fastify: any) {
               include: {
                 riotAccounts: true,
                 discordAccount: true,
-                championPoolMode: true,
-                championList: true,
-                championTierlist: true,
               },
             },
           },
@@ -909,6 +904,30 @@ export default async function discordFeedRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to mark post as mirrored' });
+    }
+  });
+
+  // GET /api/discord/mirror-deletions - Lease pending mirror deletions for bot processing
+  fastify.get('/discord/mirror-deletions', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { limit = 25 } = request.query as any;
+      const events = leaseMirrorDeletions(parseInt(String(limit || '25'), 10));
+      return reply.send({ events });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to lease mirror deletions' });
+    }
+  });
+
+  // PATCH /api/discord/mirror-deletions/:eventId/acked - Acknowledge processed mirror deletion
+  fastify.patch('/discord/mirror-deletions/:eventId/acked', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
+    try {
+      const { eventId } = request.params as { eventId: string };
+      const removed = ackMirrorDeletion(eventId);
+      return reply.send({ success: true, removed });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to acknowledge mirror deletion' });
     }
   });
 

@@ -69,6 +69,9 @@ const CHAMPION_EMOJI_BATCH_COUNT = 4;
 const CHAMPION_POOL_TIER_ORDER = ['S', 'A', 'B', 'C'] as const;
 
 const ROLE_FORWARDING_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_ROLE_FORWARDING_POLL_INTERVAL_MS || '300000', 10);
+const MIRROR_DELETION_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_MIRROR_DELETION_POLL_INTERVAL_MS || '20000', 10);
+const MIRROR_DELETION_BATCH_SIZE = parseInt(process.env.DISCORD_MIRROR_DELETION_BATCH_SIZE || '20', 10);
+const MIRRORED_MESSAGE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 const RANK_EMOJIS: Record<string, string> = {
   IRON: '🪨', BRONZE: '🥉', SILVER: '🥈', GOLD: '🥇', PLATINUM: '💎',
@@ -101,6 +104,67 @@ const RANK_CUSTOM_EMOJI_NAMES: Record<string, string> = {
 };
 
 const globalEmojiFallbackMap = new Map<string, string>();
+
+type MirrorPostType = 'DUO' | 'LFT' | 'SCRIM';
+
+type MirrorDeletionEvent = {
+  id: string;
+  postType: MirrorPostType;
+  postId: string;
+  queuedAt: string;
+  attempts: number;
+};
+
+type MirroredMessageRef = {
+  guildId: string;
+  channelId: string;
+  messageId: string;
+  createdAtMs: number;
+};
+
+const mirroredMessageRefs = new Map<string, MirroredMessageRef[]>();
+
+function getMirrorIndexKey(postType: MirrorPostType, postId: string): string {
+  return `${postType}:${postId}`;
+}
+
+function storeMirroredMessageRef(postType: MirrorPostType, postId: string, guildId: string, channelId: string, messageId: string) {
+  const key = getMirrorIndexKey(postType, postId);
+  const now = Date.now();
+  const existing = mirroredMessageRefs.get(key) || [];
+
+  const filtered = existing.filter((entry) => now - entry.createdAtMs <= MIRRORED_MESSAGE_RETENTION_MS);
+  filtered.push({ guildId, channelId, messageId, createdAtMs: now });
+  mirroredMessageRefs.set(key, filtered.slice(-100));
+}
+
+function getMirroredMessageRefs(postType: MirrorPostType, postId: string): MirroredMessageRef[] {
+  const key = getMirrorIndexKey(postType, postId);
+  const now = Date.now();
+  const entries = (mirroredMessageRefs.get(key) || []).filter((entry) => now - entry.createdAtMs <= MIRRORED_MESSAGE_RETENTION_MS);
+  if (entries.length === 0) {
+    mirroredMessageRefs.delete(key);
+    return [];
+  }
+
+  mirroredMessageRefs.set(key, entries);
+  return entries;
+}
+
+function removeMirroredMessageRef(postType: MirrorPostType, postId: string, channelId: string, messageId: string) {
+  const key = getMirrorIndexKey(postType, postId);
+  const remaining = (mirroredMessageRefs.get(key) || []).filter((entry) => !(entry.channelId === channelId && entry.messageId === messageId));
+  if (remaining.length === 0) {
+    mirroredMessageRefs.delete(key);
+    return;
+  }
+
+  mirroredMessageRefs.set(key, remaining);
+}
+
+function clearMirroredMessageRefs(postType: MirrorPostType, postId: string) {
+  mirroredMessageRefs.delete(getMirrorIndexKey(postType, postId));
+}
 
 function formatEmojiMention(emoji: { id: string; name: string | null; animated?: boolean | null }): string | null {
   if (!emoji.name) return null;
@@ -2294,7 +2358,8 @@ async function mirrorPostToDiscord(post: any) {
       if (channel && channel.isTextBased() && 'guild' in channel) {
         const textChannel = channel as TextChannel;
         const embed = buildDuoForwardEmbed(post, textChannel.guild);
-        await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId, `${APP_URL}/share/post/${id}`));
+        const sent = await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId, `${APP_URL}/share/post/${id}`));
+        storeMirroredMessageRef('DUO', id, textChannel.guild.id, fc.channelId, sent.id);
         console.log(`✅ Mirrored duo post ${id} to channel ${fc.channelId}`);
       }
     } catch (error: any) {
@@ -2435,7 +2500,8 @@ async function mirrorLftPostToDiscord(post: any) {
         const textChannel = channel as TextChannel;
         const embed = buildLftForwardEmbed(post, textChannel.guild);
         const messageUrl = post.type === 'TEAM' && post.teamId ? `${APP_URL}/teams/${post.teamId}` : `${APP_URL}/lft`;
-        await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId, messageUrl));
+        const sent = await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId, messageUrl));
+        storeMirroredMessageRef('LFT', id, textChannel.guild.id, fc.channelId, sent.id);
         console.log(`✅ Mirrored LFT post ${id} to channel ${fc.channelId}`);
       }
     } catch (error: any) {
@@ -2524,12 +2590,94 @@ async function mirrorScrimPostToDiscord(post: any) {
       if (channel && channel.isTextBased() && 'guild' in channel) {
         const textChannel = channel as TextChannel;
         const embed = buildScrimForwardEmbed(post, textChannel.guild);
-        await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId, `${APP_URL}/teams/scrims`));
+        const sent = await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId, `${APP_URL}/teams/scrims`));
+        storeMirroredMessageRef('SCRIM', id, textChannel.guild.id, fc.channelId, sent.id);
         console.log(`✅ Mirrored SCRIM post ${id} to channel ${fc.channelId}`);
       }
     } catch (error: any) {
       console.error(`❌ Failed to send SCRIM to channel ${fc.channelId}:`, error.message);
     }
+  }
+}
+
+async function waitMs(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function processMirrorDeletionEvent(event: MirrorDeletionEvent) {
+  const refs = getMirroredMessageRefs(event.postType, event.postId);
+
+  if (refs.length === 0) {
+    const ackResult = await apiRequest(`/api/discord/mirror-deletions/${event.id}/acked`, 'PATCH');
+    if (!ackResult.ok) {
+      console.error(`❌ Failed to ack mirror deletion ${event.id} with empty refs`);
+    }
+    return;
+  }
+
+  let hasRetriableFailure = false;
+
+  for (const ref of refs) {
+    try {
+      const channel = await client.channels.fetch(ref.channelId);
+      if (!channel || !channel.isTextBased() || !('messages' in channel)) {
+        removeMirroredMessageRef(event.postType, event.postId, ref.channelId, ref.messageId);
+        continue;
+      }
+
+      const textChannel = channel as TextChannel;
+      await textChannel.messages.delete(ref.messageId);
+      removeMirroredMessageRef(event.postType, event.postId, ref.channelId, ref.messageId);
+    } catch (error: any) {
+      const discordCode = error?.code || error?.rawError?.code;
+
+      // Unknown message/channel means already gone, so we can safely drop this ref.
+      if (discordCode === 10008 || discordCode === 10003) {
+        removeMirroredMessageRef(event.postType, event.postId, ref.channelId, ref.messageId);
+      } else {
+        hasRetriableFailure = true;
+        console.error(
+          `❌ Failed deleting mirrored ${event.postType} post ${event.postId} message ${ref.messageId} in ${ref.channelId}:`,
+          error?.message || error
+        );
+      }
+    }
+
+    // Keep a tiny pace between deletes; discord.js also applies route-level rate limit handling.
+    await waitMs(150);
+  }
+
+  if (hasRetriableFailure) {
+    return;
+  }
+
+  clearMirroredMessageRefs(event.postType, event.postId);
+  const ackResult = await apiRequest(`/api/discord/mirror-deletions/${event.id}/acked`, 'PATCH');
+  if (!ackResult.ok) {
+    console.error(`❌ Failed to ack mirror deletion ${event.id}`);
+  } else {
+    console.log(`🧹 Synced Discord deletion for ${event.postType} post ${event.postId}`);
+  }
+}
+
+async function pollMirrorDeletions() {
+  try {
+    const safeLimit = Math.max(1, Math.min(100, MIRROR_DELETION_BATCH_SIZE));
+    const result = await apiRequest(`/api/discord/mirror-deletions?limit=${safeLimit}`);
+    if (!result.ok) {
+      console.error('❌ Failed to poll mirror deletions:', result.data?.error || result.status);
+      return;
+    }
+
+    const events = Array.isArray(result.data?.events) ? (result.data.events as MirrorDeletionEvent[]) : [];
+    if (events.length === 0) return;
+
+    console.log(`🧹 Found ${events.length} mirror deletion event(s)`);
+    for (const event of events) {
+      await processMirrorDeletionEvent(event);
+    }
+  } catch (error: any) {
+    console.error('❌ Error in mirror deletion polling loop:', error?.message || error);
   }
 }
 
@@ -3827,6 +3975,10 @@ client.once(Events.ClientReady, async (c) => {
   const SCRIM_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_SCRIM_POLL_INTERVAL_MS || '30000', 10);
   console.log(`🔄 Starting SCRIM post poll (interval: ${SCRIM_POLL_INTERVAL_MS}ms)`);
   startGuardedPollLoop('SCRIM post', pollOutgoingScrimPosts, SCRIM_POLL_INTERVAL_MS, 9000);
+
+  // Start polling for mirrored message deletions triggered by app-side deletes
+  console.log(`🧹 Starting mirror deletion poll (interval: ${MIRROR_DELETION_POLL_INTERVAL_MS}ms)`);
+  startGuardedPollLoop('mirror deletion', pollMirrorDeletions, MIRROR_DELETION_POLL_INTERVAL_MS, 10500);
 
   // Start polling for DM notifications
   console.log(`📨 Starting DM notification poll (interval: ${DM_POLL_INTERVAL_MS}ms)`);

@@ -1,4 +1,5 @@
 import prisma from '../prisma';
+import { enqueueMirrorDeletion } from '../services/discordMirrorDeletionQueue';
 
 const LFT_GAME_ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] as const;
 const LFT_STAFF_NEEDS = ['MANAGER', 'COACH', 'OTHER'] as const;
@@ -272,8 +273,24 @@ export default async function lftRoutes(fastify: any) {
       // - PLAYER (user looking for a team): only one active post allowed; creating a new one replaces previous
       // - TEAM (team looking for players): one active post per team; creating a new one replaces previous
       let replacedExistingPost = false;
+      const replacedMirroredPostIds = new Set<string>();
 
       if (type === 'PLAYER') {
+        const existingPlayerPosts = await prisma.lftPost.findMany({
+          where: { authorId: userId, type: 'PLAYER' },
+          select: {
+            id: true,
+            source: true,
+            discordMirrored: true,
+          },
+        });
+
+        for (const post of existingPlayerPosts) {
+          if (post.source === 'app' && post.discordMirrored) {
+            replacedMirroredPostIds.add(post.id);
+          }
+        }
+
         const removed = await prisma.lftPost.deleteMany({ where: { authorId: userId, type: 'PLAYER' } });
         replacedExistingPost = removed.count > 0;
       }
@@ -369,6 +386,24 @@ export default async function lftRoutes(fastify: any) {
         data.coachingAvailability = coachingAvailability || null;
         data.details = details || null;
 
+        const existingTeamPosts = await prisma.lftPost.findMany({
+          where: {
+            type: 'TEAM',
+            teamId: team.id,
+          },
+          select: {
+            id: true,
+            source: true,
+            discordMirrored: true,
+          },
+        });
+
+        for (const post of existingTeamPosts) {
+          if (post.source === 'app' && post.discordMirrored) {
+            replacedMirroredPostIds.add(post.id);
+          }
+        }
+
         const removedTeamPosts = await prisma.lftPost.deleteMany({
           where: {
             type: 'TEAM',
@@ -423,6 +458,10 @@ export default async function lftRoutes(fastify: any) {
 
       const created = await prisma.lftPost.create({ data });
 
+      for (const postId of replacedMirroredPostIds) {
+        enqueueMirrorDeletion('LFT', postId);
+      }
+
       return reply.status(201).send({ success: true, updated: replacedExistingPost, post: created });
     } catch (error: any) {
       fastify.log.error(error);
@@ -468,6 +507,10 @@ export default async function lftRoutes(fastify: any) {
       }
 
       await prisma.lftPost.delete({ where: { id } });
+
+      if (post.source === 'app' && post.discordMirrored) {
+        enqueueMirrorDeletion('LFT', post.id);
+      }
 
       return reply.send({ success: true });
     } catch (error: any) {

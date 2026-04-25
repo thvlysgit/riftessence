@@ -2,6 +2,7 @@ import prisma from '../prisma';
 import { getUserIdFromRequest } from '../middleware/auth';
 import { randomUUID } from 'crypto';
 import { getRecentMatchIds, getMatchDetails } from '../riotClient';
+import { enqueueMirrorDeletion } from '../services/discordMirrorDeletionQueue';
 
 const REGULAR_SCRIM_FORMATS = ['BO1', 'BO3', 'BO5'] as const;
 const FEARLESS_SCRIM_FORMATS = ['FEARLESS_BO1', 'FEARLESS_BO3', 'FEARLESS_BO5', 'BLOCK'] as const;
@@ -1881,6 +1882,8 @@ export default async function scrimRoutes(fastify: any) {
         return reply.status(404).send({ error: 'Team not found' });
       }
 
+      const replacedMirroredPostIds = new Set<string>();
+
       const created = await prisma.$transaction(async (tx: any) => {
         const activePosts = await tx.scrimPost.findMany({
           where: {
@@ -1889,6 +1892,8 @@ export default async function scrimRoutes(fastify: any) {
           },
           select: {
             id: true,
+            source: true,
+            discordMirrored: true,
             proposals: {
               where: { status: { in: ['PENDING', 'DELAYED'] } },
               select: {
@@ -1921,6 +1926,12 @@ export default async function scrimRoutes(fastify: any) {
         }
 
         if (activePosts.length > 0) {
+          for (const post of activePosts as Array<{ id: string; source: string | null; discordMirrored: boolean }>) {
+            if (post.source === 'app' && post.discordMirrored) {
+              replacedMirroredPostIds.add(post.id);
+            }
+          }
+
           await tx.scrimPost.deleteMany({
             where: {
               id: { in: activePosts.map((post: { id: string }) => post.id) },
@@ -1953,6 +1964,10 @@ export default async function scrimRoutes(fastify: any) {
         return post;
       });
 
+      for (const postId of replacedMirroredPostIds) {
+        enqueueMirrorDeletion('SCRIM', postId);
+      }
+
       return reply.status(201).send({
         success: true,
         post: created,
@@ -1981,6 +1996,8 @@ export default async function scrimRoutes(fastify: any) {
           id: true,
           teamId: true,
           authorId: true,
+          source: true,
+          discordMirrored: true,
         },
       });
 
@@ -2000,6 +2017,10 @@ export default async function scrimRoutes(fastify: any) {
       await prisma.scrimPost.delete({
         where: { id: post.id },
       });
+
+      if (post.source === 'app' && post.discordMirrored) {
+        enqueueMirrorDeletion('SCRIM', post.id);
+      }
 
       return reply.send({ success: true });
     } catch (error: any) {

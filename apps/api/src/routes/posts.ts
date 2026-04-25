@@ -1,6 +1,7 @@
 import prisma from '../prisma';
 import { CreatePostSchema, validateRequest, PaginationSchema } from '../validation';
 import { getOrSetCache } from '../utils/requestCache';
+import { enqueueMirrorDeletion } from '../services/discordMirrorDeletionQueue';
 
 function toPositiveInt(value: string | undefined, fallback: number) {
   const parsed = Number(value);
@@ -318,10 +319,25 @@ export default async function postsRoutes(fastify: any) {
         return reply.status(403).send({ error: 'You do not own this Riot account' });
       }
 
+      const oldMirroredPosts = await prisma.post.findMany({
+        where: {
+          authorId: userId,
+          source: 'app',
+          discordMirrored: true,
+        },
+        select: {
+          id: true,
+        },
+      });
+
       // Delete user's old posts before creating new one (prevents spam)
       await prisma.post.deleteMany({
         where: { authorId: userId }
       });
+
+      for (const oldPost of oldMirroredPosts) {
+        enqueueMirrorDeletion('DUO', oldPost.id);
+      }
 
       // Create Post
       const created = await prisma.post.create({
@@ -493,7 +509,25 @@ export default async function postsRoutes(fastify: any) {
       const isAdmin = (user.badges || []).some((b: any) => b.key === 'admin');
       if (!isAdmin) return reply.status(403).send({ error: 'Admin badge required' });
 
+      const existingPost = await prisma.post.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          source: true,
+          discordMirrored: true,
+        },
+      });
+
+      if (!existingPost) {
+        return reply.status(404).send({ error: 'Post not found' });
+      }
+
       await prisma.post.delete({ where: { id } });
+
+      if (existingPost.source === 'app' && existingPost.discordMirrored) {
+        enqueueMirrorDeletion('DUO', existingPost.id);
+      }
+
       return { success: true };
     } catch (error) {
       fastify.log.error('Error deleting post:', error);
