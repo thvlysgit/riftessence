@@ -31,6 +31,8 @@ Changes:
   - Stores mirrored message references in-memory (post type + post id -> sent message IDs).
   - Added mirror-deletion polling loop that leases deletion jobs from API, deletes tracked Discord messages, and acknowledges completion.
   - Added paced deletion handling to reduce burst pressure; discord.js route-level rate limiting remains in effect.
+  - Added champion-specific fallback emoji resolution to avoid cross-guild emoji key collisions for champion names, improving draft ban and pool icon consistency.
+  - Fixed LFT player embed champion pool duplication by rendering either the inline pool summary or tier fields (not both).
 
 ## 2026-04-24 - Discord League Icon Rendering for Drafts and LFT Mirrors
 

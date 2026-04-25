@@ -104,6 +104,7 @@ const RANK_CUSTOM_EMOJI_NAMES: Record<string, string> = {
 };
 
 const globalEmojiFallbackMap = new Map<string, string>();
+const globalChampionEmojiFallbackMap = new Map<string, string>();
 
 type MirrorPostType = 'DUO' | 'LFT' | 'SCRIM';
 
@@ -173,8 +174,10 @@ function formatEmojiMention(emoji: { id: string; name: string | null; animated?:
 
 async function refreshGlobalEmojiFallbackMap() {
   globalEmojiFallbackMap.clear();
+  globalChampionEmojiFallbackMap.clear();
 
   const sourceGuildIds = Array.from(new Set([EMOJI_SOURCE_GUILD_ID, ...CHAMPION_ICON_SOURCE_GUILD_IDS]));
+  const championSourceGuildIds = Array.from(new Set(CHAMPION_ICON_SOURCE_GUILD_IDS));
 
   for (const guildId of sourceGuildIds) {
     try {
@@ -184,7 +187,14 @@ async function refreshGlobalEmojiFallbackMap() {
       for (const emoji of sourceGuild.emojis.cache.values()) {
         const mention = formatEmojiMention(emoji);
         if (!emoji.name || !mention) continue;
-        globalEmojiFallbackMap.set(emoji.name.toLowerCase(), mention);
+        const key = emoji.name.toLowerCase();
+        if (!globalEmojiFallbackMap.has(key)) {
+          globalEmojiFallbackMap.set(key, mention);
+        }
+
+        if (championSourceGuildIds.includes(guildId) && !globalChampionEmojiFallbackMap.has(key)) {
+          globalChampionEmojiFallbackMap.set(key, mention);
+        }
       }
     } catch (error: any) {
       console.warn(
@@ -193,7 +203,10 @@ async function refreshGlobalEmojiFallbackMap() {
     }
   }
 
-  console.log(`😀 Loaded ${globalEmojiFallbackMap.size} shared emojis from ${sourceGuildIds.length} source guild(s)`);
+  console.log(
+    `😀 Loaded ${globalEmojiFallbackMap.size} shared emojis and ` +
+    `${globalChampionEmojiFallbackMap.size} champion fallback emojis from ${sourceGuildIds.length} source guild(s)`
+  );
 }
 
 function findCustomEmoji(guild: Guild | null | undefined, emojiName: string): string | null {
@@ -206,6 +219,18 @@ function findCustomEmoji(guild: Guild | null | undefined, emojiName: string): st
   }
 
   return globalEmojiFallbackMap.get(key) || null;
+}
+
+function findChampionEmoji(guild: Guild | null | undefined, emojiName: string): string | null {
+  const key = emojiName.toLowerCase();
+
+  if (guild) {
+    const found = guild.emojis.cache.find((emoji) => (emoji.name || '').toLowerCase() === key);
+    const localMention = found ? formatEmojiMention(found) : null;
+    if (localMention) return localMention;
+  }
+
+  return globalChampionEmojiFallbackMap.get(key) || null;
 }
 
 function resolveEmoji(guild: Guild | null | undefined, preferredName: string | undefined, fallback: string): string {
@@ -311,7 +336,7 @@ function formatChampionLabelForDiscord(champion: string | null | undefined, guil
 
   let emojiMention: string | null = null;
   for (const candidate of candidates) {
-    emojiMention = findCustomEmoji(guild, candidate);
+    emojiMention = findChampionEmoji(guild, candidate);
     if (emojiMention) break;
   }
 
@@ -2449,6 +2474,7 @@ function buildLftForwardEmbed(post: any, guild: Guild | null | undefined): Embed
   const languagesLine = formatLanguagesForDiscord(post.languages, guild);
   const championTierFields = buildChampionTierlistFields(post.championTierlist, guild);
   const championPoolSummary = buildChampionPoolSummary(post.championPoolMode, post.championPool, post.championTierlist, guild);
+  const showTierFields = candidateType === 'PLAYER' && championTierFields.length > 0;
 
   const descriptionParts = [
     truncateForDiscord(post.details || post.description, 340) ? `> ${truncateForDiscord(post.details || post.description, 340)}` : null,
@@ -2458,7 +2484,7 @@ function buildLftForwardEmbed(post: any, guild: Guild | null | undefined): Embed
     post.experience ? `🧩 Experience: ${post.experience}` : null,
     post.availability ? `📅 Availability: ${post.availability}` : null,
     languagesLine,
-    candidateType === 'PLAYER' && championPoolSummary ? `🗡️ Champion Pool\n${championPoolSummary}` : null,
+    candidateType === 'PLAYER' && !showTierFields && championPoolSummary ? `🗡️ Champion Pool\n${championPoolSummary}` : null,
     post.author?.discordUsername ? `💬 ${post.author.discordUsername}` : null,
     `↗ [open in app](${appUrl})`,
   ].filter(Boolean);
@@ -2471,7 +2497,7 @@ function buildLftForwardEmbed(post: any, guild: Guild | null | undefined): Embed
     .setFooter({ text: 'RiftEssence' })
     .setTimestamp();
 
-  if (candidateType === 'PLAYER' && championTierFields.length > 0) {
+  if (showTierFields) {
     embed.addFields(championTierFields);
   }
 
