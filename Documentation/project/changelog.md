@@ -4,11 +4,11 @@
 
 ---
 
-## 2026-04-24 - Discord Emoji Rendering for Drafts and LFT Mirrors
+## 2026-04-24 - Discord League Icon Rendering for Drafts and LFT Mirrors
 
-### Objective: Make Discord posts actually use imported champion, role, and rank emojis while widening the emoji import tool
+### Objective: Make Discord posts actually use imported champion, role, and rank icons while widening the import tool
 
-Overview: Expanded the Discord bot so forwarded duo and LFT posts can render champion pool visuals from RiftEssence champion data, and upgraded the emoji importer from champion-only batches to a typed importer that can clone champion, role, or rank emoji sets.
+Overview: Expanded the Discord bot so forwarded duo and LFT posts can render champion pool visuals from RiftEssence champion data, upgraded the icon importer so champion batches are cloned from dedicated source guilds, and added a clearer Teams draft-room note about sending saved drafts through Discord.
 
 Changes:
 
@@ -16,11 +16,14 @@ Changes:
   - Added shared champion emoji formatting helpers so imported champion icons can be used in forwarded embeds and draft posts.
   - Updated `/send-draft` embeds to render bans and picks with champion emojis plus role icons.
   - Updated duo and LFT forward embeds to render champion pool summaries and LFT tierlists with custom emoji-backed labels when the payload includes champion data.
-  - Expanded `/import-champion-emojis` into a typed importer with `asset_type` choices for champion, role, and rank icons.
-  - Kept champion imports split into four batches while allowing role and rank icons to be cloned from the shared emoji source guild.
+  - Renamed `/import-champion-emojis` to `/import-league-icons`.
+  - Kept champion imports split into four batches, but now each batch clones from a dedicated source guild ID instead of Data Dragon.
+  - Kept role and rank imports single-pass so they can be cloned without batch selection.
 - Updated [apps/api/src/routes/discordFeed.ts](apps/api/src/routes/discordFeed.ts):
   - Exposed champion pool fields on outgoing duo and LFT payloads so the bot can render them directly.
   - Included champion tierlist data in the bot-facing payloads for player posts.
+- Updated [apps/web/pages/teams/drafts.tsx](apps/web/pages/teams/drafts.tsx):
+  - Added a draft-room hint telling users that saved drafts can be sent to Discord via the bot.
 
 Validation:
 

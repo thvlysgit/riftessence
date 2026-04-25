@@ -683,6 +683,9 @@ const TeamDraftsPage: React.FC = () => {
               <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 Player champion pools only. Drag champions into bans and tournament pick slots.
               </p>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                Saved drafts can also be sent directly to your Discord server with the bot's draft command.
+              </p>
             </div>
             <Link href="/teams/dashboard" className="text-sm hover:opacity-80" style={{ color: 'var(--color-accent-1)' }}>
               Back to Teams Dashboard

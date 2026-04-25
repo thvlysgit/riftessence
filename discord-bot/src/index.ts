@@ -29,6 +29,11 @@ const client = new Client({
 
 const APP_URL = process.env.APP_URL || 'https://riftessence.app';
 const EMOJI_SOURCE_GUILD_ID = process.env.DISCORD_EMOJI_SOURCE_GUILD_ID || '1051156621860020304';
+const CHAMPION_ICON_SOURCE_GUILD_IDS = (process.env.DISCORD_CHAMPION_ICON_SOURCE_GUILD_IDS
+  || '1161703478851280956,1051156621860020304,1051156621860020304,908030229803581471')
+  .split(',')
+  .map((entry) => entry.trim())
+  .filter((entry) => entry.length > 0);
 
 const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'SG'];
 const ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
@@ -387,7 +392,7 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .toJSON(),
   new SlashCommandBuilder()
-    .setName('import-champion-emojis')
+    .setName('import-league-icons')
     .setDescription('Import champion, role, or rank icons as custom emojis in this server')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuildExpressions)
     .addStringOption((option) =>
@@ -644,45 +649,28 @@ function getGuildStaticEmojiLimit(guild: Guild): number {
 }
 
 async function fetchChampionIconsForBatch(batchNumber: number): Promise<{ version: string; assets: ChampionIconAsset[] }> {
-  const versionsResponse = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
-  if (!versionsResponse.ok) {
-    throw new Error(`Failed to fetch Data Dragon versions (${versionsResponse.status})`);
-  }
-
-  const versions = (await versionsResponse.json()) as string[];
-  const latestVersion = Array.isArray(versions) && versions.length > 0 ? versions[0] : null;
-  if (!latestVersion) {
-    throw new Error('No Data Dragon version available');
-  }
-
-  const championListResponse = await fetch(`https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`);
-  if (!championListResponse.ok) {
-    throw new Error(`Failed to fetch champion list (${championListResponse.status})`);
-  }
-
-  const championListPayload = await championListResponse.json() as { data?: Record<string, { id: string }> };
-  const champions = Object.values(championListPayload?.data || {})
-    .map((entry) => entry.id)
-    .filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
-    .sort((a, b) => a.localeCompare(b));
-
-  if (champions.length === 0) {
-    throw new Error('Champion list from Data Dragon is empty');
-  }
-
   if (batchNumber < 1 || batchNumber > CHAMPION_EMOJI_BATCH_COUNT) {
     throw new Error(`Batch must be between 1 and ${CHAMPION_EMOJI_BATCH_COUNT}`);
   }
 
-  const batches = splitIntoBatches(champions, CHAMPION_EMOJI_BATCH_COUNT);
-  const selected = batches[batchNumber - 1] || [];
+  const sourceGuildId = CHAMPION_ICON_SOURCE_GUILD_IDS[batchNumber - 1];
+  if (!sourceGuildId) {
+    throw new Error(`No source guild configured for champion batch ${batchNumber}`);
+  }
+
+  const sourceGuild = await client.guilds.fetch(sourceGuildId);
+  await sourceGuild.emojis.fetch();
+
+  const selected = Array.from(sourceGuild.emojis.cache.values())
+    .filter((emoji) => !emoji.animated && Boolean(emoji.name))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   return {
-    version: latestVersion,
+    version: sourceGuildId,
     assets: selected.map((championId) => ({
-      id: championId,
-      emojiName: normalizeChampionEmojiName(championId),
-      iconUrl: `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/img/champion/${championId}.png`,
+      id: championId.name || 'champion',
+      emojiName: normalizeChampionEmojiName(championId.name || 'champion'),
+      iconUrl: championId.url,
     })),
   };
 }
@@ -821,7 +809,7 @@ async function handleImportChampionEmojis(interaction: ChatInputCommandInteracti
       .setTitle('Emoji Import Summary')
       .setDescription(
         assetType === 'CHAMPION'
-          ? `Batch **${batch}/${CHAMPION_EMOJI_BATCH_COUNT}** from Data Dragon **${version}**`
+          ? `Batch **${batch}/${CHAMPION_EMOJI_BATCH_COUNT}** from source guild **${version}**`
           : `Imported **${description}** from the RiftEssence source guild`
       )
       .addFields(
@@ -832,7 +820,7 @@ async function handleImportChampionEmojis(interaction: ChatInputCommandInteracti
         { name: 'Replaced', value: String(deletedCount), inline: true },
         { name: 'Server Static Emoji Count', value: `${guild.emojis.cache.filter((emoji) => !emoji.animated).size}/${guildStaticEmojiLimit}`, inline: true },
       )
-      .setFooter({ text: assetType === 'CHAMPION' ? 'Run this command with batches 1, 2, 3, and 4 across your emoji servers.' : 'Use the import type that matches the asset pack you want to clone.' })
+      .setFooter({ text: assetType === 'CHAMPION' ? 'Run batches 1, 2, 3, and 4 to clone all champion icon source guilds.' : 'Use the import type that matches the asset pack you want to clone.' })
       .setTimestamp();
 
     return interaction.editReply({ embeds: [embed] });
@@ -3848,7 +3836,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleRoleMenu(interaction);
     } else if (commandName === 'send-draft') {
       await handleSendDraft(interaction);
-    } else if (commandName === 'import-champion-emojis') {
+    } else if (commandName === 'import-league-icons' || commandName === 'import-champion-emojis') {
       await handleImportChampionEmojis(interaction);
     }
     return;
