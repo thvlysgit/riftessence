@@ -110,22 +110,26 @@ function formatEmojiMention(emoji: { id: string; name: string | null; animated?:
 async function refreshGlobalEmojiFallbackMap() {
   globalEmojiFallbackMap.clear();
 
-  try {
-    const sourceGuild = await client.guilds.fetch(EMOJI_SOURCE_GUILD_ID);
-    await sourceGuild.emojis.fetch();
+  const sourceGuildIds = Array.from(new Set([EMOJI_SOURCE_GUILD_ID, ...CHAMPION_ICON_SOURCE_GUILD_IDS]));
 
-    for (const emoji of sourceGuild.emojis.cache.values()) {
-      const mention = formatEmojiMention(emoji);
-      if (!emoji.name || !mention) continue;
-      globalEmojiFallbackMap.set(emoji.name.toLowerCase(), mention);
+  for (const guildId of sourceGuildIds) {
+    try {
+      const sourceGuild = await client.guilds.fetch(guildId);
+      await sourceGuild.emojis.fetch();
+
+      for (const emoji of sourceGuild.emojis.cache.values()) {
+        const mention = formatEmojiMention(emoji);
+        if (!emoji.name || !mention) continue;
+        globalEmojiFallbackMap.set(emoji.name.toLowerCase(), mention);
+      }
+    } catch (error: any) {
+      console.warn(
+        `⚠️ Could not load shared emojis from source guild ${guildId}: ${error?.message || error}`
+      );
     }
-
-    console.log(`😀 Loaded ${globalEmojiFallbackMap.size} shared emojis from source guild ${EMOJI_SOURCE_GUILD_ID}`);
-  } catch (error: any) {
-    console.warn(
-      `⚠️ Could not load shared emojis from source guild ${EMOJI_SOURCE_GUILD_ID}: ${error?.message || error}`
-    );
   }
+
+  console.log(`😀 Loaded ${globalEmojiFallbackMap.size} shared emojis from ${sourceGuildIds.length} source guild(s)`);
 }
 
 function findCustomEmoji(guild: Guild | null | undefined, emojiName: string): string | null {
@@ -158,7 +162,16 @@ function normalizeRankTier(rank: string | null | undefined): string | null {
 }
 
 function formatRoleLabelForDiscord(role: string | null | undefined, guild: Guild | null | undefined): string {
-  const normalized = (role || '').trim().toUpperCase();
+  const raw = (role || '').trim().toUpperCase();
+  const aliasMap: Record<string, string> = {
+    JGL: 'JUNGLE',
+    JG: 'JUNGLE',
+    SUP: 'SUPPORT',
+    BOT: 'ADC',
+    BOTTOM: 'ADC',
+    MIDDLE: 'MID',
+  };
+  const normalized = aliasMap[raw] || raw;
   if (!normalized) {
     return `${resolveEmoji(guild, undefined, '🎮')} Unknown`;
   }
@@ -226,7 +239,19 @@ function formatChampionLabelForDiscord(champion: string | null | undefined, guil
     return `${resolveEmoji(guild, undefined, '🧩')} Unknown`;
   }
 
-  return `${resolveEmoji(guild, normalizeChampionEmojiName(cleaned), '🧩')} ${cleaned}`;
+  const normalized = normalizeChampionEmojiName(cleaned);
+  const compact = normalized.replace(/_/g, '');
+  const rawLower = cleaned.toLowerCase();
+  const alphaNumeric = rawLower.replace(/[^a-z0-9]/g, '');
+  const candidates = Array.from(new Set([normalized, compact, rawLower, alphaNumeric]));
+
+  let emojiMention: string | null = null;
+  for (const candidate of candidates) {
+    emojiMention = findCustomEmoji(guild, candidate);
+    if (emojiMention) break;
+  }
+
+  return `${emojiMention || '🧩'} ${cleaned}`;
 }
 
 function formatChampionListForDiscord(

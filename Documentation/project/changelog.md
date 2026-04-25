@@ -1,6 +1,6 @@
 # Changelog
 
-> Last updated: 2026-04-24
+> Last updated: 2026-04-26
 
 ---
 
@@ -19,11 +19,14 @@ Changes:
   - Renamed `/import-champion-emojis` to `/import-league-icons`.
   - Kept champion imports split into four batches, but now each batch clones from a dedicated source guild ID instead of Data Dragon.
   - Kept role and rank imports single-pass so they can be cloned without batch selection.
+  - Fixed draft role icon resolution for short role aliases (`JGL`, `SUP`, `BOT`) so role icons render consistently.
+  - Expanded shared emoji fallback loading to include all configured source guilds, reducing missing champion icons when a server has partial local imports.
+  - Added champion emoji alias matching (normalized plus compact name variants) to improve lookup for champions with special characters.
 - Updated [apps/api/src/routes/discordFeed.ts](apps/api/src/routes/discordFeed.ts):
   - Exposed champion pool fields on outgoing duo and LFT payloads so the bot can render them directly.
   - Included champion tierlist data in the bot-facing payloads for player posts.
 - Updated [apps/web/pages/teams/drafts.tsx](apps/web/pages/teams/drafts.tsx):
-  - Added a draft-room hint telling users that saved drafts can be sent to Discord via the bot.
+  - Replaced the subtle draft-room hint with a prominent, dismissible first-visit callout that explains the exact command (`/send-draft`) and flow.
 
 Validation:
 

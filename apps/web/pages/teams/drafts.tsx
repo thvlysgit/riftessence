@@ -282,6 +282,7 @@ const TeamDraftsPage: React.FC = () => {
   const [blueBans, setBlueBans] = useState<string[]>(['', '', '', '', '']);
   const [redBans, setRedBans] = useState<string[]>(['', '', '', '', '']);
   const [picks, setPicks] = useState<PickSlot[]>(PICK_ORDER.map((side) => ({ side, champion: '', assignedRole: null })));
+  const [showDiscordDraftTip, setShowDiscordDraftTip] = useState(false);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -526,6 +527,19 @@ const TeamDraftsPage: React.FC = () => {
     void loadPools();
   }, [apiUrl, selectedTeam]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const dismissed = window.localStorage.getItem('team-draft-discord-tip-dismissed') === '1';
+    setShowDiscordDraftTip(!dismissed);
+  }, []);
+
+  const dismissDiscordDraftTip = () => {
+    setShowDiscordDraftTip(false);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('team-draft-discord-tip-dismissed', '1');
+    }
+  };
+
   const applyChampionToBan = (side: DraftSide, index: number, champion: string) => {
     if (side === 'BLUE') {
       setBlueBans((prev) => prev.map((entry, i) => (i === index ? champion : entry)));
@@ -683,14 +697,45 @@ const TeamDraftsPage: React.FC = () => {
               <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 Player champion pools only. Drag champions into bans and tournament pick slots.
               </p>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                Saved drafts can also be sent directly to your Discord server with the bot's draft command.
-              </p>
             </div>
             <Link href="/teams/dashboard" className="text-sm hover:opacity-80" style={{ color: 'var(--color-accent-1)' }}>
               Back to Teams Dashboard
             </Link>
           </div>
+
+          {showDiscordDraftTip && (
+            <section
+              className="border rounded-xl p-4"
+              style={{
+                background: 'linear-gradient(135deg, rgba(59,130,246,0.12), rgba(16,185,129,0.1))',
+                borderColor: 'rgba(59,130,246,0.45)',
+                boxShadow: '0 10px 24px rgba(59,130,246,0.15)',
+              }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                    Send Saved Drafts To Discord
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    After saving a draft here, run <strong>/send-draft</strong> in your Discord server where the RiftEssence bot is present.
+                    The bot will guide you through selecting your team and the exact saved draft to post in the current channel.
+                  </p>
+                </div>
+                <button
+                  onClick={dismissDiscordDraftTip}
+                  className="px-2 py-1 rounded text-xs"
+                  style={{
+                    border: '1px solid var(--color-border)',
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-secondary)',
+                  }}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </section>
+          )}
 
           <section className="border rounded-xl p-4" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
             <div className="flex flex-wrap items-center gap-3">
