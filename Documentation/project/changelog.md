@@ -4,6 +4,56 @@
 
 ---
 
+## 2026-04-26 - Discord Signup/Login, Access Popups, and Verification Semantics Update
+
+### Objective: Let users authenticate with Discord, standardize access-restriction popups, and align verified status with linked Riot+Discord accounts
+
+Overview: Added Discord-based account creation/login flow alongside existing linking, introduced a centralized frontend route-access gate with dedicated account-required / riot-required / admin-only popups, and shifted verification state updates to a single Riot+Discord linkage rule.
+
+Changes:
+
+- Updated [apps/api/src/routes/discord.ts](apps/api/src/routes/discord.ts):
+  - Added `GET /api/auth/discord/auth` for unauthenticated Discord signup/login initiation.
+  - Extended OAuth state handling to support `link` and `register` modes safely.
+  - In register mode, logs into an existing linked user or creates a new user and links Discord.
+  - Added success redirects that guide users to DM-consent setup flows (`promptDiscordDm=1`).
+  - On unlink, now disables Discord DM forwarding and re-syncs verified status.
+- Added [apps/api/src/utils/verification.ts](apps/api/src/utils/verification.ts):
+  - Added `syncUserVerification(userId)` utility.
+  - Canonical rule: `verified = (has at least one Riot account) AND (has linked Discord account)`.
+- Updated [apps/api/src/routes/riotRso.ts](apps/api/src/routes/riotRso.ts):
+  - Replaced direct `user.verified = true` behavior with `syncUserVerification(...)` on link/register/unlink flows.
+- Updated [apps/api/src/routes/lft.ts](apps/api/src/routes/lft.ts):
+  - Enforced Riot-link requirement for PLAYER listing creation (`RIOT_ACCOUNT_REQUIRED`).
+- Updated [apps/api/src/routes/teams.ts](apps/api/src/routes/teams.ts):
+  - Enforced Riot-link requirement when claiming player roster spots.
+  - Enforced Riot-link requirement before assigning player roles to members.
+- Added [apps/web/components/AccessRequirementModal.tsx](apps/web/components/AccessRequirementModal.tsx):
+  - Dedicated modal variants for account-required, riot-required, and admin-only states.
+- Updated [apps/web/pages/_app.tsx](apps/web/pages/_app.tsx):
+  - Added centralized `RouteAccessGate` wrapper with:
+    - account-required modal for guest-restricted routes,
+    - riot-required modal for Riot-gated routes,
+    - admin-only modal with automatic 3-second redirect (`/profile` for signed-in users, `/` for guests).
+- Updated [apps/web/pages/login.tsx](apps/web/pages/login.tsx) and [apps/web/pages/register.tsx](apps/web/pages/register.tsx):
+  - Added Discord sign-in/register buttons wired to backend Discord OAuth auth endpoint.
+- Updated [apps/web/pages/authenticate.tsx](apps/web/pages/authenticate.tsx):
+  - Added callback handling for Discord auth success tokens.
+  - Redirects users to settings DM guidance when DM consent prompt flag is present.
+- Updated [apps/web/pages/profile.tsx](apps/web/pages/profile.tsx):
+  - Added post-link guidance toast for Discord DM setup when prompted.
+- Updated [apps/web/pages/settings.tsx](apps/web/pages/settings.tsx):
+  - Updated account status copy to clarify unverified = trust factor only (no access restriction).
+  - Added explicit verified criteria messaging (Riot + Discord required).
+  - Added DM consent nudge handling via query flag.
+- Updated [apps/web/pages/lft.tsx](apps/web/pages/lft.tsx):
+  - Handles backend `RIOT_ACCOUNT_REQUIRED` with a riot-required popup in candidate post flow.
+
+Validation:
+
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+
 ## 2026-04-26 - Discord Forwarding Recovery + Delete Sync
 
 ### Objective: Restore broken forwarding after champion icon payload changes and keep Discord mirrors in sync when app posts are deleted

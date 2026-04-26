@@ -432,6 +432,11 @@ export default async function teamsRoutes(fastify: any) {
     return account?.puuid || null;
   };
 
+  const hasLinkedRiotAccount = async (userId: string): Promise<boolean> => {
+    const count = await prisma.riotAccount.count({ where: { userId } });
+    return count > 0;
+  };
+
   // ==================== TEAM CRUD ====================
 
   // GET /api/teams - Get user's teams (as owner or member)
@@ -1161,6 +1166,13 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(403).send({ error: 'You have not been added to this team\'s roster' });
       }
 
+      if (PLAYER_ROLES.includes(matchingSpot.role as any) && !await hasLinkedRiotAccount(userId)) {
+        return reply.status(400).send({
+          error: 'A Riot account must be linked to your profile before you can join a player slot',
+          code: 'RIOT_ACCOUNT_REQUIRED',
+        });
+      }
+
       // Get team info for Discord notification
       const teamForNotification = await prisma.team.findUnique({
         where: { id },
@@ -1233,6 +1245,13 @@ export default async function teamsRoutes(fastify: any) {
 
       if (!member) {
         return reply.status(404).send({ error: 'Member not found' });
+      }
+
+      if (PLAYER_ROLES.includes(role as any) && !await hasLinkedRiotAccount(memberId)) {
+        return reply.status(400).send({
+          error: 'Cannot assign a player role to a member without a linked Riot account',
+          code: 'RIOT_ACCOUNT_REQUIRED',
+        });
       }
 
       const updated = await prisma.teamMember.update({

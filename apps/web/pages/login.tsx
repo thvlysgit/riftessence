@@ -4,6 +4,9 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { RiotAuthButton } from '@components/RiotBrand';
+import { DiscordIcon } from '../src/components/DiscordBrand';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,6 +16,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [discordLoading, setDiscordLoading] = useState(false);
 
   // Redirect if already logged in
   React.useEffect(() => {
@@ -33,6 +37,26 @@ export default function LoginPage() {
     } else {
       setError(result.error || 'Login failed');
       setLoading(false);
+    }
+  };
+
+  const handleDiscordAuth = async () => {
+    setError('');
+    setDiscordLoading(true);
+
+    try {
+      const returnUrl = typeof router.query.returnUrl === 'string' ? router.query.returnUrl : '/feed';
+      const res = await fetch(`${API_URL}/api/auth/discord/auth?returnUrl=${encodeURIComponent(returnUrl)}`);
+      const data = await res.json();
+
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || 'Failed to start Discord sign in');
+      }
+
+      window.location.href = data.url;
+    } catch (err: any) {
+      setError(err?.message || 'Failed to start Discord sign in');
+      setDiscordLoading(false);
     }
   };
 
@@ -157,6 +181,20 @@ export default function LoginPage() {
 
           {/* Riot Login Option */}
           <RiotAuthButton label={t('auth.signInWithRiot')} />
+
+          <button
+            type="button"
+            onClick={handleDiscordAuth}
+            disabled={discordLoading}
+            className="w-full mt-3 py-3 font-semibold rounded-lg inline-flex items-center justify-center gap-2 disabled:opacity-60"
+            style={{
+              backgroundColor: '#5865F2',
+              color: '#ffffff',
+            }}
+          >
+            <DiscordIcon className="w-5 h-5" />
+            {discordLoading ? 'Connecting Discord...' : 'Sign In With Discord'}
+          </button>
 
           {/* Sign Up Link */}
           <p className="mt-6 text-center text-sm" style={{ color: 'var(--color-text-muted)' }}>

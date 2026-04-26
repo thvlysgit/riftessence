@@ -11,6 +11,7 @@ import { getChampionIconUrl } from '../utils/championData';
 import { DiscordIcon } from '../src/components/DiscordBrand';
 import NoAccess from '@components/NoAccess';
 import { AdSpot, useAds, getAdForPosition } from '@components/AdSpot';
+import AccessRequirementModal from '@components/AccessRequirementModal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 const REGIONS = ['ALL', 'NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
@@ -341,6 +342,7 @@ export default function LFTPage() {
   const [visibleCount, setVisibleCount] = useState(25);
   const [showPlayerModal, setShowPlayerModal] = useState(false);
   const [showNoAccessModal, setShowNoAccessModal] = useState(false);
+  const [showRiotRequiredModal, setShowRiotRequiredModal] = useState(false);
   const [noAccessAction, setNoAccessAction] = useState<'find-players' | 'find-team'>('find-team');
   const { showToast, confirm } = useGlobalUI();
   const { openConversation } = useChat();
@@ -596,6 +598,11 @@ export default function LFTPage() {
         await maybeShowDiscordRecruitingNudge();
       } else {
         const error = await res.json();
+        if (error?.code === 'RIOT_ACCOUNT_REQUIRED') {
+          setShowPlayerModal(false);
+          setShowRiotRequiredModal(true);
+          return;
+        }
         showToast(error.error || 'Failed to create post', 'error');
       }
     } catch (err) {
@@ -1449,6 +1456,12 @@ export default function LFTPage() {
               showButtons={true}
               onClose={() => setShowNoAccessModal(false)}
             />
+          </div>
+        )}
+
+        {showRiotRequiredModal && (
+          <div onClick={() => setShowRiotRequiredModal(false)}>
+            <AccessRequirementModal type="riot-required" />
           </div>
         )}
       </div>

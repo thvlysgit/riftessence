@@ -3,6 +3,7 @@ import prisma from '../prisma';
 import { getUserIdFromRequest } from '../middleware/auth';
 import { sendDiscordWebhook, createNewUserEmbed } from '../utils/discord-webhook';
 import * as riotClient from '../riotClient';
+import { syncUserVerification } from '../utils/verification';
 
 /**
  * Riot Sign-On (RSO) OAuth integration routes
@@ -271,11 +272,13 @@ export default async function riotRsoRoutes(fastify: FastifyInstance) {
         }
 
         await prisma.riotAccount.delete({ where: { id: accountId } });
+        await syncUserVerification(userId);
       } else {
         // Unlink all RSO-linked accounts for this user
         await prisma.riotAccount.deleteMany({
           where: { userId, rsoLinked: true },
         });
+        await syncUserVerification(userId);
       }
 
       return reply.send({ success: true, message: 'Riot account unlinked' });
@@ -395,11 +398,7 @@ async function handleLinkMode(
     },
   });
 
-  // Update user verified status
-  await prisma.user.update({
-    where: { id: userId },
-    data: { verified: true },
-  });
+  await syncUserVerification(userId);
 
   return reply.redirect(`${frontendUrl}/profile?riot=linked`);
 }
@@ -455,7 +454,6 @@ async function handleRegisterMode(
     user = await prisma.user.create({
       data: {
         username,
-        verified: true,
         region: region as any,
         riotAccounts: {
           create: {
@@ -482,6 +480,8 @@ async function handleRegisterMode(
       })]
     ).catch(err => console.error('[Discord] Failed to send RSO registration webhook:', err));
   }
+
+  await syncUserVerification(user.id);
 
   // Generate JWT token
   const token = fastify.jwt.sign({ userId: user.id });

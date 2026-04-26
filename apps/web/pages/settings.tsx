@@ -59,6 +59,17 @@ export default function SettingsPage() {
     fetchDmState();
   }, [user]);
 
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (router.query.dmConsent !== '1') return;
+
+    setDmMessage('Optional but recommended: add RiftEssence Discord app and enable DMs so the bot can deliver reminders.');
+
+    const nextQuery = { ...router.query } as Record<string, any>;
+    delete nextQuery.dmConsent;
+    router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
+  }, [router.isReady, router.query, router.pathname, router]);
+
   if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
@@ -282,6 +293,12 @@ export default function SettingsPage() {
                 ) : (
                   <span style={{ color: 'var(--color-warning)' }}>{t('settings.account.notVerified')}</span>
                 )}
+              </p>
+              <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                Verification is a trust factor only and does not block app access.
+              </p>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                Verified status requires at least one linked Riot account and one linked Discord account.
               </p>
             </div>
           </div>

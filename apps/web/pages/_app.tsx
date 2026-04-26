@@ -3,14 +3,16 @@ import '../styles/globals.css';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
 import Script from 'next/script';
+import { useRouter } from 'next/router';
 import Navbar from '@components/Navbar';
 import Footer from '@components/Footer';
 import OnboardingWizard from '@components/OnboardingWizard';
 import BugReportButton from '@components/BugReportButton'; // TODO: TEMPORARY - Remove after bug reporting period
 import ChatWidget from '@components/ChatWidget';
+import AccessRequirementModal from '@components/AccessRequirementModal';
 import { GlobalUIProvider } from '@components/GlobalUI';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from '../contexts/AuthContext';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { LanguageProvider } from '../contexts/LanguageContext';
 import { ChatProvider } from '../contexts/ChatContext';
@@ -19,6 +21,67 @@ import { Analytics } from '@vercel/analytics/react';
 
 const queryClient = new QueryClient();
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+
+function RouteAccessGate({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const { user, loading } = useAuth();
+  const [adminCountdown, setAdminCountdown] = React.useState(3);
+
+  const pathname = router.pathname || '/';
+  const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
+  const requiresAccount = pathname === '/profile'
+    || pathname === '/settings'
+    || pathname === '/notifications'
+    || pathname === '/purse'
+    || pathname.startsWith('/teams/dashboard');
+  const requiresRiot = pathname === '/create';
+  const isAdminUser = Boolean(user?.badges?.some((badge) => badge.key === 'admin'));
+
+  useEffect(() => {
+    if (!isAdminRoute) {
+      setAdminCountdown(3);
+      return;
+    }
+    if (loading) return;
+    if (isAdminUser) return;
+
+    setAdminCountdown(3);
+    const tickInterval = window.setInterval(() => {
+      setAdminCountdown((prev) => (prev > 1 ? prev - 1 : 1));
+    }, 1000);
+
+    const redirectTimeout = window.setTimeout(() => {
+      if (user) {
+        router.replace('/profile');
+      } else {
+        router.replace('/');
+      }
+    }, 3000);
+
+    return () => {
+      window.clearInterval(tickInterval);
+      window.clearTimeout(redirectTimeout);
+    };
+  }, [isAdminRoute, loading, isAdminUser, user, router]);
+
+  if (loading) {
+    return <>{children}</>;
+  }
+
+  if (isAdminRoute && !isAdminUser) {
+    return <AccessRequirementModal type="admin-only" countdown={adminCountdown} />;
+  }
+
+  if (requiresAccount && !user) {
+    return <AccessRequirementModal type="account-required" />;
+  }
+
+  if (requiresRiot && user && (user.riotAccountsCount || 0) === 0) {
+    return <AccessRequirementModal type="riot-required" />;
+  }
+
+  return <>{children}</>;
+}
 
 function ThemedAppFrame({ children }: { children: ReactNode }) {
   const { theme } = useTheme();
@@ -192,7 +255,9 @@ export default function App({ Component, pageProps, router }: AppProps) {
                     <Navbar />
                     <BugReportButton /> {/* TODO: TEMPORARY - Remove after bug reporting period */}
                     <ChatWidget />
-                    <Component {...pageProps} />
+                    <RouteAccessGate>
+                      <Component {...pageProps} />
+                    </RouteAccessGate>
                     <Footer />
                     <Analytics />
                   </GlobalUIProvider>

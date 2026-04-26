@@ -58,12 +58,18 @@ export default function AuthenticatePage(): JSX.Element {
     const _isNew = urlParams.get('isNew'); // Available for welcome message if needed
     const rsoError = urlParams.get('error');
     const riotLinked = urlParams.get('riot');
+    const discordResult = urlParams.get('discord');
+    const promptDiscordDm = urlParams.get('promptDiscordDm');
 
-    if (rsoResult === 'success' && token) {
+    if ((rsoResult === 'success' || discordResult === 'success') && token) {
       // RSO login/registration successful
       localStorage.setItem('lfd_token', token);
       refreshUser().then(() => {
-        const returnUrl = urlParams.get('returnUrl') || '/profile';
+        const returnUrl = urlParams.get('returnUrl') || '/feed';
+        if (promptDiscordDm === '1') {
+          router.replace(`/settings?dmConsent=1&returnUrl=${encodeURIComponent(returnUrl)}`);
+          return;
+        }
         router.replace(returnUrl);
       });
     } else if (riotLinked === 'linked') {

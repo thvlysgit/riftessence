@@ -261,12 +261,28 @@ export default async function lftRoutes(fastify: any) {
       }
 
       // Verify user exists and whether they have a Discord linked
-      const user = await prisma.user.findUnique({ where: { id: userId }, include: { discordAccount: true } });
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          discordAccount: true,
+          riotAccounts: {
+            select: { id: true },
+            take: 1,
+          },
+        },
+      });
       if (!user) return reply.status(404).send({ error: 'User not found' });
 
       // Require a connected Discord account for creating either type of post
       if (!user.discordAccount) {
         return reply.status(400).send({ error: 'A Discord account must be linked to your profile to create LFT posts' });
+      }
+
+      if (type === 'PLAYER' && (!user.riotAccounts || user.riotAccounts.length === 0)) {
+        return reply.status(400).send({
+          error: 'A Riot account must be linked to your profile to create PLAYER LFT posts',
+          code: 'RIOT_ACCOUNT_REQUIRED',
+        });
       }
 
       // Behavior:
