@@ -4,7 +4,7 @@ import { getStorageItem, setStorageItem } from './storage';
 const DEFAULT_TEAM_SELECTION_STORAGE_KEY = 'riftessence:last-selected-team-id';
 
 export function useRememberedTeamSelection(teamIds: string[], storageKey = DEFAULT_TEAM_SELECTION_STORAGE_KEY) {
-  const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [selectedTeamId, setSelectedTeamId] = useState(() => getStorageItem(storageKey) || '');
 
   useEffect(() => {
     if (!teamIds.length) {
@@ -14,16 +14,14 @@ export function useRememberedTeamSelection(teamIds: string[], storageKey = DEFAU
       return;
     }
 
-    const rememberedTeamId = getStorageItem(storageKey);
-    if (rememberedTeamId && teamIds.includes(rememberedTeamId)) {
-      if (rememberedTeamId !== selectedTeamId) {
-        setSelectedTeamId(rememberedTeamId);
-      }
+    if (selectedTeamId && teamIds.includes(selectedTeamId)) {
       return;
     }
 
-    if (!selectedTeamId || !teamIds.includes(selectedTeamId)) {
-      setSelectedTeamId(teamIds[0]);
+    const rememberedTeamId = getStorageItem(storageKey);
+    const nextTeamId = rememberedTeamId && teamIds.includes(rememberedTeamId) ? rememberedTeamId : teamIds[0];
+    if (nextTeamId !== selectedTeamId) {
+      setSelectedTeamId(nextTeamId);
     }
   }, [selectedTeamId, storageKey, teamIds]);
 

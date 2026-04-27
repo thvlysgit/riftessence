@@ -40,6 +40,21 @@ Validation:
 - `pnpm --filter @lfd/api run build` passes.
 - `pnpm --dir discord-bot exec tsc -p tsconfig.json --noEmit` passes.
 
+### Follow-up Fixes (same day)
+
+- Updated [apps/web/utils/useRememberedTeamSelection.ts](apps/web/utils/useRememberedTeamSelection.ts):
+  - Fixed a team selector regression that could rapidly flip between teams.
+  - The hook now keeps a valid current selection stable and only falls back to remembered/default when current becomes invalid.
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Extended `/create-team-event` modal flow to include optional duration and opponent link input.
+  - Opponent link is now enforced for SCRIM and TOURNAMENT event types.
+  - Consolidated date/time entry into one datetime field to stay within Discord modal row limits.
+
+Validation (follow-up):
+
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `npm run build` in `discord-bot` passes.
+
 ## 2026-04-27 - Unified Restriction Popups and Riot Access Enforcement
 
 ### Objective: Make restricted-access popups consistent everywhere and align guest/user/riot-user behavior with backend enforcement

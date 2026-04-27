@@ -69,8 +69,9 @@ const TEAM_EVENT_TEAM_SELECT = 'team_event_team_select';
 const TEAM_EVENT_TYPE_SELECT = 'team_event_type_select';
 const TEAM_EVENT_MODAL = 'team_event_modal';
 const TEAM_EVENT_TITLE_INPUT = 'team_event_title';
-const TEAM_EVENT_DATE_INPUT = 'team_event_date';
-const TEAM_EVENT_TIME_INPUT = 'team_event_time';
+const TEAM_EVENT_DATETIME_INPUT = 'team_event_datetime';
+const TEAM_EVENT_DURATION_INPUT = 'team_event_duration';
+const TEAM_EVENT_OPPONENT_INPUT = 'team_event_opponent';
 const TEAM_EVENT_DESCRIPTION_INPUT = 'team_event_description';
 const TEAM_EVENT_TYPES = ['SCRIM', 'PRACTICE', 'VOD_REVIEW', 'TOURNAMENT', 'TEAM_MEETING'] as const;
 const CHAMPION_EMOJI_BATCH_COUNT = 4;
@@ -714,6 +715,8 @@ async function createTeamEventFromDiscord(payload: {
   type: string;
   description?: string;
   scheduledAt: string;
+  duration?: number;
+  enemyMultigg?: string;
 }) {
   const result = await apiRequest('/api/teams/discord-events', 'POST', payload);
   if (!result.ok || !result.data?.success) {
@@ -769,19 +772,26 @@ function buildTeamEventModal(team: TeamEventTeamOption, type: string) {
     .setRequired(true)
     .setPlaceholder('Scrim vs Academy, VOD review, etc.');
 
-  const dateInput = new TextInputBuilder()
-    .setCustomId(TEAM_EVENT_DATE_INPUT)
-    .setLabel('Date')
+  const dateTimeInput = new TextInputBuilder()
+    .setCustomId(TEAM_EVENT_DATETIME_INPUT)
+    .setLabel('Date & time')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
-    .setPlaceholder('YYYY-MM-DD');
+    .setPlaceholder('YYYY-MM-DD HH:MM');
 
-  const timeInput = new TextInputBuilder()
-    .setCustomId(TEAM_EVENT_TIME_INPUT)
-    .setLabel('Time')
+  const durationInput = new TextInputBuilder()
+    .setCustomId(TEAM_EVENT_DURATION_INPUT)
+    .setLabel('Duration (minutes)')
     .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setPlaceholder('HH:MM');
+    .setRequired(false)
+    .setPlaceholder('90');
+
+  const opponentInput = new TextInputBuilder()
+    .setCustomId(TEAM_EVENT_OPPONENT_INPUT)
+    .setLabel('Opponent link (op.gg / multi.gg)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setPlaceholder('https://...');
 
   const descriptionInput = new TextInputBuilder()
     .setCustomId(TEAM_EVENT_DESCRIPTION_INPUT)
@@ -793,8 +803,9 @@ function buildTeamEventModal(team: TeamEventTeamOption, type: string) {
 
   modal.addComponents(
     new ActionRowBuilder<TextInputBuilder>().addComponents(titleInput),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(dateInput),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(timeInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(dateTimeInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(durationInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(opponentInput),
     new ActionRowBuilder<TextInputBuilder>().addComponents(descriptionInput),
   );
 
@@ -918,17 +929,38 @@ async function handleTeamEventModalSubmit(interaction: ModalSubmitInteraction) {
   }
 
   const title = interaction.fields.getTextInputValue(TEAM_EVENT_TITLE_INPUT).trim();
-  const dateValue = interaction.fields.getTextInputValue(TEAM_EVENT_DATE_INPUT).trim();
-  const timeValue = interaction.fields.getTextInputValue(TEAM_EVENT_TIME_INPUT).trim();
+  const dateTimeValue = interaction.fields.getTextInputValue(TEAM_EVENT_DATETIME_INPUT).trim();
+  const durationValue = interaction.fields.getTextInputValue(TEAM_EVENT_DURATION_INPUT).trim();
+  const opponentValue = interaction.fields.getTextInputValue(TEAM_EVENT_OPPONENT_INPUT).trim();
   const description = interaction.fields.getTextInputValue(TEAM_EVENT_DESCRIPTION_INPUT).trim();
 
-  if (!title || !dateValue || !timeValue) {
-    return interaction.reply({ content: '❌ Title, date, and time are required.', ephemeral: true });
+  if (!title || !dateTimeValue) {
+    return interaction.reply({ content: '❌ Title and date/time are required.', ephemeral: true });
   }
 
-  const scheduledAt = new Date(`${dateValue}T${timeValue.length === 5 ? `${timeValue}:00` : timeValue}`);
+  const dateTimeNormalized = dateTimeValue.includes('T')
+    ? dateTimeValue
+    : dateTimeValue.replace(' ', 'T');
+  const dateTimeWithSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dateTimeNormalized)
+    ? `${dateTimeNormalized}:00`
+    : dateTimeNormalized;
+  const scheduledAt = new Date(dateTimeWithSeconds);
   if (Number.isNaN(scheduledAt.getTime())) {
-    return interaction.reply({ content: '❌ Invalid date/time. Use YYYY-MM-DD and HH:MM.', ephemeral: true });
+    return interaction.reply({ content: '❌ Invalid date/time. Use YYYY-MM-DD HH:MM.', ephemeral: true });
+  }
+
+  let duration: number | undefined;
+  if (durationValue) {
+    const parsedDuration = Number.parseInt(durationValue, 10);
+    if (!Number.isInteger(parsedDuration) || parsedDuration <= 0) {
+      return interaction.reply({ content: '❌ Duration must be a positive whole number of minutes.', ephemeral: true });
+    }
+    duration = parsedDuration;
+  }
+
+  const needsOpponentLink = session.selectedType === 'SCRIM' || session.selectedType === 'TOURNAMENT';
+  if (needsOpponentLink && !opponentValue) {
+    return interaction.reply({ content: '❌ Opponent link is required for scrims and tournaments.', ephemeral: true });
   }
 
   const createResult = await createTeamEventFromDiscord({
@@ -938,6 +970,8 @@ async function handleTeamEventModalSubmit(interaction: ModalSubmitInteraction) {
     type: session.selectedType,
     description: description || undefined,
     scheduledAt: scheduledAt.toISOString(),
+    duration,
+    enemyMultigg: opponentValue || undefined,
   });
 
   if (!createResult.ok) {
