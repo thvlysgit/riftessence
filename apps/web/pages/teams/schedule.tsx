@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getAuthToken } from '../../utils/auth';
 import NoAccess from '@components/NoAccess';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useRememberedTeamSelection } from '../../utils/useRememberedTeamSelection';
 
 interface TeamMember {
   userId: string;
@@ -123,7 +124,7 @@ const TeamSchedulePage: React.FC = () => {
   const { currentLanguage } = useLanguage();
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [teams, setTeams] = useState<Team[]>([]);
-  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+  const [selectedTeamId, setSelectedTeamId] = useRememberedTeamSelection(teams.map((team) => team.id));
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [events, setEvents] = useState<TeamEvent[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -292,10 +293,6 @@ const TeamSchedulePage: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setTeams(data);
-        if (data.length > 0 && !selectedTeamId) {
-          setSelectedTeamId(data[0].id);
-          setSelectedTeam(data[0]);
-        }
       }
     } catch (err) {
       console.error('Failed to fetch teams:', err);

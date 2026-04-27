@@ -6,6 +6,7 @@ import NoAccess from '@components/NoAccess';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAuthToken } from '../../utils/auth';
 import { fetchChampions, getChampionIconUrl } from '../../utils/championData';
+import { useRememberedTeamSelection } from '../../utils/useRememberedTeamSelection';
 
 type TeamMember = {
   userId: string;
@@ -265,7 +266,7 @@ function normalizeSavedDraft(raw: any): SavedDraft {
 const TeamDraftsPage: React.FC = () => {
   const { user } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
-  const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [selectedTeamId, setSelectedTeamId] = useRememberedTeamSelection(teams.map((team) => team.id));
   const [memberPools, setMemberPools] = useState<TeamMemberPool[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [loadingPools, setLoadingPools] = useState(false);
@@ -422,14 +423,6 @@ const TeamDraftsPage: React.FC = () => {
 
         const data = (await res.json()) as Team[];
         setTeams(data);
-        if (data.length > 0) {
-          setSelectedTeamId((prev) => {
-            if (prev && data.some((team) => team.id === prev)) {
-              return prev;
-            }
-            return data[0].id;
-          });
-        }
       } catch (teamsError) {
         console.error('Failed to fetch teams:', teamsError);
         setError('Failed to load teams.');
@@ -773,7 +766,7 @@ const TeamDraftsPage: React.FC = () => {
                   {loadingPools && <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Refreshing...</span>}
                 </div>
                 <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
-                  Staff pools are hidden here. Drag icon to draft slots.
+                  Staff pools are hidden here. Drag champions onto ban and pick slots.
                 </p>
 
                 <div className="space-y-3 max-h-[720px] overflow-auto pr-1">
@@ -802,11 +795,13 @@ const TeamDraftsPage: React.FC = () => {
                                     setDraggingChampion({ champion, sourceUserId: member.userId, tier });
                                   }}
                                   onDragEnd={() => setDraggingChampion(null)}
-                                  className="relative w-10 h-10 rounded-md overflow-hidden"
+                                  className="relative w-10 h-10 rounded-md overflow-hidden cursor-grab active:cursor-grabbing transition-transform"
                                   style={{
                                     border: `2px solid ${TIER_STYLE[tier].border}`,
                                     backgroundColor: TIER_STYLE[tier].bg,
                                     opacity: disabled ? 0.35 : 1,
+                                    transform: draggingChampion?.champion === champion ? 'scale(1.06)' : 'none',
+                                    boxShadow: draggingChampion?.champion === champion ? '0 0 0 2px rgba(255,255,255,0.1), 0 12px 24px rgba(0,0,0,0.25)' : 'none',
                                   }}
                                   title={`${champion} (${tier})`}
                                 >
@@ -947,10 +942,18 @@ const TeamDraftsPage: React.FC = () => {
                           onClick={() => {
                             if (draggingChampion) onDropChampion({ kind: 'ban', side: 'BLUE', index });
                           }}
-                          className="h-16 rounded-lg border text-xs overflow-hidden"
-                          style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(30, 64, 175, 0.15)', color: 'var(--color-text-primary)' }}
+                          className="h-16 rounded-lg border-2 border-dashed text-xs overflow-hidden transition-colors"
+                          style={{
+                            borderColor: draggingChampion ? '#93C5FD' : 'var(--color-border)',
+                            backgroundColor: champion ? 'rgba(30, 64, 175, 0.15)' : 'rgba(30, 64, 175, 0.08)',
+                            color: 'var(--color-text-primary)',
+                          }}
                         >
-                          {champion ? <img src={getChampionIconUrl(champion)} alt={champion} className="w-full h-full object-cover" /> : `B${index + 1}`}
+                          {champion ? (
+                            <img src={getChampionIconUrl(champion)} alt={champion} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="inline-flex h-full w-full items-center justify-center font-semibold">B{index + 1}</span>
+                          )}
                         </button>
                       ))}
                     </div>
@@ -967,10 +970,18 @@ const TeamDraftsPage: React.FC = () => {
                           onClick={() => {
                             if (draggingChampion) onDropChampion({ kind: 'ban', side: 'RED', index });
                           }}
-                          className="h-16 rounded-lg border text-xs overflow-hidden"
-                          style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(153, 27, 27, 0.15)', color: 'var(--color-text-primary)' }}
+                          className="h-16 rounded-lg border-2 border-dashed text-xs overflow-hidden transition-colors"
+                          style={{
+                            borderColor: draggingChampion ? '#FCA5A5' : 'var(--color-border)',
+                            backgroundColor: champion ? 'rgba(153, 27, 27, 0.15)' : 'rgba(153, 27, 27, 0.08)',
+                            color: 'var(--color-text-primary)',
+                          }}
                         >
-                          {champion ? <img src={getChampionIconUrl(champion)} alt={champion} className="w-full h-full object-cover" /> : `R${index + 1}`}
+                          {champion ? (
+                            <img src={getChampionIconUrl(champion)} alt={champion} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="inline-flex h-full w-full items-center justify-center font-semibold">R{index + 1}</span>
+                          )}
                         </button>
                       ))}
                     </div>
@@ -1010,13 +1021,16 @@ const TeamDraftsPage: React.FC = () => {
                                 </div>
                                 <div className={`flex items-center gap-2 ${sideIndex === 1 ? 'justify-end' : ''}`}>
                                   <button
-                                    className="w-12 h-12 rounded-md border overflow-hidden flex items-center justify-center text-xs"
+                                    className="w-12 h-12 rounded-md border-2 border-dashed overflow-hidden flex items-center justify-center text-xs transition-colors"
                                     onDragOver={(e) => e.preventDefault()}
                                     onDrop={() => onDropChampion({ kind: 'pick', index })}
                                     onClick={() => {
                                       if (draggingChampion) onDropChampion({ kind: 'pick', index });
                                     }}
-                                    style={{ borderColor: 'var(--color-border)', backgroundColor: slot.side === 'BLUE' ? 'rgba(30, 64, 175, 0.15)' : 'rgba(153, 27, 27, 0.15)' }}
+                                    style={{
+                                      borderColor: draggingChampion ? sideColor : 'var(--color-border)',
+                                      backgroundColor: slot.side === 'BLUE' ? 'rgba(30, 64, 175, 0.15)' : 'rgba(153, 27, 27, 0.15)',
+                                    }}
                                     title={slot.champion || 'Drop champion'}
                                   >
                                     {slot.champion ? (

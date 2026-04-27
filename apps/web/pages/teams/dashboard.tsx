@@ -734,53 +734,6 @@ const TeamsDashboardPage: React.FC = () => {
               )}
             </button>
 
-            {/* Recruit via LFT */}
-            <button
-              onClick={handleOpenTeamLftModal}
-              className="border p-6 rounded-xl text-left transition-all hover:scale-[1.02] hover:shadow-lg group"
-              style={{
-                backgroundColor: 'var(--color-bg-secondary)',
-                borderColor: 'var(--color-border)',
-              }}
-            >
-              <div
-                className="w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(34, 197, 94, 0.1) 100%)',
-                  border: '1px solid rgba(34, 197, 94, 0.3)',
-                }}
-              >
-                <svg className="w-7 h-7" style={{ color: '#22C55E' }} fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M8 9a3 3 0 116 0v1h1a2 2 0 012 2v3H3v-3a2 2 0 012-2h1V9z" />
-                  <path d="M10 2a3 3 0 00-3 3v2h6V5a3 3 0 00-3-3z" />
-                </svg>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-lg mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                    {pageText.recruitViaLft}
-                  </h4>
-                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    Publish or update your team listing, including manager and coach needs.
-                  </p>
-                </div>
-                <svg
-                  className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-1"
-                  style={{ color: '#22C55E' }}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-              <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
-                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {teams.length === 0 ? 'Create a team first to post.' : 'One active listing per team, editable anytime.'}
-                </span>
-              </div>
-            </button>
-
             {/* Schedule Scrims - Clickable Link */}
             <Link
               href="/teams/schedule"

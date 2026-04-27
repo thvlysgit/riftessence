@@ -41,6 +41,11 @@ export default async function discordRoutes(fastify: FastifyInstance) {
     return `discord_${Date.now().toString(36)}`;
   };
 
+  const redirectDiscordError = (reply: any, code: string, message: string) => {
+    fastify.log.error({ code, message }, 'Discord OAuth failed');
+    return reply.redirect(`${frontendUrl}/authenticate?discord=error&error=${encodeURIComponent(code)}`);
+  };
+
   // Initiate Discord OAuth flow
   fastify.get('/login', async (request: any, reply: any) => {
     try {
@@ -93,7 +98,7 @@ export default async function discordRoutes(fastify: FastifyInstance) {
       const { code, state } = request.query as { code?: string; state?: string };
       
       if (!code || !state) {
-        return reply.code(400).send({ error: 'Missing code or state parameter' });
+        return redirectDiscordError(reply, 'missing_params', 'Missing code or state parameter');
       }
 
       // Decode and validate state
@@ -101,19 +106,19 @@ export default async function discordRoutes(fastify: FastifyInstance) {
       try {
         stateData = JSON.parse(Buffer.from(state, 'base64').toString());
       } catch {
-        return reply.code(400).send({ error: 'Invalid state parameter' });
+        return redirectDiscordError(reply, 'invalid_state', 'Invalid state parameter');
       }
 
       // Verify state timestamp (prevent replay attacks - 10 min window)
       if (Date.now() - stateData.timestamp > 10 * 60 * 1000) {
-        return reply.code(400).send({ error: 'State token expired' });
+        return redirectDiscordError(reply, 'state_expired', 'State token expired');
       }
 
       const clientSecret = process.env.DISCORD_CLIENT_SECRET;
       const redirectUri = process.env.DISCORD_REDIRECT_URI || 'http://localhost:3333/api/auth/discord/callback';
 
       if (!process.env.DISCORD_CLIENT_ID || !clientSecret) {
-        return reply.code(500).send({ error: 'Discord OAuth not configured' });
+        return redirectDiscordError(reply, 'discord_not_configured', 'Discord OAuth not configured');
       }
 
       // Exchange code for access token
@@ -131,7 +136,7 @@ export default async function discordRoutes(fastify: FastifyInstance) {
 
       if (!tokenResponse.ok) {
         request.log?.error('Discord token exchange failed:', await tokenResponse.text());
-        return reply.code(502).send({ error: 'Failed to exchange Discord authorization code' });
+        return redirectDiscordError(reply, 'token_exchange_failed', 'Failed to exchange Discord authorization code');
       }
 
       const tokenData = await tokenResponse.json();
@@ -144,7 +149,7 @@ export default async function discordRoutes(fastify: FastifyInstance) {
 
       if (!userResponse.ok) {
         request.log?.error('Discord user fetch failed:', await userResponse.text());
-        return reply.code(502).send({ error: 'Failed to fetch Discord user info' });
+        return redirectDiscordError(reply, 'userinfo_failed', 'Failed to fetch Discord user info');
       }
 
       const discordUser = await userResponse.json();
@@ -153,7 +158,7 @@ export default async function discordRoutes(fastify: FastifyInstance) {
 
       if (mode === 'link') {
         if (!stateData.userId) {
-          return reply.code(400).send({ error: 'Invalid state for link mode' });
+          return redirectDiscordError(reply, 'missing_params', 'Invalid state for link mode');
         }
 
         // Check if this Discord account is already linked to another user
@@ -162,7 +167,7 @@ export default async function discordRoutes(fastify: FastifyInstance) {
         });
 
         if (existingLink && existingLink.userId !== stateData.userId) {
-          return reply.code(400).send({ error: 'This Discord account is already linked to another user' });
+          return redirectDiscordError(reply, 'account_already_linked', 'This Discord account is already linked to another user');
         }
 
         // Create or update Discord account link
@@ -232,7 +237,7 @@ export default async function discordRoutes(fastify: FastifyInstance) {
       return reply.redirect(`${frontendUrl}/authenticate?discord=success&token=${encodeURIComponent(token)}&isNew=${isNew}&returnUrl=${encodeURIComponent(returnUrl)}&promptDiscordDm=1`);
     } catch (error: any) {
       request.log?.error(error);
-      return reply.code(500).send({ error: 'Discord linking failed' });
+      return redirectDiscordError(reply, 'callback_failed', 'Discord linking failed');
     }
   });
 

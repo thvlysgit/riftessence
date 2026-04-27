@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
+import AccessRequirementModal from '@components/AccessRequirementModal';
 
 // Type definitions for the request and response payloads
 type VerifyResponse = {
@@ -38,6 +39,7 @@ export default function AuthenticatePage(): JSX.Element {
   const [loadingVerify, setLoadingVerify] = useState(false);
   const [result, setResult] = useState<VerifyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [discordError, setDiscordError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [lastLookupAt, setLastLookupAt] = useState<Date | null>(null);
@@ -77,6 +79,22 @@ export default function AuthenticatePage(): JSX.Element {
       refreshUser().then(() => {
         router.replace('/profile?riot=linked');
       });
+    } else if (discordResult === 'error') {
+      const discordErrorCode = urlParams.get('error') || '';
+      const errorMessages: Record<string, string> = {
+        missing_params: 'Discord authentication failed because the callback was incomplete.',
+        invalid_state: 'Discord authentication failed because the session expired or was invalid.',
+        state_expired: 'Discord authentication session expired. Please try again.',
+        discord_not_configured: 'Discord sign-in is not configured right now.',
+        token_exchange_failed: 'Discord rejected the sign-in request. Please try again.',
+        userinfo_failed: 'Discord sign-in completed but user data could not be loaded.',
+        account_already_linked: 'That Discord account is already linked to another RiftEssence account.',
+        callback_failed: 'Discord authentication failed. Please try again.',
+      };
+      const resolvedMessage = errorMessages[discordErrorCode] || 'Discord authentication failed. Please try again.';
+      console.error('[Authenticate] Discord auth failed:', discordErrorCode || 'unknown', resolvedMessage);
+      setDiscordError(resolvedMessage);
+      router.replace('/authenticate', undefined, { shallow: true });
     } else if (rsoError) {
       // RSO error
       const errorMessages: Record<string, string> = {
@@ -716,6 +734,14 @@ export default function AuthenticatePage(): JSX.Element {
           )}
         </div>
       </div>
+
+      {discordError && (
+        <AccessRequirementModal
+          type="account-required"
+          reason={discordError}
+          onClose={() => setDiscordError(null)}
+        />
+      )}
     </div>
   );
 }

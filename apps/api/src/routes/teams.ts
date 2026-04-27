@@ -411,6 +411,17 @@ export default async function teamsRoutes(fastify: any) {
     return member?.role === 'MANAGER' || member?.role === 'COACH';
   };
 
+  const canManageDiscordTeamEvents = async (userId: string, teamId: string): Promise<boolean> => {
+    const team = await prisma.team.findUnique({ where: { id: teamId } });
+    if (!team) return false;
+    if (team.ownerId === userId) return true;
+
+    const member = await prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId } }
+    });
+    return member?.role === 'MANAGER';
+  };
+
   // Helper to check if user is team member
   const isTeamMember = async (userId: string, teamId: string): Promise<boolean> => {
     const member = await prisma.teamMember.findUnique({
@@ -1490,6 +1501,198 @@ export default async function teamsRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to create event' });
+    }
+  });
+
+  // GET /api/teams/discord-events/options?guildId=...&discordId=...
+  // Bot-only route used by the Discord team-event creation flow.
+  fastify.get('/teams/discord-events/options', async (request: any, reply: any) => {
+    if (!getDiscordBotAuthorized(request, reply)) return;
+
+    try {
+      const { guildId, discordId } = request.query as { guildId?: string; discordId?: string };
+
+      if (!guildId || !discordId) {
+        return reply.status(400).send({ error: 'Missing required query parameters: guildId, discordId' });
+      }
+
+      const user = await prisma.discordAccount.findUnique({
+        where: { discordId },
+        select: { userId: true },
+      });
+
+      if (!user?.userId) {
+        fastify.log.warn({ guildId, discordId }, 'Discord event creation rejected: account not linked');
+        return reply.status(200).send({
+          status: 'MISSING_DISCORD_LINK',
+          teams: [],
+        });
+      }
+
+      const teams = await prisma.team.findMany({
+        where: {
+          discordWebhookUrl: { not: null },
+          OR: [
+            { ownerId: user.userId },
+            { members: { some: { userId: user.userId, role: 'MANAGER' } } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          tag: true,
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 25,
+      });
+
+      if (teams.length === 0) {
+        fastify.log.warn({ guildId, discordId, userId: user.userId }, 'Discord event creation rejected: no linked team access');
+        return reply.status(200).send({
+          status: 'NO_TEAM_ACCESS',
+          teams: [],
+        });
+      }
+
+      return reply.send({
+        status: 'READY',
+        teams,
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch event creation options' });
+    }
+  });
+
+  // POST /api/teams/discord-events - Create a team event from Discord bot interactions.
+  fastify.post('/teams/discord-events', async (request: any, reply: any) => {
+    if (!getDiscordBotAuthorized(request, reply)) return;
+
+    try {
+      const {
+        discordId,
+        teamId,
+        title,
+        type,
+        description,
+        scheduledAt,
+        duration,
+        enemyMultigg,
+        assignedCoachIds,
+        concernedMemberIds,
+      } = request.body as any;
+
+      if (!discordId || !teamId || !title || !type || !scheduledAt) {
+        return reply.status(400).send({ error: 'discordId, teamId, title, type, and scheduledAt are required' });
+      }
+
+      const user = await prisma.discordAccount.findUnique({
+        where: { discordId },
+        select: { userId: true },
+      });
+
+      if (!user?.userId) {
+        fastify.log.warn({ discordId, teamId }, 'Discord event creation rejected: account not linked');
+        return reply.status(200).send({ status: 'MISSING_DISCORD_LINK', event: null });
+      }
+
+      if (!await canManageDiscordTeamEvents(user.userId, teamId)) {
+        fastify.log.warn({ discordId, teamId, userId: user.userId }, 'Discord event creation rejected: insufficient team access');
+        return reply.status(403).send({ error: 'Only team owners and managers can create Discord events' });
+      }
+
+      if (!TEAM_EVENT_TYPES.includes(type)) {
+        return reply.status(400).send({ error: `Type must be one of: ${TEAM_EVENT_TYPES.join(', ')}` });
+      }
+
+      const scheduledDate = new Date(scheduledAt);
+      if (isNaN(scheduledDate.getTime())) {
+        return reply.status(400).send({ error: 'Invalid scheduledAt date' });
+      }
+
+      const normalizedConcerned = await normalizeConcernedMemberIds(teamId, concernedMemberIds);
+      if (normalizedConcerned.error) {
+        return reply.status(400).send({ error: normalizedConcerned.error });
+      }
+
+      const team = await prisma.team.findUnique({
+        where: { id: teamId },
+        select: {
+          name: true,
+          tag: true,
+          discordWebhookUrl: true,
+          discordNotifyEvents: true,
+          discordRemindersEnabled: true,
+          discordReminderDelaysMinutes: true,
+        },
+      });
+
+      if (!team?.discordWebhookUrl) {
+        return reply.status(400).send({ error: 'This team is not linked to Discord' });
+      }
+
+      const event = await prisma.teamEvent.create({
+        data: {
+          teamId,
+          title,
+          type,
+          description: description || null,
+          scheduledAt: scheduledDate,
+          duration: duration ? parseInt(duration) : null,
+          enemyMultigg: (type === 'SCRIM' || type === 'TOURNAMENT') ? (enemyMultigg || null) : null,
+          concernedMemberIds: normalizedConcerned.value,
+          createdBy: user.userId,
+        },
+      });
+
+      if (type === 'VOD_REVIEW' && assignedCoachIds && Array.isArray(assignedCoachIds) && assignedCoachIds.length > 0) {
+        await prisma.teamEventCoach.createMany({
+          data: assignedCoachIds.map((coachId: string) => ({
+            eventId: event.id,
+            userId: coachId,
+          })),
+        });
+      }
+
+      if (team.discordNotifyEvents) {
+        const creator = await prisma.user.findUnique({
+          where: { id: user.userId },
+          select: { username: true },
+        });
+
+        await prisma.teamEventNotification.create({
+          data: {
+            teamId,
+            eventId: event.id,
+            eventTitle: title,
+            eventType: type,
+            scheduledAt: scheduledDate,
+            duration: duration ? parseInt(duration) : null,
+            description: description || null,
+            enemyLink: (type === 'SCRIM' || type === 'TOURNAMENT') ? (enemyMultigg || null) : null,
+            concernedMemberIds: normalizedConcerned.value,
+            notificationType: 'CREATED',
+            triggeredBy: creator?.username || 'Unknown',
+          },
+        });
+      }
+
+      await queueEventReminders({
+        teamId,
+        eventId: event.id,
+        scheduledAt: scheduledDate,
+        remindersEnabled: Boolean(team.discordRemindersEnabled),
+        reminderDelaysMinutes: normalizeStoredReminderDelays(team.discordReminderDelaysMinutes),
+      });
+
+      return reply.status(201).send({ success: true, event });
+    } catch (error: any) {
+      if (isSchemaOutOfDateError(error)) {
+        fastify.log.error({ err: error }, 'Discord event creation failed: schema out of date');
+        return reply.status(500).send({ error: 'Discord event creation requires an updated schema' });
+      }
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to create team event' });
     }
   });
 

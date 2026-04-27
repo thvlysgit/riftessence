@@ -5,6 +5,7 @@ import NoAccess from '@components/NoAccess';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAuthToken } from '../../utils/auth';
 import { useGlobalUI } from '@components/GlobalUI';
+import { useRememberedTeamSelection } from '../../utils/useRememberedTeamSelection';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const ALL_REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
@@ -310,7 +311,7 @@ export default function TeamsScrimsPage() {
   const { showToast, confirm } = useGlobalUI();
 
   const [teams, setTeams] = useState<TeamSummary[]>([]);
-  const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [selectedTeamId, setSelectedTeamId] = useRememberedTeamSelection(teams.map((team) => team.id));
   const [prefill, setPrefill] = useState<TeamPrefillResponse | null>(null);
   const [prefillLoading, setPrefillLoading] = useState(false);
 
@@ -384,10 +385,6 @@ export default function TeamsScrimsPage() {
       const data = await response.json();
       const manageable = (data || []).filter((team: TeamSummary) => team.isOwner || MANAGEABLE_TEAM_ROLES.has(team.myRole));
       setTeams(manageable);
-
-      if (!selectedTeamId && manageable.length > 0) {
-        setSelectedTeamId(manageable[0].id);
-      }
     } catch (error) {
       console.error('Failed to fetch teams for scrims page', error);
       showToast('Failed to fetch teams', 'error');

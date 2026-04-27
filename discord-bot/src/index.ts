@@ -65,6 +65,14 @@ const SETUP_FILTER_LANGUAGE = 'filter_language';
 const SETUP_FILTER_RANK_RANGE = 'filter_rank_range';
 const SEND_DRAFT_TEAM_SELECT = 'send_draft_team_select';
 const SEND_DRAFT_PICK_SELECT = 'send_draft_pick_select';
+const TEAM_EVENT_TEAM_SELECT = 'team_event_team_select';
+const TEAM_EVENT_TYPE_SELECT = 'team_event_type_select';
+const TEAM_EVENT_MODAL = 'team_event_modal';
+const TEAM_EVENT_TITLE_INPUT = 'team_event_title';
+const TEAM_EVENT_DATE_INPUT = 'team_event_date';
+const TEAM_EVENT_TIME_INPUT = 'team_event_time';
+const TEAM_EVENT_DESCRIPTION_INPUT = 'team_event_description';
+const TEAM_EVENT_TYPES = ['SCRIM', 'PRACTICE', 'VOD_REVIEW', 'TOURNAMENT', 'TEAM_MEETING'] as const;
 const CHAMPION_EMOJI_BATCH_COUNT = 4;
 const CHAMPION_POOL_TIER_ORDER = ['S', 'A', 'B', 'C'] as const;
 
@@ -474,10 +482,24 @@ type PendingSendDraftSession = {
   selectedTeamId: string | null;
 };
 
+type PendingTeamEventSession = {
+  guildId: string;
+  discordUserId: string;
+  teams: TeamEventTeamOption[];
+  selectedTeamId: string | null;
+  selectedType: (typeof TEAM_EVENT_TYPES)[number] | null;
+};
+
 type ChampionIconAsset = {
   id: string;
   emojiName: string;
   iconUrl: string;
+};
+
+type TeamEventTeamOption = {
+  id: string;
+  name: string;
+  tag: string | null;
 };
 
 // ============================================================
@@ -504,6 +526,10 @@ const commands = [
     .setName('send-draft')
     .setDescription('Send a saved team draft embed to this channel')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('create-team-event')
+    .setDescription('Create a team event for one of your linked teams')
     .toJSON(),
   new SlashCommandBuilder()
     .setName('import-league-icons')
@@ -610,12 +636,17 @@ async function apiRequest(endpoint: string, method = 'GET', body?: any) {
 
 const pendingRoleMenuSessions = new Map<string, PendingRoleMenuSession>();
 const pendingSendDraftSessions = new Map<string, PendingSendDraftSession>();
+const pendingTeamEventSessions = new Map<string, PendingTeamEventSession>();
 
 function getRoleMenuSessionKey(userId: string, guildId: string) {
   return `${userId}-${guildId}`;
 }
 
 function getSendDraftSessionKey(userId: string, guildId: string) {
+  return `${userId}-${guildId}`;
+}
+
+function getTeamEventSessionKey(userId: string, guildId: string) {
   return `${userId}-${guildId}`;
 }
 
@@ -654,6 +685,271 @@ async function fetchSendDraftById(draftId: string, discordId: string) {
   }
 
   return { ok: true, error: null, draft: result.data.draft };
+}
+
+async function fetchTeamEventOptions(guildId: string, discordId: string) {
+  const endpoint = `/api/teams/discord-events/options?guildId=${encodeURIComponent(guildId)}&discordId=${encodeURIComponent(discordId)}`;
+  const result = await apiRequest(endpoint);
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: result.data?.error || 'Failed to fetch event options',
+      status: 'ERROR',
+      teams: [] as TeamEventTeamOption[],
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+    status: String(result.data?.status || 'ERROR'),
+    teams: Array.isArray(result.data?.teams) ? (result.data.teams as TeamEventTeamOption[]) : [],
+  };
+}
+
+async function createTeamEventFromDiscord(payload: {
+  discordId: string;
+  teamId: string;
+  title: string;
+  type: string;
+  description?: string;
+  scheduledAt: string;
+}) {
+  const result = await apiRequest('/api/teams/discord-events', 'POST', payload);
+  if (!result.ok || !result.data?.success) {
+    return {
+      ok: false,
+      error: result.data?.error || 'Failed to create event',
+      event: null,
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+    event: result.data.event,
+  };
+}
+
+function buildTeamEventTeamChooserEmbed(guildName: string, teams: TeamEventTeamOption[]) {
+  const lines = teams.map((team) => `• **${team.name}${team.tag ? ` [${team.tag}]` : ''}**`);
+  return new EmbedBuilder()
+    .setColor(0x3B82F6)
+    .setTitle('📅 Create Team Event')
+    .setDescription(
+      `Server: **${guildName}**\n` +
+      'Choose one of your linked teams to continue.'
+    )
+    .addFields({
+      name: 'Eligible Teams',
+      value: lines.join('\n').slice(0, 1024) || 'No eligible teams found.',
+    })
+    .setFooter({ text: 'Requires a linked Discord account and owner or manager access.' })
+    .setTimestamp();
+}
+
+function buildTeamEventTypeChooserEmbed(team: TeamEventTeamOption) {
+  return new EmbedBuilder()
+    .setColor(0x2563EB)
+    .setTitle('🗓️ Choose Event Type')
+    .setDescription(`Team: **${team.name}${team.tag ? ` [${team.tag}]` : ''}**\nPick the event type to create.`)
+    .setTimestamp();
+}
+
+function buildTeamEventModal(team: TeamEventTeamOption, type: string) {
+  const modal = new ModalBuilder()
+    .setCustomId(TEAM_EVENT_MODAL)
+    .setTitle(`Create ${type.replace('_', ' ')} for ${team.name}`.slice(0, 45));
+
+  const titleInput = new TextInputBuilder()
+    .setCustomId(TEAM_EVENT_TITLE_INPUT)
+    .setLabel('Event title')
+    .setStyle(TextInputStyle.Short)
+    .setMaxLength(100)
+    .setRequired(true)
+    .setPlaceholder('Scrim vs Academy, VOD review, etc.');
+
+  const dateInput = new TextInputBuilder()
+    .setCustomId(TEAM_EVENT_DATE_INPUT)
+    .setLabel('Date')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setPlaceholder('YYYY-MM-DD');
+
+  const timeInput = new TextInputBuilder()
+    .setCustomId(TEAM_EVENT_TIME_INPUT)
+    .setLabel('Time')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setPlaceholder('HH:MM');
+
+  const descriptionInput = new TextInputBuilder()
+    .setCustomId(TEAM_EVENT_DESCRIPTION_INPUT)
+    .setLabel('Description')
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(false)
+    .setMaxLength(1000)
+    .setPlaceholder('Optional notes for the team');
+
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(titleInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(dateInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(timeInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(descriptionInput),
+  );
+
+  return modal;
+}
+
+async function handleCreateTeamEvent(interaction: ChatInputCommandInteraction) {
+  if (!interaction.guildId || !interaction.guild) {
+    return interaction.reply({ content: '❌ This command can only be used in a server.', ephemeral: true });
+  }
+
+  const options = await fetchTeamEventOptions(interaction.guildId, interaction.user.id);
+  if (!options.ok) {
+    return interaction.reply({ content: `❌ ${options.error || 'Failed to load event options.'}`, ephemeral: true });
+  }
+
+  if (options.status !== 'READY' || options.teams.length === 0) {
+    const reason = options.status === 'MISSING_DISCORD_LINK'
+      ? 'Link your Discord account in RiftEssence first.'
+      : 'No linked team ownership or manager access was found.';
+    return interaction.reply({ content: `❌ ${reason}`, ephemeral: true });
+  }
+
+  const sessionKey = getTeamEventSessionKey(interaction.user.id, interaction.guildId);
+  pendingTeamEventSessions.set(sessionKey, {
+    guildId: interaction.guildId,
+    discordUserId: interaction.user.id,
+    teams: options.teams,
+    selectedTeamId: null,
+    selectedType: null,
+  });
+
+  const teamOptions = options.teams.slice(0, 25).map((team) =>
+    new StringSelectMenuOptionBuilder()
+      .setLabel(team.name.slice(0, 100))
+      .setValue(team.id)
+      .setDescription(team.tag ? `[${team.tag}]` : 'Linked team')
+  );
+
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(TEAM_EVENT_TEAM_SELECT)
+      .setPlaceholder('Choose a team')
+      .addOptions(teamOptions)
+  );
+
+  return interaction.reply({
+    embeds: [buildTeamEventTeamChooserEmbed(interaction.guild.name, options.teams)],
+    components: [row],
+    ephemeral: true,
+  });
+}
+
+async function handleTeamEventSelectMenu(interaction: StringSelectMenuInteraction) {
+  if (!interaction.guildId) {
+    return interaction.reply({ content: '❌ This action must be used in a server.', ephemeral: true });
+  }
+
+  const sessionKey = getTeamEventSessionKey(interaction.user.id, interaction.guildId);
+  const session = pendingTeamEventSessions.get(sessionKey);
+  if (!session) {
+    return interaction.update({ content: '❌ Event menu expired. Run `/create-team-event` again.', embeds: [], components: [] });
+  }
+
+  if (interaction.customId === TEAM_EVENT_TEAM_SELECT) {
+    const teamId = interaction.values[0];
+    const selectedTeam = session.teams.find((team) => team.id === teamId);
+    if (!selectedTeam) {
+      return interaction.update({ content: '❌ Selected team is no longer available.', embeds: [], components: [] });
+    }
+
+    session.selectedTeamId = selectedTeam.id;
+    pendingTeamEventSessions.set(sessionKey, session);
+
+    const typeOptions = TEAM_EVENT_TYPES.map((eventType) =>
+      new StringSelectMenuOptionBuilder()
+        .setLabel(eventType.replace('_', ' '))
+        .setValue(eventType)
+    );
+
+    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(TEAM_EVENT_TYPE_SELECT)
+        .setPlaceholder('Choose an event type')
+        .addOptions(typeOptions)
+    );
+
+    return interaction.update({
+      embeds: [buildTeamEventTypeChooserEmbed(selectedTeam)],
+      components: [row],
+    });
+  }
+
+  if (interaction.customId === TEAM_EVENT_TYPE_SELECT) {
+    const type = interaction.values[0] as (typeof TEAM_EVENT_TYPES)[number] | undefined;
+    if (!type || !TEAM_EVENT_TYPES.includes(type)) {
+      return interaction.update({ content: '❌ Invalid event type selection.', embeds: [], components: [] });
+    }
+
+    const selectedTeam = session.teams.find((team) => team.id === session.selectedTeamId);
+    if (!selectedTeam) {
+      return interaction.update({ content: '❌ Selected team is no longer available.', embeds: [], components: [] });
+    }
+
+    session.selectedType = type;
+    pendingTeamEventSessions.set(sessionKey, session);
+
+    return interaction.showModal(buildTeamEventModal(selectedTeam, type));
+  }
+}
+
+async function handleTeamEventModalSubmit(interaction: ModalSubmitInteraction) {
+  if (!interaction.guildId) {
+    return interaction.reply({ content: '❌ This action must be used in a server.', ephemeral: true });
+  }
+
+  const sessionKey = getTeamEventSessionKey(interaction.user.id, interaction.guildId);
+  const session = pendingTeamEventSessions.get(sessionKey);
+  if (!session || !session.selectedTeamId || !session.selectedType) {
+    return interaction.reply({ content: '❌ Event session expired. Run `/create-team-event` again.', ephemeral: true });
+  }
+
+  const title = interaction.fields.getTextInputValue(TEAM_EVENT_TITLE_INPUT).trim();
+  const dateValue = interaction.fields.getTextInputValue(TEAM_EVENT_DATE_INPUT).trim();
+  const timeValue = interaction.fields.getTextInputValue(TEAM_EVENT_TIME_INPUT).trim();
+  const description = interaction.fields.getTextInputValue(TEAM_EVENT_DESCRIPTION_INPUT).trim();
+
+  if (!title || !dateValue || !timeValue) {
+    return interaction.reply({ content: '❌ Title, date, and time are required.', ephemeral: true });
+  }
+
+  const scheduledAt = new Date(`${dateValue}T${timeValue.length === 5 ? `${timeValue}:00` : timeValue}`);
+  if (Number.isNaN(scheduledAt.getTime())) {
+    return interaction.reply({ content: '❌ Invalid date/time. Use YYYY-MM-DD and HH:MM.', ephemeral: true });
+  }
+
+  const createResult = await createTeamEventFromDiscord({
+    discordId: interaction.user.id,
+    teamId: session.selectedTeamId,
+    title,
+    type: session.selectedType,
+    description: description || undefined,
+    scheduledAt: scheduledAt.toISOString(),
+  });
+
+  if (!createResult.ok) {
+    return interaction.reply({ content: `❌ ${createResult.error || 'Failed to create the event.'}`, ephemeral: true });
+  }
+
+  pendingTeamEventSessions.delete(sessionKey);
+
+  return interaction.reply({
+    content: `✅ Created **${title}** for your team.`,
+    ephemeral: true,
+  });
 }
 
 function buildSendDraftTeamChooserEmbed(guildName: string, teams: SendDraftTeamOption[]) {
@@ -4039,6 +4335,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleRoleMenu(interaction);
     } else if (commandName === 'send-draft') {
       await handleSendDraft(interaction);
+    } else if (commandName === 'create-team-event') {
+      await handleCreateTeamEvent(interaction);
     } else if (commandName === 'import-league-icons' || commandName === 'import-champion-emojis') {
       await handleImportChampionEmojis(interaction);
     }
@@ -4078,12 +4376,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isStringSelectMenu()) {
     const member = interaction.member as any;
     const isSendDraftMenu = interaction.customId === SEND_DRAFT_TEAM_SELECT || interaction.customId === SEND_DRAFT_PICK_SELECT;
+    const isTeamEventMenu = interaction.customId === TEAM_EVENT_TEAM_SELECT || interaction.customId === TEAM_EVENT_TYPE_SELECT;
 
     if (isSendDraftMenu) {
       if (!hasSendDraftPermission(member)) {
         return interaction.reply({ content: '❌ You need **Manage Server** or **Administrator** permission to send drafts.', ephemeral: true });
       }
       await handleSelectMenuInteraction(interaction as StringSelectMenuInteraction);
+      return;
+    }
+
+    if (isTeamEventMenu) {
+      await handleTeamEventSelectMenu(interaction as StringSelectMenuInteraction);
       return;
     }
 
@@ -4097,6 +4401,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isModalSubmit()) {
     if (interaction.customId.startsWith(CHAT_REPLY_MODAL_PREFIX)) {
       await handleChatReplyModalSubmit(interaction as ModalSubmitInteraction);
+    } else if (interaction.customId === TEAM_EVENT_MODAL) {
+      await handleTeamEventModalSubmit(interaction as ModalSubmitInteraction);
     }
     return;
   }

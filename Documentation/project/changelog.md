@@ -4,6 +4,42 @@
 
 ---
 
+## 2026-04-27 - Discord Auth Error Recovery, Team Memory, and Bot Event Creation
+
+### Objective: Keep Discord auth failures on a clean recovery screen, remember the last team across selectors, improve draft-room drag/drop clarity, and add a Discord bot flow for team-event creation
+
+Overview: Redirected Discord OAuth failures to the frontend auth page with structured error codes, surfaced them in a modal instead of a raw callback page, added shared last-team persistence across team pages, removed a redundant dashboard promo card, tightened draft-room drag/drop affordances, and added a staged Discord bot command for creating team events as linked owners or managers.
+
+Changes:
+
+- Updated [apps/api/src/routes/discord.ts](apps/api/src/routes/discord.ts):
+  - Discord OAuth failure paths now redirect back to `/authenticate` with structured error codes instead of returning raw API errors.
+  - Error cases are logged server-side before redirecting.
+- Updated [apps/web/pages/authenticate.tsx](apps/web/pages/authenticate.tsx):
+  - Parses Discord auth error redirects.
+  - Logs Discord auth failures locally and shows the failure through the shared access modal instead of a weird callback screen.
+- Added [apps/web/utils/useRememberedTeamSelection.ts](apps/web/utils/useRememberedTeamSelection.ts):
+  - Shared localStorage-backed helper for remembering the last valid team selection across pages.
+- Updated [apps/web/pages/teams/schedule.tsx](apps/web/pages/teams/schedule.tsx), [apps/web/pages/teams/drafts.tsx](apps/web/pages/teams/drafts.tsx), [apps/web/pages/teams/discord.tsx](apps/web/pages/teams/discord.tsx), and [apps/web/pages/teams/scrims.tsx](apps/web/pages/teams/scrims.tsx):
+  - Team selectors now restore the last valid team instead of always defaulting to the first entry.
+- Updated [apps/web/pages/teams/dashboard.tsx](apps/web/pages/teams/dashboard.tsx):
+  - Removed the redundant Recruit via LFT quick card so the dashboard promo area is less repetitive.
+- Updated [apps/web/pages/teams/drafts.tsx](apps/web/pages/teams/drafts.tsx):
+  - Added clearer drag/drop styling and instruction copy for ban and pick slots.
+  - Champion tiles now feel more obviously draggable.
+- Updated [apps/api/src/routes/teams.ts](apps/api/src/routes/teams.ts):
+  - Added bot-only Discord helper routes for linked team lookup and team-event creation.
+  - Discord event creation is limited to linked owners and managers.
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Added `/create-team-event` with a staged team select, event type select, and modal-based details form.
+  - The command now creates the event through the bot-only API route and returns a confirmation in Discord.
+
+Validation:
+
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/api run build` passes.
+- `pnpm --dir discord-bot exec tsc -p tsconfig.json --noEmit` passes.
+
 ## 2026-04-27 - Unified Restriction Popups and Riot Access Enforcement
 
 ### Objective: Make restricted-access popups consistent everywhere and align guest/user/riot-user behavior with backend enforcement

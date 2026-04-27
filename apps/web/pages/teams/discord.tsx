@@ -7,6 +7,7 @@ import { getAuthToken } from '../../utils/auth';
 import NoAccess from '@components/NoAccess';
 import { DiscordIcon } from '../../src/components/DiscordBrand';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useRememberedTeamSelection } from '../../utils/useRememberedTeamSelection';
 
 type MentionMode = 'EVERYONE' | 'ROLE' | 'TEAM_ROLE_MAP';
 
@@ -98,7 +99,7 @@ const DiscordSettingsPage: React.FC = () => {
   const { user } = useAuth();
   const { currentLanguage } = useLanguage();
   const [teams, setTeams] = useState<Team[]>([]);
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useRememberedTeamSelection(teams.map((team) => team.id));
   const [settings, setSettings] = useState<DiscordSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -174,14 +175,6 @@ const DiscordSettingsPage: React.FC = () => {
           // Only show teams user owns (can manage Discord settings)
           const ownedTeams = data.filter((t: Team) => t.isOwner);
           setTeams(ownedTeams);
-          if (ownedTeams.length > 0) {
-            setSelectedTeamId((prev) => {
-              if (prev && ownedTeams.some((team: Team) => team.id === prev)) {
-                return prev;
-              }
-              return ownedTeams[0].id;
-            });
-          }
         }
 
         if (profileRes.ok) {
