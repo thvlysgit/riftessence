@@ -4,6 +4,40 @@
 
 ---
 
+## 2026-04-27 - Home Lobby Refresh and Non-Forceful Duo Onboarding Popup
+
+### Objective: Replace the outdated landing/onboarding experience with a card lobby and a user-triggered onboarding popup that can be minimized or closed
+
+Overview: Reworked the home page into a feature lobby where users choose intent first, then launch onboarding from a card. Implemented the Duo-specific flow as a right-side bubble + popup window with minimize/close controls, and changed completion logic so skipped optional steps do not count against progress. Removed the old globally forced onboarding modal from app mount.
+
+Changes:
+
+- Added [apps/web/components/HomeOnboardingLobby.tsx](apps/web/components/HomeOnboardingLobby.tsx):
+  - New intent cards for all requested onboarding tracks:
+    - Duo, esports team/LFT, team management, matchups, scrims, community growth.
+  - Duo flow implementation (initial live flow) with 6 steps:
+    - Create account,
+    - Link Riot,
+    - Link Discord + DM opt-in,
+    - Add champion pool,
+    - Create post,
+    - Set filters and send first message.
+  - Floating onboarding bubble on right side with toggle behavior.
+  - Popup window supports both minimize and close actions.
+  - Progress calculation excludes optional skipped steps from denominator.
+  - Local persistence for active flow + step state so users can resume.
+  - Automatic completion sync for detectable states (account exists, Riot linked, Discord+DM linked, champion pool configured).
+- Updated [apps/web/pages/index.tsx](apps/web/pages/index.tsx):
+  - Replaced old marketing/SEO-heavy landing layout with a lobby-first hero and onboarding-card experience.
+  - Removed auto-redirect of logged-in users to `/feed` so users can access the lobby and completion percentages.
+  - Added explanatory section clarifying new onboarding behavior.
+- Updated [apps/web/pages/_app.tsx](apps/web/pages/_app.tsx):
+  - Removed global mount of old `OnboardingWizard`, ending forceful onboarding on app load.
+
+Validation:
+
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+
 ## 2026-04-27 - Discord Auth Error Recovery, Team Memory, and Bot Event Creation
 
 ### Objective: Keep Discord auth failures on a clean recovery screen, remember the last team across selectors, improve draft-room drag/drop clarity, and add a Discord bot flow for team-event creation

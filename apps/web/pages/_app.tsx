@@ -6,7 +6,6 @@ import Script from 'next/script';
 import { useRouter } from 'next/router';
 import Navbar from '@components/Navbar';
 import Footer from '@components/Footer';
-import OnboardingWizard from '@components/OnboardingWizard';
 import BugReportButton from '@components/BugReportButton'; // TODO: TEMPORARY - Remove after bug reporting period
 import ChatWidget from '@components/ChatWidget';
 import AccessRequirementModal from '@components/AccessRequirementModal';
@@ -253,7 +252,6 @@ export default function App({ Component, pageProps, router }: AppProps) {
               <AuthProvider>
                 <ChatProvider>
                   <GlobalUIProvider>
-                    <OnboardingWizard />
                     <Navbar />
                     <BugReportButton /> {/* TODO: TEMPORARY - Remove after bug reporting period */}
                     <ChatWidget />
