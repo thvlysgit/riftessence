@@ -1166,9 +1166,9 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(403).send({ error: 'You have not been added to this team\'s roster' });
       }
 
-      if (PLAYER_ROLES.includes(matchingSpot.role as any) && !await hasLinkedRiotAccount(userId)) {
+      if (!await hasLinkedRiotAccount(userId)) {
         return reply.status(400).send({
-          error: 'A Riot account must be linked to your profile before you can join a player slot',
+          error: 'A Riot account must be linked to your profile before you can join a team',
           code: 'RIOT_ACCOUNT_REQUIRED',
         });
       }

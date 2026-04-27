@@ -1,8 +1,57 @@
 # Changelog
 
-> Last updated: 2026-04-26
+> Last updated: 2026-04-27
 
 ---
+
+## 2026-04-27 - Unified Restriction Popups and Riot Access Enforcement
+
+### Objective: Make restricted-access popups consistent everywhere and align guest/user/riot-user behavior with backend enforcement
+
+Overview: Standardized access-block UX behind a single popup contract (reason text + back arrow + resolve actions), exposed guest-visible chat/notification entry points, removed route-level Riot block for `/create` in favor of interaction-level enforcement, and enforced Riot requirements across LFD/LFT/team join APIs with shared `RIOT_ACCOUNT_REQUIRED` error semantics.
+
+Changes:
+
+- Updated [apps/web/components/AccessRequirementModal.tsx](apps/web/components/AccessRequirementModal.tsx):
+  - Unified all access popups under one modal with standardized `Access Restricted` framing.
+  - Added explicit block-reason copy support (`reason` prop).
+  - Added return arrow behavior that routes to the last accessible page (or browser back/home fallback).
+  - Added branded resolution actions:
+    - account-required: sign in / create account,
+    - riot-required: Riot connect + profile link,
+    - discord-required: Discord-styled link guidance,
+    - admin-only: countdown message,
+    - banned: terminal restriction message.
+- Updated [apps/web/components/NoAccess.tsx](apps/web/components/NoAccess.tsx):
+  - Refactored legacy action-specific UI to route through `AccessRequirementModal` so equivalent blocks always show the same popup pattern.
+- Updated [apps/web/pages/_app.tsx](apps/web/pages/_app.tsx):
+  - Added last-accessible-route tracking in `sessionStorage` for popup back navigation.
+  - Kept admin-only route gating and account-required page gating.
+  - Removed global route-level Riot gate for `/create` so Riot restriction is now enforced at action/API level.
+- Updated [apps/web/components/ChatWidget.tsx](apps/web/components/ChatWidget.tsx):
+  - Guests can now see the floating chat launcher.
+  - Guest interaction triggers the unified account-required popup instead of hiding the entry point.
+- Updated [apps/web/components/Navbar.tsx](apps/web/components/Navbar.tsx):
+  - Notifications entrypoint is now visible for guests on desktop and mobile.
+  - Unread badge remains authenticated-user-only.
+- Updated [apps/web/pages/create.tsx](apps/web/pages/create.tsx):
+  - Added unified restriction popup handling for posting constraints.
+  - If no Riot account is linked, submit now opens the standardized riot-required popup.
+  - Backend `RIOT_ACCOUNT_REQUIRED` / `DISCORD_ACCOUNT_REQUIRED` errors now map to the unified popup instead of fragmented inline-only flows.
+- Updated [apps/api/src/routes/posts.ts](apps/api/src/routes/posts.ts):
+  - Added Riot-linked-account guard for post creation.
+  - Returns `400` with `code: 'RIOT_ACCOUNT_REQUIRED'` when user has no linked Riot account.
+- Updated [apps/api/src/routes/lft.ts](apps/api/src/routes/lft.ts):
+  - Riot-linked-account requirement now applies to all LFT post creation types.
+  - Returns `code: 'RIOT_ACCOUNT_REQUIRED'` for no-Riot users.
+- Updated [apps/api/src/routes/teams.ts](apps/api/src/routes/teams.ts):
+  - Team join now requires a linked Riot account for claiming any pending spot.
+  - Returns `code: 'RIOT_ACCOUNT_REQUIRED'` when missing.
+
+Validation:
+
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
 
 ## 2026-04-26 - Discord Signup/Login, Access Popups, and Verification Semantics Update
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { getAuthHeader, getAuthToken, getUserIdFromToken } from '../utils/auth';
 import NoAccess from '@components/NoAccess';
+import AccessRequirementModal from '@components/AccessRequirementModal';
 import { useRouter } from 'next/router';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -23,6 +24,8 @@ export default function CreatePostPage() {
   const [secondaryRole, setSecondaryRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [accessModalType, setAccessModalType] = useState<'riot-required' | 'discord-required' | null>(null);
+  const [accessReason, setAccessReason] = useState<string | undefined>(undefined);
   const [form, setForm] = useState({
     postingRiotAccountId: '',
     region: 'EUW',
@@ -116,9 +119,25 @@ export default function CreatePostPage() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create post');
+      if (!res.ok) {
+        const err: any = new Error(data.error || 'Failed to create post');
+        err.code = data.code;
+        throw err;
+      }
       return data;
-    }
+    },
+    onError: (error: any) => {
+      if (error?.code === 'RIOT_ACCOUNT_REQUIRED') {
+        setAccessReason('You need to be connected with Riot Games to send a post.');
+        setAccessModalType('riot-required');
+        return;
+      }
+
+      if (error?.code === 'DISCORD_ACCOUNT_REQUIRED') {
+        setAccessReason('You need to connect Discord to send a post.');
+        setAccessModalType('discord-required');
+      }
+    },
   });
 
   const update = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }));
@@ -143,6 +162,16 @@ export default function CreatePostPage() {
       </div>
     );
   }
+
+  const handleSubmit = () => {
+    if (riotAccounts.length === 0) {
+      setAccessReason('You need to be connected with Riot Games to send a post.');
+      setAccessModalType('riot-required');
+      return;
+    }
+
+    mutation.mutate();
+  };
 
   return (
     <div className="min-h-screen py-8 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
@@ -327,14 +356,14 @@ export default function CreatePostPage() {
           </div>
 
           <button
-            onClick={() => mutation.mutate()}
+            onClick={handleSubmit}
             className="w-full sm:w-auto px-4 py-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
               color: 'var(--color-bg-primary)',
               borderRadius: 'var(--border-radius)',
             }}
-            disabled={mutation.isPending || riotAccounts.length === 0}
+            disabled={mutation.isPending}
           >
             {mutation.isPending ? 'Submitting…' : 'Submit Post'}
           </button>
@@ -348,7 +377,18 @@ export default function CreatePostPage() {
             </div>
           )}
         </div>
-      </div>
+
+      {accessModalType && (
+        <AccessRequirementModal
+          type={accessModalType}
+          reason={accessReason}
+          onClose={() => {
+            setAccessModalType(null);
+            setAccessReason(undefined);
+          }}
+        />
+      )}
+    </div>
   );
 }
 

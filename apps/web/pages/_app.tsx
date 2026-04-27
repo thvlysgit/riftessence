@@ -34,8 +34,8 @@ function RouteAccessGate({ children }: { children: ReactNode }) {
     || pathname === '/notifications'
     || pathname === '/purse'
     || pathname.startsWith('/teams/dashboard');
-  const requiresRiot = pathname === '/create';
   const isAdminUser = Boolean(user?.badges?.some((badge) => badge.key === 'admin'));
+  const isBlocked = (!loading && isAdminRoute && !isAdminUser) || (!loading && requiresAccount && !user);
 
   useEffect(() => {
     if (!isAdminRoute) {
@@ -64,6 +64,12 @@ function RouteAccessGate({ children }: { children: ReactNode }) {
     };
   }, [isAdminRoute, loading, isAdminUser, user, router]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (loading || isBlocked) return;
+    sessionStorage.setItem('riftessence_last_accessible_path', router.asPath);
+  }, [loading, isBlocked, router.asPath]);
+
   if (loading) {
     return <>{children}</>;
   }
@@ -73,11 +79,7 @@ function RouteAccessGate({ children }: { children: ReactNode }) {
   }
 
   if (requiresAccount && !user) {
-    return <AccessRequirementModal type="account-required" />;
-  }
-
-  if (requiresRiot && user && (user.riotAccountsCount || 0) === 0) {
-    return <AccessRequirementModal type="riot-required" />;
+    return <AccessRequirementModal type="account-required" reason="You need to have an account to access this page." />;
   }
 
   return <>{children}</>;

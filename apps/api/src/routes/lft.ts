@@ -278,9 +278,9 @@ export default async function lftRoutes(fastify: any) {
         return reply.status(400).send({ error: 'A Discord account must be linked to your profile to create LFT posts' });
       }
 
-      if (type === 'PLAYER' && (!user.riotAccounts || user.riotAccounts.length === 0)) {
+      if (!user.riotAccounts || user.riotAccounts.length === 0) {
         return reply.status(400).send({
-          error: 'A Riot account must be linked to your profile to create PLAYER LFT posts',
+          error: 'A Riot account must be linked to your profile to create LFT posts',
           code: 'RIOT_ACCOUNT_REQUIRED',
         });
       }

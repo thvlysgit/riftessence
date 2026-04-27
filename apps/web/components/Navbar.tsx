@@ -628,39 +628,37 @@ export default function Navbar() {
             )}
 
             {/* Notifications Bell */}
-            {user && (
-              <Link
-                href="/notifications"
-                className="hidden md:block relative p-2 rounded-lg transition-colors"
-                title="Notifications"
-                style={{ color: 'var(--color-text-muted)' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = 'var(--color-accent-1)';
-                  e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = 'var(--color-text-muted)';
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                {/* Notification badge - show when there are unread notifications */}
-                {unreadCount > 0 && (
-                  <span 
-                    className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full"
-                    style={{
-                      backgroundColor: '#C84040',
-                      color: '#fff',
-                      padding: '0 4px'
-                    }}
-                  >
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </Link>
-            )}
+            <Link
+              href="/notifications"
+              className="hidden md:block relative p-2 rounded-lg transition-colors"
+              title="Notifications"
+              style={{ color: 'var(--color-text-muted)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--color-accent-1)';
+                e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--color-text-muted)';
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              {/* Notification badge - show when there are unread notifications */}
+              {user && unreadCount > 0 && (
+                <span 
+                  className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full"
+                  style={{
+                    backgroundColor: '#C84040',
+                    color: '#fff',
+                    padding: '0 4px'
+                  }}
+                >
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </Link>
 
             {/* User Menu or Login Button */}
             {loading ? (
@@ -955,25 +953,23 @@ export default function Navbar() {
                 </div>
               </MobileNavLink>
             )}
-            {user && (
-              <MobileNavLink href="/notifications">
-                <div className="flex items-center justify-between">
-                  <span>Notifications</span>
-                  {unreadCount > 0 && (
-                    <span 
-                      className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full"
-                      style={{
-                        backgroundColor: '#C84040',
-                        color: '#fff',
-                        padding: '0 4px'
-                      }}
-                    >
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </div>
-              </MobileNavLink>
-            )}
+            <MobileNavLink href="/notifications">
+              <div className="flex items-center justify-between">
+                <span>Notifications</span>
+                {user && unreadCount > 0 && (
+                  <span 
+                    className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full"
+                    style={{
+                      backgroundColor: '#C84040',
+                      color: '#fff',
+                      padding: '0 4px'
+                    }}
+                  >
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </div>
+            </MobileNavLink>
           </div>
         </div>
       )}

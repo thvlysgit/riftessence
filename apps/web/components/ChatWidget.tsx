@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
 import { getAuthHeader } from '../utils/auth';
+import AccessRequirementModal from './AccessRequirementModal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -134,6 +135,7 @@ export default function ChatWidget() {
   const [dmBannerDismissed, setDmBannerDismissed] = useState(false);
   const [discordDmEnabled, setDiscordDmEnabled] = useState(false);
   const [togglingDm, setTogglingDm] = useState(false);
+  const [showGuestRestriction, setShowGuestRestriction] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -484,13 +486,17 @@ export default function ChatWidget() {
   // Show banner if: user has Discord linked, hasn't enabled DM notifications, and hasn't dismissed
   const showDmBanner = user?.discordLinked && !discordDmEnabled && !dmBannerDismissed;
 
-  if (!user) return null;
-
   return (
     <>
       {/* Floating chat button (bottom right corner, League of Legends style) */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          if (!user) {
+            setShowGuestRestriction(true);
+            return;
+          }
+          setIsOpen(!isOpen);
+        }}
         className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110 ${unreadCount > 0 ? 'animate-pulse' : ''}`}
         style={{
           backgroundColor: 'var(--color-accent-1)',
@@ -528,7 +534,7 @@ export default function ChatWidget() {
       </button>
 
       {/* Chat window */}
-      {isOpen && (
+      {isOpen && user && (
         <div
           className="fixed bottom-24 right-6 z-50 w-96 h-[500px] rounded-lg shadow-2xl flex flex-col overflow-hidden"
           style={{
@@ -919,6 +925,14 @@ export default function ChatWidget() {
             </>
           )}
         </div>
+      )}
+
+      {showGuestRestriction && (
+        <AccessRequirementModal
+          type="account-required"
+          reason="You need to have an account to use chat."
+          onClose={() => setShowGuestRestriction(false)}
+        />
       )}
     </>
   );

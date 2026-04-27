@@ -312,6 +312,14 @@ export default async function postsRoutes(fastify: any) {
       const user = await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } });
       if (!user) return reply.status(404).send({ error: 'User not found' });
 
+      const riotAccountCount = await prisma.riotAccount.count({ where: { userId } });
+      if (riotAccountCount === 0) {
+        return reply.status(400).send({
+          error: 'A Riot account must be linked to your profile to create posts',
+          code: 'RIOT_ACCOUNT_REQUIRED',
+        });
+      }
+
       // Validate ownership of riot account
       const riotAcc = await prisma.riotAccount.findUnique({ where: { id: postingRiotAccountId } });
       if (!riotAcc) return reply.status(404).send({ error: 'Riot account not found' });
