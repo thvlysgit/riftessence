@@ -17,6 +17,8 @@ import { LanguageProvider } from '../contexts/LanguageContext';
 import { ChatProvider } from '../contexts/ChatContext';
 import { trackNewVisitor } from '../utils/analytics';
 import { Analytics } from '@vercel/analytics/react';
+import { OnboardingProvider } from '../contexts/OnboardingContext';
+import GlobalOnboardingModal from '../components/GlobalOnboardingModal';
 
 const queryClient = new QueryClient();
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -250,11 +252,13 @@ export default function App({ Component, pageProps, router }: AppProps) {
           <ThemedAppFrame>
             <LanguageProvider>
               <AuthProvider>
+                 <OnboardingProvider>
                 <ChatProvider>
                   <GlobalUIProvider>
                     <Navbar />
                     <BugReportButton /> {/* TODO: TEMPORARY - Remove after bug reporting period */}
                     <ChatWidget />
+                     <GlobalOnboardingModal />
                     <RouteAccessGate>
                       <Component {...pageProps} />
                     </RouteAccessGate>
@@ -262,6 +266,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
                     <Analytics />
                   </GlobalUIProvider>
                 </ChatProvider>
+                 </OnboardingProvider>
               </AuthProvider>
             </LanguageProvider>
           </ThemedAppFrame>

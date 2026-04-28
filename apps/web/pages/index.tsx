@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import SEOHead from '@components/SEOHead';
-import HomeOnboardingLobby from '@components/HomeOnboardingLobby';
+import OnboardingLobby from '@components/OnboardingLobby';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -103,7 +103,7 @@ export default function HomePage() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-          <HomeOnboardingLobby />
+           <OnboardingLobby />
 
           <section
             className="mt-12 rounded-2xl border p-6 sm:p-8"

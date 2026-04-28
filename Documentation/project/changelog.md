@@ -4,6 +4,65 @@
 
 ---
 
+## 2026-04-28 - Global Persistent Onboarding System with All 6 Flows
+
+### Objective: Make onboarding persistent across all pages, implement automatic task detection, and add all 6 onboarding flows (Duo, LFT, Team Management, Matchups, Scrims, Community Growth)
+
+Overview: Refactored onboarding from a home-page-only component to a globally mounted context and modal. Onboarding now follows users across all pages with state persistence in localStorage. Implemented automatic task completion detection for all flows based on user profile state. Added 5 new onboarding flows with step definitions tailored to each feature area. Removed manual "Mark Done" buttons in favor of smart auto-detection.
+
+Changes:
+
+- Added [apps/web/contexts/OnboardingContext.tsx](apps/web/contexts/OnboardingContext.tsx):
+  - New React Context managing all 6 onboarding flows globally.
+  - Automatic step detection based on user profile snapshot (account created, Riot linked, Discord linked+DMs enabled, champion pool configured, posts created, teams created, etc.).
+  - Flow state persisted to localStorage with key `riftessence_onboarding_flows_v1`.
+  - Provides methods: `openFlow()`, `closeOnboarding()`, `toggleWindow()`, `setStepStatus()`.
+  - Implemented step definitions for all flows:
+    - **Duo**: Create account → Link Riot → Link Discord+DMs → Champion pool → Create post → Send first message (6 steps).
+    - **LFT**: Create account → Link Riot → Link Discord+DMs → Champion pool → Create post (5 steps).
+    - **Team Management**: Create account → Create roster → Add players → Discord webhook → Schedule event (5 steps).
+    - **Matchups**: Create account → Link Riot → Create matchup → Configure details → Share insights (5 steps).
+    - **Scrims**: Create account → Create/join team → Configure settings → Post/find scrim → Start match (5 steps).
+    - **Community Growth**: Create account → Link Discord server → Create community → Setup Duo forwarding (4 steps).
+  - Exclusion of skipped optional steps from progress percentage calculation.
+- Added [apps/web/components/GlobalOnboardingModal.tsx](apps/web/components/GlobalOnboardingModal.tsx):
+  - Global modal component mounted at app level (in _app.tsx) inside GlobalUIProvider.
+  - Renders floating bubble button (right side, bottom) + modal panel only if user is authenticated and active flow exists.
+  - Implements backdrop overlay to avoid page content interference.
+  - Automatic step detection with visual status indicators (pending/completed/skipped).
+  - CTA buttons render only for pending steps; completed/skipped steps show status badges.
+  - Minimize and close controls.
+  - Progress bar with real-time percentage updates.
+- Added [apps/web/components/OnboardingLobby.tsx](apps/web/components/OnboardingLobby.tsx):
+  - Feature card grid for home page (no modal inside, modal is global now).
+  - Shows all 6 flows with "Live" vs "Planned" badges.
+  - Displays per-flow progress percentage.
+  - Click handlers route to GlobalOnboardingModal context for opening flows.
+- Updated [apps/web/pages/_app.tsx](apps/web/pages/_app.tsx):
+  - Wrapped app in `<OnboardingProvider>` context (inside `<AuthProvider>`).
+  - Added `<GlobalOnboardingModal />` component inside `<GlobalUIProvider>` for app-wide accessibility.
+  - Now onboarding state persists across all page navigations.
+- Updated [apps/web/pages/index.tsx](apps/web/pages/index.tsx):
+  - Replaced `HomeOnboardingLobby` import with `OnboardingLobby`.
+  - Home page now just renders feature cards; modal is globally handled.
+- **Removed**:
+  - [apps/web/components/HomeOnboardingLobby.tsx](apps/web/components/HomeOnboardingLobby.tsx) (replaced by OnboardingContext + GlobalOnboardingModal + OnboardingLobby).
+
+Automatic Step Detection Logic:
+
+- All flows: Account creation detected when `user` exists.
+- Riot-dependent flows (Duo, LFT, Matchups): Riot link detected when `user.riotAccountsCount > 0`.
+- Discord-dependent flows (Duo, LFT): Discord + DM detection when both `discordLinked` and `discordDmNotifications` are true.
+- Champion pool flows (Duo, LFT, Matchups): Pool configured when `championList.length > 0` or `championTierlist` has entries.
+- Post creation flows (Duo, LFT): Detected when `postsCount > 0`.
+- Team creation (Team Management): Detected when `teamCount > 0`.
+- Discord server link (Community Growth): Detected when `discordLinked` is true.
+
+Validation:
+
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes with no errors.
+
+
 ## 2026-04-27 - Home Lobby Refresh and Non-Forceful Duo Onboarding Popup
 
 ### Objective: Replace the outdated landing/onboarding experience with a card lobby and a user-triggered onboarding popup that can be minimized or closed
