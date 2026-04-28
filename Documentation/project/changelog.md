@@ -4,6 +4,27 @@
 
 ---
 
+## 2026-04-28 - Premium Onboarding Lobby, Left-Side Dock, and Floating Button Collision Fix
+
+### Objective: Upgrade the onboarding surfaces to feel intentionally premium and stop the onboarding dock from overlapping the bug report and chat widgets
+
+Overview: Restyled the home onboarding lobby into a larger hero-led surface with themed cards, richer hierarchy, and clearer progress framing. Upgraded the global onboarding dock and panel into a glassier, left-anchored experience so it no longer competes with the right-side chat and bug report buttons.
+
+Changes:
+
+- Updated [apps/web/components/OnboardingLobby.tsx](apps/web/components/OnboardingLobby.tsx):
+  - Reworked the lobby into a premium hero plus themed flow-card grid.
+  - Added stronger visual hierarchy, progress summary stats, and flow-specific supporting copy.
+  - Added richer card surfaces and progress treatment so the page reads more like a curated workspace than a generic grid.
+- Updated [apps/web/components/GlobalOnboardingModal.tsx](apps/web/components/GlobalOnboardingModal.tsx):
+  - Moved the floating onboarding dock to the left side to avoid overlapping the chat and bug report widgets.
+  - Restyled the dock and panel with glassmorphism, flow-specific accents, stronger typography, and clearer button hierarchy.
+  - Upgraded step cards, progress display, and footer CTA for a more premium look.
+
+Validation:
+
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit --pretty false` passes.
+
 ## 2026-04-28 - Onboarding Auto-Detection and Route Wiring Follow-Up
 
 ### Objective: Finish the remaining onboarding flow wiring so the global onboarding modal can launch every path and detect completion from live page state
