@@ -227,11 +227,16 @@ export default function GlobalOnboardingModal() {
 
     if (user && !user.onboardingCompleted) {
       try {
-        await fetch(`${API_URL}/api/user/onboarding-complete`, {
+        const response = await fetch(`${API_URL}/api/user/onboarding-complete`, {
           method: 'POST',
           headers: getAuthHeader(),
         });
+        const data = await response.json().catch(() => ({}));
         await refreshUser();
+
+        if (data?.rewardPrismaticEssence > 0) {
+          showToast(`+${data.rewardPrismaticEssence.toLocaleString()} Prismatic Essence earned for completing this guide.`, 'success');
+        }
       } catch {
         // Keep UI flow non-blocking if backend mark fails.
       }
@@ -265,12 +270,20 @@ export default function GlobalOnboardingModal() {
     const label = FLOW_LABELS[flowId];
     const isFocused = flowId === currentFlowId;
     const ctaLabel = flowProgress >= 100 ? 'Guide me again' : 'Guide me';
+    const handleDockCardClick = () => {
+      if (isFocused) {
+        toggleWindow();
+        return;
+      }
+
+      openFlow(flowId);
+    };
 
     return (
       <button
         key={flowId}
-        onClick={() => openFlow(flowId)}
-        className={`group w-[260px] rounded-[22px] border px-4 py-3 text-left transition-all duration-200 ${isFocused ? 'translate-x-1' : 'hover:-translate-y-0.5'}`}
+        onClick={handleDockCardClick}
+        className="group w-[260px] rounded-[22px] border px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5"
         style={{
           borderColor: isFocused ? theme.accent : 'rgba(148, 163, 184, 0.18)',
           background: isFocused ? 'rgba(15, 23, 42, 0.96)' : 'rgba(15, 23, 42, 0.86)',
@@ -309,7 +322,7 @@ export default function GlobalOnboardingModal() {
 
   return (
     <>
-      <div className="fixed left-4 bottom-6 z-40 flex max-h-[calc(100vh-1.5rem)] flex-col-reverse gap-3 overflow-visible sm:left-6">
+      <div className="fixed left-4 bottom-6 z-40 flex max-h-[calc(100vh-1.5rem)] flex-col-reverse items-start gap-3 overflow-visible sm:left-6">
         {activeFlowIds.slice(-3).map((flowId) => renderDockCard(flowId))}
       </div>
 

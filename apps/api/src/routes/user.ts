@@ -417,6 +417,12 @@ export default async function userRoutes(fastify: any) {
         riotAccounts: true,
         discordAccount: true,
         badges: true,
+        _count: {
+          select: {
+            posts: true,
+            messagesSent: true,
+          },
+        },
         ratingsReceived: {
           take: 10,
           orderBy: { createdAt: 'desc' },
@@ -679,6 +685,9 @@ export default async function userRoutes(fastify: any) {
         discordLinked: !!user.discordAccount,
         discordUsername: user.discordAccount?.username || null,
         discordDmNotifications: user.discordDmNotifications || false,
+        postsCount: user._count?.posts || 0,
+        messagesSentCount: user._count?.messagesSent || 0,
+        conversationsCount: user._count?.messagesSent || 0,
         unlockedCosmetics: user.unlockedCosmetics || [],
         activeUsernameDecoration: user.activeUsernameDecoration || null,
         activeHoverEffect: user.activeHoverEffect || null,
@@ -756,12 +765,58 @@ export default async function userRoutes(fastify: any) {
       const userId = await getUserIdFromRequest(request, reply);
       if (!userId) return;
 
-      await prisma.user.update({
+      const onboardingReward = 120;
+
+      const existingUser = await prisma.user.findUnique({
         where: { id: userId },
-        data: { onboardingCompleted: true },
+        select: { onboardingCompleted: true },
       });
 
-      return reply.send({ success: true });
+      if (existingUser?.onboardingCompleted) {
+        return reply.send({ success: true, rewardPrismaticEssence: 0, alreadyCompleted: true });
+      }
+
+      await prisma.$transaction(async (tx: any) => {
+        const wallet = await tx.wallet.upsert({
+          where: { userId },
+          create: {
+            userId,
+            prismaticEssence: 0,
+            totalRiftCoinsEarned: 0,
+          },
+          update: {},
+        });
+
+        const nextBalance = wallet.prismaticEssence + onboardingReward;
+
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: {
+            prismaticEssence: { increment: onboardingReward },
+            totalRiftCoinsEarned: { increment: onboardingReward },
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            userId,
+            currency: 'PRISMATIC_ESSENCE',
+            type: 'QUEST_REWARD',
+            amount: onboardingReward,
+            balanceAfter: nextBalance,
+            note: 'Onboarding guide reward',
+            metadata: { source: 'onboarding_complete' },
+          },
+        });
+
+        await tx.user.update({
+          where: { id: userId },
+          data: { onboardingCompleted: true },
+        });
+      });
+
+      return reply.send({ success: true, rewardPrismaticEssence: onboardingReward });
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to mark onboarding complete' });

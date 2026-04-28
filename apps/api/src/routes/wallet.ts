@@ -15,7 +15,7 @@ function parseBoundedInt(raw: string | undefined, fallback: number, min: number,
 
 const STARTER_PRISMATIC_ESSENCE = parseBoundedInt(
   process.env.PRISMATIC_STARTER_GRANT || process.env.RIFTCOINS_STARTER_GRANT,
-  1200,
+  0,
   0,
   5_000_000
 );
@@ -837,6 +837,37 @@ async function ensureWalletState(userId: string, db: any): Promise<WalletRow> {
     }
 
     return created as WalletRow;
+  }
+
+  // Normalize legacy starter-grant wallets so existing accounts can start from zero.
+  if (
+    STARTER_PRISMATIC_ESSENCE === 0 &&
+    existing.prismaticEssence === 1200 &&
+    existing.totalRiftCoinsEarned === 1200 &&
+    existing.totalRiftCoinsSpent === 0
+  ) {
+    const normalized = await db.wallet.update({
+      where: { id: existing.id },
+      data: {
+        prismaticEssence: 0,
+        totalRiftCoinsEarned: 0,
+      },
+    });
+
+    await db.walletTransaction.create({
+      data: {
+        walletId: normalized.id,
+        userId,
+        currency: 'PRISMATIC_ESSENCE',
+        type: 'ADMIN_ADJUSTMENT',
+        amount: -1200,
+        balanceAfter: 0,
+        note: 'Removed legacy starter grant',
+        metadata: { source: 'wallet_normalization' },
+      },
+    });
+
+    return normalized as WalletRow;
   }
 
   // Legacy migration path: carry old RiftCoins over into Prismatic balance once.

@@ -1,6 +1,69 @@
 # Changelog
 
-> Last updated: 2026-04-27
+> Last updated: 2026-04-28
+
+---
+
+## 2026-04-28 - Account-Scoped Onboarding State, Duo Auto-Detection Fixes, and Prismatic Economy Reset
+
+### Objective: Stop onboarding state from leaking across accounts, make Duo completion detection reliable, and reset the purse economy to start at zero
+
+Overview: Scoped onboarding persistence to the signed-in account, added a real DM-forwarding action in settings, refreshed profile counts after post/message actions so Duo steps complete reliably, and removed the starter Prismatic Essence grant while adding a small hidden bonus when a guide is completed.
+
+Changes:
+
+- Updated [apps/web/contexts/OnboardingContext.tsx](apps/web/contexts/OnboardingContext.tsx):
+  - Scoped persisted onboarding state to the current user instead of a shared browser-wide key.
+  - Cleared stored onboarding state when logged out so active flows do not bleed into other accounts.
+  - Added profile fields for message/post counts and used them for Duo completion detection.
+  - Refetches profile state on route changes so onboarding can keep up with navigation.
+- Updated [apps/web/pages/create.tsx](apps/web/pages/create.tsx):
+  - Refreshed the user profile after a Duo post is created so onboarding can see the new post count immediately.
+- Updated [apps/web/components/ChatWidget.tsx](apps/web/components/ChatWidget.tsx):
+  - Refreshed the user profile after sending a message so onboarding can detect the Duo message step.
+- Updated [apps/web/pages/settings.tsx](apps/web/pages/settings.tsx):
+  - Added a direct "Allow DMs from RiftEssence" CTA in the Discord DM notifications section.
+  - Auto-scrolls the DM section into view when onboarding sends the user there.
+- Updated [apps/api/src/routes/user.ts](apps/api/src/routes/user.ts):
+  - Exposed post and message counters in the profile payload.
+  - Added a hidden Prismatic Essence bonus when onboarding is completed the first time.
+- Updated [apps/api/src/routes/wallet.ts](apps/api/src/routes/wallet.ts):
+  - Removed the 1.2k starter grant for new wallets.
+  - Normalized legacy starter-grant-only wallets back to zero with an audit transaction.
+- Updated [apps/web/components/GlobalOnboardingModal.tsx](apps/web/components/GlobalOnboardingModal.tsx):
+  - Shows a toast for the hidden onboarding PE reward when available.
+
+Validation:
+
+- Pending. Run `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit --pretty false` after this patch.
+
+---
+
+## 2026-04-28 - Home Studio Discovery, Logo Routing, and Dock Toggle Polish
+
+### Objective: Make the home page feel like a feature studio, route the navbar logo back to home, and preserve minimized guide state across page changes
+
+Overview: Reworked the home page into a studio-style discovery surface that showcases RiftEssence features by interest and pairs that with the guided onboarding lobby. Updated the top-left navbar logo to return to the studio home page, preserved onboarding window open/minimized state across navigation, and made the dock cards toggle the currently focused guide instead of only reopening it.
+
+Changes:
+
+- Updated [apps/web/pages/index.tsx](apps/web/pages/index.tsx):
+  - Reframed the landing page as a dark studio-style feature showcase with a hero, interest cards, and the onboarding lobby below.
+  - Added discovery cards for Duo, team management, matchups, scrims, community growth, and ops-style navigation.
+  - Removed the old onboarding blurb that described the persistent guide behavior.
+- Updated [apps/web/components/OnboardingLobby.tsx](apps/web/components/OnboardingLobby.tsx):
+  - Replaced the old persistence-focused paragraph with feature-discovery language.
+- Updated [apps/web/components/Navbar.tsx](apps/web/components/Navbar.tsx):
+  - Pointed the top-left RiftEssence logo back to the home studio page.
+- Updated [apps/web/components/GlobalOnboardingModal.tsx](apps/web/components/GlobalOnboardingModal.tsx):
+  - Made dock cards toggle the currently focused guide so a minimized guide can reopen and an open guide can minimize.
+  - Removed the horizontal offset on the active dock card so stacked guides line up cleanly.
+- Updated [apps/web/contexts/OnboardingContext.tsx](apps/web/contexts/OnboardingContext.tsx):
+  - Persisted `windowOpen` alongside the active flow queue so a minimized guide stays minimized across page changes and reloads.
+
+Validation:
+
+- Pending. Run `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit --pretty false` after this patch.
 
 ---
 

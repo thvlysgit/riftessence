@@ -123,7 +123,7 @@ const getRelativeTime = (dateString: string) => {
 };
 
 export default function ChatWidget() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { conversationToOpen, clearConversationToOpen } = useChat();
   const [isOpen, setIsOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -449,6 +449,7 @@ export default function ChatWidget() {
         const data = await res.json();
         setMessages([...messages, data.message]);
         await fetchConversations(); // Refresh conversation list
+        await refreshUser();
       }
     } catch (err) {
       console.error('Error sending message:', err);
