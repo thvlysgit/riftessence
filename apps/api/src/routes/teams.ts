@@ -521,6 +521,58 @@ export default async function teamsRoutes(fastify: any) {
     }
   });
 
+  // GET /api/teams/invites - List teams the current user has been invited to
+  fastify.get('/teams/invites', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const [user, userPuuid] = await Promise.all([
+        prisma.user.findUnique({ where: { id: userId }, select: { username: true } }),
+        getUserPuuid(userId),
+      ]);
+
+      const inviteFilters: any[] = [];
+      if (userPuuid) {
+        inviteFilters.push({ puuid: userPuuid });
+      }
+      if (user?.username) {
+        inviteFilters.push({ username: user.username });
+      }
+
+      if (inviteFilters.length === 0) {
+        return reply.send([]);
+      }
+
+      const invites = await prisma.teamPendingSpot.findMany({
+        where: { OR: inviteFilters },
+        include: {
+          team: {
+            select: {
+              id: true,
+              name: true,
+              tag: true,
+            },
+          },
+        },
+        orderBy: { addedAt: 'asc' },
+      });
+
+      return reply.send(invites.map((spot: any) => ({
+        teamId: spot.team.id,
+        teamName: spot.team.name,
+        teamTag: spot.team.tag,
+        pendingSpotId: spot.id,
+        role: spot.role,
+        canJoin: true,
+        addedAt: spot.addedAt,
+      })));
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch team invites' });
+    }
+  });
+
   // POST /api/teams - Create a new team
   fastify.post('/teams', async (request: any, reply: any) => {
     try {

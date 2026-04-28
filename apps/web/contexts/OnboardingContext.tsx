@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from './AuthContext';
 import { getAuthHeader } from '../utils/auth';
 
-export type FlowId = 'duo' | 'lft' | 'team-management' | 'matchups' | 'scrims' | 'community-growth';
+export type FlowId = 'duo' | 'lft' | 'team-management' | 'matchups' | 'scrims' | 'community-growth' | 'team-invite';
 export type StepStatus = 'pending' | 'completed' | 'skipped';
 
 export interface FlowStep {
@@ -35,6 +35,16 @@ interface TeamSnapshot {
   discordNotifyEvents?: boolean;
   webhookValid?: boolean;
   scrimCodeWebhookValid?: boolean;
+}
+
+interface TeamInviteSnapshot {
+  teamId: string;
+  teamName: string;
+  teamTag: string | null;
+  pendingSpotId: string;
+  role: string;
+  canJoin: boolean;
+  addedAt: string;
 }
 
 interface MatchupCountSnapshot {
@@ -74,6 +84,7 @@ interface OnboardingContextType {
   currentFlowSteps: FlowStep[];
   currentStepStatuses: Record<string, StepStatus>;
   profileSnapshot: ProfileSnapshot | null;
+  teamInviteSnapshots: TeamInviteSnapshot[];
 
   openFlow: (flowId: FlowId) => void;
   closeOnboarding: () => void;
@@ -94,6 +105,7 @@ const FLOW_LABELS: Record<FlowId, string> = {
   matchups: 'I want to learn/share specific matchup data for my champion!',
   scrims: 'I am looking for scrims!',
   'community-growth': "I want to boost my community's growth!",
+  'team-invite': 'I was invited to a team and need to join!',
 };
 
 const DUO_STEPS: FlowStep[] = [
@@ -307,6 +319,21 @@ const COMMUNITY_GROWTH_STEPS: FlowStep[] = [
   },
 ];
 
+const TEAM_INVITE_STEPS: FlowStep[] = [
+  {
+    id: 'link-riot',
+    title: 'Link Riot account',
+    description: 'You need a linked Riot account before you can claim an invite spot.',
+    ctaLabel: 'Link Riot',
+  },
+  {
+    id: 'join-invited-team',
+    title: 'Join your invited team',
+    description: 'Open the invited team page and accept your pending spot.',
+    ctaLabel: 'Open Team Invite',
+  },
+];
+
 const FLOW_STEPS: Record<FlowId, FlowStep[]> = {
   duo: DUO_STEPS,
   lft: LFT_STEPS,
@@ -314,6 +341,7 @@ const FLOW_STEPS: Record<FlowId, FlowStep[]> = {
   matchups: MATCHUPS_STEPS,
   scrims: SCRIMS_STEPS,
   'community-growth': COMMUNITY_GROWTH_STEPS,
+  'team-invite': TEAM_INVITE_STEPS,
 };
 
 function isChampionPoolConfigured(profile: ProfileSnapshot | null): boolean {
@@ -349,6 +377,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const [profileSnapshot, setProfileSnapshot] = useState<ProfileSnapshot | null>(null);
   const [teamSnapshots, setTeamSnapshots] = useState<TeamSnapshot[]>([]);
   const [teamDiscordSnapshot, setTeamDiscordSnapshot] = useState<TeamDiscordSnapshot | null>(null);
+  const [teamInviteSnapshots, setTeamInviteSnapshots] = useState<TeamInviteSnapshot[]>([]);
   const [matchupCountSnapshot, setMatchupCountSnapshot] = useState<MatchupCountSnapshot | null>(null);
   const [lftPostsSnapshot, setLftPostsSnapshot] = useState<LftPostsSnapshot | null>(null);
   const [scrimFeedSnapshot, setScrimFeedSnapshot] = useState<ScrimFeedSnapshot | null>(null);
@@ -411,6 +440,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     if (!user) {
       setTeamSnapshots([]);
       setTeamDiscordSnapshot(null);
+      setTeamInviteSnapshots([]);
       return;
     }
 
@@ -434,6 +464,47 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     };
 
     loadTeams();
+  }, [user]);
+
+  // Load pending team invites so the onboarding can open the exact invited team
+  useEffect(() => {
+    if (!user) {
+      setTeamInviteSnapshots([]);
+      return;
+    }
+
+    const loadTeamInvites = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/teams/invites`, {
+          headers: getAuthHeader(),
+        });
+
+        if (!response.ok) return;
+
+        const invites = await response.json();
+        if (!Array.isArray(invites)) return;
+
+        setTeamInviteSnapshots((prev) => {
+          if (invites.length === 0) {
+            return prev.length > 0 ? prev : [];
+          }
+
+          return invites.map((invite: any) => ({
+            teamId: invite.teamId,
+            teamName: invite.teamName,
+            teamTag: invite.teamTag || null,
+            pendingSpotId: invite.pendingSpotId,
+            role: invite.role,
+            canJoin: Boolean(invite.canJoin),
+            addedAt: invite.addedAt,
+          }));
+        });
+      } catch {
+        // Silent on purpose
+      }
+    };
+
+    loadTeamInvites();
   }, [user]);
 
   // Load Discord settings for the first managed team, if available
@@ -560,6 +631,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       const hasTeamWebhook = Boolean(teamDiscordSnapshot?.webhookUrl || teamDiscordSnapshot?.scrimCodeWebhookUrl);
       const hasValidTeamWebhook = Boolean(teamDiscordSnapshot?.webhookValid || teamDiscordSnapshot?.scrimCodeWebhookValid);
       const hasUpcomingTeamEvents = teamSnapshots.some((team) => (team.upcomingEventCount || 0) > 0);
+      const invitedTeamIds = new Set(teamInviteSnapshots.map((invite) => invite.teamId));
+      const hasTeamInvite = teamInviteSnapshots.length > 0;
       const communityCount = profileSnapshot?.communities?.length || 0;
       const lftPostCount = lftPostsSnapshot?.count || 0;
       const matchupSavedCount = matchupCountSnapshot?.saved || 0;
@@ -590,6 +663,16 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       if (['duo', 'lft', 'matchups'].includes(activeFlowId)) {
         if (isChampionPoolConfigured(profileSnapshot) && next['champion-pool'] !== 'skipped') {
           next['champion-pool'] = 'completed';
+        }
+      }
+
+      if (activeFlowId === 'team-invite') {
+        if ((user?.riotAccountsCount || 0) > 0 && next['link-riot'] !== 'skipped') {
+          next['link-riot'] = 'completed';
+        }
+
+        if (hasTeamInvite && teamSnapshots.some((team) => invitedTeamIds.has(team.id)) && next['join-invited-team'] !== 'skipped') {
+          next['join-invited-team'] = 'completed';
         }
       }
 
@@ -676,7 +759,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         [activeFlowId]: next,
       };
     });
-  }, [activeFlowId, lftPostsSnapshot, matchupCountSnapshot, profileSnapshot, router.pathname, scrimFeedSnapshot, teamDiscordSnapshot, teamSnapshots, user]);
+  }, [activeFlowId, lftPostsSnapshot, matchupCountSnapshot, profileSnapshot, router.pathname, scrimFeedSnapshot, teamDiscordSnapshot, teamInviteSnapshots, teamSnapshots, user]);
 
   // If a persisted flow exists and the user just authenticated, open the onboarding window automatically
   useEffect(() => {
@@ -685,6 +768,14 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       setWindowOpen(true);
     }
   }, [user, activeFlowId]);
+
+  useEffect(() => {
+    if (user && !activeFlowId && teamInviteSnapshots.length > 0) {
+      setActiveFlowId('team-invite');
+      setBubbleVisible(true);
+      setWindowOpen(true);
+    }
+  }, [activeFlowId, setActiveFlowId, teamInviteSnapshots.length, user]);
 
   // Calculate progress for each flow
   const flowProgressById = useMemo(() => {
@@ -695,6 +786,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       matchups: 0,
       scrims: 0,
       'community-growth': 0,
+      'team-invite': 0,
     };
 
     (Object.keys(FLOW_STEPS) as FlowId[]).forEach((flowId) => {
@@ -756,6 +848,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     currentFlowSteps,
     currentStepStatuses,
     profileSnapshot,
+    teamInviteSnapshots,
     openFlow: handleOpenFlow,
     closeOnboarding: handleCloseOnboarding,
     toggleWindow: handleToggleWindow,

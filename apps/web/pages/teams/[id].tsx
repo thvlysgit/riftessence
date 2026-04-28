@@ -265,6 +265,17 @@ const TeamDetailPage: React.FC = () => {
     }
   }, [id]);
 
+  useEffect(() => {
+    if (!router.isReady || router.query.joinInvite !== '1' || !team?.canJoin) {
+      return;
+    }
+
+    const joinButton = document.getElementById('team-join-button');
+    if (joinButton) {
+      joinButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [router.isReady, router.query.joinInvite, team?.canJoin]);
+
   const openEditModal = () => {
     if (team) {
       setEditForm({
@@ -723,6 +734,7 @@ const TeamDetailPage: React.FC = () => {
                 {/* Join Team Button (for users with pending spot) */}
                 {team.canJoin && (
                   <button
+                    id="team-join-button"
                     onClick={handleJoinTeam}
                     disabled={joining}
                     className="px-5 py-2.5 font-semibold rounded-lg transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"

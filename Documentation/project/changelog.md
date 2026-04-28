@@ -8,7 +8,7 @@
 
 ### Objective: Finish the remaining onboarding flow wiring so the global onboarding modal can launch every path and detect completion from live page state
 
-Overview: Extended the global onboarding system with additional live snapshots for team Discord settings, LFT post stats, and route-aware completion checks. Finished wiring the onboarding lobby so every flow can be launched from the home hub, and replaced placeholder onboarding CTAs with real route targets for team, matchup, scrim, and community setup pages.
+Overview: Extended the global onboarding system with additional live snapshots for team Discord settings, LFT post stats, and route-aware completion checks. Fixed the modal hook-order crash that was surfacing as React error #310 when an authenticated user mounted the global onboarding modal. Finished wiring the onboarding lobby so every flow can be launched from the home hub, and replaced placeholder onboarding CTAs with real route targets for team, matchup, scrim, community setup, and invited-team join pages.
 
 Changes:
 
@@ -24,6 +24,14 @@ Changes:
   - Added query-driven hooks for the create-team and roster flows launched from onboarding.
 - Updated [apps/web/pages/teams/schedule.tsx](apps/web/pages/teams/schedule.tsx):
   - Added a query-driven hook to open the create-event modal from onboarding links.
+- Added [apps/web/pages/teams/[id].tsx](apps/web/pages/teams/[id].tsx):
+  - The invited-team route now scrolls directly to the Join button when launched from onboarding.
+- Added [apps/api/src/routes/teams.ts](apps/api/src/routes/teams.ts):
+  - New `GET /api/teams/invites` endpoint returns pending team spots for the current user.
+- Added a dedicated team-invite onboarding flow:
+  - Auto-opens when a pending invite exists and no other flow is active.
+  - Detects completion when the invited team becomes an actual membership.
+  - Routes the CTA to the exact invited team page.
 - Validation:
   - `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
 

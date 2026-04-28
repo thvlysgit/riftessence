@@ -14,6 +14,7 @@ const FLOW_LABELS: Record<FlowId, string> = {
   matchups: 'I want to learn/share specific matchup data for my champion!',
   scrims: 'I am looking for scrims!',
   'community-growth': "I want to boost my community's growth!",
+  'team-invite': 'I was invited to a team and need to join!',
 };
 
 export default function GlobalOnboardingModal() {
@@ -27,13 +28,13 @@ export default function GlobalOnboardingModal() {
     currentFlowSteps,
     currentStepStatuses,
     flowProgressById,
+    teamInviteSnapshots,
     closeOnboarding,
     toggleWindow,
     setStepStatus,
   } = useOnboarding();
   const [discordLinkLoading, setDiscordLinkLoading] = useState(false);
 
-  // Don't render if no active flow or user not authenticated
   if (!user || !activeFlowId || !bubbleVisible) {
     return null;
   }
@@ -61,6 +62,18 @@ export default function GlobalOnboardingModal() {
 
       if (stepId === 'link-riot') {
         router.push(`/authenticate?returnUrl=${encodeURIComponent(router.asPath)}`);
+        return;
+      }
+
+      if (stepId === 'join-invited-team') {
+        const inviteTeamId = teamInviteSnapshots[0]?.teamId;
+
+        if (inviteTeamId) {
+          router.push(`/teams/${inviteTeamId}?joinInvite=1&returnUrl=${encodeURIComponent(router.asPath)}`);
+          return;
+        }
+
+        showToast('No pending team invite was found.', 'info');
         return;
       }
 
@@ -191,7 +204,7 @@ export default function GlobalOnboardingModal() {
         return;
       }
     },
-    [activeFlowId, router, user, showToast, setStepStatus]
+    [activeFlowId, router, showToast, setStepStatus, teamInviteSnapshots, user]
   );
 
   const completeFlowIfReady = useCallback(async () => {

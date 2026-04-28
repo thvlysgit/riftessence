@@ -12,6 +12,7 @@ const FLOW_LABELS: Record<FlowId_Local, string> = {
   matchups: 'I want to learn/share specific matchup data for my champion!',
   scrims: 'I am looking for scrims!',
   'community-growth': "I want to boost my community's growth!",
+  'team-invite': 'I was invited to a team and need to join!',
 };
 
 export default function OnboardingLobby() {
