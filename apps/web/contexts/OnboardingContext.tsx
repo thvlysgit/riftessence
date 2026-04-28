@@ -70,11 +70,14 @@ interface TeamDiscordSnapshot {
 }
 
 interface PersistedFlowState {
+  activeFlowIds: FlowId[];
+  focusedFlowId: FlowId | null;
   activeFlowId: FlowId | null;
   byFlow: Partial<Record<FlowId, Record<string, StepStatus>>>;
 }
 
 interface OnboardingContextType {
+  activeFlowIds: FlowId[];
   activeFlowId: FlowId | null;
   windowOpen: boolean;
   bubbleVisible: boolean;
@@ -355,25 +358,33 @@ function isChampionPoolConfigured(profile: ProfileSnapshot | null): boolean {
 }
 
 function safeParseState(raw: string | null): PersistedFlowState {
-  if (!raw) return { activeFlowId: null, byFlow: {} };
+  if (!raw) return { activeFlowIds: [], focusedFlowId: null, activeFlowId: null, byFlow: {} };
   try {
     const parsed = JSON.parse(raw) as PersistedFlowState;
+    const activeFlowIds = Array.isArray(parsed.activeFlowIds)
+      ? parsed.activeFlowIds.filter((flowId): flowId is FlowId => Object.keys(FLOW_STEPS).includes(flowId))
+      : parsed.activeFlowId
+        ? [parsed.activeFlowId]
+        : [];
+    const focusedFlowId = parsed.focusedFlowId || parsed.activeFlowId || activeFlowIds[activeFlowIds.length - 1] || null;
     return {
-      activeFlowId: parsed.activeFlowId || null,
+      activeFlowIds,
+      focusedFlowId,
+      activeFlowId: focusedFlowId,
       byFlow: parsed.byFlow || {},
     };
   } catch {
-    return { activeFlowId: null, byFlow: {} };
+    return { activeFlowIds: [], focusedFlowId: null, activeFlowId: null, byFlow: {} };
   }
 }
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, refreshUser } = useAuth();
-  const [activeFlowId, setActiveFlowId] = useState<FlowId | null>(null);
+  const [activeFlowIds, setActiveFlowIds] = useState<FlowId[]>([]);
+  const [focusedFlowId, setFocusedFlowId] = useState<FlowId | null>(null);
   const [flowStepStatuses, setFlowStepStatuses] = useState<Partial<Record<FlowId, Record<string, StepStatus>>>>({});
   const [windowOpen, setWindowOpen] = useState(false);
-  const [bubbleVisible, setBubbleVisible] = useState(false);
   const [profileSnapshot, setProfileSnapshot] = useState<ProfileSnapshot | null>(null);
   const [teamSnapshots, setTeamSnapshots] = useState<TeamSnapshot[]>([]);
   const [teamDiscordSnapshot, setTeamDiscordSnapshot] = useState<TeamDiscordSnapshot | null>(null);
@@ -386,10 +397,11 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const initialState = safeParseState(window.localStorage.getItem(STORAGE_KEY));
-    setActiveFlowId(initialState.activeFlowId);
+    setActiveFlowIds(initialState.activeFlowIds);
+    setFocusedFlowId(initialState.focusedFlowId);
     setFlowStepStatuses(initialState.byFlow || {});
-    if (initialState.activeFlowId) {
-      setBubbleVisible(true);
+    if (initialState.focusedFlowId) {
+      setWindowOpen(true);
     }
   }, []);
 
@@ -397,11 +409,13 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const nextState: PersistedFlowState = {
-      activeFlowId,
+      activeFlowIds,
+      focusedFlowId,
+      activeFlowId: focusedFlowId,
       byFlow: flowStepStatuses,
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
-  }, [activeFlowId, flowStepStatuses]);
+  }, [activeFlowIds, flowStepStatuses, focusedFlowId]);
 
   // Load profile snapshot
   useEffect(() => {
@@ -618,12 +632,12 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     loadScrimFeed();
   }, [user]);
 
-  // Auto-detect steps for all flows
+  // Auto-detect steps for the focused flow
   useEffect(() => {
-    if (!user || !activeFlowId) return;
+    if (!user || !focusedFlowId) return;
 
     setFlowStepStatuses((prev) => {
-      const current = prev[activeFlowId] || {};
+      const current = prev[focusedFlowId] || {};
       const next = { ...current };
       const pathname = router.pathname || '/';
       const hasTeam = teamSnapshots.length > 0;
@@ -645,14 +659,14 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       }
 
       // Riot account check for flows that need it
-      if (['duo', 'lft', 'matchups'].includes(activeFlowId)) {
+      if (['duo', 'lft', 'matchups'].includes(focusedFlowId)) {
         if ((user?.riotAccountsCount || 0) > 0 && next['link-riot'] !== 'skipped') {
           next['link-riot'] = 'completed';
         }
       }
 
       // Discord + DM check for flows that need it
-      if (['duo', 'lft'].includes(activeFlowId)) {
+      if (['duo', 'lft'].includes(focusedFlowId)) {
         const hasDiscordAndDm = Boolean(profileSnapshot?.discordLinked && profileSnapshot?.discordDmNotifications);
         if (hasDiscordAndDm && next['link-discord'] !== 'skipped') {
           next['link-discord'] = 'completed';
@@ -660,13 +674,13 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       }
 
       // Champion pool check for flows that need it
-      if (['duo', 'lft', 'matchups'].includes(activeFlowId)) {
+      if (['duo', 'lft', 'matchups'].includes(focusedFlowId)) {
         if (isChampionPoolConfigured(profileSnapshot) && next['champion-pool'] !== 'skipped') {
           next['champion-pool'] = 'completed';
         }
       }
 
-      if (activeFlowId === 'team-invite') {
+      if (focusedFlowId === 'team-invite') {
         if ((user?.riotAccountsCount || 0) > 0 && next['link-riot'] !== 'skipped') {
           next['link-riot'] = 'completed';
         }
@@ -677,7 +691,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       }
 
       // Duo post creation check
-      if (activeFlowId === 'duo') {
+      if (focusedFlowId === 'duo') {
         if ((profileSnapshot?.postsCount || 0) > 0 && next['create-post'] !== 'skipped') {
           next['create-post'] = 'completed';
         }
@@ -687,14 +701,14 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       }
 
       // LFT post creation check
-      if (activeFlowId === 'lft') {
+      if (focusedFlowId === 'lft') {
         if (lftPostCount > 0 && next['create-post'] !== 'skipped') {
           next['create-post'] = 'completed';
         }
       }
 
       // Team management checks
-      if (activeFlowId === 'team-management') {
+      if (focusedFlowId === 'team-management') {
         if (hasTeam && next['create-roster'] !== 'skipped') {
           next['create-roster'] = 'completed';
         }
@@ -713,7 +727,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       }
 
       // Matchups checks
-      if (activeFlowId === 'matchups') {
+      if (focusedFlowId === 'matchups') {
         if (pathname === '/matchups/marketplace' && next['browse-marketplace'] !== 'skipped') {
           next['browse-marketplace'] = 'completed';
         }
@@ -726,7 +740,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       }
 
       // Scrims checks
-      if (activeFlowId === 'scrims') {
+      if (focusedFlowId === 'scrims') {
         if (hasTeam && next['create-team'] !== 'skipped') {
           next['create-team'] = 'completed';
         }
@@ -742,7 +756,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       }
 
       // Community growth checks
-      if (activeFlowId === 'community-growth') {
+      if (focusedFlowId === 'community-growth') {
         if (communityCount > 0 && next['link-discord-server'] !== 'skipped') {
           next['link-discord-server'] = 'completed';
         }
@@ -756,26 +770,25 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
       return {
         ...prev,
-        [activeFlowId]: next,
+        [focusedFlowId]: next,
       };
     });
-  }, [activeFlowId, lftPostsSnapshot, matchupCountSnapshot, profileSnapshot, router.pathname, scrimFeedSnapshot, teamDiscordSnapshot, teamInviteSnapshots, teamSnapshots, user]);
+  }, [focusedFlowId, lftPostsSnapshot, matchupCountSnapshot, profileSnapshot, router.pathname, scrimFeedSnapshot, teamDiscordSnapshot, teamInviteSnapshots, teamSnapshots, user]);
 
   // If a persisted flow exists and the user just authenticated, open the onboarding window automatically
   useEffect(() => {
-    if (user && activeFlowId) {
-      setBubbleVisible(true);
+    if (user && focusedFlowId) {
       setWindowOpen(true);
     }
-  }, [user, activeFlowId]);
+  }, [user, focusedFlowId]);
 
   useEffect(() => {
-    if (user && !activeFlowId && teamInviteSnapshots.length > 0) {
-      setActiveFlowId('team-invite');
-      setBubbleVisible(true);
+    if (user && activeFlowIds.length === 0 && teamInviteSnapshots.length > 0) {
+      setActiveFlowIds(['team-invite']);
+      setFocusedFlowId('team-invite');
       setWindowOpen(true);
     }
-  }, [activeFlowId, setActiveFlowId, teamInviteSnapshots.length, user]);
+  }, [activeFlowIds.length, setActiveFlowIds, setFocusedFlowId, teamInviteSnapshots.length, user]);
 
   // Calculate progress for each flow
   const flowProgressById = useMemo(() => {
@@ -806,8 +819,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     return result;
   }, [flowStepStatuses]);
 
-  const currentFlowSteps = activeFlowId ? FLOW_STEPS[activeFlowId] : [];
-  const currentStepStatuses = activeFlowId ? (flowStepStatuses[activeFlowId] || {}) : {};
+  const currentFlowSteps = focusedFlowId ? FLOW_STEPS[focusedFlowId] : [];
+  const currentStepStatuses = focusedFlowId ? (flowStepStatuses[focusedFlowId] || {}) : {};
 
   const setStepStatus = useCallback(
     (flowId: FlowId, stepId: string, status: StepStatus) => {
@@ -823,28 +836,39 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   );
 
   const handleOpenFlow = useCallback((flowId: FlowId) => {
-    setActiveFlowId(flowId);
-    setBubbleVisible(true);
+    setActiveFlowIds((prev) => {
+      const next = [...prev.filter((existingFlowId) => existingFlowId !== flowId), flowId];
+      return next.slice(-3);
+    });
+    setFocusedFlowId(flowId);
     setWindowOpen(true);
   }, []);
 
   const handleCloseOnboarding = useCallback(() => {
-    setWindowOpen(false);
-    setBubbleVisible(false);
-    setActiveFlowId(null);
-  }, []);
+    setActiveFlowIds((prev) => {
+      if (!focusedFlowId) return prev;
+      const next = prev.filter((flowId) => flowId !== focusedFlowId);
+      setFocusedFlowId(next[next.length - 1] || null);
+      setWindowOpen(false);
+      return next;
+    });
+  }, [focusedFlowId]);
 
   const handleToggleWindow = useCallback(() => {
+    if (!focusedFlowId && activeFlowIds.length > 0) {
+      setFocusedFlowId(activeFlowIds[activeFlowIds.length - 1]);
+    }
     setWindowOpen((prev) => !prev);
-  }, []);
+  }, [activeFlowIds, focusedFlowId]);
 
   const value: OnboardingContextType = {
-    activeFlowId,
+    activeFlowIds,
+    activeFlowId: focusedFlowId,
     windowOpen,
-    bubbleVisible,
+    bubbleVisible: activeFlowIds.length > 0,
     flowProgressById,
     flowStepStatuses,
-    currentFlow: activeFlowId,
+    currentFlow: focusedFlowId,
     currentFlowSteps,
     currentStepStatuses,
     profileSnapshot,
@@ -853,7 +877,13 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     closeOnboarding: handleCloseOnboarding,
     toggleWindow: handleToggleWindow,
     setStepStatus,
-    setActiveFlowId,
+    setActiveFlowId: (flowId: FlowId | null) => {
+      if (!flowId) {
+        setFocusedFlowId(null);
+        return;
+      }
+      handleOpenFlow(flowId);
+    },
   };
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;

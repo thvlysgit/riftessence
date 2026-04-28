@@ -7,6 +7,12 @@ import { getAuthHeader } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
+type FlowTheme = {
+  accent: string;
+  soft: string;
+  ink: string;
+};
+
 const FLOW_LABELS: Record<FlowId, string> = {
   duo: 'I want to find a Duo!',
   lft: 'I am looking for an esports team/players for my team!',
@@ -17,21 +23,22 @@ const FLOW_LABELS: Record<FlowId, string> = {
   'team-invite': 'I was invited to a team and need to join!',
 };
 
-const FLOW_THEME: Record<FlowId, { accent: string; accentSoft: string; accentGlow: string; panelGlow: string; badge: string }> = {
-  duo: { accent: '#f59e0b', accentSoft: 'rgba(245, 158, 11, 0.14)', accentGlow: 'rgba(245, 158, 11, 0.18)', panelGlow: 'rgba(245, 158, 11, 0.22)', badge: 'rgba(245, 158, 11, 0.18)' },
-  lft: { accent: '#8b5cf6', accentSoft: 'rgba(139, 92, 246, 0.14)', accentGlow: 'rgba(139, 92, 246, 0.18)', panelGlow: 'rgba(139, 92, 246, 0.22)', badge: 'rgba(139, 92, 246, 0.18)' },
-  'team-management': { accent: '#14b8a6', accentSoft: 'rgba(20, 184, 166, 0.14)', accentGlow: 'rgba(20, 184, 166, 0.18)', panelGlow: 'rgba(20, 184, 166, 0.22)', badge: 'rgba(20, 184, 166, 0.18)' },
-  matchups: { accent: '#ec4899', accentSoft: 'rgba(236, 72, 153, 0.14)', accentGlow: 'rgba(236, 72, 153, 0.18)', panelGlow: 'rgba(236, 72, 153, 0.20)', badge: 'rgba(236, 72, 153, 0.18)' },
-  scrims: { accent: '#22c55e', accentSoft: 'rgba(34, 197, 94, 0.14)', accentGlow: 'rgba(34, 197, 94, 0.18)', panelGlow: 'rgba(34, 197, 94, 0.22)', badge: 'rgba(34, 197, 94, 0.18)' },
-  'community-growth': { accent: '#f97316', accentSoft: 'rgba(249, 115, 22, 0.14)', accentGlow: 'rgba(249, 115, 22, 0.18)', panelGlow: 'rgba(249, 115, 22, 0.22)', badge: 'rgba(249, 115, 22, 0.18)' },
-  'team-invite': { accent: '#38bdf8', accentSoft: 'rgba(56, 189, 248, 0.14)', accentGlow: 'rgba(56, 189, 248, 0.18)', panelGlow: 'rgba(56, 189, 248, 0.22)', badge: 'rgba(56, 189, 248, 0.18)' },
+const FLOW_THEMES: Record<FlowId, FlowTheme> = {
+  duo: { accent: '#f59e0b', soft: 'rgba(245, 158, 11, 0.12)', ink: '#f59e0b' },
+  lft: { accent: '#8b5cf6', soft: 'rgba(139, 92, 246, 0.12)', ink: '#8b5cf6' },
+  'team-management': { accent: '#14b8a6', soft: 'rgba(20, 184, 166, 0.12)', ink: '#14b8a6' },
+  matchups: { accent: '#ec4899', soft: 'rgba(236, 72, 153, 0.12)', ink: '#ec4899' },
+  scrims: { accent: '#22c55e', soft: 'rgba(34, 197, 94, 0.12)', ink: '#22c55e' },
+  'community-growth': { accent: '#f97316', soft: 'rgba(249, 115, 22, 0.12)', ink: '#f97316' },
+  'team-invite': { accent: '#38bdf8', soft: 'rgba(56, 189, 248, 0.12)', ink: '#38bdf8' },
 };
 
 export default function GlobalOnboardingModal() {
   const router = useRouter();
   const { user, refreshUser } = useAuth();
-  const { showToast } = useGlobalUI();
+  const { showToast, confirm } = useGlobalUI();
   const {
+    activeFlowIds,
     activeFlowId,
     windowOpen,
     bubbleVisible,
@@ -41,12 +48,14 @@ export default function GlobalOnboardingModal() {
     teamInviteSnapshots,
     closeOnboarding,
     toggleWindow,
+    openFlow,
     setStepStatus,
   } = useOnboarding();
   const [discordLinkLoading, setDiscordLinkLoading] = useState(false);
-  const currentFlowId = activeFlowId || 'duo';
-  const flowTheme = FLOW_THEME[currentFlowId];
-  const progress = flowProgressById[currentFlowId];
+
+  const currentFlowId = activeFlowId || activeFlowIds[activeFlowIds.length - 1] || 'duo';
+  const currentTheme = FLOW_THEMES[currentFlowId];
+  const progress = flowProgressById[currentFlowId] || 0;
   const flowLabel = FLOW_LABELS[currentFlowId];
 
   const openCurrentStepDestination = useCallback(
@@ -74,7 +83,6 @@ export default function GlobalOnboardingModal() {
 
       if (stepId === 'join-invited-team') {
         const inviteTeamId = teamInviteSnapshots[0]?.teamId;
-
         if (inviteTeamId) {
           router.push(`/teams/${inviteTeamId}?joinInvite=1&returnUrl=${encodeURIComponent(router.asPath)}`);
           return;
@@ -121,7 +129,6 @@ export default function GlobalOnboardingModal() {
         }
 
         if (stepId === 'link-discord-server') {
-          // Placeholder for Discord server linking
           showToast('Discord server linking coming soon.', 'info');
           return;
         }
@@ -133,12 +140,11 @@ export default function GlobalOnboardingModal() {
       }
 
       if (stepId === 'create-post') {
-          // For LFT flow, open the LFT create modal; for Duo use generic create page
-          if (activeFlowId === 'lft') {
-            router.push(`/lft?openCreate=1&returnUrl=${encodeURIComponent(router.asPath)}`);
-          } else {
-            router.push(`/create?returnUrl=${encodeURIComponent(router.asPath)}`);
-          }
+        if (currentFlowId === 'lft') {
+          router.push(`/lft?openCreate=1&returnUrl=${encodeURIComponent(router.asPath)}`);
+        } else {
+          router.push(`/create?returnUrl=${encodeURIComponent(router.asPath)}`);
+        }
         return;
       }
 
@@ -182,11 +188,7 @@ export default function GlobalOnboardingModal() {
         return;
       }
 
-      if (
-        stepId === 'configure-scrim' ||
-        stepId === 'post-scrim' ||
-        stepId === 'start-match'
-      ) {
+      if (stepId === 'configure-scrim' || stepId === 'post-scrim' || stepId === 'start-match') {
         if (stepId === 'configure-scrim') {
           router.push(`/teams/discord?returnUrl=${encodeURIComponent(router.asPath)}`);
           return;
@@ -211,7 +213,7 @@ export default function GlobalOnboardingModal() {
         return;
       }
     },
-    [activeFlowId, router, showToast, setStepStatus, teamInviteSnapshots, user]
+    [activeFlowId, currentFlowId, router, setStepStatus, showToast, teamInviteSnapshots, user]
   );
 
   const completeFlowIfReady = useCallback(async () => {
@@ -219,7 +221,7 @@ export default function GlobalOnboardingModal() {
     const allRequiredDone = requiredSteps.every((step) => currentStepStatuses[step.id] === 'completed');
 
     if (!allRequiredDone) {
-      showToast(`Finish required ${activeFlowId} steps first.`, 'info');
+      showToast(`Finish required ${currentFlowId} steps first.`, 'info');
       return;
     }
 
@@ -235,220 +237,221 @@ export default function GlobalOnboardingModal() {
       }
     }
 
-    showToast(`${activeFlowId} onboarding complete! You can still reopen it anytime.`, 'success');
+    showToast(`${currentFlowId} onboarding complete! You can still reopen it anytime.`, 'success');
     closeOnboarding();
-  }, [activeFlowId, currentFlowSteps, currentStepStatuses, user, showToast, closeOnboarding, refreshUser]);
+  }, [closeOnboarding, currentFlowId, currentFlowSteps, currentStepStatuses, refreshUser, showToast, user]);
 
-  if (!user || !activeFlowId || !bubbleVisible) {
+  const handleCloseCurrentFlow = useCallback(async () => {
+    const label = FLOW_LABELS[currentFlowId] || 'this guide';
+    const confirmed = await confirm({
+      title: 'Give up guide?',
+      message: `If you close ${label.toLowerCase()}, it will be removed from your active guides. You can reopen it later.`,
+      confirmText: 'Give up guide',
+      cancelText: 'Keep guide',
+    });
+
+    if (confirmed) {
+      closeOnboarding();
+    }
+  }, [closeOnboarding, confirm, currentFlowId]);
+
+  if (!user || !bubbleVisible) {
     return null;
   }
 
+  const renderDockCard = (flowId: FlowId) => {
+    const theme = FLOW_THEMES[flowId];
+    const flowProgress = flowProgressById[flowId] || 0;
+    const label = FLOW_LABELS[flowId];
+    const isFocused = flowId === currentFlowId;
+    const ctaLabel = flowProgress >= 100 ? 'Guide me again' : 'Guide me';
+
+    return (
+      <button
+        key={flowId}
+        onClick={() => openFlow(flowId)}
+        className={`group w-[260px] rounded-[22px] border px-4 py-3 text-left transition-all duration-200 ${isFocused ? 'translate-x-1' : 'hover:-translate-y-0.5'}`}
+        style={{
+          borderColor: isFocused ? theme.accent : 'rgba(148, 163, 184, 0.18)',
+          background: isFocused ? 'rgba(15, 23, 42, 0.96)' : 'rgba(15, 23, 42, 0.86)',
+          boxShadow: isFocused ? `0 18px 28px ${theme.soft}` : '0 10px 20px rgba(2, 6, 23, 0.22)',
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <div className="inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ borderColor: theme.accent, color: theme.accent, backgroundColor: 'rgba(15, 23, 42, 0.72)' }}>
+              {flowProgress >= 100 ? 'Completed' : 'Guide'}
+            </div>
+            <div className="text-sm font-bold leading-snug" style={{ color: 'var(--color-text-primary)' }}>
+              {label}
+            </div>
+          </div>
+          <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full border text-xs font-black" style={{ borderColor: theme.accent, color: theme.accent, backgroundColor: theme.soft }}>
+            {flowProgress}%
+          </div>
+        </div>
+
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: 'rgba(148, 163, 184, 0.14)' }}>
+          <div className="h-full rounded-full" style={{ width: `${flowProgress}%`, background: theme.accent }} />
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <span className="text-xs" style={{ color: 'rgba(226, 232, 240, 0.70)' }}>
+            {flowProgress >= 100 ? 'Ready to revisit' : flowProgress > 0 ? 'Continue the guide' : 'Start the guide'}
+          </span>
+          <span className="rounded-full border px-3 py-1 text-xs font-semibold" style={{ borderColor: theme.accent, color: theme.accent, backgroundColor: theme.soft }}>
+            {ctaLabel}
+          </span>
+        </div>
+      </button>
+    );
+  };
+
   return (
     <>
-      {/* Floating Bubble Button - Bottom Right, avoid interference */}
-      <div className="fixed left-4 sm:left-6 bottom-6 z-40 flex flex-col items-start gap-2 sm:flex-row sm:items-end">
-        <button
-          onClick={toggleWindow}
-          className="group relative flex items-center gap-3 rounded-[24px] border px-4 py-3 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-2xl"
-          style={{
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.88) 100%)',
-            borderColor: flowTheme.accent,
-            boxShadow: `0 18px 40px ${flowTheme.accentGlow}`,
-            color: 'var(--color-bg-primary)',
-            backdropFilter: 'blur(18px)',
-            minWidth: '220px',
-          }}
-          aria-label={`Toggle ${activeFlowId} onboarding window`}
-        >
-          <span className="flex h-11 w-11 flex-none items-center justify-center rounded-2xl border text-sm font-black" style={{ borderColor: flowTheme.accent, backgroundColor: flowTheme.accentSoft, color: flowTheme.accent }}>
-            {progress}%
-          </span>
-          <span className="min-w-0">
-            <span className="block text-[11px] uppercase tracking-[0.24em]" style={{ color: 'rgba(226, 232, 240, 0.68)' }}>
-              Onboarding dock
-            </span>
-            <span className="block truncate text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-              Continue {currentFlowId.replace('-', ' ')}
-            </span>
-          </span>
-        </button>
-        <button
-          onClick={closeOnboarding}
-          className="flex h-10 w-10 items-center justify-center rounded-full border text-sm font-bold transition-all hover:-translate-y-0.5 hover:opacity-90"
-          style={{
-            backgroundColor: 'rgba(15, 23, 42, 0.78)',
-            color: 'var(--color-text-primary)',
-            borderColor: 'rgba(148, 163, 184, 0.24)',
-            boxShadow: '0 12px 28px rgba(15, 23, 42, 0.18)',
-            backdropFilter: 'blur(18px)',
-          }}
-          aria-label="Close onboarding"
-        >
-          x
-        </button>
+      <div className="fixed left-4 bottom-6 z-40 flex max-h-[calc(100vh-1.5rem)] flex-col-reverse gap-3 overflow-visible sm:left-6">
+        {activeFlowIds.slice(-3).map((flowId) => renderDockCard(flowId))}
       </div>
 
-      {/* Modal Window */}
       {windowOpen && (
-        <>
-          {/* Backdrop overlay (semi-transparent) */}
+        <div className="fixed left-4 bottom-32 z-40 w-[min(92vw,520px)] sm:left-6">
           <div
-            className="fixed inset-0 z-30 bg-black bg-opacity-30 transition-opacity"
-            onClick={closeOnboarding}
-            aria-label="Close onboarding"
-          />
-
-          {/* Modal Panel - Fixed bottom-right to not interfere with page content */}
-          <div
-            className="fixed left-4 sm:left-6 bottom-24 z-40 w-[min(92vw,460px)] max-h-[72vh] overflow-y-auto rounded-[30px] border shadow-2xl"
+            className="flex max-h-[72vh] flex-col overflow-hidden rounded-[30px] border"
             style={{
-              background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.94) 0%, rgba(15, 23, 42, 0.88) 100%)',
-              borderColor: flowTheme.accent,
-              boxShadow: `0 28px 80px ${flowTheme.panelGlow}`,
-              backdropFilter: 'blur(22px)',
+              borderColor: currentTheme.accent,
+              background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.97) 0%, rgba(15, 23, 42, 0.92) 100%)',
+              boxShadow: `0 28px 70px ${currentTheme.soft}`,
             }}
           >
-            <div className="absolute inset-x-0 top-0 h-1.5" style={{ background: `linear-gradient(90deg, ${flowTheme.accent}, rgba(255,255,255,0.12))` }} />
-            <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(circle at top left, rgba(255,255,255,0.06), transparent 28%), radial-gradient(circle at bottom right, rgba(255,255,255,0.03), transparent 34%)' }} />
-
-            {/* Header */}
-            <div className="relative p-5 border-b sticky top-0 z-10" style={{ borderColor: 'rgba(148, 163, 184, 0.16)', backgroundColor: 'rgba(15, 23, 42, 0.58)' }}>
-              <div className="flex items-start justify-between gap-4">
-                <div className="max-w-[75%] space-y-2">
-                  <div className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ backgroundColor: flowTheme.badge, color: flowTheme.accent }}>
-                    Guided path
-                  </div>
-                  <h3 className="text-xl font-black tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
-                    {activeFlowId.charAt(0).toUpperCase() + activeFlowId.slice(1)} Onboarding
-                  </h3>
-                  <p className="text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
-                    {flowLabel}
-                  </p>
+            <div className="flex items-center justify-between gap-3 border-b px-5 py-4" style={{ borderColor: 'rgba(148, 163, 184, 0.14)' }}>
+              <div className="min-w-0">
+                <div className="inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ borderColor: currentTheme.accent, color: currentTheme.accent, backgroundColor: 'rgba(15, 23, 42, 0.72)' }}>
+                  {progress >= 100 ? 'Revisit guide' : 'Guided flow'}
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={toggleWindow}
-                    className="rounded-full border px-3 py-1.5 text-xs font-semibold transition-all hover:-translate-y-0.5"
-                    style={{ backgroundColor: 'rgba(15, 23, 42, 0.64)', color: 'var(--color-text-primary)', borderColor: 'rgba(148, 163, 184, 0.18)' }}
-                  >
-                    Minimize
-                  </button>
-                  <button
-                    onClick={closeOnboarding}
-                    className="rounded-full border px-3 py-1.5 text-xs font-semibold transition-all hover:-translate-y-0.5"
-                    style={{ backgroundColor: 'rgba(15, 23, 42, 0.64)', color: 'var(--color-text-primary)', borderColor: 'rgba(148, 163, 184, 0.18)' }}
-                  >
-                    Close
-                  </button>
-                </div>
+                <h3 className="mt-2 text-xl font-black tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
+                  {currentFlowId.charAt(0).toUpperCase() + currentFlowId.slice(1).replace('-', ' ')}
+                </h3>
+                <p className="mt-1 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
+                  {flowLabel}
+                </p>
               </div>
 
-              <div className="mt-4 flex items-center gap-3">
-                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(148, 163, 184, 0.12)' }}>
-                  <div
-                    className="h-full rounded-full transition-all duration-300"
-                    style={{
-                      width: `${progress}%`,
-                      background: `linear-gradient(90deg, ${flowTheme.accent}, rgba(255,255,255,0.92))`,
-                      boxShadow: `0 0 18px ${flowTheme.accentGlow}`,
-                    }}
-                  />
+              <div className="flex items-center gap-2 self-start">
+                <button
+                  onClick={toggleWindow}
+                  className="inline-flex h-10 items-center rounded-full border px-4 text-sm font-semibold transition-all hover:-translate-y-0.5"
+                  style={{
+                    backgroundColor: 'rgba(15, 23, 42, 0.78)',
+                    color: 'var(--color-text-primary)',
+                    borderColor: 'rgba(148, 163, 184, 0.18)',
+                  }}
+                >
+                  Minimize
+                </button>
+                <button
+                  onClick={() => void handleCloseCurrentFlow()}
+                  className="inline-flex h-10 items-center rounded-full border px-4 text-sm font-semibold transition-all hover:-translate-y-0.5"
+                  style={{
+                    backgroundColor: 'rgba(127, 29, 29, 0.28)',
+                    color: '#fecaca',
+                    borderColor: 'rgba(248, 113, 113, 0.30)',
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="border-b px-5 py-4" style={{ borderColor: 'rgba(148, 163, 184, 0.14)' }}>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-2 overflow-hidden rounded-full" style={{ backgroundColor: 'rgba(148, 163, 184, 0.14)' }}>
+                  <div className="h-full rounded-full" style={{ width: `${progress}%`, background: currentTheme.accent }} />
                 </div>
-                <div className="flex-none rounded-full border px-3 py-1 text-xs font-semibold" style={{ borderColor: flowTheme.accent, color: flowTheme.accent, backgroundColor: flowTheme.accentSoft }}>
+                <div className="flex-none rounded-full border px-3 py-1 text-xs font-semibold" style={{ borderColor: currentTheme.accent, color: currentTheme.accent, backgroundColor: currentTheme.soft }}>
                   {progress}%
                 </div>
               </div>
-              <p className="mt-2 text-xs uppercase tracking-[0.18em]" style={{ color: 'rgba(226, 232, 240, 0.62)' }}>
-                Optional steps are excluded automatically
-              </p>
             </div>
 
-            {/* Steps List */}
-            <div className="relative p-4 space-y-3">
-              {currentFlowSteps.map((step, index) => {
-                const status = currentStepStatuses[step.id] || 'pending';
-                const statusColor =
-                  status === 'completed' ? flowTheme.accent : status === 'skipped' ? '#fbbf24' : 'rgba(226, 232, 240, 0.70)';
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <div className="space-y-3 pr-1">
+                {currentFlowSteps.map((step, index) => {
+                  const status = currentStepStatuses[step.id] || 'pending';
+                  const statusColor = status === 'completed' ? currentTheme.accent : status === 'skipped' ? '#fbbf24' : 'rgba(226, 232, 240, 0.68)';
 
-                return (
-                  <article
-                    key={step.id}
-                    className="group rounded-[22px] border p-4 transition-all duration-300 hover:-translate-y-0.5"
-                    style={{
-                      borderColor: status === 'completed' ? flowTheme.accent : 'rgba(148, 163, 184, 0.18)',
-                      background: status === 'completed' ? 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))' : 'rgba(2, 6, 23, 0.34)',
-                      boxShadow: `0 14px 30px ${status === 'completed' ? flowTheme.accentGlow : 'rgba(15, 23, 42, 0.18)'}`,
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <div className="flex h-9 w-9 flex-none items-center justify-center rounded-full border text-sm font-black" style={{ borderColor: flowTheme.accent, color: flowTheme.accent, backgroundColor: flowTheme.accentSoft }}>
-                          {index + 1}
+                  return (
+                    <article
+                      key={step.id}
+                      className="rounded-[22px] border p-4"
+                      style={{
+                        borderColor: status === 'completed' ? currentTheme.accent : 'rgba(148, 163, 184, 0.16)',
+                        backgroundColor: 'rgba(2, 6, 23, 0.36)',
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className="flex h-9 w-9 flex-none items-center justify-center rounded-full border text-sm font-black" style={{ borderColor: currentTheme.accent, color: currentTheme.accent, backgroundColor: currentTheme.soft }}>
+                            {index + 1}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-bold leading-snug sm:text-base" style={{ color: 'var(--color-text-primary)' }}>
+                              {step.title}
+                              {step.optional && <span className="ml-2 text-xs font-medium" style={{ color: 'rgba(226, 232, 240, 0.58)' }}>optional</span>}
+                            </h4>
+                            <p className="mt-1 text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
+                              {step.description}
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <h4 className="font-bold text-sm sm:text-base" style={{ color: 'var(--color-text-primary)' }}>
-                            {step.title}
-                            {step.optional && (
-                              <span className="ml-2 text-xs font-medium" style={{ color: 'rgba(226, 232, 240, 0.62)' }}>
-                                optional
-                              </span>
-                            )}
-                          </h4>
-                          <p className="mt-1 text-xs sm:text-sm leading-6" style={{ color: 'var(--color-text-secondary)' }}>
-                            {step.description}
-                          </p>
+                        <span className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ borderColor: statusColor, color: statusColor, backgroundColor: 'rgba(15, 23, 42, 0.66)' }}>
+                          {status}
+                        </span>
+                      </div>
+
+                      {status === 'pending' && (
+                        <button
+                          onClick={() => void openCurrentStepDestination(step.id)}
+                          disabled={step.id === 'link-discord' && discordLinkLoading}
+                          className="mt-4 inline-flex items-center justify-center rounded-full border px-4 py-2.5 text-xs font-semibold transition-all hover:-translate-y-0.5"
+                          style={{
+                            borderColor: currentTheme.accent,
+                            backgroundColor: currentTheme.soft,
+                            color: 'var(--color-text-primary)',
+                            opacity: step.id === 'link-discord' && discordLinkLoading ? 0.65 : 1,
+                          }}
+                        >
+                          {step.id === 'link-discord' && discordLinkLoading ? 'Connecting...' : step.ctaLabel || 'Open'}
+                        </button>
+                      )}
+
+                      {status !== 'pending' && (
+                        <div className="mt-4 flex items-center gap-2 text-xs font-medium" style={{ color: statusColor }}>
+                          <span className="rounded-full border px-2.5 py-1" style={{ borderColor: `${statusColor}55`, backgroundColor: `${statusColor}12` }}>
+                            {status === 'completed' ? 'Completed' : 'Skipped'}
+                          </span>
                         </div>
-                      </div>
-                      <span className="rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] whitespace-nowrap" style={{ borderColor: statusColor, color: statusColor, backgroundColor: status === 'pending' ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.05)' }}>
-                        {status}
-                      </span>
-                    </div>
-
-                    {/* Only show CTA button if step is pending */}
-                    {status === 'pending' && (
-                      <button
-                        onClick={() => void openCurrentStepDestination(step.id)}
-                        disabled={step.id === 'link-discord' && discordLinkLoading}
-                        className="inline-flex items-center justify-center rounded-full px-4 py-2.5 text-xs font-semibold transition-all duration-200 hover:-translate-y-0.5"
-                        style={{
-                          background: `linear-gradient(135deg, ${flowTheme.accent}, rgba(255,255,255,0.18))`,
-                          color: 'var(--color-bg-primary)',
-                          boxShadow: `0 10px 24px ${flowTheme.accentGlow}`,
-                          opacity: step.id === 'link-discord' && discordLinkLoading ? 0.65 : 1,
-                        }}
-                      >
-                        {step.id === 'link-discord' && discordLinkLoading ? 'Connecting...' : step.ctaLabel || 'Open'}
-                      </button>
-                    )}
-
-                    {/* Show status badge for completed/skipped */}
-                    {status !== 'pending' && (
-                      <div className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-full w-fit" style={{ backgroundColor: `${statusColor}14`, color: statusColor }}>
-                        {status === 'completed' && '✓ Completed'}
-                        {status === 'skipped' && '⊘ Skipped'}
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Footer */}
-            <div className="relative p-4 border-t sticky bottom-0 z-10" style={{ borderColor: 'rgba(148, 163, 184, 0.16)', backgroundColor: 'rgba(15, 23, 42, 0.72)' }}>
+            <div className="border-t px-5 py-4" style={{ borderColor: 'rgba(148, 163, 184, 0.14)', backgroundColor: 'rgba(15, 23, 42, 0.82)' }}>
               <button
                 onClick={() => void completeFlowIfReady()}
-                className="w-full rounded-2xl px-4 py-3 font-bold transition-all duration-200 hover:-translate-y-0.5"
+                className="w-full rounded-2xl border px-4 py-3.5 text-sm font-bold transition-all hover:-translate-y-0.5"
                 style={{
-                  background: `linear-gradient(135deg, ${flowTheme.accent}, rgba(255,255,255,0.14))`,
-                  color: 'var(--color-bg-primary)',
-                  boxShadow: `0 14px 30px ${flowTheme.accentGlow}`,
+                  borderColor: currentTheme.accent,
+                  backgroundColor: currentTheme.soft,
+                  color: 'var(--color-text-primary)',
                 }}
               >
-                Complete {activeFlowId} Onboarding
+                Complete {currentFlowId} Onboarding
               </button>
             </div>
           </div>
-        </>
+        </div>
       )}
     </>
   );
