@@ -34,18 +34,14 @@ export default function GlobalOnboardingModal() {
     setStepStatus,
   } = useOnboarding();
   const [discordLinkLoading, setDiscordLinkLoading] = useState(false);
-
-  if (!user || !activeFlowId || !bubbleVisible) {
-    return null;
-  }
-
-  const progress = flowProgressById[activeFlowId];
-  const flowLabel = FLOW_LABELS[activeFlowId];
+  const currentFlowId = activeFlowId || 'duo';
+  const progress = flowProgressById[currentFlowId];
+  const flowLabel = FLOW_LABELS[currentFlowId];
 
   const openCurrentStepDestination = useCallback(
     async (stepId: string) => {
       if (stepId === 'create-account') {
-        if (user) {
+        if (user && activeFlowId) {
           showToast('You already have an account. Step marked complete.', 'success');
           setStepStatus(activeFlowId, stepId, 'completed');
           return;
@@ -231,6 +227,10 @@ export default function GlobalOnboardingModal() {
     showToast(`${activeFlowId} onboarding complete! You can still reopen it anytime.`, 'success');
     closeOnboarding();
   }, [activeFlowId, currentFlowSteps, currentStepStatuses, user, showToast, closeOnboarding, refreshUser]);
+
+  if (!user || !activeFlowId || !bubbleVisible) {
+    return null;
+  }
 
   return (
     <>
