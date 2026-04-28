@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import SEOHead from '@components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAuthToken } from '../../utils/auth';
@@ -120,6 +121,7 @@ const localDateTimeInputToUtcIso = (value: string): string | null => {
 };
 
 const TeamSchedulePage: React.FC = () => {
+  const router = useRouter();
   const { user } = useAuth();
   const { currentLanguage } = useLanguage();
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
@@ -420,6 +422,14 @@ const TeamSchedulePage: React.FC = () => {
     if (!selectedTeamId) return;
     fetchEvents();
   }, [selectedTeamId, viewMode, currentWeekStart, currentMonth]);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    if (router.query.openCreate === '1') {
+      setShowCreateModal(true);
+    }
+  }, [router.isReady, router.query.openCreate]);
 
   const getEventsForDate = (date: Date): TeamEvent[] => {
     return events.filter(event => {

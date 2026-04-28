@@ -394,6 +394,21 @@ const TeamsDashboardPage: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if (!router.isReady || loading) return;
+
+    const openCreate = router.query.openCreate === '1';
+    const openRoster = router.query.openRoster === '1';
+
+    if (openCreate) {
+      setShowCreateModal(true);
+    }
+
+    if (openRoster) {
+      handleManageRosterClick();
+    }
+  }, [handleManageRosterClick, loading, router.isReady, router.query.openCreate, router.query.openRoster]);
+
   if (!user) {
     return (
       <div className="min-h-screen py-10 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>

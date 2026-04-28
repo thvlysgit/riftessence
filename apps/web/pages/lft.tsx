@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Link from 'next/link';
 import SEOHead from '@components/SEOHead';
@@ -346,6 +347,7 @@ export default function LFTPage() {
   const [noAccessAction, setNoAccessAction] = useState<'find-players' | 'find-team'>('find-team');
   const { showToast, confirm } = useGlobalUI();
   const { openConversation } = useChat();
+  const router = useRouter();
   
   // Ads
   const { ads, frequency: adFrequency } = useAds('lft');
@@ -397,6 +399,13 @@ export default function LFTPage() {
     fetchLft();
     return () => { cancelled = true; };
   }, []);
+
+  // If page opened with query param to open create modal, do it
+  useEffect(() => {
+    if (router && router.query && (router.query.openCreate === '1' || router.query.openCreate === 'true')) {
+      setShowPlayerModal(true);
+    }
+  }, [router && router.query]);
 
   const filteredPosts = React.useMemo(() => {
     const normalizedSearch = searchText.trim().toLowerCase();

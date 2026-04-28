@@ -113,7 +113,12 @@ export default function GlobalOnboardingModal() {
       }
 
       if (stepId === 'create-post') {
-        router.push(`/create?returnUrl=${encodeURIComponent(router.asPath)}`);
+          // For LFT flow, open the LFT create modal; for Duo use generic create page
+          if (activeFlowId === 'lft') {
+            router.push(`/lft?openCreate=1&returnUrl=${encodeURIComponent(router.asPath)}`);
+          } else {
+            router.push(`/create?returnUrl=${encodeURIComponent(router.asPath)}`);
+          }
         return;
       }
 
@@ -123,32 +128,37 @@ export default function GlobalOnboardingModal() {
       }
 
       if (stepId === 'create-roster' || stepId === 'create-team') {
-        // Placeholder for team creation
-        showToast('Team creation form coming soon.', 'info');
+        router.push(`/teams/dashboard?openCreate=1&returnUrl=${encodeURIComponent(router.asPath)}`);
         return;
       }
 
       if (stepId === 'add-players') {
-        // Placeholder for roster management
-        showToast('Roster management coming soon.', 'info');
+        router.push(`/teams/dashboard?openRoster=1&returnUrl=${encodeURIComponent(router.asPath)}`);
         return;
       }
 
       if (stepId === 'link-discord-webhook' || stepId === 'team-settings') {
-        // Placeholder for team settings
-        showToast('Team settings coming soon.', 'info');
+        router.push(`/teams/discord?returnUrl=${encodeURIComponent(router.asPath)}`);
         return;
       }
 
       if (stepId === 'schedule-event') {
-        // Placeholder for event scheduling
-        showToast('Event scheduling coming soon.', 'info');
+        router.push(`/teams/schedule?openCreate=1&returnUrl=${encodeURIComponent(router.asPath)}`);
+        return;
+      }
+
+      if (stepId === 'browse-marketplace') {
+        router.push(`/matchups/marketplace?returnUrl=${encodeURIComponent(router.asPath)}`);
+        return;
+      }
+
+      if (stepId === 'add-to-library') {
+        router.push(`/matchups?returnUrl=${encodeURIComponent(router.asPath)}`);
         return;
       }
 
       if (stepId === 'create-matchup' || stepId === 'configure-details' || stepId === 'share-insights') {
-        // Placeholder for matchup creation
-        showToast('Matchup tools coming soon.', 'info');
+        router.push(`/matchups/create?returnUrl=${encodeURIComponent(router.asPath)}`);
         return;
       }
 
@@ -157,14 +167,27 @@ export default function GlobalOnboardingModal() {
         stepId === 'post-scrim' ||
         stepId === 'start-match'
       ) {
-        // Placeholder for scrim tools
-        showToast('Scrim tools coming soon.', 'info');
+        if (stepId === 'configure-scrim') {
+          router.push(`/teams/discord?returnUrl=${encodeURIComponent(router.asPath)}`);
+          return;
+        }
+
+        if (stepId === 'post-scrim') {
+          router.push(`/teams/scrims?returnUrl=${encodeURIComponent(router.asPath)}`);
+          return;
+        }
+
+        router.push(`/teams/schedule?openCreate=1&returnUrl=${encodeURIComponent(router.asPath)}`);
         return;
       }
 
-      if (stepId === 'create-community' || stepId === 'setup-forwarding') {
-        // Placeholder for community tools
-        showToast('Community tools coming soon.', 'info');
+      if (stepId === 'create-community' || stepId === 'link-discord-server') {
+        router.push(`/communities/register?returnUrl=${encodeURIComponent(router.asPath)}`);
+        return;
+      }
+
+      if (stepId === 'setup-forwarding') {
+        router.push(`/communities/guide?returnUrl=${encodeURIComponent(router.asPath)}`);
         return;
       }
     },

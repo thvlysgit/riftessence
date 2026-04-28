@@ -4,6 +4,29 @@
 
 ---
 
+## 2026-04-28 - Onboarding Auto-Detection and Route Wiring Follow-Up
+
+### Objective: Finish the remaining onboarding flow wiring so the global onboarding modal can launch every path and detect completion from live page state
+
+Overview: Extended the global onboarding system with additional live snapshots for team Discord settings, LFT post stats, and route-aware completion checks. Finished wiring the onboarding lobby so every flow can be launched from the home hub, and replaced placeholder onboarding CTAs with real route targets for team, matchup, scrim, and community setup pages.
+
+Changes:
+
+- Updated [apps/web/contexts/OnboardingContext.tsx](apps/web/contexts/OnboardingContext.tsx):
+  - Added snapshots for team Discord settings and LFT post counts so completion can be inferred from live product state.
+  - Expanded auto-detection to cover team management, matchups, scrims, and community-growth steps using the current route plus fetched user/team data.
+  - Kept progress driven by completion state rather than manual “mark done” actions.
+- Updated [apps/web/components/GlobalOnboardingModal.tsx](apps/web/components/GlobalOnboardingModal.tsx):
+  - Replaced placeholder CTA behavior with route targets for team dashboard, team Discord settings, matchups library/creator, scrim pages, and community setup pages.
+- Updated [apps/web/components/OnboardingLobby.tsx](apps/web/components/OnboardingLobby.tsx):
+  - Removed the Duo-only gate so every onboarding flow can now start from the landing-page lobby.
+- Updated [apps/web/pages/teams/dashboard.tsx](apps/web/pages/teams/dashboard.tsx):
+  - Added query-driven hooks for the create-team and roster flows launched from onboarding.
+- Updated [apps/web/pages/teams/schedule.tsx](apps/web/pages/teams/schedule.tsx):
+  - Added a query-driven hook to open the create-event modal from onboarding links.
+- Validation:
+  - `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+
 ## 2026-04-28 - Global Persistent Onboarding System with All 6 Flows
 
 ### Objective: Make onboarding persistent across all pages, implement automatic task detection, and add all 6 onboarding flows (Duo, LFT, Team Management, Matchups, Scrims, Community Growth)

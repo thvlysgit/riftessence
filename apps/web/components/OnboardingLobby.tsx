@@ -1,6 +1,7 @@
 import React from 'react';
 import { useOnboarding, FlowId } from '../contexts/OnboardingContext';
-import { useGlobalUI } from './GlobalUI';
+import { useRouter } from 'next/router';
+import { useAuth } from '../contexts/AuthContext';
 
 type FlowId_Local = FlowId;
 
@@ -14,15 +15,21 @@ const FLOW_LABELS: Record<FlowId_Local, string> = {
 };
 
 export default function OnboardingLobby() {
-  const { openFlow, flowProgressById } = useOnboarding();
-  const { showToast } = useGlobalUI();
+  const { openFlow, flowProgressById, setActiveFlowId } = useOnboarding();
+  const router = useRouter();
+  const { user } = useAuth();
 
   const handleFlowClick = (flowId: FlowId_Local) => {
-    if (flowId === 'duo') {
-      openFlow(flowId);
-    } else {
-      showToast(`${flowId} onboarding is planned next. Duo flow is live now.`, 'info');
+    // If user is not authenticated, persist choice and redirect to register/login
+    if (!user) {
+      setActiveFlowId(flowId);
+      // send them to register with a returnUrl so onboarding resumes after signup
+      router.push(`/register?returnUrl=${encodeURIComponent(router.asPath)}&onboarding=${flowId}`);
+      return;
     }
+
+    // Authenticated users: open the selected flow directly.
+    openFlow(flowId);
   };
 
   return (
@@ -38,7 +45,6 @@ export default function OnboardingLobby() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {(Object.keys(FLOW_LABELS) as FlowId_Local[]).map((flowId) => {
-          const isLive = flowId === 'duo';
           const progress = flowProgressById[flowId];
           return (
             <article
@@ -46,18 +52,18 @@ export default function OnboardingLobby() {
               className="rounded-2xl p-5 border transition-transform hover:-translate-y-1"
               style={{
                 backgroundColor: 'var(--color-bg-secondary)',
-                borderColor: isLive ? 'var(--color-accent-1)' : 'var(--color-border)',
+                borderColor: 'var(--color-border)',
               }}
             >
               <div className="flex items-center justify-between mb-3">
                 <span
                   className="text-xs uppercase tracking-wide px-2 py-1 rounded"
                   style={{
-                    backgroundColor: isLive ? 'rgba(16, 185, 129, 0.18)' : 'rgba(251, 191, 36, 0.18)',
-                    color: isLive ? '#34d399' : '#fbbf24',
+                    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+                    color: '#34d399',
                   }}
                 >
-                  {isLive ? 'Live' : 'Planned'}
+                  Live
                 </span>
                 <span className="text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
                   {progress}% complete
@@ -76,7 +82,7 @@ export default function OnboardingLobby() {
                   color: 'var(--color-bg-primary)',
                 }}
               >
-                {isLive ? 'Start Duo Onboarding' : 'Notify Me Later'}
+                Start Onboarding
               </button>
             </article>
           );

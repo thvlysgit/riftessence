@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/router';
 import { useAuth } from './AuthContext';
 import { getAuthHeader } from '../utils/auth';
 
@@ -22,6 +23,40 @@ interface ProfileSnapshot {
   teamCount?: number;
   postsCount?: number;
   conversationsCount?: number;
+  communities?: Array<{ id: string; name: string; role: string }>;
+}
+
+interface TeamSnapshot {
+  id: string;
+  memberCount?: number;
+  upcomingEventCount?: number;
+  discordWebhookUrl?: string | null;
+  discordScrimCodeWebhookUrl?: string | null;
+  discordNotifyEvents?: boolean;
+  webhookValid?: boolean;
+  scrimCodeWebhookValid?: boolean;
+}
+
+interface MatchupCountSnapshot {
+  count: number;
+  owned: number;
+  saved: number;
+}
+
+interface ScrimFeedSnapshot {
+  count: number;
+}
+
+interface LftPostsSnapshot {
+  count: number;
+}
+
+interface TeamDiscordSnapshot {
+  webhookUrl?: string | null;
+  scrimCodeWebhookUrl?: string | null;
+  webhookValid?: boolean;
+  scrimCodeWebhookValid?: boolean;
+  notifyEvents?: boolean;
 }
 
 interface PersistedFlowState {
@@ -164,6 +199,12 @@ const TEAM_MANAGEMENT_STEPS: FlowStep[] = [
     ctaLabel: 'Team Settings',
   },
   {
+    id: 'send-test',
+    title: 'Send a Discord test',
+    description: 'Confirm notifications reach Discord correctly.',
+    ctaLabel: 'Test Webhook',
+  },
+  {
     id: 'schedule-event',
     title: 'Schedule your first event',
     description: 'Schedule a scrim or match to get started.',
@@ -185,24 +226,23 @@ const MATCHUPS_STEPS: FlowStep[] = [
     ctaLabel: 'Link Riot',
   },
   {
+    id: 'browse-marketplace',
+    title: 'Visit the marketplace',
+    description: 'Open the matchup marketplace and browse shared guides.',
+    ctaLabel: 'Browse Marketplace',
+  },
+  {
+    id: 'add-to-library',
+    title: 'Add one matchup to your library',
+    description: 'Save a matchup guide from the marketplace.',
+    ctaLabel: 'Save Matchup',
+  },
+  {
     id: 'create-matchup',
-    title: 'Create your first matchup',
-    description: 'Document a matchup you know well and share insights.',
-    ctaLabel: 'Open Matchups',
-  },
-  {
-    id: 'configure-details',
-    title: 'Configure matchup details',
-    description: 'Optional. Add champion bans and detailed notes.',
+    title: 'Create your own matchup card',
+    description: 'Optional. Add your own guide to the library.',
     optional: true,
-    ctaLabel: 'Open Matchups',
-  },
-  {
-    id: 'share-insights',
-    title: 'Share with the community',
-    description: 'Optional. Help others learn from your experience.',
-    optional: true,
-    ctaLabel: 'View Community',
+    ctaLabel: 'Create Matchup',
   },
 ];
 
@@ -262,8 +302,7 @@ const COMMUNITY_GROWTH_STEPS: FlowStep[] = [
   {
     id: 'setup-forwarding',
     title: 'Set up Duo posts forwarding',
-    description: 'Optional. Forward Duo posts to your Discord for visibility.',
-    optional: true,
+    description: 'Forward Duo posts to your Discord for visibility.',
     ctaLabel: 'Community Settings',
   },
 ];
@@ -301,12 +340,18 @@ function safeParseState(raw: string | null): PersistedFlowState {
 }
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const { user, refreshUser } = useAuth();
   const [activeFlowId, setActiveFlowId] = useState<FlowId | null>(null);
   const [flowStepStatuses, setFlowStepStatuses] = useState<Partial<Record<FlowId, Record<string, StepStatus>>>>({});
   const [windowOpen, setWindowOpen] = useState(false);
   const [bubbleVisible, setBubbleVisible] = useState(false);
   const [profileSnapshot, setProfileSnapshot] = useState<ProfileSnapshot | null>(null);
+  const [teamSnapshots, setTeamSnapshots] = useState<TeamSnapshot[]>([]);
+  const [teamDiscordSnapshot, setTeamDiscordSnapshot] = useState<TeamDiscordSnapshot | null>(null);
+  const [matchupCountSnapshot, setMatchupCountSnapshot] = useState<MatchupCountSnapshot | null>(null);
+  const [lftPostsSnapshot, setLftPostsSnapshot] = useState<LftPostsSnapshot | null>(null);
+  const [scrimFeedSnapshot, setScrimFeedSnapshot] = useState<ScrimFeedSnapshot | null>(null);
 
   // Initialize from localStorage
   useEffect(() => {
@@ -361,6 +406,147 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     loadProfile();
   }, [user]);
 
+  // Load team snapshot for team-management and scrims onboarding
+  useEffect(() => {
+    if (!user) {
+      setTeamSnapshots([]);
+      setTeamDiscordSnapshot(null);
+      return;
+    }
+
+    const loadTeams = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/teams`, {
+          headers: getAuthHeader(),
+        });
+
+        if (!response.ok) return;
+
+        const teams = await response.json();
+        setTeamSnapshots(Array.isArray(teams) ? teams.map((team: any) => ({
+          id: team.id,
+          memberCount: team.memberCount,
+          upcomingEventCount: team.upcomingEventCount,
+        })) : []);
+      } catch {
+        // Silent on purpose
+      }
+    };
+
+    loadTeams();
+  }, [user]);
+
+  // Load Discord settings for the first managed team, if available
+  useEffect(() => {
+    if (!user || teamSnapshots.length === 0) {
+      setTeamDiscordSnapshot(null);
+      return;
+    }
+
+    const loadTeamDiscord = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/teams/${teamSnapshots[0].id}/discord`, {
+          headers: getAuthHeader(),
+        });
+
+        if (!response.ok) return;
+
+        const settings = await response.json();
+        setTeamDiscordSnapshot({
+          webhookUrl: settings.webhookUrl || null,
+          scrimCodeWebhookUrl: settings.scrimCodeWebhookUrl || null,
+          webhookValid: Boolean(settings.webhookValid),
+          scrimCodeWebhookValid: Boolean(settings.scrimCodeWebhookValid),
+          notifyEvents: settings.notifyEvents ?? true,
+        });
+      } catch {
+        // Silent on purpose
+      }
+    };
+
+    loadTeamDiscord();
+  }, [teamSnapshots, user]);
+
+  // Load matchup library stats for matchups onboarding
+  useEffect(() => {
+    if (!user) {
+      setMatchupCountSnapshot(null);
+      return;
+    }
+
+    const loadMatchupCount = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/matchups/count`, {
+          headers: getAuthHeader(),
+        });
+
+        if (!response.ok) return;
+
+        const countData = await response.json();
+        setMatchupCountSnapshot({
+          count: Number(countData.count) || 0,
+          owned: Number(countData.owned) || 0,
+          saved: Number(countData.saved) || 0,
+        });
+      } catch {
+        // Silent on purpose
+      }
+    };
+
+    loadMatchupCount();
+  }, [user]);
+
+  // Load LFT post stats for the LFT onboarding
+  useEffect(() => {
+    if (!user?.id) {
+      setLftPostsSnapshot(null);
+      return;
+    }
+
+    const loadLftPosts = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/lft/posts?userId=${encodeURIComponent(user.id)}`, {
+          headers: getAuthHeader(),
+        });
+
+        if (!response.ok) return;
+
+        const posts = await response.json();
+        setLftPostsSnapshot({ count: Array.isArray(posts) ? posts.filter((post: any) => post?.authorId === user.id).length : 0 });
+      } catch {
+        // Silent on purpose
+      }
+    };
+
+    loadLftPosts();
+  }, [user?.id]);
+
+  // Load scrim feed stats for scrims onboarding
+  useEffect(() => {
+    if (!user) {
+      setScrimFeedSnapshot(null);
+      return;
+    }
+
+    const loadScrimFeed = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/scrims/posts`, {
+          headers: getAuthHeader(),
+        });
+
+        if (!response.ok) return;
+
+        const feed = await response.json();
+        const scrimPosts = Array.isArray(feed?.posts) ? feed.posts.length : Array.isArray(feed) ? feed.length : 0;
+        setScrimFeedSnapshot({ count: scrimPosts });
+      } catch {
+        // Silent on purpose
+      }
+    };
+
+    loadScrimFeed();
+  }, [user]);
+
   // Auto-detect steps for all flows
   useEffect(() => {
     if (!user || !activeFlowId) return;
@@ -368,6 +554,17 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     setFlowStepStatuses((prev) => {
       const current = prev[activeFlowId] || {};
       const next = { ...current };
+      const pathname = router.pathname || '/';
+      const hasTeam = teamSnapshots.length > 0;
+      const hasManagedPlayerCount = teamSnapshots.some((team) => (team.memberCount || 0) > 1);
+      const hasTeamWebhook = Boolean(teamDiscordSnapshot?.webhookUrl || teamDiscordSnapshot?.scrimCodeWebhookUrl);
+      const hasValidTeamWebhook = Boolean(teamDiscordSnapshot?.webhookValid || teamDiscordSnapshot?.scrimCodeWebhookValid);
+      const hasUpcomingTeamEvents = teamSnapshots.some((team) => (team.upcomingEventCount || 0) > 0);
+      const communityCount = profileSnapshot?.communities?.length || 0;
+      const lftPostCount = lftPostsSnapshot?.count || 0;
+      const matchupSavedCount = matchupCountSnapshot?.saved || 0;
+      const matchupOwnedCount = matchupCountSnapshot?.owned || 0;
+      const scrimFeedCount = scrimFeedSnapshot?.count || 0;
 
       // Generic account check for all flows
       if (user && next['create-account'] !== 'skipped') {
@@ -401,26 +598,76 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         if ((profileSnapshot?.postsCount || 0) > 0 && next['create-post'] !== 'skipped') {
           next['create-post'] = 'completed';
         }
+        if ((profileSnapshot?.conversationsCount || 0) > 0 && next['send-first-message'] !== 'skipped') {
+          next['send-first-message'] = 'completed';
+        }
       }
 
       // LFT post creation check
       if (activeFlowId === 'lft') {
-        if ((profileSnapshot?.postsCount || 0) > 0 && next['create-post'] !== 'skipped') {
+        if (lftPostCount > 0 && next['create-post'] !== 'skipped') {
           next['create-post'] = 'completed';
         }
       }
 
       // Team management checks
       if (activeFlowId === 'team-management') {
-        if ((profileSnapshot?.teamCount || 0) > 0 && next['create-roster'] !== 'skipped') {
+        if (hasTeam && next['create-roster'] !== 'skipped') {
           next['create-roster'] = 'completed';
+        }
+        if (hasManagedPlayerCount && next['add-players'] !== 'skipped') {
+          next['add-players'] = 'completed';
+        }
+        if (hasTeamWebhook && next['link-discord-webhook'] !== 'skipped') {
+          next['link-discord-webhook'] = 'completed';
+        }
+        if (hasValidTeamWebhook && next['send-test'] !== 'skipped') {
+          next['send-test'] = 'completed';
+        }
+        if (hasUpcomingTeamEvents && next['schedule-event'] !== 'skipped') {
+          next['schedule-event'] = 'completed';
+        }
+      }
+
+      // Matchups checks
+      if (activeFlowId === 'matchups') {
+        if (pathname === '/matchups/marketplace' && next['browse-marketplace'] !== 'skipped') {
+          next['browse-marketplace'] = 'completed';
+        }
+        if (matchupSavedCount > 0 && next['add-to-library'] !== 'skipped') {
+          next['add-to-library'] = 'completed';
+        }
+        if (matchupOwnedCount > 0 && next['create-matchup'] !== 'skipped') {
+          next['create-matchup'] = 'completed';
+        }
+      }
+
+      // Scrims checks
+      if (activeFlowId === 'scrims') {
+        if (hasTeam && next['create-team'] !== 'skipped') {
+          next['create-team'] = 'completed';
+        }
+        if (hasTeamWebhook && next['configure-scrim'] !== 'skipped') {
+          next['configure-scrim'] = 'completed';
+        }
+        if ((scrimFeedCount > 0 || pathname === '/teams/scrims') && next['post-scrim'] !== 'skipped') {
+          next['post-scrim'] = 'completed';
+        }
+        if (hasUpcomingTeamEvents && next['start-match'] !== 'skipped') {
+          next['start-match'] = 'completed';
         }
       }
 
       // Community growth checks
       if (activeFlowId === 'community-growth') {
-        if (profileSnapshot?.discordLinked && next['link-discord-server'] !== 'skipped') {
+        if (communityCount > 0 && next['link-discord-server'] !== 'skipped') {
           next['link-discord-server'] = 'completed';
+        }
+        if (communityCount > 0 && next['create-community'] !== 'skipped') {
+          next['create-community'] = 'completed';
+        }
+        if (communityCount > 0 && pathname === '/communities/guide' && next['setup-forwarding'] !== 'skipped') {
+          next['setup-forwarding'] = 'completed';
         }
       }
 
@@ -429,7 +676,15 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         [activeFlowId]: next,
       };
     });
-  }, [activeFlowId, profileSnapshot, user]);
+  }, [activeFlowId, lftPostsSnapshot, matchupCountSnapshot, profileSnapshot, router.pathname, scrimFeedSnapshot, teamDiscordSnapshot, teamSnapshots, user]);
+
+  // If a persisted flow exists and the user just authenticated, open the onboarding window automatically
+  useEffect(() => {
+    if (user && activeFlowId) {
+      setBubbleVisible(true);
+      setWindowOpen(true);
+    }
+  }, [user, activeFlowId]);
 
   // Calculate progress for each flow
   const flowProgressById = useMemo(() => {
