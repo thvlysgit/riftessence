@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from './AuthContext';
 import { getAuthHeader } from '../utils/auth';
@@ -22,7 +22,6 @@ interface ProfileSnapshot {
   discordServerId?: string;
   teamCount?: number;
   postsCount?: number;
-  messagesSentCount?: number;
   conversationsCount?: number;
   communities?: Array<{ id: string; name: string; role: string }>;
 }
@@ -74,7 +73,6 @@ interface PersistedFlowState {
   activeFlowIds: FlowId[];
   focusedFlowId: FlowId | null;
   activeFlowId: FlowId | null;
-  windowOpen: boolean;
   byFlow: Partial<Record<FlowId, Record<string, StepStatus>>>;
 }
 
@@ -360,7 +358,7 @@ function isChampionPoolConfigured(profile: ProfileSnapshot | null): boolean {
 }
 
 function safeParseState(raw: string | null): PersistedFlowState {
-  if (!raw) return { activeFlowIds: [], focusedFlowId: null, activeFlowId: null, windowOpen: false, byFlow: {} };
+  if (!raw) return { activeFlowIds: [], focusedFlowId: null, activeFlowId: null, byFlow: {} };
   try {
     const parsed = JSON.parse(raw) as PersistedFlowState;
     const activeFlowIds = Array.isArray(parsed.activeFlowIds)
@@ -373,11 +371,10 @@ function safeParseState(raw: string | null): PersistedFlowState {
       activeFlowIds,
       focusedFlowId,
       activeFlowId: focusedFlowId,
-      windowOpen: typeof parsed.windowOpen === 'boolean' ? parsed.windowOpen : Boolean(focusedFlowId),
       byFlow: parsed.byFlow || {},
     };
   } catch {
-    return { activeFlowIds: [], focusedFlowId: null, activeFlowId: null, windowOpen: false, byFlow: {} };
+    return { activeFlowIds: [], focusedFlowId: null, activeFlowId: null, byFlow: {} };
   }
 }
 
@@ -395,49 +392,30 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const [matchupCountSnapshot, setMatchupCountSnapshot] = useState<MatchupCountSnapshot | null>(null);
   const [lftPostsSnapshot, setLftPostsSnapshot] = useState<LftPostsSnapshot | null>(null);
   const [scrimFeedSnapshot, setScrimFeedSnapshot] = useState<ScrimFeedSnapshot | null>(null);
-  const previousStorageKeyRef = useRef<string | null>(null);
-  const onboardingStorageKey = user?.id ? `${STORAGE_KEY}:${user.id}` : null;
 
-  // Initialize from localStorage per account; logged-out sessions keep no persisted onboarding state.
+  // Initialize from localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    if (!onboardingStorageKey) {
-      const previousStorageKey = previousStorageKeyRef.current;
-      if (previousStorageKey) {
-        window.localStorage.removeItem(previousStorageKey);
-      }
-
-      previousStorageKeyRef.current = null;
-      setActiveFlowIds([]);
-      setFocusedFlowId(null);
-      setFlowStepStatuses({});
-      setWindowOpen(false);
-      return;
-    }
-
-    const initialState = safeParseState(window.localStorage.getItem(onboardingStorageKey));
+    const initialState = safeParseState(window.localStorage.getItem(STORAGE_KEY));
     setActiveFlowIds(initialState.activeFlowIds);
     setFocusedFlowId(initialState.focusedFlowId);
     setFlowStepStatuses(initialState.byFlow || {});
-    setWindowOpen(initialState.windowOpen);
-    previousStorageKeyRef.current = onboardingStorageKey;
-  }, [onboardingStorageKey]);
+    if (initialState.focusedFlowId) {
+      setWindowOpen(true);
+    }
+  }, []);
 
   // Persist to localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!onboardingStorageKey) return;
-
     const nextState: PersistedFlowState = {
       activeFlowIds,
       focusedFlowId,
       activeFlowId: focusedFlowId,
-      windowOpen,
       byFlow: flowStepStatuses,
     };
-    window.localStorage.setItem(onboardingStorageKey, JSON.stringify(nextState));
-  }, [activeFlowIds, flowStepStatuses, focusedFlowId, onboardingStorageKey, windowOpen]);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+  }, [activeFlowIds, flowStepStatuses, focusedFlowId]);
 
   // Load profile snapshot
   useEffect(() => {
@@ -460,9 +438,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
           discordDmNotifications: Boolean(profile.discordDmNotifications),
           discordServerId: profile.discordServerId,
           teamCount: profile.teams?.length || 0,
-          postsCount: profile.postsCount || profile._count?.posts || 0,
-          messagesSentCount: profile.messagesSentCount || profile._count?.messagesSent || 0,
-          conversationsCount: profile.conversationsCount || profile.messagesSentCount || profile._count?.messagesSent || 0,
+          postsCount: profile.postsCount || 0,
+          conversationsCount: profile.conversations?.length || 0,
         });
       } catch {
         // Silent on purpose
@@ -470,7 +447,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     };
 
     loadProfile();
-  }, [router.pathname, user]);
+  }, [user]);
 
   // Load team snapshot for team-management and scrims onboarding
   useEffect(() => {
@@ -718,7 +695,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         if ((profileSnapshot?.postsCount || 0) > 0 && next['create-post'] !== 'skipped') {
           next['create-post'] = 'completed';
         }
-        if ((profileSnapshot?.messagesSentCount || profileSnapshot?.conversationsCount || 0) > 0 && next['send-first-message'] !== 'skipped') {
+        if ((profileSnapshot?.conversationsCount || 0) > 0 && next['send-first-message'] !== 'skipped') {
           next['send-first-message'] = 'completed';
         }
       }

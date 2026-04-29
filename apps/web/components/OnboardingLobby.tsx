@@ -106,7 +106,7 @@ export default function OnboardingLobby() {
                 Pick the guide that matches what you are trying to do right now.
               </h2>
               <p className="max-w-2xl text-base leading-7 sm:text-lg" style={{ color: 'var(--color-text-secondary)' }}>
-                Explore the studio by goal, then open the guide or feature surface that matches the part of RiftEssence you care about most.
+                Each path is persistent across pages, can live alongside up to three other guides, and follows real app state instead of a manual done button.
               </p>
             </div>
           </div>

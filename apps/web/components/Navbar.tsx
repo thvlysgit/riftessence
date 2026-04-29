@@ -340,7 +340,7 @@ export default function Navbar() {
           {/* Left: Logo + Main Navigation */}
           <div className="flex items-center space-x-8">
             {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2 group">
+            <Link href="/feed" className="flex items-center space-x-2 group">
               <div 
                 className="w-10 h-10 flex items-center justify-center shadow-md group-hover:shadow-lg transition-all group-hover:scale-105"
                 style={{

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme, ThemeContext } from '../contexts/ThemeContext';
@@ -25,10 +25,8 @@ export default function SettingsPage() {
   const [discordDmEnabled, setDiscordDmEnabled] = useState(false);
   const [dmToggleLoading, setDmToggleLoading] = useState(false);
   const [dmMessage, setDmMessage] = useState('');
-  const [showDmConsentPrompt, setShowDmConsentPrompt] = useState(false);
   const [discordLinked, setDiscordLinked] = useState(Boolean(user?.discordLinked));
   const [discordUsername, setDiscordUsername] = useState<string | null>(user?.discordUsername || null);
-  const dmSectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -66,11 +64,6 @@ export default function SettingsPage() {
     if (router.query.dmConsent !== '1') return;
 
     setDmMessage('Optional but recommended: add RiftEssence Discord app and enable DMs so the bot can deliver reminders.');
-    setShowDmConsentPrompt(true);
-
-    requestAnimationFrame(() => {
-      dmSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
 
     const nextQuery = { ...router.query } as Record<string, any>;
     delete nextQuery.dmConsent;
@@ -166,7 +159,7 @@ export default function SettingsPage() {
         <h1 className="text-3xl font-bold mb-6" style={{ color: 'var(--color-accent-1)' }}>{t('settings.title')}</h1>
 
         {/* Language Selection */}
-        <div ref={dmSectionRef} className="border rounded-xl p-6 mb-6 theme-section-shell theme-section-shell-soft" style={{
+        <div className="border rounded-xl p-6 mb-6 theme-section-shell theme-section-shell-soft" style={{ 
           backgroundColor: 'var(--color-bg-secondary)', 
           borderColor: 'var(--color-border)',
           borderRadius: 'var(--border-radius)'
@@ -334,30 +327,6 @@ export default function SettingsPage() {
                 You can disable this at any time. By enabling, you consent to your message content being relayed to Discord.
                 See our <a href="/privacy" className="underline" style={{ color: 'var(--color-accent-1)' }}>Privacy Policy</a> for details.
               </p>
-
-              {showDmConsentPrompt && discordLinked && !discordDmEnabled && (
-                <div className="mb-4 rounded-xl border p-4" style={{ borderColor: 'rgba(56, 189, 248, 0.28)', backgroundColor: 'rgba(56, 189, 248, 0.10)' }}>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                        Finish the onboarding step here.
-                      </p>
-                      <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                        Enable DM forwarding from RiftEssence so chat previews and team notifications can reach Discord.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void handleToggleDiscordDm(true)}
-                      disabled={dmToggleLoading}
-                      className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition-all disabled:opacity-50"
-                      style={{ backgroundColor: '#5865F2', color: '#fff' }}
-                    >
-                      Allow DMs from RiftEssence
-                    </button>
-                  </div>
-                </div>
-              )}
 
               <div className="flex flex-wrap gap-2 mb-4">
                 <a

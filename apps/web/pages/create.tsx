@@ -4,7 +4,6 @@ import { getAuthHeader, getAuthToken, getUserIdFromToken } from '../utils/auth';
 import NoAccess from '@components/NoAccess';
 import AccessRequirementModal from '@components/AccessRequirementModal';
 import { useRouter } from 'next/router';
-import { useAuth } from '../contexts/AuthContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -17,7 +16,6 @@ type RiotAccount = {
 
 export default function CreatePostPage() {
   const router = useRouter();
-  const { refreshUser } = useAuth();
   const [userId, setUserId] = useState<string | null>(null);
   const [username, setUsername] = useState<string>('');
   const [riotAccounts, setRiotAccounts] = useState<RiotAccount[]>([]);
@@ -127,9 +125,6 @@ export default function CreatePostPage() {
         throw err;
       }
       return data;
-    },
-    onSuccess: async () => {
-      await refreshUser();
     },
     onError: (error: any) => {
       if (error?.code === 'RIOT_ACCOUNT_REQUIRED') {
