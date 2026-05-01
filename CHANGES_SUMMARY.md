@@ -32,3 +32,16 @@
 - **Utils**: errorMessages.ts, sanitize.ts (new files)
 
 ## ✅ Status: Deployed and working!
+
+## ⚙️ New: Developer Public API (May 2026)
+- Added developer/public API endpoints to expose live Duo and LFT posts with filters (region, language, rank, verifiedOnly).
+- Implemented API key issuance workflow (logged-in users can request keys; keys shown once and stored hashed/prefix-only).
+- Admin dashboard endpoints added for reviewing requests and granting priority access.
+- Usage tracking and per-key backpressure/rate limiting added to protect production traffic.
+
+Files added/changed:
+- apps/api/src/routes/developerApi.ts (new/implementation)
+- apps/web/pages/admin/developer-api.tsx (new)
+- prisma/schema.prisma (models: DeveloperApiApplication/Request/Key/Usage)
+- Documentation/backend/developer-api.md (new)
+
