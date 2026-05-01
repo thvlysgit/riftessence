@@ -28,6 +28,8 @@ Configuration in `Procfile` and `app.json`:
 	- Binary engine mode (`PRISMA_CLIENT_ENGINE_TYPE`, `PRISMA_CLI_QUERY_ENGINE_TYPE`)
 	- Query retry/connect/concurrency controls (`PRISMA_QUERY_RETRY_ATTEMPTS`, `PRISMA_QUERY_RETRY_DELAY_MS`, `PRISMA_ENGINE_CONNECT_COOLDOWN_MS`, `PRISMA_MAX_CONCURRENT_QUERIES`)
 	- Route cache TTL controls for hot endpoints
+- The API container runs `prisma migrate deploy` on startup, so Pi deployments should rebuild/restart the API container instead of using `prisma migrate dev` manually.
+- `prisma migrate dev` uses a shadow database and can fail on historical migration ordering issues; if you hit that locally, use the container startup path or `prisma migrate deploy` against the running production container.
 - Discord bot runtime defaults include stagger-friendly poll interval env vars (`DISCORD_LFT_POLL_INTERVAL_MS`, `DISCORD_DM_POLL_INTERVAL_MS`, `DISCORD_TEAM_EVENT_POLL_INTERVAL_MS`, `DISCORD_ROLE_FORWARDING_POLL_INTERVAL_MS`)
 
 ## CI/CD
