@@ -2,6 +2,7 @@ import prisma from '../prisma';
 import { CreatePostSchema, validateRequest, PaginationSchema } from '../validation';
 import { getOrSetCache } from '../utils/requestCache';
 import { enqueueMirrorDeletion } from '../services/discordMirrorDeletionQueue';
+import { formatDuoPost } from '../utils/developerFeed';
 
 function toPositiveInt(value: string | undefined, fallback: number) {
   const parsed = Number(value);
@@ -15,101 +16,6 @@ function toPositiveInt(value: string | undefined, fallback: number) {
 const NOTIFICATIONS_CACHE_TTL_SECONDS = toPositiveInt(process.env.NOTIFICATIONS_CACHE_TTL_SECONDS, 6);
 
 export default async function postsRoutes(fastify: any) {
-  // Helper function to format a post for API response
-  const formatPost = (post: any, viewerIsAdmin: boolean = false) => {
-    const author: any = post.author;
-    const postingAccount = author.riotAccounts.find((acc: any) => acc.id === post.postingRiotAccountId);
-    const mainAccount = author.riotAccounts.find((acc: any) => acc.isMain) || author.riotAccounts[0];
-    const isSameAccount = postingAccount && mainAccount && postingAccount.id === mainAccount.id;
-    
-    // Calculate average ratings
-    const ratings: any[] = author.ratingsReceived || [];
-    const skillRatings = ratings.filter((r: any) => r.stars !== null && r.stars !== undefined);
-    const personalityRatings = ratings.filter((r: any) => r.moons !== null && r.moons !== undefined);
-    
-    const avgSkill = skillRatings.length > 0 
-      ? skillRatings.reduce((sum: number, r: any) => sum + r.stars, 0) / skillRatings.length 
-      : 0;
-    const avgPersonality = personalityRatings.length > 0
-      ? personalityRatings.reduce((sum: number, r: any) => sum + r.moons, 0) / personalityRatings.length
-      : 0;
-
-    return {
-      id: post.id,
-      createdAt: post.createdAt,
-      message: post.message,
-      role: post.role,
-      secondRole: post.secondRole,
-      region: post.region,
-      languages: post.languages,
-      vcPreference: post.vcPreference,
-      duoType: post.duoType,
-      
-      // Author info (respect anonymous mode)
-      authorId: author.id,
-      username: author.anonymous ? 'Anonymous' : author.username,
-      isAnonymous: author.anonymous,
-      isAdmin: viewerIsAdmin, // Viewer's admin status, not author's
-      reportCount: author.reportCount || 0,
-      preferredRole: author.anonymous ? null : author.preferredRole,
-      secondaryRole: author.anonymous ? null : author.secondaryRole,
-      
-      // Discord (hide if anonymous)
-      discordUsername: author.anonymous ? null : author.discordAccount?.username,
-      
-      // Riot account posted with
-      postingRiotAccount: postingAccount ? {
-        gameName: author.anonymous ? 'Hidden' : postingAccount.summonerName?.split('#')[0] || 'Unknown',
-        tagLine: author.anonymous ? 'XXX' : postingAccount.summonerName?.split('#')[1] || '0000',
-        region: postingAccount.region,
-        rank: postingAccount.rank,
-        division: postingAccount.division,
-        lp: postingAccount.lp,
-        winrate: postingAccount.winrate,
-      } : null,
-      
-      // Best rank (from main account, hide name if anonymous)
-      bestRank: mainAccount && !isSameAccount ? {
-        gameName: author.anonymous ? 'Hidden' : mainAccount.summonerName?.split('#')[0] || 'Unknown',
-        tagLine: author.anonymous ? 'XXX' : mainAccount.summonerName?.split('#')[1] || '0000',
-        rank: mainAccount.rank,
-        division: mainAccount.division,
-        lp: mainAccount.lp,
-        winrate: mainAccount.winrate,
-      } : null,
-      
-      // Ratings
-      ratings: {
-        skill: avgSkill,
-        personality: avgPersonality,
-        skillCount: skillRatings.length,
-        personalityCount: personalityRatings.length,
-      },
-      
-      // Community info
-      community: post.community ? {
-        id: post.community.id,
-        name: post.community.name,
-        isPartner: post.community.isPartner,
-        inviteLink: post.community.inviteLink,
-      } : null,
-      source: post.source || 'app',
-      
-      // Flag if posting with main account
-      isMainAccount: isSameAccount,
-
-      // Champion pool (for S/A tier display in feed)
-      championPoolMode: author.anonymous ? null : (author.championPoolMode || null),
-      championList: author.anonymous ? [] : (author.championList || []),
-      championTierlist: author.anonymous ? null : (author.championTierlist || null),
-
-      // Username cosmetic loadout
-      activeUsernameDecoration: author.anonymous ? null : (author.activeUsernameDecoration || null),
-      activeHoverEffect: author.anonymous ? null : (author.activeHoverEffect || null),
-      activeNameplateFont: author.anonymous ? null : (author.activeNameplateFont || null),
-    };
-  };
-
   // Helper to extract userId from Authorization header using JWT
   const getUserIdFromRequest = async (request: any, reply: any): Promise<string | null> => {
     const authHeader = request.headers['authorization'];
@@ -235,7 +141,7 @@ export default async function postsRoutes(fastify: any) {
       });
 
       // Format posts for feed display
-      const formattedPosts = posts.map((post: any) => formatPost(post, viewerIsAdmin));
+      const formattedPosts = posts.map((post: any) => formatDuoPost(post, viewerIsAdmin));
 
       return reply.send({ 
         posts: formattedPosts,
@@ -286,7 +192,7 @@ export default async function postsRoutes(fastify: any) {
 
       // Format the post using the same logic as the list endpoint
       // No viewer admin status since this is a public endpoint
-      const formattedPost = formatPost(post, false);
+      const formattedPost = formatDuoPost(post, false);
 
       return reply.send({ post: formattedPost });
     } catch (error) {

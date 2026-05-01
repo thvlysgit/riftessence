@@ -16,6 +16,7 @@ import lftRoutes from './routes/lft';
 import coachingRoutes from './routes/coaching';
 import communitiesRoutes from './routes/communities';
 import discordFeedRoutes from './routes/discordFeed';
+import developerApiRoutes from './routes/developerApi';
 import adsRoutes from './routes/ads';
 import blocksRoutes from './routes/blocks';
 import leaderboardsRoutes from './routes/leaderboards';
@@ -389,6 +390,7 @@ async function build() {
   await server.register(coachingRoutes, { prefix: '/api' });
   await server.register(communitiesRoutes, { prefix: '/api' });
   await server.register(discordFeedRoutes, { prefix: '/api' });
+  await server.register(developerApiRoutes, { prefix: '/api' });
   await server.register(adsRoutes, { prefix: '/api' });
   await server.register(blocksRoutes, { prefix: '/api/user' });
   await server.register(leaderboardsRoutes, { prefix: '/api' });

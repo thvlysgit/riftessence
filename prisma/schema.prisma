@@ -722,6 +722,78 @@ model AuditLog {
   @@index([targetId, createdAt])
 }
 
+// Developer API access requests, keys, and usage tracking
+model DeveloperApiApplication {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  website        String?
+  contactEmail   String?
+  formResponses  Json
+  priorityAccess Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  requests       DeveloperApiRequest[]
+  keys           DeveloperApiKey[]
+  usage          DeveloperApiUsage[]
+
+  @@index([priorityAccess, createdAt])
+}
+
+model DeveloperApiRequest {
+  id             String   @id @default(cuid())
+  application    DeveloperApiApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId  String
+  apiKey         DeveloperApiKey? @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  apiKeyId       String?
+  formResponses  Json
+  priorityAccess Boolean  @default(false)
+  reviewedAt     DateTime?
+  reviewedById   String?
+  createdAt      DateTime @default(now())
+
+  @@index([applicationId, createdAt])
+  @@index([priorityAccess, createdAt])
+}
+
+model DeveloperApiKey {
+  id            String   @id @default(cuid())
+  application   DeveloperApiApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId String
+  requests      DeveloperApiRequest[]
+  usage         DeveloperApiUsage[]
+  label         String?
+  keyPrefix     String   @unique
+  keyHash       String   @unique
+  isPriority    Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  lastUsedAt    DateTime?
+  revokedAt     DateTime?
+
+  @@index([applicationId, isActive])
+  @@index([isPriority, createdAt])
+}
+
+model DeveloperApiUsage {
+  id            String   @id @default(cuid())
+  application   DeveloperApiApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId String
+  apiKey        DeveloperApiKey? @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  apiKeyId      String?
+  endpoint      String
+  method        String
+  statusCode    Int
+  ipHash        String
+  latencyMs     Int?
+  createdAt     DateTime @default(now())
+
+  @@index([applicationId, createdAt])
+  @@index([apiKeyId, createdAt])
+  @@index([endpoint, createdAt])
+}
+
 model IpBlacklist {
   id           String   @id @default(cuid())
   ipAddress    String   @unique
