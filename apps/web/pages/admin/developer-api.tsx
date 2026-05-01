@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalUI } from '@components/GlobalUI';
 import { getAuthHeader } from '../../utils/auth';
@@ -12,6 +13,7 @@ export default function DeveloperApiAdmin() {
   const { showToast } = useGlobalUI();
   const router = useRouter();
   const [data, setData] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
@@ -20,8 +22,36 @@ export default function DeveloperApiAdmin() {
       router.push('/');
       return;
     }
-    fetchData();
-  }, [user, loading]);
+
+    async function checkAdminAndLoad() {
+      try {
+        if (!user?.id) {
+          setIsAdmin(false);
+          router.push('/404');
+          return;
+        }
+
+        const res = await fetch(`${API_URL}/api/user/check-admin?userId=${encodeURIComponent(user.id)}`, {
+          headers: getAuthHeader(),
+        });
+        const body = await res.json();
+        if (!body?.isAdmin) {
+          setIsAdmin(false);
+          router.push('/404');
+          return;
+        }
+
+        setIsAdmin(true);
+        fetchData();
+      } catch (err) {
+        console.error(err);
+        setIsAdmin(false);
+        router.push('/404');
+      }
+    }
+
+    checkAdminAndLoad();
+  }, [user, loading, router]);
 
   async function fetchData() {
     setLoadingData(true);
@@ -56,113 +86,145 @@ export default function DeveloperApiAdmin() {
     }
   }
 
-  if (loading || loadingData) {
+  if (loading || isAdmin === null || loadingData) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, var(--color-bg-primary), var(--color-bg-secondary), var(--color-bg-primary))' }}>
         <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'var(--color-accent-1)' }}></div>
       </div>
     );
   }
 
+  if (!isAdmin) return null;
+
+  const summary = data?.summary || {};
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <>
       <Head>
         <title>Developer API Admin</title>
       </Head>
 
-      <h1 className="text-2xl font-bold mb-4">Developer API — Admin</h1>
+      <div className="min-h-screen" style={{ background: 'linear-gradient(to bottom right, var(--color-bg-primary), var(--color-bg-secondary), var(--color-bg-primary))' }}>
+        <div className="border-b" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>Developer API Admin</h1>
+              <p style={{ color: 'var(--color-text-secondary)' }}>Review applications, monitor usage, and grant priority access.</p>
+            </div>
+            <Link href="/admin" className="px-4 py-2 rounded-lg" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}>
+              Back to Admin
+            </Link>
+          </div>
+        </div>
 
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-2">Applications</h2>
-        <div className="border rounded p-4 bg-white">
-          {data?.applications?.length ? (
-            <ul>
-              {data.applications.map((app: any) => (
-                <li key={app.id} className="py-2 border-b">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="font-medium">{app.name}</div>
-                      <div className="text-sm text-gray-600">{app.description}</div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <SummaryCard label="Applications" value={Number(summary.applications || 0)} />
+            <SummaryCard label="Requests" value={Number(summary.requests || 0)} />
+            <SummaryCard label="Keys" value={Number(summary.keys || 0)} />
+            <SummaryCard label="Priority Keys" value={Number(summary.priorityKeys || 0)} />
+            <SummaryCard label="Usage Rows" value={Number(summary.usage || 0)} />
+          </section>
+
+          <section className="border rounded-xl p-5" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>Applications</h2>
+            {data?.applications?.length ? (
+              <div className="space-y-3">
+                {data.applications.map((app: any) => (
+                  <div key={app.id} className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)' }}>
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{app.name}</div>
+                        <div className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{app.description || 'No description provided.'}</div>
+                      </div>
+                      <div className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                        Requests: {app.requestCount} | Keys: {app.keyCount} | Usage: {app.usageCount}
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-700">Requests: {app.requestCount} • Keys: {app.keyCount}</div>
                   </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-sm text-gray-600">No applications found.</div>
-          )}
-        </div>
-      </section>
+                ))}
+              </div>
+            ) : <EmptyState text="No applications found." />}
+          </section>
 
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-2">Pending Requests</h2>
-        <div className="border rounded p-4 bg-white">
-          {data?.requests?.length ? (
-            <ul>
-              {data.requests.map((r: any) => (
-                <li key={r.id} className="py-3 border-b flex justify-between items-start">
-                  <div>
-                    <div className="font-medium">{r.applicationName || '—'}</div>
-                    <div className="text-sm text-gray-600">{JSON.stringify(r.formResponses).slice(0, 180)}</div>
-                    <div className="text-xs text-gray-500">Submitted: {new Date(r.createdAt).toLocaleString()}</div>
+          <section className="border rounded-xl p-5" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>Requests</h2>
+            {data?.requests?.length ? (
+              <div className="space-y-3">
+                {data.requests.map((r: any) => (
+                  <div key={r.id} className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)' }}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{r.applicationName || 'Unknown app'}</div>
+                        <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Submitted {new Date(r.createdAt).toLocaleString()}</div>
+                        <pre className="mt-2 text-xs p-2 rounded overflow-x-auto" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
+{JSON.stringify(r.formResponses || {}, null, 2)}
+                        </pre>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Key Prefix: {r.keyPrefix || 'N/A'}</div>
+                        <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Priority: {r.priorityAccess ? 'Yes' : 'No'}</div>
+                        {!r.priorityAccess && (
+                          <button onClick={() => grantPriority(r.id)} className="px-3 py-1 rounded text-sm" style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}>
+                            Grant Priority
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="ml-4 flex flex-col gap-2">
-                    {!r.priorityAccess && (
-                      <button onClick={() => grantPriority(r.id)} className="px-3 py-1 rounded bg-blue-600 text-white">Grant Priority</button>
-                    )}
-                    <div className="text-xs text-gray-500">Key: {r.keyPrefix || '—'}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-sm text-gray-600">No requests found.</div>
-          )}
-        </div>
-      </section>
+                ))}
+              </div>
+            ) : <EmptyState text="No requests found." />}
+          </section>
 
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-2">Keys</h2>
-        <div className="border rounded p-4 bg-white">
-          {data?.keys?.length ? (
-            <ul>
-              {data.keys.map((k: any) => (
-                <li key={k.id} className="py-2 border-b flex justify-between items-center">
-                  <div>
-                    <div className="font-medium">{k.label || k.keyPrefix}</div>
-                    <div className="text-sm text-gray-600">Active: {k.isActive ? 'Yes' : 'No'} • Priority: {k.isPriority ? 'Yes' : 'No'}</div>
-                  </div>
-                  <div className="text-sm text-gray-700">Last Used: {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'Never'}</div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-sm text-gray-600">No keys found.</div>
-          )}
-        </div>
-      </section>
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="border rounded-xl p-5" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+              <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>Keys</h2>
+              {data?.keys?.length ? (
+                <div className="space-y-2">
+                  {data.keys.map((k: any) => (
+                    <div key={k.id} className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)' }}>
+                      <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{k.label || k.keyPrefix}</div>
+                      <div className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                        Active: {k.isActive ? 'Yes' : 'No'} | Priority: {k.isPriority ? 'Yes' : 'No'} | Last used: {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'Never'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : <EmptyState text="No keys found." />}
+            </div>
 
-      <section>
-        <h2 className="text-lg font-semibold mb-2">Recent Usage</h2>
-        <div className="border rounded p-4 bg-white">
-          {data?.usage?.length ? (
-            <ul>
-              {data.usage.map((u: any) => (
-                <li key={u.id} className="py-2 border-b flex justify-between items-center">
-                  <div>
-                    <div className="text-sm">{u.method} {u.endpoint}</div>
-                    <div className="text-xs text-gray-500">App: {u.applicationName || '—'} • Key: {u.keyPrefix || '—'}</div>
-                  </div>
-                  <div className="text-sm text-gray-700">{u.statusCode} • {u.latencyMs || 0}ms</div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-sm text-gray-600">No usage records found.</div>
-          )}
+            <div className="border rounded-xl p-5" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+              <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>Recent Usage</h2>
+              {data?.usage?.length ? (
+                <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                  {data.usage.map((u: any) => (
+                    <div key={u.id} className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)' }}>
+                      <div className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{u.method} {u.endpoint}</div>
+                      <div className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                        App: {u.applicationName || 'Unknown'} | Key: {u.keyPrefix || 'N/A'} | Status: {u.statusCode} | Latency: {u.latencyMs || 0}ms
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : <EmptyState text="No usage records found." />}
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
+    </>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg p-4" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+      <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{label}</div>
+      <div className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{value}</div>
     </div>
   );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <div className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{text}</div>;
 }

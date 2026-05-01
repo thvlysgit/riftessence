@@ -38,6 +38,8 @@
 - Implemented API key issuance workflow (logged-in users can request keys; keys shown once and stored hashed/prefix-only).
 - Admin dashboard endpoints added for reviewing requests and granting priority access.
 - Usage tracking and per-key backpressure/rate limiting added to protect production traffic.
+- Reworked frontend UX: added full `/developer-api` docs + request form, improved `/admin/developer-api` UI to match admin standards, and linked navigation from footer/admin dashboard.
+- Hardened request policy: key requests now require authenticated RiftEssence users with at least one linked Riot account.
 
 Files added/changed:
 - apps/api/src/routes/developerApi.ts (new/implementation)

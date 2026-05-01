@@ -3,6 +3,7 @@
 Overview
 - Provides read-only access to live Duo (feed) and LFT posts for third-party developers.
 - Access requires an API key tied to a submitted application. Keys are issued when a logged-in RiftEssence user requests access.
+- Request submission now also requires that the requester has at least one linked Riot account.
 
 Key Concepts
 - Applications: Submitted by a logged-in user and stored as `DeveloperApiApplication`.
@@ -17,12 +18,17 @@ Endpoints (selected)
 - GET `/api/admin/developer-api/dashboard` — admin view: applications, requests, keys, usage.
 - PATCH `/api/admin/developer-api/requests/:id/priority` — admin: grant priority access to a request.
 
+Frontend Surfaces
+- Public docs and request form: `/developer-api`.
+- Admin dashboard page: `/admin/developer-api`.
+
 Security & Rate Limiting
 - Keys are hashed server-side; only prefix stored for lookup.
 - Rate-limiting/backpressure enforced per key+IP with exponential short delays; overloaded clients receive 429 + Retry-After-style guidance.
 
 Admin Workflow
 - Admins review incoming requests via the admin dashboard and can mark requests as priority. Priority keys are escalated to higher rate limits.
+- Footer and admin dashboard now include first-class navigation links to these pages.
 
 Notes for Developers
 - Prefer the `keyPrefix` as an identifier in logs (never store full keys).

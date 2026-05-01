@@ -314,6 +314,27 @@ async function buildLftWhere(query: any) {
 export default async function developerApiRoutes(fastify: any) {
   fastify.post('/developer-api/requests', async (request: any, reply: any) => {
     try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const requester = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          riotAccounts: { select: { id: true } },
+        },
+      });
+
+      if (!requester) {
+        return reply.code(404).send({ error: 'User account not found' });
+      }
+
+      if (!requester.riotAccounts || requester.riotAccounts.length === 0) {
+        return reply.code(400).send({ error: 'Link at least one Riot account before requesting a developer API key' });
+      }
+
       const body = request.body || {};
       const formData = {
         name: normalizeText(body.name || body.appName, 120),
@@ -345,6 +366,9 @@ export default async function developerApiRoutes(fastify: any) {
             contactEmail: formData.contactEmail,
             formResponses: {
               ...formData,
+              requesterUserId: requester.id,
+              requesterUsername: requester.username,
+              requesterEmail: requester.email,
               submittedAt: new Date().toISOString(),
             },
           },
@@ -367,6 +391,8 @@ export default async function developerApiRoutes(fastify: any) {
             apiKeyId: key.id,
             formResponses: {
               ...formData,
+              requesterUserId: requester.id,
+              requesterUsername: requester.username,
               issuedKeyPrefix: keyBundle.prefix,
             },
             priorityAccess: false,
