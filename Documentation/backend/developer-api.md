@@ -18,6 +18,14 @@ Endpoints (selected)
 - GET `/api/admin/developer-api/dashboard` — admin view: applications, requests, keys, usage.
 - PATCH `/api/admin/developer-api/requests/:id/priority` — admin: grant priority access to a request.
 
+Request Failure Modes (POST `/api/developer-api/requests`)
+- `400`: invalid form payload or requester missing linked Riot account.
+- `401`: missing/invalid auth token.
+- `404`: requester account not found.
+- `409`: rare API key collision (safe to retry).
+- `503`: provisioning unavailable (for example missing database objects during rollout).
+- `500`: unexpected server error.
+
 Frontend Surfaces
 - Public docs and request form: `/developer-api`.
 - Admin dashboard page: `/admin/developer-api`.

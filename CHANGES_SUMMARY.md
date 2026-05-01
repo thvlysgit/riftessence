@@ -40,6 +40,7 @@
 - Usage tracking and per-key backpressure/rate limiting added to protect production traffic.
 - Reworked frontend UX: added full `/developer-api` docs + request form, improved `/admin/developer-api` UI to match admin standards, and linked navigation from footer/admin dashboard.
 - Hardened request policy: key requests now require authenticated RiftEssence users with at least one linked Riot account.
+- Improved reliability and debugging for key request submissions: backend now maps known database failures to explicit status codes, and frontend now surfaces non-JSON/HTTP error payloads with clearer messages.
 
 Files added/changed:
 - apps/api/src/routes/developerApi.ts (new/implementation)

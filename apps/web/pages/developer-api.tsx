@@ -93,9 +93,18 @@ export default function DeveloperApiPage() {
         body: JSON.stringify(form),
       });
 
-      const body = await res.json();
+      const rawText = await res.text();
+      let body: any = {};
+      try {
+        body = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        body = {};
+      }
+
       if (!res.ok) {
-        throw new Error(body?.error || 'Failed to submit API request');
+        const explicitMessage = body?.error || body?.message;
+        const fallbackMessage = rawText && !body?.error ? rawText.slice(0, 180) : '';
+        throw new Error(explicitMessage || fallbackMessage || `Failed to submit API request (HTTP ${res.status})`);
       }
 
       setIssuedKey(body.apiKey || null);

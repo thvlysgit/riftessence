@@ -171,6 +171,24 @@ function summarizeUsage(usage: any) {
   };
 }
 
+function parsePrismaError(error: any): { statusCode: number; message: string } | null {
+  const code = String(error?.code || '');
+
+  if (code === 'P2002') {
+    return { statusCode: 409, message: 'A duplicate key conflict occurred. Please retry your request.' };
+  }
+
+  if (code === 'P2021' || code === 'P2022') {
+    return { statusCode: 503, message: 'Developer API provisioning is temporarily unavailable. Please try again shortly.' };
+  }
+
+  if (code === 'P2003') {
+    return { statusCode: 400, message: 'Invalid linked data while creating your API request.' };
+  }
+
+  return null;
+}
+
 async function resolveApiKey(request: any, reply: any) {
   const providedKey = parseApiKey(request.headers['x-api-key'] || request.headers['authorization']);
   if (!providedKey) {
@@ -416,8 +434,18 @@ export default async function developerApiRoutes(fastify: any) {
         clientIpHash,
       });
     } catch (error: any) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: 'Failed to submit developer API request' });
+      fastify.log.error({
+        msg: 'Failed to submit developer API request',
+        errorCode: error?.code,
+        error: error?.message || String(error),
+      });
+
+      const parsed = parsePrismaError(error);
+      if (parsed) {
+        return reply.code(parsed.statusCode).send({ error: parsed.message });
+      }
+
+      return reply.code(500).send({ error: 'Failed to submit developer API request. Please try again.' });
     }
   });
 
