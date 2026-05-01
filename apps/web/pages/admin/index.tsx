@@ -164,6 +164,12 @@ export default function AdminDashboard() {
       description: 'Configure platform settings and features',
     },
     {
+      label: 'Developer API',
+      href: '/admin/developer-api',
+      icon: '🛠️',
+      description: 'Review API requests, keys, and usage',
+    },
+    {
       label: 'Broadcast Message',
       href: '/admin/broadcast',
       icon: '📡',

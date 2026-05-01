@@ -86,6 +86,13 @@ export default function Footer() {
             <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
               {t('footer.disclaimer')}
             </p>
+            <ul className="space-y-2">
+              <li>
+                <Link href="/developer-api" className="text-sm hover:underline" style={{ color: 'var(--color-text-muted)' }}>
+                  Developer API
+                </Link>
+              </li>
+            </ul>
           </div>
         </div>
 
