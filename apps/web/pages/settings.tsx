@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme, ThemeContext } from '../contexts/ThemeContext';
+import { THEME_CSS_VARIABLES } from '../utils/themeRegistry';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LoadingSpinner } from '@components/LoadingSpinner';
 import { getAuthHeader } from '../utils/auth';
@@ -211,11 +212,25 @@ export default function SettingsPage() {
             {t('settings.theme.description')}
           </p>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {availableThemes.map((theme) => (
               <button
                 key={theme.name}
                 onClick={() => setTheme(theme.name)}
+                onMouseEnter={() => {
+                  const vars = THEME_CSS_VARIABLES[theme.name];
+                  if (vars) {
+                    if (vars['--cursor-default']) document.documentElement.style.setProperty('--cursor-default', vars['--cursor-default']);
+                    if (vars['--cursor-pointer']) document.documentElement.style.setProperty('--cursor-pointer', vars['--cursor-pointer']);
+                  }
+                }}
+                onMouseLeave={() => {
+                  const vars = THEME_CSS_VARIABLES[currentTheme];
+                  if (vars) {
+                    if (vars['--cursor-default']) document.documentElement.style.setProperty('--cursor-default', vars['--cursor-default']);
+                    if (vars['--cursor-pointer']) document.documentElement.style.setProperty('--cursor-pointer', vars['--cursor-pointer']);
+                  }
+                }}
                 className="relative p-4 border-2 rounded-lg transition-all hover:scale-105"
                 style={{
                   backgroundColor: currentTheme === theme.name ? theme.colors.bgSecondary : theme.colors.bgPrimary,

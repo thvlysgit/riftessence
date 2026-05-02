@@ -358,7 +358,30 @@ export function getThemeCssVariables(theme: ThemeDefinition): Record<string, str
     '--gradient-card': `linear-gradient(135deg, ${theme.colors.accent1}1F 0%, ${theme.colors.accent2}0D 100%)`,
     '--theme-outline-glow': `rgba(${accentRgb}, ${isLight ? 0.22 : 0.34})`,
     '--theme-soft-highlight': `rgba(${accent2Rgb}, ${isLight ? 0.2 : 0.28})`,
+    // Cursor values (data URI SVGs). Values include full CSS cursor declaration.
+    '--cursor-default': makeCursorCssValue(theme.colors.accent1, 'default'),
+    '--cursor-pointer': makeCursorCssValue(theme.colors.accent1, 'pointer'),
   };
+}
+
+function makeCursorSvg(accent: string, kind: 'default' | 'pointer'): string {
+  const fill = accent || '#000000';
+  if (kind === 'pointer') {
+    return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M6 2 L26 16 L18 18 L22 30 L14 32 L10 20 L6 2 Z' fill='${fill}'/></svg>`;
+  }
+  // default arrow (small)
+  return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M2 2 L18 12 L10 12 L22 22 L14 22 L2 2 Z' fill='${fill}'/></svg>`;
+}
+
+function makeCursorDataUri(svg: string): string {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function makeCursorCssValue(accent: string, kind: 'default' | 'pointer') {
+  const svg = makeCursorSvg(accent, kind);
+  const uri = makeCursorDataUri(svg);
+  // hotspot set roughly to 0 0 for arrows; include fallback 'auto'
+  return `url("${uri}") 0 0, auto`;
 }
 
 export const THEME_CSS_VARIABLES = THEME_NAMES.reduce(

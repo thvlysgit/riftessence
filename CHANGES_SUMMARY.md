@@ -33,6 +33,17 @@
 
 ## ✅ Status: Deployed and working!
 
+## ⚙️ New: Themed Custom Cursors (May 2026)
+- Implemented per-theme custom cursors using SVG data-URIs and CSS variables.
+- Themes now expose `--cursor-default` and `--cursor-pointer` CSS variables.
+- Settings page previews a theme's cursor when hovering its tile.
+- Global styles use theme-provided cursor values with sensible fallbacks.
+
+Files changed:
+- apps/web/utils/themeRegistry.ts (cursor data-URI generation)
+- apps/web/styles/globals.css (cursor variable usage)
+- apps/web/pages/settings.tsx (hover preview handlers)
+
 ## ⚙️ New: Developer Public API (May 2026)
 - Added developer/public API endpoints to expose live Duo and LFT posts with filters (region, language, rank, verifiedOnly).
 - Implemented API key issuance workflow (logged-in users can request keys; keys shown once and stored hashed/prefix-only).

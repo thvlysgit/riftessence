@@ -81,6 +81,24 @@
   --theme-shell-shadow: 0 18px 42px rgba(0, 0, 0, 0.25);
   --theme-ambient-opacity: 0.42;
   --theme-ambient-animation: themeAmbientClassic 22s ease-in-out infinite;
+  /* Cursor variables populated by theme registry. Defaults to native cursor */
+  --cursor-default: auto;
+  --cursor-pointer: pointer;
+}
+
+/* Use theme-provided cursor values when available */
+html, body {
+  cursor: var(--cursor-default);
+}
+
+/* Interactive elements should use pointer cursor value defined by theme */
+a, button, [role='button'], .clickable {
+  cursor: var(--cursor-pointer);
+}
+
+/* Inputs/Textareas keep text cursor */
+input, textarea, [contenteditable='true'] {
+  cursor: text;
 }
 
 [data-theme='classic'] {
