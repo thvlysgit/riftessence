@@ -359,29 +359,81 @@ export function getThemeCssVariables(theme: ThemeDefinition): Record<string, str
     '--theme-outline-glow': `rgba(${accentRgb}, ${isLight ? 0.22 : 0.34})`,
     '--theme-soft-highlight': `rgba(${accent2Rgb}, ${isLight ? 0.2 : 0.28})`,
     // Cursor values (data URI SVGs). Values include full CSS cursor declaration.
-    '--cursor-default': makeCursorCssValue(theme.colors.accent1, 'default'),
-    '--cursor-pointer': makeCursorCssValue(theme.colors.accent1, 'pointer'),
+    '--cursor-default': makeCursorCssValue(theme.name, theme.colors.accent1, 'default'),
+    '--cursor-pointer': makeCursorCssValue(theme.name, theme.colors.accent1, 'pointer'),
   };
 }
-
-function makeCursorSvg(accent: string, kind: 'default' | 'pointer'): string {
+function makeCursorSvg(themeName: ThemeName, accent: string, kind: 'default' | 'pointer'): string {
   const fill = accent || '#000000';
-  if (kind === 'pointer') {
-    return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M6 2 L26 16 L18 18 L22 30 L14 32 L10 20 L6 2 Z' fill='${fill}'/></svg>`;
+  // Keep SVGs small (24-32px) and distinct per theme. These are modest, stylized shapes.
+  switch (themeName) {
+    case 'arcane-pastel':
+      if (kind === 'pointer') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><g fill='${fill}'><circle cx='6' cy='6' r='3'/><path d='M6 2 L22 14 L18 16 L24 24 L14 20 L12 24 Z'/></g></svg>`;
+      }
+      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='${fill}'><polygon points='12,2 15,9 22,9 16,14 18,22 12,17 6,22 8,14 2,9 9,9'/></g></svg>`;
+
+    case 'nightshade':
+      if (kind === 'pointer') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path fill='${fill}' d='M4 4 L20 14 L12 16 L18 26 L10 28 L4 12 Z'/></svg>`;
+      }
+      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path fill='${fill}' d='M2 2 L18 12 L10 12 L22 22 L14 22 L2 2 Z'/></svg>`;
+
+    case 'infernal-ember':
+      if (kind === 'pointer') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'><path fill='${fill}' d='M15 2 C18 8 24 8 22 14 C20 20 14 24 14 28 C10 22 6 18 8 12 C10 6 14 4 15 2 Z'/></svg>`;
+      }
+      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path fill='${fill}' d='M12 2 C14 6 18 6 16 10 C14 14 10 16 10 20 C8 14 4 10 6 6 C8 4 10 3 12 2 Z'/></svg>`;
+
+    case 'radiant-light':
+      if (kind === 'pointer') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'><path fill='${fill}' d='M13 2 L15 8 L22 9 L17 13 L18 20 L13 16 L8 20 L9 13 L4 9 L11 8 Z'/></svg>`;
+      }
+      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><circle cx='11' cy='11' r='5' fill='${fill}'/></svg>`;
+
+    case 'ocean-depths':
+      if (kind === 'pointer') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path fill='${fill}' d='M4 18 C8 12 12 10 14 8 C16 6 20 6 24 10 C20 12 18 14 14 16 C10 18 6 20 4 18 Z'/></svg>`;
+      }
+      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path fill='${fill}' d='M2 12 C6 8 10 6 12 6 C14 6 18 8 22 12 L20 14 C16 11 12 10 10 10 C8 10 4 11 2 14 Z'/></svg>`;
+
+    case 'forest-mystic':
+      if (kind === 'pointer') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path fill='${fill}' d='M14 2 C18 8 24 10 24 16 C20 18 16 22 14 26 C12 22 8 18 4 16 C4 10 10 8 14 2 Z'/></svg>`;
+      }
+      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path fill='${fill}' d='M12 2 C16 6 20 8 20 12 C16 14 14 18 12 22 C10 18 8 14 4 12 C4 8 8 6 12 2 Z'/></svg>`;
+
+    case 'sunset-blaze':
+      if (kind === 'pointer') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path fill='${fill}' d='M14 2 L18 10 L26 12 L20 18 L22 26 L14 22 L6 26 L8 18 L2 12 L10 10 Z'/></svg>`;
+      }
+      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><circle cx='11' cy='11' r='4' fill='${fill}'/></svg>`;
+
+    case 'shadow-assassin':
+      if (kind === 'pointer') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'><path fill='${fill}' d='M4 4 L26 15 L20 18 L26 26 L16 22 L10 26 L6 16 Z'/></svg>`;
+      }
+      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path fill='${fill}' d='M2 2 L18 12 L10 12 L22 22 L14 22 L2 2 Z'/></svg>`;
+
+    case 'classic':
+    default:
+      if (kind === 'pointer') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path fill='${fill}' d='M6 2 L22 14 L16 16 L20 26 L12 28 L8 18 L6 2 Z'/></svg>`;
+      }
+      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path fill='${fill}' d='M2 2 L18 12 L10 12 L22 22 L14 22 L2 2 Z'/></svg>`;
   }
-  // default arrow (small)
-  return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M2 2 L18 12 L10 12 L22 22 L14 22 L2 2 Z' fill='${fill}'/></svg>`;
 }
 
 function makeCursorDataUri(svg: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-function makeCursorCssValue(accent: string, kind: 'default' | 'pointer') {
-  const svg = makeCursorSvg(accent, kind);
+function makeCursorCssValue(themeName: ThemeName, accent: string, kind: 'default' | 'pointer') {
+  const svg = makeCursorSvg(themeName, accent, kind);
   const uri = makeCursorDataUri(svg);
-  // hotspot set roughly to 0 0 for arrows; include fallback 'auto'
-  return `url("${uri}") 0 0, auto`;
+  // default hotspot for arrows; pointer cursors use a slight offset so tip aligns better
+  const hotspot = kind === 'pointer' ? '6 2' : '0 0';
+  return `url("${uri}") ${hotspot}, auto`;
 }
 
 export const THEME_CSS_VARIABLES = THEME_NAMES.reduce(
