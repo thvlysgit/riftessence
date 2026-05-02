@@ -512,10 +512,129 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
       return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path fill='${fill}' d='M2 2 L18 12 L10 12 L22 22 L14 22 L2 2 Z'/></svg>`;
 
     case 'infernal-ember':
-      if (kind === 'pointer') {
-        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'><path fill='${fill}' d='M15 2 C18 8 24 8 22 14 C20 20 14 24 14 28 C10 22 6 18 8 12 C10 6 14 4 15 2 Z'/></svg>`;
+      if (kind === 'post') {
+        // Post cursor: Explosive spark burst with multiple radiating embers
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 36 36'>
+          <defs>
+            <filter id='ie-post-glow' x='-80%' y='-80%' width='260%' height='260%'>
+              <feGaussianBlur stdDeviation='1.8' result='blur' />
+              <feMerge><feMergeNode in='blur'/><feMergeNode in='SourceGraphic'/></feMerge>
+            </filter>
+            <radialGradient id='ie-post-spark' cx='50%' cy='50%' r='50%'>
+              <stop offset='0%' style='stop-color:#FF8C42;stop-opacity:1' />
+              <stop offset='100%' style='stop-color:#B50000;stop-opacity:0.3' />
+            </radialGradient>
+          </defs>
+          <g transform='translate(18, 18)'>
+            <!-- Center core glow -->
+            <circle cx='0' cy='0' r='3.5' fill='#FFAA00' opacity='0.9' filter='url(#ie-post-glow)' />
+            <!-- Main shard -->
+            <path d='M -1 -8 L 3 -1 L 1 5 L -1 4 L -3 -1 Z' fill='#FF5F1F' opacity='0.95' filter='url(#ie-post-glow)' />
+            <!-- Radiating spark shards (8-point burst) -->
+            <path d='M 0 -6 L 1 -3 L 0 0' stroke='#FFAA00' stroke-width='1.5' stroke-linecap='round' opacity='0.85' filter='url(#ie-post-glow)' fill='none' />
+            <path d='M 4 -4 L 3 -1 L 1 0' stroke='#FF5F1F' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-post-glow)' fill='none' />
+            <path d='M 6 0 L 3 0 L 1 0' stroke='#FFAA00' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-post-glow)' fill='none' />
+            <path d='M 4 4 L 2 2 L 0 1' stroke='#FF5F1F' stroke-width='1' stroke-linecap='round' opacity='0.75' filter='url(#ie-post-glow)' fill='none' />
+            <path d='M 0 6 L 0 3 L 0 1' stroke='#FFAA00' stroke-width='1' stroke-linecap='round' opacity='0.75' filter='url(#ie-post-glow)' fill='none' />
+            <path d='M -4 4 L -2 2 L 0 1' stroke='#FF7F00' stroke-width='1' stroke-linecap='round' opacity='0.7' filter='url(#ie-post-glow)' fill='none' />
+            <path d='M -6 0 L -3 0 L -1 0' stroke='#FFAA00' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-post-glow)' fill='none' />
+            <path d='M -4 -4 L -3 -1 L -1 0' stroke='#FF5F1F' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-post-glow)' fill='none' />
+          </g>
+        </svg>`;
       }
-      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path fill='${fill}' d='M12 2 C14 6 18 6 16 10 C14 14 10 16 10 20 C8 14 4 10 6 6 C8 4 10 3 12 2 Z'/></svg>`;
+
+      if (kind === 'message') {
+        // Message cursor: Ember glow forming chat bubble silhouette
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 34 34'>
+          <defs>
+            <filter id='ie-msg-glow' x='-60%' y='-60%' width='220%' height='220%'>
+              <feGaussianBlur stdDeviation='1.6' result='blur' />
+              <feMerge><feMergeNode in='blur'/><feMergeNode in='SourceGraphic'/></feMerge>
+            </filter>
+          </defs>
+          <g transform='translate(17, 17)'>
+            <!-- Chat bubble outline in ember glow -->
+            <path d='M -8 -6 L 8 -6 Q 9 -6 9 -5 L 9 6 Q 9 7 8 7 L -4 7 L -6 10 L -5 7 L -8 7 Q -9 7 -9 6 L -9 -5 Q -9 -6 -8 -6' 
+                  fill='none' stroke='#FF5F1F' stroke-width='1.8' opacity='0.9' filter='url(#ie-msg-glow)' stroke-linejoin='miter' />
+            <!-- Inner glow -->
+            <path d='M -8 -6 L 8 -6 Q 9 -6 9 -5 L 9 6 Q 9 7 8 7 L -4 7 L -6 10 L -5 7 L -8 7 Q -9 7 -9 6 L -9 -5 Q -9 -6 -8 -6' 
+                  fill='none' stroke='#FFAA00' stroke-width='0.8' opacity='0.5' filter='url(#ie-msg-glow)' stroke-linejoin='miter' />
+            <!-- Ember particles inside bubble -->
+            <circle cx='-3' cy='0' r='0.8' fill='#FF5F1F' opacity='0.75' filter='url(#ie-msg-glow)' />
+            <circle cx='1' cy='0' r='0.6' fill='#FFAA00' opacity='0.7' filter='url(#ie-msg-glow)' />
+            <circle cx='5' cy='0' r='0.7' fill='#FF5F1F' opacity='0.65' filter='url(#ie-msg-glow)' />
+          </g>
+        </svg>`;
+      }
+
+      if (kind === 'dropdown') {
+        // Dropdown cursor: Ember shard with ash particle hints
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>
+          <defs>
+            <filter id='ie-dd-glow' x='-50%' y='-50%' width='200%' height='200%'>
+              <feGaussianBlur stdDeviation='1.4' result='blur' />
+              <feMerge><feMergeNode in='blur'/><feMergeNode in='SourceGraphic'/></feMerge>
+            </filter>
+          </defs>
+          <g transform='translate(16, 16)'>
+            <!-- Main ember shard (angular fragment) -->
+            <path d='M -1.5 -8 L 3 0 L 1 7 L -1.5 6.5 L -3 0 Z' fill='#FF5F1F' opacity='0.95' filter='url(#ie-dd-glow)' />
+            <!-- Inner bright core -->
+            <path d='M -0.5 -5 L 2 0 L 0.5 4 L -0.5 3.5 L -1.5 0 Z' fill='#FFAA00' opacity='0.7' filter='url(#ie-dd-glow)' />
+            <!-- Ash particle hints (fading dots below) -->
+            <circle cx='-2' cy='9' r='0.6' fill='#7D4D3F' opacity='0.5' filter='url(#ie-dd-glow)' />
+            <circle cx='0' cy='10' r='0.5' fill='#6B4233' opacity='0.4' filter='url(#ie-dd-glow)' />
+            <circle cx='2' cy='9' r='0.55' fill='#7D4D3F' opacity='0.45' filter='url(#ie-dd-glow)' />
+          </g>
+        </svg>`;
+      }
+
+      if (kind === 'pointer') {
+        // Pointer cursor: Pointed ember arrow shard
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>
+          <defs>
+            <filter id='ie-ptr-glow' x='-50%' y='-50%' width='200%' height='200%'>
+              <feGaussianBlur stdDeviation='1.5' result='blur' />
+              <feMerge><feMergeNode in='blur'/><feMergeNode in='SourceGraphic'/></feMerge>
+            </filter>
+          </defs>
+          <g transform='translate(16, 16)'>
+            <!-- Pointed ember shard -->
+            <path d='M 0 -9 L 4 -1 L 2 6 L -1 5 L -3 -1 Z' fill='#FF5F1F' opacity='0.95' filter='url(#ie-ptr-glow)' />
+            <!-- Bright tip -->
+            <path d='M 0 -9 L 0.5 -5' stroke='#FFAA00' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-ptr-glow)' />
+            <!-- Inner core -->
+            <path d='M 0 -7 L 2.5 -0.5 L 1 4 L -0.5 3 L -1.5 -0.5 Z' fill='#FFAA00' opacity='0.6' filter='url(#ie-ptr-glow)' />
+            <!-- Side flame accent -->
+            <path d='M 3.5 -2 Q 5 -1 4.5 2' stroke='#FF7F00' stroke-width='1' stroke-linecap='round' opacity='0.6' fill='none' filter='url(#ie-ptr-glow)' />
+          </g>
+        </svg>`;
+      }
+
+      // Default cursor: Ember shard with volcanic glow
+      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'>
+        <defs>
+          <filter id='ie-default-glow' x='-50%' y='-50%' width='200%' height='200%'>
+            <feGaussianBlur stdDeviation='1.3' result='blur' />
+            <feMerge><feMergeNode in='blur'/><feMergeNode in='SourceGraphic'/></feMerge>
+          </filter>
+          <radialGradient id='ie-default-fire' cx='50%' cy='30%' r='60%'>
+            <stop offset='0%' style='stop-color:#FFAA00;stop-opacity:0.95' />
+            <stop offset='70%' style='stop-color:#FF5F1F;stop-opacity:0.85' />
+            <stop offset='100%' style='stop-color:#B50000;stop-opacity:0.4' />
+          </radialGradient>
+        </defs>
+        <g transform='translate(14, 14)'>
+          <!-- Outer glow aura -->
+          <circle cx='0' cy='0' r='5.5' fill='url(#ie-default-fire)' opacity='0.3' filter='url(#ie-default-glow)' />
+          <!-- Main angular shard -->
+          <path d='M -1.5 -7 L 3 0.5 L 1.5 6 L -1.5 5.5 L -3 0.5 Z' fill='#FF5F1F' opacity='0.95' filter='url(#ie-default-glow)' />
+          <!-- Bright inner core -->
+          <path d='M -0.5 -4.5 L 2 0.5 L 0.5 4 L -0.5 3.5 L -1.5 0.5 Z' fill='#FFAA00' opacity='0.7' filter='url(#ie-default-glow)' />
+          <!-- Edge highlight -->
+          <line x1='2.5' y1='0.5' x2='3.5' y2='2.5' stroke='#FFD700' stroke-width='0.7' opacity='0.5' stroke-linecap='round' filter='url(#ie-default-glow)' />
+        </g>
+      </svg>`;
 
     case 'radiant-light':
       if (kind === 'pointer') {
@@ -645,8 +764,9 @@ function makeCursorCssValue(themeName: ThemeName, accent: string, kind: CursorKi
   let hotspot: string;
   if (themeName === 'arcane-pastel') {
     // Butterfly cursors: hotspot at body center
-    hotspot = kind === 'default' ? '14 14' : kind === 'pointer' ? '15 15' : kind === 'post' ? '16 16' : kind === 'message' ? '16 16' : '15 15';
-  } else {
+    hotspot = kind === 'default' ? '14 14' : kind === 'pointer' ? '15 15' : kind === 'post' ? '16 16' : kind === 'message' ? '16 16' : '15 15';  } else if (themeName === 'infernal-ember') {
+    // Ember shard cursors: hotspot at shard center/tip
+    hotspot = kind === 'default' ? '14 14' : kind === 'pointer' ? '16 16' : kind === 'post' ? '18 18' : kind === 'message' ? '17 17' : '16 16';  } else {
     // Original cursors: hotspot at center/corner
     hotspot = kind === 'default' ? '2 2' : kind === 'pointer' ? '8 8' : kind === 'post' ? '12 12' : kind === 'message' ? '10 12' : '8 8';
   }

@@ -89,4 +89,39 @@ Files changed:
 - apps/web/utils/themeRegistry.ts (butterfly SVG generation in `makeCursorSvg()`, hotspot tuning in `makeCursorCssValue()`)
 - apps/web/styles/globals.css (butterfly keyframe animations, Arcane Pastel button/dropdown hover effects, cursor class rules)
 
+## ⚙️ New: Infernal Ember Fiery Cursor System with Volcanic Aesthetic (May 2026)
+- Designed intense fiery cursor system for Infernal Ember theme with volcanic/molten aesthetic.
+- Cursors feature glowing ember shards with distinct personalities per interaction:
+  - **Default**: Angular ember shard with radial glow aura, bright inner core
+  - **Pointer**: Pointed ember arrow with side flame accent and detailed core
+  - **Post**: Explosive spark burst with 8-point radiating shards and center core glow
+  - **Message**: Ember glow forming chat bubble outline with interior ember particles
+  - **Dropdown**: Ember shard with ash particle hints below (suggesting falling ash)
+- Color palette: Dark red (#B50000), bright ember orange (#FF5F1F), golden accents (#FFAA00), purple accent (#7000A6)
+- SVG features:
+  - Multi-layer radial gradients for fiery depth (hot orange core → dark red edges)
+  - Gaussian blur filters for molten glow effect
+  - Particle rays (spark lines) on post cursor for explosive feel
+  - Chat bubble geometry for message cursor (rounded rectangle with tail)
+  - Ash particle indicators on dropdown (fade-colored dots)
+- CSS keyframe animations:
+  - `@keyframes flameFlicker`: 4-stage glow intensity pulse (drop-shadow variation)
+  - `@keyframes sparkBurst`: Center expansion with opacity fade (post cursor effect)
+  - `@keyframes sparkEmit`: Radiating particle outburst simulation
+  - `@keyframes ashDrift`: Slow vertical drift with horizontal sway and scale decay
+- Infernal Ember button/interaction styling:
+  - Hover: Strong lift (translateY -3px, scale 1.03) + volcanic glow box-shadow
+  - Inset shadow glow on hover (inner flame effect)
+  - Dropdown menu: Molten lava glass panel (dark red gradient + backdrop blur)
+  - Dropdown items: Hover background with inset glow
+  - Input focus: Fiery border glow (red/orange drop-shadow)
+- Hotspot positioning: Tuned per cursor variant (14-18px centers depending on shard/burst layout)
+- Respects `prefers-reduced-motion`: Animations disabled, static fallback glow used
+- Cursor toggle integration: Fiery cursors display only when theme-specific cursors enabled in Settings
+
+Files changed:
+- apps/web/utils/themeRegistry.ts (ember shard SVG generation in `makeCursorSvg()`, hotspot tuning for Infernal Ember in `makeCursorCssValue()`)
+- apps/web/styles/globals.css (4 flame/spark/ash keyframe animations, Infernal Ember button/dropdown/input hover/focus effects, spark emission on button hover, ash drift on dropdown, reduced-motion fallbacks)
+
+
 

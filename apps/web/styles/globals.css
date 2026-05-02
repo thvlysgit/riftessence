@@ -246,6 +246,128 @@ input, textarea, [contenteditable='true'] {
   --theme-ambient-animation: themeAmbientInfernal 18s ease-in-out infinite;
 }
 
+/* Infernal Ember theme: Intense fiery cursor effects with volcanic aesthetic */
+[data-theme='infernal-ember'] button,
+[data-theme='infernal-ember'] .discord-cta,
+[data-theme='infernal-ember'] [class*="px-4"][class*="py-2"],
+[data-theme='infernal-ember'] select {
+  background: linear-gradient(180deg, rgba(255,95,31,0.08), rgba(181,0,0,0.04));
+  border: 1px solid rgba(181, 0, 0, 0.15);
+  box-shadow: 0 8px 24px rgba(181, 0, 0, 0.35), 0 0 16px rgba(255, 95, 31, 0.15);
+  color: var(--color-text-primary);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
+  cursor: var(--cursor-pointer);
+}
+
+[data-theme='infernal-ember'] button:hover,
+[data-theme='infernal-ember'] .discord-cta:hover,
+[data-theme='infernal-ember'] [class*="px-4"][class*="py-2"]:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 12px 36px rgba(255, 95, 31, 0.4), 0 0 32px rgba(255, 165, 0, 0.25), inset 0 0 20px rgba(255, 95, 31, 0.1);
+  border-color: var(--color-accent-2);
+  background: linear-gradient(180deg, rgba(255,95,31,0.16), rgba(181,0,0,0.08));
+}
+
+/* Cursor variant assignments for Infernal Ember */
+[data-theme='infernal-ember'] .cursor-post {
+  cursor: var(--cursor-post);
+}
+
+[data-theme='infernal-ember'] .cursor-message {
+  cursor: var(--cursor-message);
+}
+
+[data-theme='infernal-ember'] .cursor-dropdown,
+[data-theme='infernal-ember'] select,
+[data-theme='infernal-ember'] option {
+  cursor: var(--cursor-dropdown);
+}
+
+/* Dropdown menus for Infernal Ember: molten lava glass panel */
+[data-theme='infernal-ember'] .absolute.mt-2.w-48,
+[data-theme='infernal-ember'] .absolute.right-0.mt-2.w-48 {
+  background: linear-gradient(180deg, rgba(29, 8, 8, 0.92), rgba(20, 5, 5, 0.96));
+  border: 1px solid rgba(255, 95, 31, 0.12);
+  box-shadow: 0 16px 40px rgba(181, 0, 0, 0.4), 0 0 28px rgba(255, 95, 31, 0.12), inset 0 0 20px rgba(255, 95, 31, 0.08);
+  backdrop-filter: blur(8px) saturate(140%);
+}
+
+[data-theme='infernal-ember'] .block.px-4.py-2 {
+  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+  color: var(--color-text-secondary);
+}
+
+[data-theme='infernal-ember'] .block.px-4.py-2:hover {
+  background: linear-gradient(90deg, rgba(255,95,31,0.1), rgba(181,0,0,0.06));
+  color: var(--color-accent-2);
+  transform: translateX(4px);
+  box-shadow: inset 0 0 12px rgba(255, 95, 31, 0.15);
+  cursor: var(--cursor-pointer);
+}
+
+/* Input/Select focus states for Infernal Ember */
+[data-theme='infernal-ember'] input:focus,
+[data-theme='infernal-ember'] textarea:focus,
+[data-theme='infernal-ember'] select:focus {
+  outline: none;
+  box-shadow: 0 6px 20px rgba(181, 0, 0, 0.3), 0 0 20px rgba(255, 95, 31, 0.25);
+  border-color: var(--color-accent-2);
+}
+
+/* Flame flicker effect on Infernal Ember cursors when enabled */
+[data-theme='infernal-ember'] {
+  --cursor-default: auto;
+  --cursor-pointer: pointer;
+  --cursor-post: pointer;
+  --cursor-message: pointer;
+  --cursor-dropdown: pointer;
+}
+
+/* Spark emission on button hover - creates radiating particle effect */
+[data-theme='infernal-ember'] button:hover::before,
+[data-theme='infernal-ember'] .discord-cta:hover::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  animation: sparkBurst 0.6s ease-out forwards;
+}
+
+/* Ash particle animation on dropdown hover */
+[data-theme='infernal-ember'] .absolute.mt-2.w-48::before,
+[data-theme='infernal-ember'] .absolute.right-0.mt-2.w-48::before {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  width: 2px;
+  height: 2px;
+  background: rgba(125, 77, 63, 0.7);
+  border-radius: 50%;
+  transform: translateX(-50%);
+  animation: ashDrift 1.2s ease-in forwards;
+}
+
+/* Fallback static cursor assignments for Infernal Ember (when animations disabled) */
+@media (prefers-reduced-motion: reduce) {
+  [data-theme='infernal-ember'] button,
+  [data-theme='infernal-ember'] .discord-cta,
+  [data-theme='infernal-ember'] [class*="px-4"][class*="py-2"] {
+    animation: none !important;
+    box-shadow: 0 6px 18px rgba(181, 0, 0, 0.25) !important;
+  }
+  
+  [data-theme='infernal-ember'] button:hover,
+  [data-theme='infernal-ember'] .discord-cta:hover,
+  [data-theme='infernal-ember'] [class*="px-4"][class*="py-2"]:hover {
+    animation: none !important;
+    box-shadow: 0 8px 28px rgba(255, 95, 31, 0.3) !important;
+  }
+}
+
 [data-theme='radiant-light'] {
   --font-heading: 'Rajdhani', 'Segoe UI', sans-serif;
   --font-heading-weight: 700;
@@ -581,6 +703,74 @@ h6,
   }
   75% {
     transform: rotateZ(5deg) scaleX(0.98);
+  }
+}
+
+/* Flame flicker animation for Infernal Ember - glowing intensity pulse */
+@keyframes flameFlicker {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px rgba(255, 95, 31, 0.6)) drop-shadow(0 0 12px rgba(181, 0, 0, 0.4));
+    opacity: 1;
+  }
+  25% {
+    filter: drop-shadow(0 0 6px rgba(255, 165, 0, 0.7)) drop-shadow(0 0 16px rgba(255, 95, 31, 0.5));
+    opacity: 0.95;
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(255, 95, 31, 0.8)) drop-shadow(0 0 20px rgba(255, 165, 0, 0.6));
+    opacity: 1;
+  }
+  75% {
+    filter: drop-shadow(0 0 5px rgba(181, 0, 0, 0.5)) drop-shadow(0 0 14px rgba(255, 95, 31, 0.4));
+    opacity: 0.93;
+  }
+}
+
+/* Spark burst animation - rapid radiating expansion from center */
+@keyframes sparkBurst {
+  0% {
+    opacity: 1;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+
+/* Spark emission - particle rays exploding outward */
+@keyframes sparkEmit {
+  0% {
+    opacity: 0.8;
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translate(var(--spark-x), var(--spark-y)) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--spark-x) * 2), calc(var(--spark-y) * 2)) scale(0.3);
+  }
+}
+
+/* Ash particle drift animation - slow falling and fading effect */
+@keyframes ashDrift {
+  0% {
+    opacity: 0.6;
+    transform: translateY(0) translateX(0) scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: translateY(8px) translateX(2px) scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(16px) translateX(3px) scale(0.5);
   }
 }
 
