@@ -121,6 +121,55 @@ input, textarea, [contenteditable='true'] {
   --theme-ambient-animation: themeAmbientClassic 24s ease-in-out infinite;
 }
 
+/* Classic theme — enhanced interactive styles and subtle neon accents */
+[data-theme='classic'] button,
+[data-theme='classic'] .discord-cta,
+[data-theme='classic'] [class*="px-4"][class*="py-2"] {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid rgba(200,170,110,0.08);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.6), 0 0 18px rgba(200,170,110,0.03);
+  color: var(--color-text-primary);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
+  cursor: var(--cursor-pointer);
+}
+
+[data-theme='classic'] button:hover,
+[data-theme='classic'] .discord-cta:hover,
+[data-theme='classic'] [class*="px-4"][class*="py-2"]:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.6), 0 0 28px var(--theme-outline-glow);
+  border-color: var(--color-accent-1);
+  background: linear-gradient(180deg, rgba(200,170,110,0.06), rgba(200,170,110,0.03));
+}
+
+/* Dropdown menus: glass panel with accent-highlighted items */
+[data-theme='classic'] .absolute.mt-2.w-48,
+[data-theme='classic'] .absolute.right-0.mt-2.w-48 {
+  background: linear-gradient(180deg, rgba(18,18,20,0.86), rgba(12,12,14,0.92));
+  border: 1px solid rgba(200,170,110,0.06);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.6), 0 0 24px rgba(200,170,110,0.02);
+  backdrop-filter: blur(6px) saturate(120%);
+}
+
+[data-theme='classic'] .block.px-4.py-2 {
+  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+  color: var(--color-text-secondary);
+}
+
+[data-theme='classic'] .block.px-4.py-2:hover {
+  background: linear-gradient(90deg, rgba(200,170,110,0.06), rgba(200,170,110,0.03));
+  color: var(--color-accent-1);
+  transform: translateX(4px);
+  cursor: var(--cursor-pointer);
+}
+
+/* Small interactive accent for inputs and select elements */
+[data-theme='classic'] input:focus, [data-theme='classic'] textarea:focus, [data-theme='classic'] select:focus {
+  outline: none;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.6), 0 0 18px var(--theme-outline-glow);
+  border-color: var(--color-accent-1);
+}
+
 [data-theme='arcane-pastel'] {
   --font-heading: 'Unbounded', 'Segoe UI', sans-serif;
   --font-heading-weight: 700;

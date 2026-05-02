@@ -43,6 +43,8 @@ Files changed:
 - apps/web/utils/themeRegistry.ts (cursor data-URI generation)
 - apps/web/styles/globals.css (cursor variable usage)
 - apps/web/pages/settings.tsx (hover preview handlers)
+ - apps/web/utils/themeRegistry.ts (classic cursor refined)
+ - apps/web/styles/globals.css (classic-theme button/dropdown effects)
 
 ## ⚙️ New: Developer Public API (May 2026)
 - Added developer/public API endpoints to expose live Duo and LFT posts with filters (region, language, rank, verifiedOnly).

@@ -418,9 +418,36 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: 'default' | '
     case 'classic':
     default:
       if (kind === 'pointer') {
-        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path fill='${fill}' d='M6 2 L22 14 L16 16 L20 26 L12 28 L8 18 L6 2 Z'/></svg>`;
+        // Stylized dagger-like pointer with a faint glow ring behind it
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 36 36'>
+          <defs>
+            <filter id='g' x='-50%' y='-50%' width='200%' height='200%'>
+              <feGaussianBlur stdDeviation='2' result='b' />
+              <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+            </filter>
+          </defs>
+          <g fill='none' fill-rule='evenodd'>
+            <circle cx='10' cy='8' r='6' fill='${fill}' fill-opacity='0.12' filter='url(#g)' />
+            <path d='M6 4 L26 18 L20 20 L24 32 L14 34 L10 22 L6 4 Z' fill='${fill}' />
+            <path d='M8 6 L22 18 L18 19 L21 28 L13 29 L10 20 L8 6 Z' fill='#fff' fill-opacity='0.08'/>
+            <path d='M6 4 L26 18' stroke='${fill}' stroke-width='1' stroke-opacity='0.18' />
+          </g>
+        </svg>`;
       }
-      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path fill='${fill}' d='M2 2 L18 12 L10 12 L22 22 L14 22 L2 2 Z'/></svg>`;
+      // Default arrow: compact, slightly beveled with accent and subtle inner highlight
+      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'>
+        <defs>
+          <filter id='g2' x='-50%' y='-50%' width='200%' height='200%'>
+            <feGaussianBlur stdDeviation='1.2' result='b' />
+            <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+          </filter>
+        </defs>
+        <g fill='none' fill-rule='evenodd'>
+          <circle cx='6' cy='6' r='4' fill='${fill}' fill-opacity='0.12' filter='url(#g2)' />
+          <path d='M2 2 L20 12 L12 12 L24 22 L16 22 L2 2 Z' fill='${fill}' />
+          <path d='M4 4 L18 12 L12 12 L20 20' stroke='#fff' stroke-opacity='0.06' stroke-width='1' />
+        </g>
+      </svg>`;
   }
 }
 
