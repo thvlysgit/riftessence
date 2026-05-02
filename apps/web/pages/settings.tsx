@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme, ThemeContext } from '../contexts/ThemeContext';
-import { THEME_CSS_VARIABLES } from '../utils/themeRegistry';
+import { applyThemeCursorSettings } from '../utils/themeRegistry';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LoadingSpinner } from '@components/LoadingSpinner';
 import { getAuthHeader } from '../utils/auth';
@@ -16,7 +16,7 @@ const DISCORD_DM_HELP_URL = 'https://support.discord.com/hc/en-us/articles/21791
 export default function SettingsPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { currentTheme, setTheme, availableThemes } = useTheme();
+  const { currentTheme, setTheme, availableThemes, themeCursorsEnabled, setThemeCursorsEnabled } = useTheme();
   const { currentLanguage, setLanguage, availableLanguages, t } = useLanguage();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -207,10 +207,48 @@ export default function SettingsPage() {
           borderColor: 'var(--color-border)',
           borderRadius: 'var(--border-radius)'
         }}>
-          <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>{t('settings.theme.title')}</h2>
+          <div className="flex items-center gap-3 mb-4 flex-wrap">
+            <h2 className="text-xl font-bold" style={{ color: 'var(--color-accent-1)' }}>{t('settings.theme.title')}</h2>
+            <span className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide rounded" style={{ backgroundColor: 'rgba(255, 179, 214, 0.16)', color: '#FFB3D6', border: '1px solid rgba(255, 179, 214, 0.5)' }}>
+              WIP
+            </span>
+          </div>
           <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
             {t('settings.theme.description')}
           </p>
+
+          <div className="mb-5 rounded-xl p-4 border" style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>Theme-Specific Cursors</p>
+                <p className="text-sm mt-1 max-w-2xl" style={{ color: 'var(--color-text-muted)' }}>
+                  Work in progress: when enabled, each theme can replace the normal cursor with its own styled variant.
+                  It is off by default.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setThemeCursorsEnabled(!themeCursorsEnabled)}
+                className="inline-flex items-center gap-3 px-3 py-2 rounded-lg border transition-colors"
+                style={{
+                  backgroundColor: themeCursorsEnabled ? 'rgba(198, 167, 255, 0.16)' : 'rgba(255,255,255,0.03)',
+                  color: themeCursorsEnabled ? 'var(--color-accent-1)' : 'var(--color-text-secondary)',
+                  borderColor: themeCursorsEnabled ? 'var(--color-accent-1)' : 'var(--color-border)',
+                }}
+              >
+                <span className="relative inline-flex h-5 w-9 items-center rounded-full" style={{ backgroundColor: themeCursorsEnabled ? 'var(--color-accent-1)' : 'var(--color-bg-secondary)' }}>
+                  <span
+                    className="inline-block h-4 w-4 rounded-full transition-transform"
+                    style={{
+                      backgroundColor: '#fff',
+                      transform: themeCursorsEnabled ? 'translateX(18px)' : 'translateX(2px)',
+                    }}
+                  />
+                </span>
+                <span className="text-sm font-semibold">{themeCursorsEnabled ? 'Enabled' : 'Disabled'}</span>
+              </button>
+            </div>
+          </div>
           
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {availableThemes.map((theme) => (
@@ -218,18 +256,11 @@ export default function SettingsPage() {
                 key={theme.name}
                 onClick={() => setTheme(theme.name)}
                 onMouseEnter={() => {
-                  const vars = THEME_CSS_VARIABLES[theme.name];
-                  if (vars) {
-                    if (vars['--cursor-default']) document.documentElement.style.setProperty('--cursor-default', vars['--cursor-default']);
-                    if (vars['--cursor-pointer']) document.documentElement.style.setProperty('--cursor-pointer', vars['--cursor-pointer']);
-                  }
+                  if (!themeCursorsEnabled) return;
+                  applyThemeCursorSettings(document.documentElement, theme.name, true);
                 }}
                 onMouseLeave={() => {
-                  const vars = THEME_CSS_VARIABLES[currentTheme];
-                  if (vars) {
-                    if (vars['--cursor-default']) document.documentElement.style.setProperty('--cursor-default', vars['--cursor-default']);
-                    if (vars['--cursor-pointer']) document.documentElement.style.setProperty('--cursor-pointer', vars['--cursor-pointer']);
-                  }
+                  applyThemeCursorSettings(document.documentElement, currentTheme, themeCursorsEnabled);
                 }}
                 className="relative p-4 border-2 rounded-lg transition-all hover:scale-105"
                 style={{
@@ -260,7 +291,9 @@ export default function SettingsPage() {
                         currentTheme: theme.name,
                         theme: theme,
                         setTheme: () => {},
-                        availableThemes: availableThemes
+                        availableThemes: availableThemes,
+                        themeCursorsEnabled: false,
+                        setThemeCursorsEnabled: () => {},
                       }}>
                         <LoadingSpinner compact={true} />
                       </ThemeContext.Provider>

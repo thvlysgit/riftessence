@@ -619,3 +619,24 @@ export function applyThemeToRoot(root: HTMLElement, themeName: ThemeName): Theme
   root.setAttribute('data-theme', themeName);
   return THEME_REGISTRY[themeName];
 }
+
+const DISABLED_CURSOR_VARIABLES: Record<string, string> = {
+  '--cursor-default': 'auto',
+  '--cursor-pointer': 'pointer',
+  '--cursor-post': 'pointer',
+  '--cursor-message': 'pointer',
+  '--cursor-dropdown': 'pointer',
+};
+
+export function applyThemeCursorSettings(root: HTMLElement, themeName: ThemeName, enabled: boolean): void {
+  const variables = enabled ? THEME_CSS_VARIABLES[themeName] : DISABLED_CURSOR_VARIABLES;
+  Object.entries({
+    '--cursor-default': variables['--cursor-default'],
+    '--cursor-pointer': variables['--cursor-pointer'],
+    '--cursor-post': variables['--cursor-post'],
+    '--cursor-message': variables['--cursor-message'],
+    '--cursor-dropdown': variables['--cursor-dropdown'],
+  }).forEach(([name, value]) => {
+    root.style.setProperty(name, value);
+  });
+}

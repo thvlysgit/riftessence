@@ -48,6 +48,8 @@ Files changed:
  - apps/web/pages/coaching/index.tsx (post/contact cursor classes)
  - apps/web/pages/create.tsx (post/dropdown cursor classes)
  - apps/web/utils/themeRegistry.ts (Arcane Pastel sparkly cursor variants)
+ - apps/web/contexts/ThemeContext.tsx (global theme-cursor toggle)
+ - apps/web/pages/settings.tsx (WIP theme-cursor setting)
 
 ## ⚙️ New: Developer Public API (May 2026)
 - Added developer/public API endpoints to expose live Duo and LFT posts with filters (region, language, rank, verifiedOnly).

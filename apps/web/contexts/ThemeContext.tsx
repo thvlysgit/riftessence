@@ -6,6 +6,7 @@ import {
   ThemeDefinition,
   ThemeName,
   applyThemeToRoot,
+  applyThemeCursorSettings,
   resolveThemeName,
 } from '../utils/themeRegistry';
 
@@ -17,6 +18,8 @@ interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: ThemeName) => void;
   availableThemes: Theme[];
+  themeCursorsEnabled: boolean;
+  setThemeCursorsEnabled: (enabled: boolean) => void;
 }
 
 export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -31,20 +34,33 @@ const getInitialTheme = (): ThemeName => {
   }
 };
 
+const getInitialThemeCursorPreference = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem('lfd_theme_cursors_enabled') === '1';
+  } catch (error) {
+    console.error('[Theme] Failed to load theme cursor preference from localStorage:', error);
+    return false;
+  }
+};
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [currentTheme, setCurrentTheme] = useState<ThemeName>(DEFAULT_THEME_NAME);
+  const [themeCursorsEnabled, setThemeCursorsEnabledState] = useState(false);
 
   useEffect(() => {
     const savedTheme = getInitialTheme();
     if (savedTheme !== DEFAULT_THEME_NAME) {
       setCurrentTheme(savedTheme);
     }
+    setThemeCursorsEnabledState(getInitialThemeCursorPreference());
   }, []);
 
   useEffect(() => {
     const root = document.documentElement;
     applyThemeToRoot(root, currentTheme);
-  }, [currentTheme]);
+    applyThemeCursorSettings(root, currentTheme, themeCursorsEnabled);
+  }, [currentTheme, themeCursorsEnabled]);
 
   const setTheme = (themeName: ThemeName) => {
     const safeTheme = resolveThemeName(themeName);
@@ -58,6 +74,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setThemeCursorsEnabled = (enabled: boolean) => {
+    setThemeCursorsEnabledState(enabled);
+    try {
+      localStorage.setItem('lfd_theme_cursors_enabled', enabled ? '1' : '0');
+    } catch (error) {
+      console.error('[Theme] Failed to save theme cursor preference to localStorage:', error);
+    }
+  };
+
   return (
     <ThemeContext.Provider
       value={{
@@ -65,6 +90,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         theme: THEME_REGISTRY[currentTheme],
         setTheme,
         availableThemes: THEME_LIST,
+        themeCursorsEnabled,
+        setThemeCursorsEnabled,
       }}
     >
       {children}
