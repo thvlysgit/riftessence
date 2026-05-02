@@ -207,7 +207,7 @@ export default function CreatePostPage() {
               <p className="text-sm text-red-400">No linked Riot accounts. Please link an account to post.</p>
             ) : (
               <select 
-                className="w-full p-2"
+                className="w-full p-2 cursor-dropdown"
                 style={{
                   backgroundColor: 'var(--color-bg-tertiary)',
                   color: 'var(--color-text-primary)',
@@ -241,7 +241,7 @@ export default function CreatePostPage() {
               )}
             </label>
             <select 
-              className="w-full p-2"
+              className="w-full p-2 cursor-dropdown"
               style={{
                 backgroundColor: 'var(--color-bg-tertiary)',
                 color: 'var(--color-text-primary)',
@@ -272,7 +272,7 @@ export default function CreatePostPage() {
               )}
             </label>
             <select 
-              className="w-full p-2"
+              className="w-full p-2 cursor-dropdown"
               style={{
                 backgroundColor: 'var(--color-bg-tertiary)',
                 color: 'var(--color-text-primary)',
@@ -324,7 +324,7 @@ export default function CreatePostPage() {
           <div>
             <label className="block text-sm mb-1" style={{ color: 'var(--color-text-muted)' }}>Voice Chat Preference</label>
             <select 
-              className="w-full p-2"
+              className="w-full p-2 cursor-dropdown"
               style={{
                 backgroundColor: 'var(--color-bg-tertiary)',
                 color: 'var(--color-text-primary)',
@@ -357,7 +357,7 @@ export default function CreatePostPage() {
 
           <button
             onClick={handleSubmit}
-            className="w-full sm:w-auto px-4 py-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto px-4 py-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-post"
             style={{
               background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
               color: 'var(--color-bg-primary)',

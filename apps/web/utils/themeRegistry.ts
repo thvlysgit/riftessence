@@ -32,6 +32,8 @@ export interface ThemeStyle {
   borderWidth: string;
 }
 
+type CursorKind = 'default' | 'pointer' | 'post' | 'message' | 'dropdown';
+
 export interface ThemeDefinition {
   name: ThemeName;
   displayName: string;
@@ -361,9 +363,12 @@ export function getThemeCssVariables(theme: ThemeDefinition): Record<string, str
     // Cursor values (data URI SVGs). Values include full CSS cursor declaration.
     '--cursor-default': makeCursorCssValue(theme.name, theme.colors.accent1, 'default'),
     '--cursor-pointer': makeCursorCssValue(theme.name, theme.colors.accent1, 'pointer'),
+    '--cursor-post': makeCursorCssValue(theme.name, theme.colors.accent1, 'post'),
+    '--cursor-message': makeCursorCssValue(theme.name, theme.colors.accent1, 'message'),
+    '--cursor-dropdown': makeCursorCssValue(theme.name, theme.colors.accent1, 'dropdown'),
   };
 }
-function makeCursorSvg(themeName: ThemeName, accent: string, kind: 'default' | 'pointer'): string {
+function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): string {
   const fill = accent || '#000000';
   // Keep SVGs small (24-32px) and distinct per theme. These are modest, stylized shapes.
   switch (themeName) {
@@ -417,9 +422,43 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: 'default' | '
 
     case 'classic':
     default:
+      if (kind === 'message') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'>
+          <defs>
+            <filter id='msg' x='-50%' y='-50%' width='200%' height='200%'>
+              <feGaussianBlur stdDeviation='1.4' result='b' />
+              <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+            </filter>
+          </defs>
+          <g fill='none' fill-rule='evenodd'>
+            <rect x='5' y='7' width='18' height='12' rx='4' fill='${fill}' fill-opacity='0.12' filter='url(#msg)' />
+            <path d='M8 9h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-8l-4 4v-4H8a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z' fill='${fill}' />
+            <path d='M9 10h12' stroke='#fff' stroke-opacity='0.12' stroke-width='1' />
+            <path d='M9 13h8' stroke='#fff' stroke-opacity='0.12' stroke-width='1' />
+          </g>
+        </svg>`;
+      }
+
+      if (kind === 'post') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'>
+          <defs>
+            <filter id='post' x='-50%' y='-50%' width='200%' height='200%'>
+              <feGaussianBlur stdDeviation='1.3' result='b' />
+              <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+            </filter>
+          </defs>
+          <g fill='none' fill-rule='evenodd'>
+            <rect x='7' y='7' width='16' height='16' rx='3' fill='${fill}' fill-opacity='0.12' filter='url(#post)' />
+            <path d='M10 10h10v10H10z' fill='${fill}'/>
+            <path d='M12 12h6v6h-6z' fill='#0B0D12' fill-opacity='0.38'/>
+            <path d='M9 9l12 12' stroke='#fff' stroke-opacity='0.08' stroke-width='1' />
+          </g>
+        </svg>`;
+      }
+
       if (kind === 'pointer') {
-        // Stylized dagger-like pointer with a faint glow ring behind it
-        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 36 36'>
+        // Stylized ring-pointer with an inset square core; avoids the arrow look.
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'>
           <defs>
             <filter id='g' x='-50%' y='-50%' width='200%' height='200%'>
               <feGaussianBlur stdDeviation='2' result='b' />
@@ -427,14 +466,30 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: 'default' | '
             </filter>
           </defs>
           <g fill='none' fill-rule='evenodd'>
-            <circle cx='10' cy='8' r='6' fill='${fill}' fill-opacity='0.12' filter='url(#g)' />
-            <path d='M6 4 L26 18 L20 20 L24 32 L14 34 L10 22 L6 4 Z' fill='${fill}' />
-            <path d='M8 6 L22 18 L18 19 L21 28 L13 29 L10 20 L8 6 Z' fill='#fff' fill-opacity='0.08'/>
-            <path d='M6 4 L26 18' stroke='${fill}' stroke-width='1' stroke-opacity='0.18' />
+            <rect x='6' y='6' width='16' height='16' rx='4' fill='${fill}' fill-opacity='0.12' filter='url(#g)' />
+            <rect x='8' y='8' width='12' height='12' rx='3' fill='${fill}' />
+            <rect x='10' y='10' width='8' height='8' rx='2' fill='#0B0D12' fill-opacity='0.34' />
+            <path d='M9 15h12' stroke='#fff' stroke-opacity='0.08' stroke-width='1' />
           </g>
         </svg>`;
       }
-      // Default arrow: compact, slightly beveled with accent and subtle inner highlight
+      if (kind === 'dropdown') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'>
+        <defs>
+          <filter id='dd' x='-50%' y='-50%' width='200%' height='200%'>
+            <feGaussianBlur stdDeviation='1' result='b' />
+            <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+          </filter>
+        </defs>
+        <g fill='none' fill-rule='evenodd'>
+          <rect x='6' y='6' width='16' height='16' rx='3' fill='${fill}' fill-opacity='0.12' filter='url(#dd)' />
+          <rect x='7.5' y='7.5' width='13' height='13' rx='2.5' fill='none' stroke='${fill}' stroke-width='1.5' />
+          <rect x='10' y='10' width='8' height='8' rx='1.5' fill='none' stroke='#fff' stroke-opacity='0.1' stroke-width='1' />
+        </g>
+      </svg>`;
+      }
+
+      // Default cursor: hollow square, compact and readable.
       return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'>
         <defs>
           <filter id='g2' x='-50%' y='-50%' width='200%' height='200%'>
@@ -443,9 +498,9 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: 'default' | '
           </filter>
         </defs>
         <g fill='none' fill-rule='evenodd'>
-          <circle cx='6' cy='6' r='4' fill='${fill}' fill-opacity='0.12' filter='url(#g2)' />
-          <path d='M2 2 L20 12 L12 12 L24 22 L16 22 L2 2 Z' fill='${fill}' />
-          <path d='M4 4 L18 12 L12 12 L20 20' stroke='#fff' stroke-opacity='0.06' stroke-width='1' />
+          <rect x='5' y='5' width='18' height='18' rx='4' fill='${fill}' fill-opacity='0.12' filter='url(#g2)' />
+          <rect x='7' y='7' width='14' height='14' rx='3' fill='none' stroke='${fill}' stroke-width='1.8' />
+          <rect x='9' y='9' width='10' height='10' rx='2' fill='none' stroke='#fff' stroke-opacity='0.08' stroke-width='1' />
         </g>
       </svg>`;
   }
@@ -455,11 +510,10 @@ function makeCursorDataUri(svg: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-function makeCursorCssValue(themeName: ThemeName, accent: string, kind: 'default' | 'pointer') {
+function makeCursorCssValue(themeName: ThemeName, accent: string, kind: CursorKind) {
   const svg = makeCursorSvg(themeName, accent, kind);
   const uri = makeCursorDataUri(svg);
-  // default hotspot for arrows; pointer cursors use a slight offset so tip aligns better
-  const hotspot = kind === 'pointer' ? '6 2' : '0 0';
+  const hotspot = kind === 'default' ? '2 2' : kind === 'pointer' ? '8 8' : kind === 'post' ? '12 12' : kind === 'message' ? '10 12' : '8 8';
   return `url("${uri}") ${hotspot}, auto`;
 }
 

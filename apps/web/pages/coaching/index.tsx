@@ -412,7 +412,7 @@ export default function CoachingPage() {
             <div className="flex gap-2">
               <button
                 onClick={handleOfferCoachingClick}
-                className="px-4 py-2 font-semibold rounded"
+                className="px-4 py-2 font-semibold rounded cursor-post"
                 style={{
                   background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
                   color: 'var(--color-bg-primary)',
@@ -423,7 +423,7 @@ export default function CoachingPage() {
               </button>
               <button
                 onClick={handleRequestCoachingClick}
-                className="px-4 py-2 font-semibold rounded"
+                className="px-4 py-2 font-semibold rounded cursor-post"
                 style={{
                   background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
                   color: 'var(--color-bg-primary)',
@@ -443,7 +443,7 @@ export default function CoachingPage() {
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
-                    className="px-4 py-2 rounded font-medium transition-all"
+                    className="px-4 py-2 rounded font-medium transition-all cursor-post"
                     style={{
                       backgroundColor: filter === f ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
                       color: filter === f ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
@@ -462,7 +462,7 @@ export default function CoachingPage() {
               <select
                 value={regionFilter}
                 onChange={(e) => setRegionFilter(e.target.value)}
-                className="px-3 py-2 rounded border text-sm"
+                className="px-3 py-2 rounded border text-sm cursor-dropdown"
                 style={{
                   background: 'var(--color-bg-tertiary)',
                   borderColor: 'var(--color-border)',
@@ -552,7 +552,7 @@ export default function CoachingPage() {
                           {p.authorId !== currentUserId && (
                             <button
                               onClick={() => openConversation(p.authorId)}
-                              className="px-3 py-1 rounded text-sm font-medium transition-colors border flex items-center gap-1"
+                              className="px-3 py-1 rounded text-sm font-medium transition-colors border flex items-center gap-1 cursor-message"
                               style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

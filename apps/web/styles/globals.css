@@ -133,6 +133,20 @@ input, textarea, [contenteditable='true'] {
   cursor: var(--cursor-pointer);
 }
 
+[data-theme='classic'] .cursor-post {
+  cursor: var(--cursor-post);
+}
+
+[data-theme='classic'] .cursor-message {
+  cursor: var(--cursor-message);
+}
+
+[data-theme='classic'] .cursor-dropdown,
+[data-theme='classic'] select,
+[data-theme='classic'] option {
+  cursor: var(--cursor-dropdown);
+}
+
 [data-theme='classic'] button:hover,
 [data-theme='classic'] .discord-cta:hover,
 [data-theme='classic'] [class*="px-4"][class*="py-2"]:hover {

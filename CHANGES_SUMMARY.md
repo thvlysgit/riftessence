@@ -45,6 +45,8 @@ Files changed:
 - apps/web/pages/settings.tsx (hover preview handlers)
  - apps/web/utils/themeRegistry.ts (classic cursor refined)
  - apps/web/styles/globals.css (classic-theme button/dropdown effects)
+ - apps/web/pages/coaching/index.tsx (post/contact cursor classes)
+ - apps/web/pages/create.tsx (post/dropdown cursor classes)
 
 ## ⚙️ New: Developer Public API (May 2026)
 - Added developer/public API endpoints to expose live Duo and LFT posts with filters (region, language, rank, verifiedOnly).
