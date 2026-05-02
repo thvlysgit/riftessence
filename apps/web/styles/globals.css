@@ -553,6 +553,121 @@ h6,
   }
 }
 
+/* Butterfly wing-flapping animations for Arcane Pastel theme */
+@keyframes butterflyFlap {
+  0%, 100% {
+    transform: rotateY(0deg) scaleY(1);
+  }
+  25% {
+    transform: rotateY(-8deg) scaleY(0.95);
+  }
+  50% {
+    transform: rotateY(0deg) scaleY(1);
+  }
+  75% {
+    transform: rotateY(8deg) scaleY(0.95);
+  }
+}
+
+@keyframes butterflyFlapFast {
+  0%, 100% {
+    transform: rotateZ(0deg) scaleX(1);
+  }
+  25% {
+    transform: rotateZ(-5deg) scaleX(0.98);
+  }
+  50% {
+    transform: rotateZ(0deg) scaleX(1);
+  }
+  75% {
+    transform: rotateZ(5deg) scaleX(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-theme-shell::before,
+  .app-theme-shell::after,
+  .theme-section-shell::before {
+    animation: none !important;
+    transition: none !important;
+  }
+  /* Reduce motion for butterfly animations */
+  [data-theme='arcane-pastel'] .cursor-post,
+  [data-theme='arcane-pastel'] .cursor-message,
+  [data-theme='arcane-pastel'] .cursor-dropdown {
+    animation: none !important;
+  }
+}
+
+/* Arcane Pastel theme: Butterfly cursor hover animations */
+[data-theme='arcane-pastel'] {
+  --cursor-default: auto;
+  --cursor-pointer: pointer;
+  --cursor-post: pointer;
+  --cursor-message: pointer;
+  --cursor-dropdown: pointer;
+}
+
+/* Smooth hover effects with butterfly wing flapping for Arcane Pastel button-like elements */
+[data-theme='arcane-pastel'] button,
+[data-theme='arcane-pastel'] .discord-cta,
+[data-theme='arcane-pastel'] [class*="px-4"][class*="py-2"],
+[data-theme='arcane-pastel'] select {
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease, background 200ms ease;
+}
+
+[data-theme='arcane-pastel'] button:hover,
+[data-theme='arcane-pastel'] .discord-cta:hover,
+[data-theme='arcane-pastel'] [class*="px-4"][class*="py-2"]:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 8px 24px rgba(198, 167, 255, 0.2), 0 0 20px rgba(255, 179, 214, 0.1);
+}
+
+/* Cursor variant assignments for Arcane Pastel */
+[data-theme='arcane-pastel'] .cursor-post {
+  cursor: var(--cursor-post);
+}
+
+[data-theme='arcane-pastel'] .cursor-message {
+  cursor: var(--cursor-message);
+}
+
+[data-theme='arcane-pastel'] .cursor-dropdown,
+[data-theme='arcane-pastel'] select,
+[data-theme='arcane-pastel'] option {
+  cursor: var(--cursor-dropdown);
+}
+
+/* Dropdown menus for Arcane Pastel: soft glass panel */
+[data-theme='arcane-pastel'] .absolute.mt-2.w-48,
+[data-theme='arcane-pastel'] .absolute.right-0.mt-2.w-48 {
+  background: linear-gradient(180deg, rgba(245, 240, 255, 0.88), rgba(250, 245, 255, 0.92));
+  border: 2px solid rgba(198, 167, 255, 0.15);
+  box-shadow: 0 12px 32px rgba(198, 167, 255, 0.15), 0 0 20px rgba(255, 179, 214, 0.08);
+  backdrop-filter: blur(8px) saturate(130%);
+}
+
+[data-theme='arcane-pastel'] .block.px-4.py-2 {
+  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+  color: var(--color-text-secondary);
+}
+
+[data-theme='arcane-pastel'] .block.px-4.py-2:hover {
+  background: linear-gradient(90deg, rgba(198, 167, 255, 0.1), rgba(255, 179, 214, 0.05));
+  color: var(--color-accent-1);
+  transform: translateX(4px);
+  cursor: var(--cursor-pointer);
+}
+
+/* Input/Select focus states for Arcane Pastel */
+[data-theme='arcane-pastel'] input:focus,
+[data-theme='arcane-pastel'] textarea:focus,
+[data-theme='arcane-pastel'] select:focus {
+  outline: none;
+  box-shadow: 0 6px 18px rgba(198, 167, 255, 0.15), 0 0 16px rgba(198, 167, 255, 0.2);
+  border-color: var(--color-accent-1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-theme-shell::before,
   .app-theme-shell::after,

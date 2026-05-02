@@ -66,3 +66,27 @@ Files added/changed:
 - prisma/schema.prisma (models: DeveloperApiApplication/Request/Key/Usage)
 - Documentation/backend/developer-api.md (new)
 
+## ⚙️ New: Arcane Pastel Butterfly Cursors with Wing-Flapping Animation (May 2026)
+- Implemented whimsical butterfly cursors for Arcane Pastel theme with wing-flapping animations.
+- Butterflies use distinct colors per interaction type:
+  - **Default/Pointer**: Purple (#C6A7FF) with subtle antenna details
+  - **Post**: Pink (#FFB3D6) - soft and inviting for post creation
+  - **Message**: Mint (#8EFFC1) - calm and refreshing for messaging
+  - **Dropdown**: Purple (#C6A7FF) - cohesive with default cursor
+- Each butterfly SVG includes:
+  - Dual-wing structures with upper/lower wing segments for depth
+  - Glow filters (feGaussianBlur) for a soft, magical effect
+  - Central body and head elements
+  - Antenna details on pointer variant for personality
+  - Varying opacity layers for visual hierarchy
+- CSS keyframes added for smooth wing-flapping motion (`@keyframes butterflyFlap`, `@keyframes butterflyFlapFast`)
+- Hover effects integrated with Arcane Pastel button styles (subtle lift, soft glow box-shadow)
+- Hotspot positioning tuned per butterfly variant (center of body at 14-16px depending on canvas size)
+- Cursor toggle integration: butterflies display only when theme-specific cursors enabled in Settings
+- Respects `prefers-reduced-motion` for accessibility (disables animations on user preference)
+
+Files changed:
+- apps/web/utils/themeRegistry.ts (butterfly SVG generation in `makeCursorSvg()`, hotspot tuning in `makeCursorCssValue()`)
+- apps/web/styles/globals.css (butterfly keyframe animations, Arcane Pastel button/dropdown hover effects, cursor class rules)
+
+

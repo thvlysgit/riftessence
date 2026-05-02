@@ -374,93 +374,134 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
   switch (themeName) {
     case 'arcane-pastel':
       if (kind === 'post') {
-        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'>
+        // Post butterfly: pink/magenta color (accent2)
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>
           <defs>
-            <filter id='ap-post' x='-50%' y='-50%' width='200%' height='200%'>
-              <feGaussianBlur stdDeviation='1.6' result='b' />
-              <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+            <filter id='butterfly-post-glow' x='-50%' y='-50%' width='200%' height='200%'>
+              <feGaussianBlur stdDeviation='1.2' result='blur' />
+              <feMerge><feMergeNode in='blur'/><feMergeNode in='SourceGraphic'/></feMerge>
             </filter>
           </defs>
-          <g fill='none' fill-rule='evenodd'>
-            <circle cx='8' cy='8' r='4' fill='${fill}' fill-opacity='0.18' filter='url(#ap-post)' />
-            <circle cx='21' cy='9' r='2.2' fill='#8EFFC1' fill-opacity='0.9' />
-            <path d='M8 8h14v14H8z' fill='${fill}' fill-opacity='0.2' />
-            <path d='M10 10h10v10H10z' fill='${fill}' />
-            <path d='M12 12h6v6h-6z' fill='#FFFFFF' fill-opacity='0.18' />
-            <path d='M7 7l16 16' stroke='#FFFFFF' stroke-opacity='0.16' stroke-width='1' />
+          <g transform='translate(16, 16)'>
+            <!-- Left upper wing -->
+            <path d='M -2 -4 Q -8 -10 -10 -6 Q -9 -1 -4 0 Z' fill='#FFB3D6' opacity='0.95' filter='url(#butterfly-post-glow)' />
+            <!-- Right upper wing -->
+            <path d='M 2 -4 Q 8 -10 10 -6 Q 9 -1 4 0 Z' fill='#FFB3D6' opacity='0.95' filter='url(#butterfly-post-glow)' />
+            <!-- Left lower wing -->
+            <path d='M -2 4 Q -7 8 -9 6 Q -8 2 -4 1 Z' fill='#FF8BB4' opacity='0.85' filter='url(#butterfly-post-glow)' />
+            <!-- Right lower wing -->
+            <path d='M 2 4 Q 7 8 9 6 Q 8 2 4 1 Z' fill='#FF8BB4' opacity='0.85' filter='url(#butterfly-post-glow)' />
+            <!-- Body -->
+            <ellipse cx='0' cy='0' rx='1.5' ry='3' fill='#D48FBB' opacity='0.9' />
+            <!-- Head -->
+            <circle cx='0' cy='-3' r='1' fill='#C6A7FF' opacity='0.8' />
           </g>
         </svg>`;
       }
 
       if (kind === 'message') {
+        // Message butterfly: mint/teal color (accent3)
         return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>
           <defs>
-            <filter id='ap-msg' x='-60%' y='-60%' width='220%' height='220%'>
-              <feGaussianBlur stdDeviation='1.7' result='b' />
-              <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+            <filter id='butterfly-msg-glow' x='-50%' y='-50%' width='200%' height='200%'>
+              <feGaussianBlur stdDeviation='1.2' result='blur' />
+              <feMerge><feMergeNode in='blur'/><feMergeNode in='SourceGraphic'/></feMerge>
             </filter>
           </defs>
-          <g fill='none' fill-rule='evenodd'>
-            <path d='M7 9h15a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-7l-4 4v-4H7a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3z' fill='${fill}' fill-opacity='0.18' filter='url(#ap-msg)' />
-            <path d='M8 10h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-7l-3 3v-3H8a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2z' fill='${fill}' />
-            <circle cx='11' cy='14' r='1' fill='#FFFFFF' fill-opacity='0.75' />
-            <circle cx='15' cy='14' r='1' fill='#FFFFFF' fill-opacity='0.75' />
-            <circle cx='19' cy='14' r='1' fill='#8EFFC1' fill-opacity='0.9' />
-            <path d='M23 7l1 2 2 1-2 1-1 2-1-2-2-1 2-1z' fill='#FFB3D6' fill-opacity='0.95' />
+          <g transform='translate(16, 16)'>
+            <!-- Left upper wing -->
+            <path d='M -2 -4 Q -8 -10 -10 -6 Q -9 -1 -4 0 Z' fill='#8EFFC1' opacity='0.95' filter='url(#butterfly-msg-glow)' />
+            <!-- Right upper wing -->
+            <path d='M 2 -4 Q 8 -10 10 -6 Q 9 -1 4 0 Z' fill='#8EFFC1' opacity='0.95' filter='url(#butterfly-msg-glow)' />
+            <!-- Left lower wing -->
+            <path d='M -2 4 Q -7 8 -9 6 Q -8 2 -4 1 Z' fill='#6FFFE0' opacity='0.85' filter='url(#butterfly-msg-glow)' />
+            <!-- Right lower wing -->
+            <path d='M 2 4 Q 7 8 9 6 Q 8 2 4 1 Z' fill='#6FFFE0' opacity='0.85' filter='url(#butterfly-msg-glow)' />
+            <!-- Body -->
+            <ellipse cx='0' cy='0' rx='1.5' ry='3' fill='#4FD4A0' opacity='0.9' />
+            <!-- Head -->
+            <circle cx='0' cy='-3' r='1' fill='#C6A7FF' opacity='0.8' />
           </g>
         </svg>`;
       }
 
       if (kind === 'dropdown') {
-        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'>
+        // Dropdown butterfly: purple color (accent1)
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'>
           <defs>
-            <filter id='ap-dd' x='-50%' y='-50%' width='200%' height='200%'>
-              <feGaussianBlur stdDeviation='1.4' result='b' />
-              <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+            <filter id='butterfly-dd-glow' x='-50%' y='-50%' width='200%' height='200%'>
+              <feGaussianBlur stdDeviation='1.1' result='blur' />
+              <feMerge><feMergeNode in='blur'/><feMergeNode in='SourceGraphic'/></feMerge>
             </filter>
           </defs>
-          <g fill='none' fill-rule='evenodd'>
-            <rect x='5.5' y='5.5' width='17' height='17' rx='4' fill='${fill}' fill-opacity='0.16' filter='url(#ap-dd)' />
-            <rect x='7' y='7' width='14' height='14' rx='3' fill='none' stroke='${fill}' stroke-width='1.6' />
-            <path d='M10 10l3-2 3 2-3 2z' fill='#FFFFFF' fill-opacity='0.55' />
-            <path d='M16 15l2-1 2 1-2 1z' fill='#8EFFC1' fill-opacity='0.85' />
-            <circle cx='9' cy='18' r='1' fill='#FFB3D6' fill-opacity='0.9' />
+          <g transform='translate(15, 15)'>
+            <!-- Left upper wing -->
+            <path d='M -1.5 -3.5 Q -7 -8.5 -8.5 -5 Q -7.5 -0.5 -3 0 Z' fill='#C6A7FF' opacity='0.95' filter='url(#butterfly-dd-glow)' />
+            <!-- Right upper wing -->
+            <path d='M 1.5 -3.5 Q 7 -8.5 8.5 -5 Q 7.5 -0.5 3 0 Z' fill='#C6A7FF' opacity='0.95' filter='url(#butterfly-dd-glow)' />
+            <!-- Left lower wing -->
+            <path d='M -1.5 3.5 Q -6 7 -8 5 Q -7 1.5 -3 0.5 Z' fill='#B08FE8' opacity='0.85' filter='url(#butterfly-dd-glow)' />
+            <!-- Right lower wing -->
+            <path d='M 1.5 3.5 Q 6 7 8 5 Q 7 1.5 3 0.5 Z' fill='#B08FE8' opacity='0.85' filter='url(#butterfly-dd-glow)' />
+            <!-- Body -->
+            <ellipse cx='0' cy='0' rx='1.2' ry='2.8' fill='#9D7FD8' opacity='0.9' />
+            <!-- Head -->
+            <circle cx='0' cy='-2.8' r='0.9' fill='#8B6FCC' opacity='0.8' />
           </g>
         </svg>`;
       }
 
       if (kind === 'pointer') {
-        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'>
+        // Pointer butterfly: purple color (accent1) with wings slightly spread
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'>
           <defs>
-            <filter id='ap-pointer' x='-50%' y='-50%' width='200%' height='200%'>
-              <feGaussianBlur stdDeviation='1.5' result='b' />
-              <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+            <filter id='butterfly-ptr-glow' x='-50%' y='-50%' width='200%' height='200%'>
+              <feGaussianBlur stdDeviation='1.2' result='blur' />
+              <feMerge><feMergeNode in='blur'/><feMergeNode in='SourceGraphic'/></feMerge>
             </filter>
           </defs>
-          <g fill='none' fill-rule='evenodd'>
-            <circle cx='8' cy='8' r='4.5' fill='${fill}' fill-opacity='0.16' filter='url(#ap-pointer)' />
-            <circle cx='19' cy='10' r='1.8' fill='#8EFFC1' fill-opacity='0.9' />
-            <circle cx='22' cy='18' r='1.2' fill='#FFB3D6' fill-opacity='0.95' />
-            <path d='M7 6 L21 14 L17 15 L21 22 L12 18 L11 23 L7 6 Z' fill='${fill}' />
-            <path d='M9 8 L18 13 L15 14 L18 19' stroke='#FFFFFF' stroke-opacity='0.22' stroke-width='1' />
-            <path d='M23 6l1 2 2 1-2 1-1 2-1-2-2-1 2-1z' fill='#FFFFFF' fill-opacity='0.9' />
+          <g transform='translate(15, 15)'>
+            <!-- Left upper wing - more spread -->
+            <path d='M -1 -4 Q -8 -11 -10 -7 Q -9 -1 -3 0.5 Z' fill='#C6A7FF' opacity='0.95' filter='url(#butterfly-ptr-glow)' />
+            <!-- Right upper wing - more spread -->
+            <path d='M 1 -4 Q 8 -11 10 -7 Q 9 -1 3 0.5 Z' fill='#C6A7FF' opacity='0.95' filter='url(#butterfly-ptr-glow)' />
+            <!-- Left lower wing -->
+            <path d='M -1 3.5 Q -6.5 7.5 -8.5 5 Q -7.5 1 -3 0.2 Z' fill='#B08FE8' opacity='0.85' filter='url(#butterfly-ptr-glow)' />
+            <!-- Right lower wing -->
+            <path d='M 1 3.5 Q 6.5 7.5 8.5 5 Q 7.5 1 3 0.2 Z' fill='#B08FE8' opacity='0.85' filter='url(#butterfly-ptr-glow)' />
+            <!-- Body -->
+            <ellipse cx='0' cy='0' rx='1.2' ry='3' fill='#9D7FD8' opacity='0.9' />
+            <!-- Head -->
+            <circle cx='0' cy='-3.2' r='0.9' fill='#8B6FCC' opacity='0.8' />
+            <!-- Antenna left -->
+            <line x1='-0.4' y1='-4' x2='-1.2' y2='-5.5' stroke='#C6A7FF' stroke-width='0.5' opacity='0.6' />
+            <!-- Antenna right -->
+            <line x1='0.4' y1='-4' x2='1.2' y2='-5.5' stroke='#C6A7FF' stroke-width='0.5' opacity='0.6' />
           </g>
         </svg>`;
       }
-      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>
+
+      // Default butterfly: purple color (accent1)
+      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'>
         <defs>
-          <filter id='ap-default' x='-50%' y='-50%' width='200%' height='200%'>
-            <feGaussianBlur stdDeviation='1.2' result='b' />
-            <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+          <filter id='butterfly-default-glow' x='-50%' y='-50%' width='200%' height='200%'>
+            <feGaussianBlur stdDeviation='1' result='blur' />
+            <feMerge><feMergeNode in='blur'/><feMergeNode in='SourceGraphic'/></feMerge>
           </filter>
         </defs>
-        <g fill='none' fill-rule='evenodd'>
-          <circle cx='6' cy='6' r='4' fill='${fill}' fill-opacity='0.15' filter='url(#ap-default)' />
-          <circle cx='17' cy='5' r='1.3' fill='#FFB3D6' fill-opacity='0.95' />
-          <circle cx='19' cy='16' r='1.1' fill='#8EFFC1' fill-opacity='0.9' />
-          <path d='M6 6 L17 12 L12 12 L18 18 L12 17 L6 6 Z' fill='${fill}' />
-          <path d='M8 8 L15 12 L12 12 L16 16' stroke='#FFFFFF' stroke-opacity='0.16' stroke-width='1' />
-          <path d='M20 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1z' fill='#FFFFFF' fill-opacity='0.85' />
+        <g transform='translate(14, 14)'>
+          <!-- Left upper wing -->
+          <path d='M -1.2 -3.8 Q -7 -9 -9 -6 Q -8 -0.5 -3 0.2 Z' fill='#C6A7FF' opacity='0.95' filter='url(#butterfly-default-glow)' />
+          <!-- Right upper wing -->
+          <path d='M 1.2 -3.8 Q 7 -9 9 -6 Q 8 -0.5 3 0.2 Z' fill='#C6A7FF' opacity='0.95' filter='url(#butterfly-default-glow)' />
+          <!-- Left lower wing -->
+          <path d='M -1.2 3.2 Q -6 7 -8 5 Q -7 1.2 -3 0.5 Z' fill='#B08FE8' opacity='0.85' filter='url(#butterfly-default-glow)' />
+          <!-- Right lower wing -->
+          <path d='M 1.2 3.2 Q 6 7 8 5 Q 7 1.2 3 0.5 Z' fill='#B08FE8' opacity='0.85' filter='url(#butterfly-default-glow)' />
+          <!-- Body -->
+          <ellipse cx='0' cy='0' rx='1' ry='2.6' fill='#9D7FD8' opacity='0.9' />
+          <!-- Head -->
+          <circle cx='0' cy='-3' r='0.8' fill='#8B6FCC' opacity='0.8' />
         </g>
       </svg>`;
 
@@ -599,7 +640,17 @@ function makeCursorDataUri(svg: string): string {
 function makeCursorCssValue(themeName: ThemeName, accent: string, kind: CursorKind) {
   const svg = makeCursorSvg(themeName, accent, kind);
   const uri = makeCursorDataUri(svg);
-  const hotspot = kind === 'default' ? '2 2' : kind === 'pointer' ? '8 8' : kind === 'post' ? '12 12' : kind === 'message' ? '10 12' : '8 8';
+  
+  // Hotspot positioning: center of the cursor element, adjusted per kind
+  let hotspot: string;
+  if (themeName === 'arcane-pastel') {
+    // Butterfly cursors: hotspot at body center
+    hotspot = kind === 'default' ? '14 14' : kind === 'pointer' ? '15 15' : kind === 'post' ? '16 16' : kind === 'message' ? '16 16' : '15 15';
+  } else {
+    // Original cursors: hotspot at center/corner
+    hotspot = kind === 'default' ? '2 2' : kind === 'pointer' ? '8 8' : kind === 'post' ? '12 12' : kind === 'message' ? '10 12' : '8 8';
+  }
+  
   return `url("${uri}") ${hotspot}, auto`;
 }
 
