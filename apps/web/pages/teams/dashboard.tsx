@@ -80,7 +80,7 @@ function resolvePreferredTeamRegion(profile: ProfileRegionPayload): string {
 const TeamsDashboardPage: React.FC = () => {
   const router = useRouter();
   const { user } = useAuth();
-  const { currentLanguage } = useLanguage();
+  const { t } = useLanguage();
   const { showToast, confirm: confirmAction } = useGlobalUI();
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,51 +96,11 @@ const TeamsDashboardPage: React.FC = () => {
   // Team selector modal for Manage Roster
   const [showTeamSelectorModal, setShowTeamSelectorModal] = useState(false);
 
-  const pageText = currentLanguage === 'fr'
-    ? {
-        title: 'Tableau de bord des équipes',
-        subtitle: 'Créez et gérez vos équipes',
-        createTeam: 'Créer une équipe',
-        myTeams: 'Mes équipes',
-        loading: 'Chargement...',
-        noTeamsTitle: 'Aucune équipe pour le moment',
-        noTeamsDesc: 'Créez votre première équipe pour commencer à organiser des scrims et gérer votre roster.',
-        firstTeamCta: 'Créer votre première équipe',
-        manageRoster: 'Gérer le roster',
-        recruitViaLft: 'Recruter via LFT',
-        scheduleScrims: 'Planifier des scrims',
-        scrimFinder: 'Recherche de scrims',
-        draftRoom: 'Salle de draft',
-        discordForwarding: 'Redirection Discord',
-        quickLinksTitle: 'Vous cherchez des joueurs ou une équipe ?',
-        quickLinksDesc: 'Consultez la page LFT pour trouver des coéquipiers.',
-        browseLft: 'Parcourir LFT',
-        createModalTitle: 'Créer une équipe',
-      }
-    : {
-        title: 'Teams Dashboard',
-        subtitle: 'Create and manage your teams',
-        createTeam: 'Create Team',
-        myTeams: 'My Teams',
-        loading: 'Loading...',
-        noTeamsTitle: 'No Teams Yet',
-        noTeamsDesc: 'Create your first team to start organizing scrims and managing your roster.',
-        firstTeamCta: 'Create Your First Team',
-        manageRoster: 'Manage Roster',
-        recruitViaLft: 'Recruit via LFT',
-        scheduleScrims: 'Schedule Scrims',
-        scrimFinder: 'Scrim Finder',
-        draftRoom: 'Draft Room',
-        discordForwarding: 'Discord Forwarding',
-        quickLinksTitle: 'Looking for players or want to join a team?',
-        quickLinksDesc: 'Check out the LFT page to find teammates.',
-        browseLft: 'Browse LFT',
-        createModalTitle: 'Create New Team',
-      };
+  // Use translation helper for teams dashboard copy
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-  const fetchTeams = async () => {
+      const fetchTeams = async () => {
     const token = getAuthToken();
     if (!token) return;
     try {
@@ -153,13 +113,13 @@ const TeamsDashboardPage: React.FC = () => {
         setError(null);
       } else {
         const data = await res.json().catch(() => ({}));
-        setTeams([]);
-        setError(data.error || 'Failed to fetch teams');
+            setTeams([]);
+            setError(data.error || t('teams.dashboard.fetchFailed'));
       }
     } catch (err) {
       console.error('Failed to fetch teams:', err);
       setTeams([]);
-      setError('Failed to fetch teams');
+      setError(t('teams.dashboard.fetchFailed'));
     }
   };
 
@@ -249,10 +209,10 @@ const TeamsDashboardPage: React.FC = () => {
         setCreateForm({ name: '', tag: '', description: '', region: preferredRegion });
         await fetchTeams();
       } else {
-        setError(data.error || 'Failed to create team');
+        setError(data.error || t('teams.dashboard.createFailed'));
       }
     } catch (err) {
-      setError('Failed to create team');
+      setError(t('teams.dashboard.createFailed'));
     } finally {
       setCreating(false);
     }
@@ -261,7 +221,7 @@ const TeamsDashboardPage: React.FC = () => {
   const handleLeaveTeam = async (teamId: string) => {
     const token = getAuthToken();
     if (!token || !user) return;
-    if (!window.confirm('Are you sure you want to leave this team?')) return;
+    if (!window.confirm(t('teams.dashboard.leaveConfirm'))) return;
     
     try {
       const res = await fetch(`${apiUrl}/api/teams/${teamId}/members/${user.id}`, {
@@ -280,7 +240,7 @@ const TeamsDashboardPage: React.FC = () => {
   const handleDeleteTeam = async (teamId: string) => {
     const token = getAuthToken();
     if (!token) return;
-    if (!window.confirm('Are you sure you want to delete this team? This cannot be undone.')) return;
+    if (!window.confirm(t('teams.dashboard.deleteConfirm'))) return;
     
     try {
       const res = await fetch(`${apiUrl}/api/teams/${teamId}`, {
@@ -327,7 +287,7 @@ const TeamsDashboardPage: React.FC = () => {
           ? 'RiftEssence can help your team stay on top of recruiting through Discord reminders. Link your Discord account first, then enable DM notifications.'
           : 'RiftEssence can help your team stay on top of recruiting through Discord reminders. Enable Discord DM notifications so the bot can send timely updates.',
         confirmText: needsDiscordLink ? 'Open Profile Setup' : 'Open DM Setup',
-        cancelText: 'Later',
+        cancelText: t('teams.dashboard.later'),
       });
 
       if (setupNow) {
@@ -345,7 +305,7 @@ const TeamsDashboardPage: React.FC = () => {
   const handleTeamLftSubmit = async (data: any) => {
     const token = getAuthToken();
     if (!token) {
-      showToast('Please log in to publish a team listing.', 'error');
+      showToast(t('teams.lft.loginToPublish'), 'error');
       return;
     }
 
@@ -364,11 +324,11 @@ const TeamsDashboardPage: React.FC = () => {
 
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showToast(body?.error || 'Failed to publish team listing.', 'error');
+        showToast(body?.error || t('teams.lft.publishFailed'), 'error');
         return;
       }
 
-      showToast(body?.updated ? 'Team listing updated on LFT.' : 'Team listing published on LFT.', 'success');
+      showToast(body?.updated ? t('teams.lft.updated') : t('teams.lft.published'), 'success');
       setShowTeamLftModal(false);
       const redirectedToSetup = await maybeShowDiscordRecruitingNudge();
       if (!redirectedToSetup) {
@@ -422,8 +382,8 @@ const TeamsDashboardPage: React.FC = () => {
   return (
     <>
       <SEOHead
-        title="Teams Dashboard"
-        description="Create and manage your League of Legends teams. Invite players, organize your roster, and prepare for competitive play."
+        title={t('teams.dashboard.title')}
+        description={t('teams.dashboard.subtitle')}
         path="/teams/dashboard"
         keywords="LoL team management, League of Legends team dashboard, team roster, LoL esports team"
       />
@@ -439,10 +399,10 @@ const TeamsDashboardPage: React.FC = () => {
                 className="text-2xl sm:text-3xl font-extrabold"
                 style={{ color: 'var(--color-accent-1)' }}
               >
-                {pageText.title}
+                {t('teams.dashboard.title')}
               </h1>
               <p className="mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                {pageText.subtitle}
+                {t('teams.dashboard.subtitle')}
               </p>
             </div>
             <button
@@ -454,7 +414,7 @@ const TeamsDashboardPage: React.FC = () => {
                 borderRadius: 'var(--border-radius)',
               }}
             >
-              + {pageText.createTeam}
+              + {t('teams.dashboard.createTeam')}
             </button>
           </header>
 
@@ -467,8 +427,8 @@ const TeamsDashboardPage: React.FC = () => {
               borderRadius: 'var(--border-radius)',
             }}
           >
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
-              {pageText.myTeams} {teams.length > 0 && <span className="text-sm font-normal" style={{ color: 'var(--color-text-muted)' }}>({teams.length})</span>}
+              <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
+              {t('teams.dashboard.myTeams')} {teams.length > 0 && <span className="text-sm font-normal" style={{ color: 'var(--color-text-muted)' }}>({teams.length})</span>}
             </h2>
             {error && !showCreateModal && (
               <div className="mb-4 p-3 rounded text-sm" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444' }}>
@@ -478,7 +438,7 @@ const TeamsDashboardPage: React.FC = () => {
             {loading ? (
               <div className="text-center py-12">
                 <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full mx-auto mb-4" style={{ borderColor: 'var(--color-accent-1)', borderTopColor: 'transparent' }} />
-                <p style={{ color: 'var(--color-text-muted)' }}>{pageText.loading}</p>
+                <p style={{ color: 'var(--color-text-muted)' }}>{t('teams.dashboard.loading')}</p>
               </div>
             ) : teams.length === 0 ? (
                 <div className="text-center py-12">
@@ -494,13 +454,13 @@ const TeamsDashboardPage: React.FC = () => {
                     className="text-xl font-semibold mb-2"
                     style={{ color: 'var(--color-text-primary)' }}
                   >
-                    {pageText.noTeamsTitle}
+                    {t('teams.dashboard.noTeamsTitle')}
                   </h3>
                   <p
                     className="mb-6"
                     style={{ color: 'var(--color-text-secondary)' }}
                   >
-                    {pageText.noTeamsDesc}
+                    {t('teams.dashboard.noTeamsDesc')}
                   </p>
                   <button
                     onClick={() => setShowCreateModal(true)}
@@ -511,7 +471,7 @@ const TeamsDashboardPage: React.FC = () => {
                       borderRadius: 'var(--border-radius)',
                     }}
                   >
-                    + {pageText.firstTeamCta}
+                    + {t('teams.dashboard.firstTeamCta')}
                   </button>
                 </div>
               ) : (
@@ -634,7 +594,7 @@ const TeamsDashboardPage: React.FC = () => {
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
-                                {team.upcomingEventCount} upcoming
+                                {team.upcomingEventCount} {t('teams.dashboard.upcoming')}
                               </div>
                             )}
                           </div>
@@ -649,7 +609,7 @@ const TeamsDashboardPage: React.FC = () => {
                                 color: 'var(--color-bg-primary)',
                               }}
                             >
-                              View Team
+                              {t('teams.dashboard.viewTeamButton')}
                             </Link>
                             {team.isOwner ? (
                               <button
@@ -660,7 +620,7 @@ const TeamsDashboardPage: React.FC = () => {
                                   borderColor: 'rgba(239, 68, 68, 0.4)',
                                   color: '#EF4444',
                                 }}
-                                title="Delete team"
+                                title={t('teams.dashboard.deleteTitle')}
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -675,7 +635,7 @@ const TeamsDashboardPage: React.FC = () => {
                                   borderColor: 'rgba(239, 68, 68, 0.4)',
                                   color: '#EF4444',
                                 }}
-                                title="Leave team"
+                                title={t('teams.dashboard.leaveTitle')}
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -724,10 +684,10 @@ const TeamsDashboardPage: React.FC = () => {
                     className="font-bold text-lg mb-1"
                     style={{ color: 'var(--color-text-primary)' }}
                   >
-                    {pageText.manageRoster}
+                    {t('teams.dashboard.manageRoster')}
                   </h4>
                   <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    Add players, assign roles, and organize your team structure.
+                    {t('teams.dashboard.manageRosterDesc')}
                   </p>
                 </div>
                 <svg 
@@ -784,10 +744,10 @@ const TeamsDashboardPage: React.FC = () => {
                     className="font-bold text-lg mb-1"
                     style={{ color: 'var(--color-text-primary)' }}
                   >
-                    {pageText.scheduleScrims}
+                    {t('teams.dashboard.scheduleScrims')}
                   </h4>
                   <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    Coordinate practice sessions and matches with your team.
+                    {t('teams.dashboard.scheduleScrims')}
                   </p>
                 </div>
                 <svg 
@@ -830,10 +790,10 @@ const TeamsDashboardPage: React.FC = () => {
                     className="font-bold text-lg mb-1"
                     style={{ color: 'var(--color-text-primary)' }}
                   >
-                    {pageText.scrimFinder}
+                    {t('teams.dashboard.scrimFinder')}
                   </h4>
                   <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    Publish scrim slots, filter opponents, and manage proposal decisions.
+                    {t('teams.dashboard.scrimFinder')}
                   </p>
                 </div>
                 <svg
@@ -877,10 +837,10 @@ const TeamsDashboardPage: React.FC = () => {
                     className="font-bold text-lg mb-1"
                     style={{ color: 'var(--color-text-primary)' }}
                   >
-                    {pageText.draftRoom}
+                    {t('teams.dashboard.draftRoom')}
                   </h4>
                   <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    Centralize team champion pools and build scenario drafts in one place.
+                    {t('teams.dashboard.draftRoom')}
                   </p>
                 </div>
                 <svg
@@ -919,10 +879,10 @@ const TeamsDashboardPage: React.FC = () => {
                     className="font-bold text-lg mb-1"
                     style={{ color: 'var(--color-text-primary)' }}
                   >
-                    {pageText.discordForwarding}
+                    {t('teams.dashboard.discordForwarding')}
                   </h4>
                   <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    Forward schedule updates and announcements to your Discord server.
+                    {t('teams.dashboard.discordForwarding')}
                   </p>
                 </div>
                 <svg 
@@ -947,11 +907,11 @@ const TeamsDashboardPage: React.FC = () => {
             }}
           >
             <div>
-              <p style={{ color: 'var(--color-text-primary)' }} className="font-medium">
-                {pageText.quickLinksTitle}
+                <p style={{ color: 'var(--color-text-primary)' }} className="font-medium">
+                {t('teams.dashboard.quickLinksTitle')}
               </p>
               <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                {pageText.quickLinksDesc}
+                {t('teams.dashboard.quickLinksDesc')}
               </p>
             </div>
             <Link
@@ -964,7 +924,7 @@ const TeamsDashboardPage: React.FC = () => {
                 borderRadius: 'var(--border-radius)',
               }}
             >
-              {pageText.browseLft}
+              {t('teams.dashboard.browseLft')}
             </Link>
           </div>
         </div>
@@ -981,7 +941,7 @@ const TeamsDashboardPage: React.FC = () => {
             }}
           >
             <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--color-accent-1)' }}>
-              {pageText.createModalTitle}
+              {t('teams.dashboard.createModalTitle')}
             </h2>
             
             {error && (
@@ -992,8 +952,8 @@ const TeamsDashboardPage: React.FC = () => {
 
             <form onSubmit={handleCreateTeam} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                  Team Name *
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                  {t('teams.dashboard.teamNameLabel')}
                 </label>
                 <input
                   type="text"
@@ -1005,7 +965,7 @@ const TeamsDashboardPage: React.FC = () => {
                     borderColor: 'var(--color-border)',
                     color: 'var(--color-text-primary)',
                   }}
-                  placeholder="Enter team name"
+                  placeholder={t('teams.dashboard.teamNamePlaceholder')}
                   maxLength={50}
                   required
                 />
@@ -1013,7 +973,7 @@ const TeamsDashboardPage: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                  Team Tag (optional)
+                  {t('teams.dashboard.teamTagLabel')}
                 </label>
                 <input
                   type="text"
@@ -1025,14 +985,14 @@ const TeamsDashboardPage: React.FC = () => {
                     borderColor: 'var(--color-border)',
                     color: 'var(--color-text-primary)',
                   }}
-                  placeholder="e.g., TSM"
+                  placeholder={t('teams.dashboard.teamTagPlaceholder')}
                   maxLength={5}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                  Region *
+                  {t('teams.dashboard.regionLabel')}
                 </label>
                 <select
                   value={createForm.region}
@@ -1052,7 +1012,7 @@ const TeamsDashboardPage: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                  Description (optional)
+                  {t('teams.dashboard.descriptionLabel')}
                 </label>
                 <textarea
                   value={createForm.description}
@@ -1063,7 +1023,7 @@ const TeamsDashboardPage: React.FC = () => {
                     borderColor: 'var(--color-border)',
                     color: 'var(--color-text-primary)',
                   }}
-                  placeholder="Describe your team..."
+                  placeholder={t('teams.dashboard.descriptionPlaceholder')}
                   rows={3}
                   maxLength={500}
                 />
@@ -1080,7 +1040,7 @@ const TeamsDashboardPage: React.FC = () => {
                     color: 'var(--color-text-primary)',
                   }}
                 >
-                  Cancel
+                  {t('teams.dashboard.cancelButton')}
                 </button>
                 <button
                   type="submit"
@@ -1091,7 +1051,7 @@ const TeamsDashboardPage: React.FC = () => {
                     color: 'var(--color-bg-primary)',
                   }}
                 >
-                  {creating ? 'Creating...' : 'Create Team'}
+                  {creating ? t('common.saving') : t('teams.dashboard.createButton')}
                 </button>
               </div>
             </form>
@@ -1128,7 +1088,7 @@ const TeamsDashboardPage: React.FC = () => {
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
                 </svg>
-                Select Team
+                {t('teams.selector.title')}
               </h2>
               <button
                 onClick={() => setShowTeamSelectorModal(false)}
@@ -1144,7 +1104,7 @@ const TeamsDashboardPage: React.FC = () => {
             
             <div className="p-4">
               <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-                Choose which team's roster you want to manage:
+                {t('teams.selector.chooseRoster')}
               </p>
               <div className="space-y-2">
                 {teams.map((team) => (

@@ -552,6 +552,53 @@ export type TranslationKey =
   | 'theme.shadowAssassin'
   | 'theme.clickToApply'
   
+  // Teams
+  | 'teams.dashboard.title'
+  | 'teams.dashboard.subtitle'
+  | 'teams.dashboard.createTeam'
+  | 'teams.dashboard.myTeams'
+  | 'teams.dashboard.loading'
+  | 'teams.dashboard.noTeamsTitle'
+  | 'teams.dashboard.noTeamsDesc'
+  | 'teams.dashboard.firstTeamCta'
+  | 'teams.dashboard.manageRoster'
+  | 'teams.dashboard.manageRosterDesc'
+  | 'teams.dashboard.recruitViaLft'
+  | 'teams.dashboard.scheduleScrims'
+  | 'teams.dashboard.scrimFinder'
+  | 'teams.dashboard.draftRoom'
+  | 'teams.dashboard.discordForwarding'
+  | 'teams.dashboard.quickLinksTitle'
+  | 'teams.dashboard.quickLinksDesc'
+  | 'teams.dashboard.browseLft'
+  | 'teams.dashboard.createModalTitle'
+  | 'teams.dashboard.teamNameLabel'
+  | 'teams.dashboard.teamTagLabel'
+  | 'teams.dashboard.regionLabel'
+  | 'teams.dashboard.descriptionLabel'
+  | 'teams.dashboard.teamNamePlaceholder'
+  | 'teams.dashboard.teamTagPlaceholder'
+  | 'teams.dashboard.descriptionPlaceholder'
+  | 'teams.dashboard.cancelButton'
+  | 'teams.dashboard.createButton'
+  | 'teams.dashboard.viewTeamButton'
+  | 'teams.dashboard.upcoming'
+  | 'teams.dashboard.fetchFailed'
+  | 'teams.dashboard.createFailed'
+  | 'teams.dashboard.leaveConfirm'
+  | 'teams.dashboard.deleteConfirm'
+  | 'teams.dashboard.deleteTitle'
+  | 'teams.dashboard.leaveTitle'
+  | 'teams.dashboard.later'
+  
+  | 'teams.selector.title'
+  | 'teams.selector.chooseRoster'
+  
+  | 'teams.lft.loginToPublish'
+  | 'teams.lft.updated'
+  | 'teams.lft.published'
+  | 'teams.lft.publishFailed'
+  
   // NoAccess Component
   | 'noAccess.profileRequired'
   | 'noAccess.profileRequiredDesc'
@@ -1223,6 +1270,53 @@ export const translations: Record<LanguageCode, Translations> = {
     'theme.sunsetBlaze': 'Sunset Blaze',
     'theme.shadowAssassin': 'Shadow Assassin',
     'theme.clickToApply': 'Click to apply',
+
+    // Teams - Dashboard
+    'teams.dashboard.title': 'Teams Dashboard',
+    'teams.dashboard.subtitle': 'Create and manage your teams',
+    'teams.dashboard.createTeam': 'Create Team',
+    'teams.dashboard.myTeams': 'My Teams',
+    'teams.dashboard.loading': 'Loading...',
+    'teams.dashboard.noTeamsTitle': 'No Teams Yet',
+    'teams.dashboard.noTeamsDesc': 'Create your first team to start organizing scrims and managing your roster.',
+    'teams.dashboard.firstTeamCta': 'Create Your First Team',
+    'teams.dashboard.manageRoster': 'Manage Roster',
+    'teams.dashboard.manageRosterDesc': 'Add players, assign roles, and organize your team structure.',
+    'teams.dashboard.recruitViaLft': 'Recruit via LFT',
+    'teams.dashboard.scheduleScrims': 'Schedule Scrims',
+    'teams.dashboard.scrimFinder': 'Scrim Finder',
+    'teams.dashboard.draftRoom': 'Draft Room',
+    'teams.dashboard.discordForwarding': 'Discord Forwarding',
+    'teams.dashboard.quickLinksTitle': 'Looking for players or want to join a team?',
+    'teams.dashboard.quickLinksDesc': 'Check out the LFT page to find teammates.',
+    'teams.dashboard.browseLft': 'Browse LFT',
+    'teams.dashboard.createModalTitle': 'Create New Team',
+    'teams.dashboard.teamNameLabel': 'Team Name *',
+    'teams.dashboard.teamTagLabel': 'Team Tag (optional)',
+    'teams.dashboard.regionLabel': 'Region *',
+    'teams.dashboard.descriptionLabel': 'Description (optional)',
+    'teams.dashboard.teamNamePlaceholder': 'Enter team name',
+    'teams.dashboard.teamTagPlaceholder': 'e.g., TSM',
+    'teams.dashboard.descriptionPlaceholder': 'Describe your team...',
+    'teams.dashboard.cancelButton': 'Cancel',
+    'teams.dashboard.createButton': 'Create Team',
+    'teams.dashboard.viewTeamButton': 'View Team',
+    'teams.dashboard.upcoming': 'upcoming',
+    'teams.dashboard.fetchFailed': 'Failed to fetch teams',
+    'teams.dashboard.createFailed': 'Failed to create team',
+    'teams.dashboard.leaveConfirm': 'Are you sure you want to leave this team?',
+    'teams.dashboard.deleteConfirm': 'Are you sure you want to delete this team? This cannot be undone.',
+    'teams.dashboard.deleteTitle': 'Delete team',
+    'teams.dashboard.leaveTitle': 'Leave team',
+    'teams.dashboard.later': 'Later',
+
+    'teams.selector.title': 'Select Team',
+    'teams.selector.chooseRoster': "Choose which team's roster you want to manage:",
+
+    'teams.lft.loginToPublish': 'Please log in to publish a team listing.',
+    'teams.lft.updated': 'Team listing updated on LFT.',
+    'teams.lft.published': 'Team listing published on LFT.',
+    'teams.lft.publishFailed': 'Failed to publish team listing.',
     
     // NoAccess Component
     'noAccess.profileRequired': 'Profile Access Required',
@@ -1892,6 +1986,53 @@ export const translations: Record<LanguageCode, Translations> = {
     'theme.sunsetBlaze': 'Brasier du Couchant',
     'theme.shadowAssassin': 'Assassin des Ombres',
     'theme.clickToApply': 'Cliquer pour appliquer',
+
+    // Teams - Dashboard (French)
+    'teams.dashboard.title': 'Tableau de bord des équipes',
+    'teams.dashboard.subtitle': 'Créez et gérez vos équipes',
+    'teams.dashboard.createTeam': 'Créer une équipe',
+    'teams.dashboard.myTeams': 'Mes équipes',
+    'teams.dashboard.loading': 'Chargement...',
+    'teams.dashboard.noTeamsTitle': 'Aucune équipe pour le moment',
+    'teams.dashboard.noTeamsDesc': 'Créez votre première équipe pour commencer à organiser des scrims et gérer votre roster.',
+    'teams.dashboard.firstTeamCta': 'Créer votre première équipe',
+    'teams.dashboard.manageRoster': 'Gérer le roster',
+    'teams.dashboard.manageRosterDesc': 'Ajoutez des joueurs, assignez des rôles et organisez la structure de votre équipe.',
+    'teams.dashboard.recruitViaLft': 'Recruter via LFT',
+    'teams.dashboard.scheduleScrims': 'Planifier des scrims',
+    'teams.dashboard.scrimFinder': 'Recherche de scrims',
+    'teams.dashboard.draftRoom': 'Salle de draft',
+    'teams.dashboard.discordForwarding': 'Redirection Discord',
+    'teams.dashboard.quickLinksTitle': 'Vous cherchez des joueurs ou une équipe ?',
+    'teams.dashboard.quickLinksDesc': 'Consultez la page LFT pour trouver des coéquipiers.',
+    'teams.dashboard.browseLft': 'Parcourir LFT',
+    'teams.dashboard.createModalTitle': 'Créer une équipe',
+    'teams.dashboard.teamNameLabel': 'Nom de l\'équipe *',
+    'teams.dashboard.teamTagLabel': 'Tag de l\'équipe (facultatif)',
+    'teams.dashboard.regionLabel': 'Région *',
+    'teams.dashboard.descriptionLabel': 'Description (facultatif)',
+    'teams.dashboard.teamNamePlaceholder': 'Entrez le nom de l\'équipe',
+    'teams.dashboard.teamTagPlaceholder': 'ex. : TSM',
+    'teams.dashboard.descriptionPlaceholder': 'Décrivez votre équipe...',
+    'teams.dashboard.cancelButton': 'Annuler',
+    'teams.dashboard.createButton': 'Créer une équipe',
+    'teams.dashboard.viewTeamButton': 'Voir l\'équipe',
+    'teams.dashboard.upcoming': 'à venir',
+    'teams.dashboard.fetchFailed': 'Échec du chargement des équipes',
+    'teams.dashboard.createFailed': 'Échec de la création de l\'équipe',
+    'teams.dashboard.leaveConfirm': 'Êtes-vous sûr de vouloir quitter cette équipe ?',
+    'teams.dashboard.deleteConfirm': 'Voulez-vous vraiment supprimer cette équipe ? Cette action est irréversible.',
+    'teams.dashboard.deleteTitle': 'Supprimer l\'équipe',
+    'teams.dashboard.leaveTitle': 'Quitter l\'équipe',
+    'teams.dashboard.later': 'Plus tard',
+
+    'teams.selector.title': 'Sélectionner une équipe',
+    'teams.selector.chooseRoster': 'Choisissez le roster de l\'équipe que vous souhaitez gérer :',
+
+    'teams.lft.loginToPublish': 'Veuillez vous connecter pour publier une annonce d\'équipe.',
+    'teams.lft.updated': 'Annonce d\'équipe mise à jour sur LFT.',
+    'teams.lft.published': 'Annonce d\'équipe publiée sur LFT.',
+    'teams.lft.publishFailed': 'Échec de la publication de l\'annonce d\'équipe.',
     
     // NoAccess Component
     'noAccess.profileRequired': 'Accès au profil requis',
