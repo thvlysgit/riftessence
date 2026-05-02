@@ -47,6 +47,7 @@ Files changed:
  - apps/web/styles/globals.css (classic-theme button/dropdown effects)
  - apps/web/pages/coaching/index.tsx (post/contact cursor classes)
  - apps/web/pages/create.tsx (post/dropdown cursor classes)
+ - apps/web/utils/themeRegistry.ts (Arcane Pastel sparkly cursor variants)
 
 ## ⚙️ New: Developer Public API (May 2026)
 - Added developer/public API endpoints to expose live Duo and LFT posts with filters (region, language, rank, verifiedOnly).

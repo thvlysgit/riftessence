@@ -373,10 +373,96 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
   // Keep SVGs small (24-32px) and distinct per theme. These are modest, stylized shapes.
   switch (themeName) {
     case 'arcane-pastel':
-      if (kind === 'pointer') {
-        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><g fill='${fill}'><circle cx='6' cy='6' r='3'/><path d='M6 2 L22 14 L18 16 L24 24 L14 20 L12 24 Z'/></g></svg>`;
+      if (kind === 'post') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'>
+          <defs>
+            <filter id='ap-post' x='-50%' y='-50%' width='200%' height='200%'>
+              <feGaussianBlur stdDeviation='1.6' result='b' />
+              <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+            </filter>
+          </defs>
+          <g fill='none' fill-rule='evenodd'>
+            <circle cx='8' cy='8' r='4' fill='${fill}' fill-opacity='0.18' filter='url(#ap-post)' />
+            <circle cx='21' cy='9' r='2.2' fill='#8EFFC1' fill-opacity='0.9' />
+            <path d='M8 8h14v14H8z' fill='${fill}' fill-opacity='0.2' />
+            <path d='M10 10h10v10H10z' fill='${fill}' />
+            <path d='M12 12h6v6h-6z' fill='#FFFFFF' fill-opacity='0.18' />
+            <path d='M7 7l16 16' stroke='#FFFFFF' stroke-opacity='0.16' stroke-width='1' />
+          </g>
+        </svg>`;
       }
-      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='${fill}'><polygon points='12,2 15,9 22,9 16,14 18,22 12,17 6,22 8,14 2,9 9,9'/></g></svg>`;
+
+      if (kind === 'message') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>
+          <defs>
+            <filter id='ap-msg' x='-60%' y='-60%' width='220%' height='220%'>
+              <feGaussianBlur stdDeviation='1.7' result='b' />
+              <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+            </filter>
+          </defs>
+          <g fill='none' fill-rule='evenodd'>
+            <path d='M7 9h15a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-7l-4 4v-4H7a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3z' fill='${fill}' fill-opacity='0.18' filter='url(#ap-msg)' />
+            <path d='M8 10h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-7l-3 3v-3H8a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2z' fill='${fill}' />
+            <circle cx='11' cy='14' r='1' fill='#FFFFFF' fill-opacity='0.75' />
+            <circle cx='15' cy='14' r='1' fill='#FFFFFF' fill-opacity='0.75' />
+            <circle cx='19' cy='14' r='1' fill='#8EFFC1' fill-opacity='0.9' />
+            <path d='M23 7l1 2 2 1-2 1-1 2-1-2-2-1 2-1z' fill='#FFB3D6' fill-opacity='0.95' />
+          </g>
+        </svg>`;
+      }
+
+      if (kind === 'dropdown') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'>
+          <defs>
+            <filter id='ap-dd' x='-50%' y='-50%' width='200%' height='200%'>
+              <feGaussianBlur stdDeviation='1.4' result='b' />
+              <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+            </filter>
+          </defs>
+          <g fill='none' fill-rule='evenodd'>
+            <rect x='5.5' y='5.5' width='17' height='17' rx='4' fill='${fill}' fill-opacity='0.16' filter='url(#ap-dd)' />
+            <rect x='7' y='7' width='14' height='14' rx='3' fill='none' stroke='${fill}' stroke-width='1.6' />
+            <path d='M10 10l3-2 3 2-3 2z' fill='#FFFFFF' fill-opacity='0.55' />
+            <path d='M16 15l2-1 2 1-2 1z' fill='#8EFFC1' fill-opacity='0.85' />
+            <circle cx='9' cy='18' r='1' fill='#FFB3D6' fill-opacity='0.9' />
+          </g>
+        </svg>`;
+      }
+
+      if (kind === 'pointer') {
+        return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'>
+          <defs>
+            <filter id='ap-pointer' x='-50%' y='-50%' width='200%' height='200%'>
+              <feGaussianBlur stdDeviation='1.5' result='b' />
+              <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+            </filter>
+          </defs>
+          <g fill='none' fill-rule='evenodd'>
+            <circle cx='8' cy='8' r='4.5' fill='${fill}' fill-opacity='0.16' filter='url(#ap-pointer)' />
+            <circle cx='19' cy='10' r='1.8' fill='#8EFFC1' fill-opacity='0.9' />
+            <circle cx='22' cy='18' r='1.2' fill='#FFB3D6' fill-opacity='0.95' />
+            <path d='M7 6 L21 14 L17 15 L21 22 L12 18 L11 23 L7 6 Z' fill='${fill}' />
+            <path d='M9 8 L18 13 L15 14 L18 19' stroke='#FFFFFF' stroke-opacity='0.22' stroke-width='1' />
+            <path d='M23 6l1 2 2 1-2 1-1 2-1-2-2-1 2-1z' fill='#FFFFFF' fill-opacity='0.9' />
+          </g>
+        </svg>`;
+      }
+      return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>
+        <defs>
+          <filter id='ap-default' x='-50%' y='-50%' width='200%' height='200%'>
+            <feGaussianBlur stdDeviation='1.2' result='b' />
+            <feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>
+          </filter>
+        </defs>
+        <g fill='none' fill-rule='evenodd'>
+          <circle cx='6' cy='6' r='4' fill='${fill}' fill-opacity='0.15' filter='url(#ap-default)' />
+          <circle cx='17' cy='5' r='1.3' fill='#FFB3D6' fill-opacity='0.95' />
+          <circle cx='19' cy='16' r='1.1' fill='#8EFFC1' fill-opacity='0.9' />
+          <path d='M6 6 L17 12 L12 12 L18 18 L12 17 L6 6 Z' fill='${fill}' />
+          <path d='M8 8 L15 12 L12 12 L16 16' stroke='#FFFFFF' stroke-opacity='0.16' stroke-width='1' />
+          <path d='M20 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1z' fill='#FFFFFF' fill-opacity='0.85' />
+        </g>
+      </svg>`;
 
     case 'nightshade':
       if (kind === 'pointer') {
