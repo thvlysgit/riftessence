@@ -374,7 +374,7 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
   switch (themeName) {
     case 'arcane-pastel':
       if (kind === 'post') {
-        // Post butterfly: pink/magenta color (accent2)
+        // Post butterfly: pink/magenta color (accent2) with a more dramatic flap.
         return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>
           <defs>
             <filter id='butterfly-post-glow' x='-50%' y='-50%' width='200%' height='200%'>
@@ -383,24 +383,37 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
             </filter>
           </defs>
           <g transform='translate(16, 16)'>
-            <!-- Left upper wing -->
-            <path d='M -2 -4 Q -8 -10 -10 -6 Q -9 -1 -4 0 Z' fill='#FFB3D6' opacity='0.95' filter='url(#butterfly-post-glow)' />
-            <!-- Right upper wing -->
-            <path d='M 2 -4 Q 8 -10 10 -6 Q 9 -1 4 0 Z' fill='#FFB3D6' opacity='0.95' filter='url(#butterfly-post-glow)' />
-            <!-- Left lower wing -->
-            <path d='M -2 4 Q -7 8 -9 6 Q -8 2 -4 1 Z' fill='#FF8BB4' opacity='0.85' filter='url(#butterfly-post-glow)' />
-            <!-- Right lower wing -->
-            <path d='M 2 4 Q 7 8 9 6 Q 8 2 4 1 Z' fill='#FF8BB4' opacity='0.85' filter='url(#butterfly-post-glow)' />
-            <!-- Body -->
-            <ellipse cx='0' cy='0' rx='1.5' ry='3' fill='#D48FBB' opacity='0.9' />
-            <!-- Head -->
-            <circle cx='0' cy='-3' r='1' fill='#C6A7FF' opacity='0.8' />
+            <g transform='translate(-2, -4)'>
+              <path d='M 0 0 Q -6 -6 -8 -2 Q -7 2 -1 3 Z' fill='#FFB3D6' opacity='0.97' filter='url(#butterfly-post-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; 12 0 0; 0 0 0' dur='0.62s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <g transform='translate(2, -4)'>
+              <path d='M 0 0 Q 6 -6 8 -2 Q 7 2 1 3 Z' fill='#FFB3D6' opacity='0.97' filter='url(#butterfly-post-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; -12 0 0; 0 0 0' dur='0.62s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <g transform='translate(-2, 4)'>
+              <path d='M 0 0 Q -5 5 -7 3 Q -6 0 0 1 Z' fill='#FF8BB4' opacity='0.9' filter='url(#butterfly-post-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; 10 0 0; 0 0 0' dur='0.58s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <g transform='translate(2, 4)'>
+              <path d='M 0 0 Q 5 5 7 3 Q 6 0 0 1 Z' fill='#FF8BB4' opacity='0.9' filter='url(#butterfly-post-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; -10 0 0; 0 0 0' dur='0.58s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <ellipse cx='0' cy='0' rx='1.5' ry='3' fill='#D48FBB' opacity='0.95' />
+            <circle cx='0' cy='-3' r='1' fill='#C6A7FF' opacity='0.85' />
+            <circle cx='0' cy='1' r='0.7' fill='#FFAA00' opacity='0.75'>
+              <animate attributeName='opacity' values='0.5;0.95;0.55' dur='0.5s' repeatCount='indefinite' />
+            </circle>
           </g>
         </svg>`;
       }
 
       if (kind === 'message') {
-        // Message butterfly: mint/teal color (accent3)
+        // Message butterfly: mint/teal color (accent3) with softer hover motion.
         return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>
           <defs>
             <filter id='butterfly-msg-glow' x='-50%' y='-50%' width='200%' height='200%'>
@@ -409,24 +422,37 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
             </filter>
           </defs>
           <g transform='translate(16, 16)'>
-            <!-- Left upper wing -->
-            <path d='M -2 -4 Q -8 -10 -10 -6 Q -9 -1 -4 0 Z' fill='#8EFFC1' opacity='0.95' filter='url(#butterfly-msg-glow)' />
-            <!-- Right upper wing -->
-            <path d='M 2 -4 Q 8 -10 10 -6 Q 9 -1 4 0 Z' fill='#8EFFC1' opacity='0.95' filter='url(#butterfly-msg-glow)' />
-            <!-- Left lower wing -->
-            <path d='M -2 4 Q -7 8 -9 6 Q -8 2 -4 1 Z' fill='#6FFFE0' opacity='0.85' filter='url(#butterfly-msg-glow)' />
-            <!-- Right lower wing -->
-            <path d='M 2 4 Q 7 8 9 6 Q 8 2 4 1 Z' fill='#6FFFE0' opacity='0.85' filter='url(#butterfly-msg-glow)' />
-            <!-- Body -->
-            <ellipse cx='0' cy='0' rx='1.5' ry='3' fill='#4FD4A0' opacity='0.9' />
-            <!-- Head -->
-            <circle cx='0' cy='-3' r='1' fill='#C6A7FF' opacity='0.8' />
+            <g transform='translate(-2, -4)'>
+              <path d='M 0 0 Q -6 -6 -8 -2 Q -7 2 -1 3 Z' fill='#8EFFC1' opacity='0.97' filter='url(#butterfly-msg-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; 8 0 0; 0 0 0' dur='0.78s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <g transform='translate(2, -4)'>
+              <path d='M 0 0 Q 6 -6 8 -2 Q 7 2 1 3 Z' fill='#8EFFC1' opacity='0.97' filter='url(#butterfly-msg-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; -8 0 0; 0 0 0' dur='0.78s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <g transform='translate(-2, 4)'>
+              <path d='M 0 0 Q -5 5 -7 3 Q -6 0 0 1 Z' fill='#6FFFE0' opacity='0.88' filter='url(#butterfly-msg-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; 6 0 0; 0 0 0' dur='0.7s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <g transform='translate(2, 4)'>
+              <path d='M 0 0 Q 5 5 7 3 Q 6 0 0 1 Z' fill='#6FFFE0' opacity='0.88' filter='url(#butterfly-msg-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; -6 0 0; 0 0 0' dur='0.7s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <ellipse cx='0' cy='0' rx='1.5' ry='3' fill='#4FD4A0' opacity='0.95' />
+            <circle cx='0' cy='-3' r='1' fill='#C6A7FF' opacity='0.85' />
+            <circle cx='0' cy='1' r='0.65' fill='#FFB3D6' opacity='0.75'>
+              <animate attributeName='opacity' values='0.45;0.9;0.45' dur='0.7s' repeatCount='indefinite' />
+            </circle>
           </g>
         </svg>`;
       }
 
       if (kind === 'dropdown') {
-        // Dropdown butterfly: purple color (accent1)
+        // Dropdown butterfly: purple color (accent1) with calmer motion.
         return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'>
           <defs>
             <filter id='butterfly-dd-glow' x='-50%' y='-50%' width='200%' height='200%'>
@@ -435,24 +461,34 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
             </filter>
           </defs>
           <g transform='translate(15, 15)'>
-            <!-- Left upper wing -->
-            <path d='M -1.5 -3.5 Q -7 -8.5 -8.5 -5 Q -7.5 -0.5 -3 0 Z' fill='#C6A7FF' opacity='0.95' filter='url(#butterfly-dd-glow)' />
-            <!-- Right upper wing -->
-            <path d='M 1.5 -3.5 Q 7 -8.5 8.5 -5 Q 7.5 -0.5 3 0 Z' fill='#C6A7FF' opacity='0.95' filter='url(#butterfly-dd-glow)' />
-            <!-- Left lower wing -->
-            <path d='M -1.5 3.5 Q -6 7 -8 5 Q -7 1.5 -3 0.5 Z' fill='#B08FE8' opacity='0.85' filter='url(#butterfly-dd-glow)' />
-            <!-- Right lower wing -->
-            <path d='M 1.5 3.5 Q 6 7 8 5 Q 7 1.5 3 0.5 Z' fill='#B08FE8' opacity='0.85' filter='url(#butterfly-dd-glow)' />
-            <!-- Body -->
-            <ellipse cx='0' cy='0' rx='1.2' ry='2.8' fill='#9D7FD8' opacity='0.9' />
-            <!-- Head -->
-            <circle cx='0' cy='-2.8' r='0.9' fill='#8B6FCC' opacity='0.8' />
+            <g transform='translate(-1.5, -3.5)'>
+              <path d='M 0 0 Q -5.5 -5 -7 -1.5 Q -6 2 -0.5 2.5 Z' fill='#C6A7FF' opacity='0.97' filter='url(#butterfly-dd-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; 6 0 0; 0 0 0' dur='0.9s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <g transform='translate(1.5, -3.5)'>
+              <path d='M 0 0 Q 5.5 -5 7 -1.5 Q 6 2 0.5 2.5 Z' fill='#C6A7FF' opacity='0.97' filter='url(#butterfly-dd-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; -6 0 0; 0 0 0' dur='0.9s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <g transform='translate(-1.5, 3.5)'>
+              <path d='M 0 0 Q -4.5 4.5 -6 2.8 Q -5.3 0.5 -0.4 1.3 Z' fill='#B08FE8' opacity='0.88' filter='url(#butterfly-dd-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; 4 0 0; 0 0 0' dur='0.82s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <g transform='translate(1.5, 3.5)'>
+              <path d='M 0 0 Q 4.5 4.5 6 2.8 Q 5.3 0.5 0.4 1.3 Z' fill='#B08FE8' opacity='0.88' filter='url(#butterfly-dd-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; -4 0 0; 0 0 0' dur='0.82s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <ellipse cx='0' cy='0' rx='1.2' ry='2.8' fill='#9D7FD8' opacity='0.95' />
+            <circle cx='0' cy='-2.8' r='0.9' fill='#8B6FCC' opacity='0.85' />
           </g>
         </svg>`;
       }
 
       if (kind === 'pointer') {
-        // Pointer butterfly: purple color (accent1) with wings slightly spread
+        // Pointer butterfly: purple color (accent1) with the quickest flap.
         return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'>
           <defs>
             <filter id='butterfly-ptr-glow' x='-50%' y='-50%' width='200%' height='200%'>
@@ -461,21 +497,29 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
             </filter>
           </defs>
           <g transform='translate(15, 15)'>
-            <!-- Left upper wing - more spread -->
-            <path d='M -1 -4 Q -8 -11 -10 -7 Q -9 -1 -3 0.5 Z' fill='#C6A7FF' opacity='0.95' filter='url(#butterfly-ptr-glow)' />
-            <!-- Right upper wing - more spread -->
-            <path d='M 1 -4 Q 8 -11 10 -7 Q 9 -1 3 0.5 Z' fill='#C6A7FF' opacity='0.95' filter='url(#butterfly-ptr-glow)' />
-            <!-- Left lower wing -->
-            <path d='M -1 3.5 Q -6.5 7.5 -8.5 5 Q -7.5 1 -3 0.2 Z' fill='#B08FE8' opacity='0.85' filter='url(#butterfly-ptr-glow)' />
-            <!-- Right lower wing -->
-            <path d='M 1 3.5 Q 6.5 7.5 8.5 5 Q 7.5 1 3 0.2 Z' fill='#B08FE8' opacity='0.85' filter='url(#butterfly-ptr-glow)' />
-            <!-- Body -->
-            <ellipse cx='0' cy='0' rx='1.2' ry='3' fill='#9D7FD8' opacity='0.9' />
-            <!-- Head -->
-            <circle cx='0' cy='-3.2' r='0.9' fill='#8B6FCC' opacity='0.8' />
-            <!-- Antenna left -->
+            <g transform='translate(-1, -4)'>
+              <path d='M 0 0 Q -7 -7 -9 -3 Q -8 2 -1 3 Z' fill='#C6A7FF' opacity='0.97' filter='url(#butterfly-ptr-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; 14 0 0; 0 0 0' dur='0.5s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <g transform='translate(1, -4)'>
+              <path d='M 0 0 Q 7 -7 9 -3 Q 8 2 1 3 Z' fill='#C6A7FF' opacity='0.97' filter='url(#butterfly-ptr-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; -14 0 0; 0 0 0' dur='0.5s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <g transform='translate(-1, 3.5)'>
+              <path d='M 0 0 Q -5.5 5 -7.5 2.5 Q -6.5 0.5 -1 1.3 Z' fill='#B08FE8' opacity='0.88' filter='url(#butterfly-ptr-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; 9 0 0; 0 0 0' dur='0.45s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <g transform='translate(1, 3.5)'>
+              <path d='M 0 0 Q 5.5 5 7.5 2.5 Q 6.5 0.5 1 1.3 Z' fill='#B08FE8' opacity='0.88' filter='url(#butterfly-ptr-glow)'>
+                <animateTransform attributeName='transform' type='rotate' values='0 0 0; -9 0 0; 0 0 0' dur='0.45s' repeatCount='indefinite' />
+              </path>
+            </g>
+            <ellipse cx='0' cy='0' rx='1.2' ry='3' fill='#9D7FD8' opacity='0.95' />
+            <circle cx='0' cy='-3.2' r='0.9' fill='#8B6FCC' opacity='0.85' />
             <line x1='-0.4' y1='-4' x2='-1.2' y2='-5.5' stroke='#C6A7FF' stroke-width='0.5' opacity='0.6' />
-            <!-- Antenna right -->
             <line x1='0.4' y1='-4' x2='1.2' y2='-5.5' stroke='#C6A7FF' stroke-width='0.5' opacity='0.6' />
           </g>
         </svg>`;
@@ -490,18 +534,28 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
           </filter>
         </defs>
         <g transform='translate(14, 14)'>
-          <!-- Left upper wing -->
-          <path d='M -1.2 -3.8 Q -7 -9 -9 -6 Q -8 -0.5 -3 0.2 Z' fill='#C6A7FF' opacity='0.95' filter='url(#butterfly-default-glow)' />
-          <!-- Right upper wing -->
-          <path d='M 1.2 -3.8 Q 7 -9 9 -6 Q 8 -0.5 3 0.2 Z' fill='#C6A7FF' opacity='0.95' filter='url(#butterfly-default-glow)' />
-          <!-- Left lower wing -->
-          <path d='M -1.2 3.2 Q -6 7 -8 5 Q -7 1.2 -3 0.5 Z' fill='#B08FE8' opacity='0.85' filter='url(#butterfly-default-glow)' />
-          <!-- Right lower wing -->
-          <path d='M 1.2 3.2 Q 6 7 8 5 Q 7 1.2 3 0.5 Z' fill='#B08FE8' opacity='0.85' filter='url(#butterfly-default-glow)' />
-          <!-- Body -->
-          <ellipse cx='0' cy='0' rx='1' ry='2.6' fill='#9D7FD8' opacity='0.9' />
-          <!-- Head -->
-          <circle cx='0' cy='-3' r='0.8' fill='#8B6FCC' opacity='0.8' />
+          <g transform='translate(-1.2, -3.8)'>
+            <path d='M 0 0 Q -6 -6 -8 -2.5 Q -7 1.5 -1 2.3 Z' fill='#C6A7FF' opacity='0.97' filter='url(#butterfly-default-glow)'>
+              <animateTransform attributeName='transform' type='rotate' values='0 0 0; 10 0 0; 0 0 0' dur='0.7s' repeatCount='indefinite' />
+            </path>
+          </g>
+          <g transform='translate(1.2, -3.8)'>
+            <path d='M 0 0 Q 6 -6 8 -2.5 Q 7 1.5 1 2.3 Z' fill='#C6A7FF' opacity='0.97' filter='url(#butterfly-default-glow)'>
+              <animateTransform attributeName='transform' type='rotate' values='0 0 0; -10 0 0; 0 0 0' dur='0.7s' repeatCount='indefinite' />
+            </path>
+          </g>
+          <g transform='translate(-1.2, 3.2)'>
+            <path d='M 0 0 Q -4.8 4.8 -6.8 2.6 Q -5.8 0.6 -0.8 1.4 Z' fill='#B08FE8' opacity='0.88' filter='url(#butterfly-default-glow)'>
+              <animateTransform attributeName='transform' type='rotate' values='0 0 0; 5 0 0; 0 0 0' dur='0.62s' repeatCount='indefinite' />
+            </path>
+          </g>
+          <g transform='translate(1.2, 3.2)'>
+            <path d='M 0 0 Q 4.8 4.8 6.8 2.6 Q 5.8 0.6 0.8 1.4 Z' fill='#B08FE8' opacity='0.88' filter='url(#butterfly-default-glow)'>
+              <animateTransform attributeName='transform' type='rotate' values='0 0 0; -5 0 0; 0 0 0' dur='0.62s' repeatCount='indefinite' />
+            </path>
+          </g>
+          <ellipse cx='0' cy='0' rx='1' ry='2.6' fill='#9D7FD8' opacity='0.95' />
+          <circle cx='0' cy='-3' r='0.8' fill='#8B6FCC' opacity='0.85' />
         </g>
       </svg>`;
 
@@ -513,7 +567,7 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
 
     case 'infernal-ember':
       if (kind === 'post') {
-        // Post cursor: Explosive spark burst with multiple radiating embers
+        // Post cursor: Explosive spark burst with multiple radiating embers.
         return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 36 36'>
           <defs>
             <filter id='ie-post-glow' x='-80%' y='-80%' width='260%' height='260%'>
@@ -526,25 +580,41 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
             </radialGradient>
           </defs>
           <g transform='translate(18, 18)'>
-            <!-- Center core glow -->
-            <circle cx='0' cy='0' r='3.5' fill='#FFAA00' opacity='0.9' filter='url(#ie-post-glow)' />
-            <!-- Main shard -->
-            <path d='M -1 -8 L 3 -1 L 1 5 L -1 4 L -3 -1 Z' fill='#FF5F1F' opacity='0.95' filter='url(#ie-post-glow)' />
-            <!-- Radiating spark shards (8-point burst) -->
+            <circle cx='0' cy='0' r='3.5' fill='#FFAA00' opacity='0.9' filter='url(#ie-post-glow)'>
+              <animate attributeName='r' values='3;4.3;3' dur='0.42s' repeatCount='indefinite' />
+              <animate attributeName='opacity' values='0.7;1;0.7' dur='0.42s' repeatCount='indefinite' />
+            </circle>
+            <path d='M -1 -8 L 3 -1 L 1 5 L -1 4 L -3 -1 Z' fill='#FF5F1F' opacity='0.95' filter='url(#ie-post-glow)'>
+              <animateTransform attributeName='transform' type='rotate' values='0 0 0; 8 0 0; 0 0 0' dur='0.42s' repeatCount='indefinite' />
+            </path>
             <path d='M 0 -6 L 1 -3 L 0 0' stroke='#FFAA00' stroke-width='1.5' stroke-linecap='round' opacity='0.85' filter='url(#ie-post-glow)' fill='none' />
-            <path d='M 4 -4 L 3 -1 L 1 0' stroke='#FF5F1F' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-post-glow)' fill='none' />
-            <path d='M 6 0 L 3 0 L 1 0' stroke='#FFAA00' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-post-glow)' fill='none' />
-            <path d='M 4 4 L 2 2 L 0 1' stroke='#FF5F1F' stroke-width='1' stroke-linecap='round' opacity='0.75' filter='url(#ie-post-glow)' fill='none' />
-            <path d='M 0 6 L 0 3 L 0 1' stroke='#FFAA00' stroke-width='1' stroke-linecap='round' opacity='0.75' filter='url(#ie-post-glow)' fill='none' />
-            <path d='M -4 4 L -2 2 L 0 1' stroke='#FF7F00' stroke-width='1' stroke-linecap='round' opacity='0.7' filter='url(#ie-post-glow)' fill='none' />
-            <path d='M -6 0 L -3 0 L -1 0' stroke='#FFAA00' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-post-glow)' fill='none' />
-            <path d='M -4 -4 L -3 -1 L -1 0' stroke='#FF5F1F' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-post-glow)' fill='none' />
+            <path d='M 4 -4 L 3 -1 L 1 0' stroke='#FF5F1F' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-post-glow)' fill='none'>
+              <animate attributeName='opacity' values='0.45;0.95;0.55' dur='0.5s' repeatCount='indefinite' />
+            </path>
+            <path d='M 6 0 L 3 0 L 1 0' stroke='#FFAA00' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-post-glow)' fill='none'>
+              <animate attributeName='opacity' values='0.4;0.9;0.5' dur='0.45s' repeatCount='indefinite' />
+            </path>
+            <path d='M 4 4 L 2 2 L 0 1' stroke='#FF5F1F' stroke-width='1' stroke-linecap='round' opacity='0.75' filter='url(#ie-post-glow)' fill='none'>
+              <animate attributeName='opacity' values='0.35;0.85;0.4' dur='0.48s' repeatCount='indefinite' />
+            </path>
+            <path d='M 0 6 L 0 3 L 0 1' stroke='#FFAA00' stroke-width='1' stroke-linecap='round' opacity='0.75' filter='url(#ie-post-glow)' fill='none'>
+              <animate attributeName='opacity' values='0.4;0.9;0.45' dur='0.44s' repeatCount='indefinite' />
+            </path>
+            <path d='M -4 4 L -2 2 L 0 1' stroke='#FF7F00' stroke-width='1' stroke-linecap='round' opacity='0.7' filter='url(#ie-post-glow)' fill='none'>
+              <animate attributeName='opacity' values='0.3;0.8;0.35' dur='0.47s' repeatCount='indefinite' />
+            </path>
+            <path d='M -6 0 L -3 0 L -1 0' stroke='#FFAA00' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-post-glow)' fill='none'>
+              <animate attributeName='opacity' values='0.45;0.95;0.5' dur='0.43s' repeatCount='indefinite' />
+            </path>
+            <path d='M -4 -4 L -3 -1 L -1 0' stroke='#FF5F1F' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-post-glow)' fill='none'>
+              <animate attributeName='opacity' values='0.4;0.85;0.45' dur='0.49s' repeatCount='indefinite' />
+            </path>
           </g>
         </svg>`;
       }
 
       if (kind === 'message') {
-        // Message cursor: Ember glow forming chat bubble silhouette
+        // Message cursor: ember glow forming a chat bubble silhouette.
         return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 34 34'>
           <defs>
             <filter id='ie-msg-glow' x='-60%' y='-60%' width='220%' height='220%'>
@@ -553,22 +623,29 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
             </filter>
           </defs>
           <g transform='translate(17, 17)'>
-            <!-- Chat bubble outline in ember glow -->
             <path d='M -8 -6 L 8 -6 Q 9 -6 9 -5 L 9 6 Q 9 7 8 7 L -4 7 L -6 10 L -5 7 L -8 7 Q -9 7 -9 6 L -9 -5 Q -9 -6 -8 -6' 
-                  fill='none' stroke='#FF5F1F' stroke-width='1.8' opacity='0.9' filter='url(#ie-msg-glow)' stroke-linejoin='miter' />
-            <!-- Inner glow -->
+                  fill='none' stroke='#FF5F1F' stroke-width='1.8' opacity='0.9' filter='url(#ie-msg-glow)' stroke-linejoin='miter'>
+              <animate attributeName='opacity' values='0.7;1;0.75' dur='0.9s' repeatCount='indefinite' />
+            </path>
             <path d='M -8 -6 L 8 -6 Q 9 -6 9 -5 L 9 6 Q 9 7 8 7 L -4 7 L -6 10 L -5 7 L -8 7 Q -9 7 -9 6 L -9 -5 Q -9 -6 -8 -6' 
-                  fill='none' stroke='#FFAA00' stroke-width='0.8' opacity='0.5' filter='url(#ie-msg-glow)' stroke-linejoin='miter' />
-            <!-- Ember particles inside bubble -->
-            <circle cx='-3' cy='0' r='0.8' fill='#FF5F1F' opacity='0.75' filter='url(#ie-msg-glow)' />
-            <circle cx='1' cy='0' r='0.6' fill='#FFAA00' opacity='0.7' filter='url(#ie-msg-glow)' />
-            <circle cx='5' cy='0' r='0.7' fill='#FF5F1F' opacity='0.65' filter='url(#ie-msg-glow)' />
+                  fill='none' stroke='#FFAA00' stroke-width='0.8' opacity='0.5' filter='url(#ie-msg-glow)' stroke-linejoin='miter'>
+              <animate attributeName='opacity' values='0.35;0.75;0.4' dur='1.1s' repeatCount='indefinite' />
+            </path>
+            <circle cx='-3' cy='0' r='0.8' fill='#FF5F1F' opacity='0.75' filter='url(#ie-msg-glow)'>
+              <animate attributeName='r' values='0.6;0.95;0.6' dur='1s' repeatCount='indefinite' />
+            </circle>
+            <circle cx='1' cy='0' r='0.6' fill='#FFAA00' opacity='0.7' filter='url(#ie-msg-glow)'>
+              <animate attributeName='r' values='0.45;0.75;0.45' dur='1.05s' repeatCount='indefinite' />
+            </circle>
+            <circle cx='5' cy='0' r='0.7' fill='#FF5F1F' opacity='0.65' filter='url(#ie-msg-glow)'>
+              <animate attributeName='r' values='0.5;0.9;0.5' dur='0.95s' repeatCount='indefinite' />
+            </circle>
           </g>
         </svg>`;
       }
 
       if (kind === 'dropdown') {
-        // Dropdown cursor: Ember shard with ash particle hints
+        // Dropdown cursor: ember shard with ash particle hints.
         return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>
           <defs>
             <filter id='ie-dd-glow' x='-50%' y='-50%' width='200%' height='200%'>
@@ -577,20 +654,30 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
             </filter>
           </defs>
           <g transform='translate(16, 16)'>
-            <!-- Main ember shard (angular fragment) -->
-            <path d='M -1.5 -8 L 3 0 L 1 7 L -1.5 6.5 L -3 0 Z' fill='#FF5F1F' opacity='0.95' filter='url(#ie-dd-glow)' />
-            <!-- Inner bright core -->
-            <path d='M -0.5 -5 L 2 0 L 0.5 4 L -0.5 3.5 L -1.5 0 Z' fill='#FFAA00' opacity='0.7' filter='url(#ie-dd-glow)' />
-            <!-- Ash particle hints (fading dots below) -->
-            <circle cx='-2' cy='9' r='0.6' fill='#7D4D3F' opacity='0.5' filter='url(#ie-dd-glow)' />
-            <circle cx='0' cy='10' r='0.5' fill='#6B4233' opacity='0.4' filter='url(#ie-dd-glow)' />
-            <circle cx='2' cy='9' r='0.55' fill='#7D4D3F' opacity='0.45' filter='url(#ie-dd-glow)' />
+            <path d='M -1.5 -8 L 3 0 L 1 7 L -1.5 6.5 L -3 0 Z' fill='#FF5F1F' opacity='0.95' filter='url(#ie-dd-glow)'>
+              <animateTransform attributeName='transform' type='rotate' values='0 0 0; 5 0 0; 0 0 0' dur='1.1s' repeatCount='indefinite' />
+            </path>
+            <path d='M -0.5 -5 L 2 0 L 0.5 4 L -0.5 3.5 L -1.5 0 Z' fill='#FFAA00' opacity='0.7' filter='url(#ie-dd-glow)'>
+              <animate attributeName='opacity' values='0.45;0.85;0.5' dur='0.9s' repeatCount='indefinite' />
+            </path>
+            <circle cx='-2' cy='9' r='0.6' fill='#7D4D3F' opacity='0.5' filter='url(#ie-dd-glow)'>
+              <animate attributeName='cy' values='9;10.5;9' dur='1.1s' repeatCount='indefinite' />
+              <animate attributeName='opacity' values='0.45;0.2;0.45' dur='1.1s' repeatCount='indefinite' />
+            </circle>
+            <circle cx='0' cy='10' r='0.5' fill='#6B4233' opacity='0.4' filter='url(#ie-dd-glow)'>
+              <animate attributeName='cy' values='10;11.2;10' dur='1.25s' repeatCount='indefinite' />
+              <animate attributeName='opacity' values='0.35;0.1;0.35' dur='1.25s' repeatCount='indefinite' />
+            </circle>
+            <circle cx='2' cy='9' r='0.55' fill='#7D4D3F' opacity='0.45' filter='url(#ie-dd-glow)'>
+              <animate attributeName='cy' values='9;10.2;9' dur='1.18s' repeatCount='indefinite' />
+              <animate attributeName='opacity' values='0.4;0.15;0.4' dur='1.18s' repeatCount='indefinite' />
+            </circle>
           </g>
         </svg>`;
       }
 
       if (kind === 'pointer') {
-        // Pointer cursor: Pointed ember arrow shard
+        // Pointer cursor: pointed ember arrow shard with a small flicker.
         return `<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>
           <defs>
             <filter id='ie-ptr-glow' x='-50%' y='-50%' width='200%' height='200%'>
@@ -599,14 +686,18 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
             </filter>
           </defs>
           <g transform='translate(16, 16)'>
-            <!-- Pointed ember shard -->
-            <path d='M 0 -9 L 4 -1 L 2 6 L -1 5 L -3 -1 Z' fill='#FF5F1F' opacity='0.95' filter='url(#ie-ptr-glow)' />
-            <!-- Bright tip -->
-            <path d='M 0 -9 L 0.5 -5' stroke='#FFAA00' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-ptr-glow)' />
-            <!-- Inner core -->
-            <path d='M 0 -7 L 2.5 -0.5 L 1 4 L -0.5 3 L -1.5 -0.5 Z' fill='#FFAA00' opacity='0.6' filter='url(#ie-ptr-glow)' />
-            <!-- Side flame accent -->
-            <path d='M 3.5 -2 Q 5 -1 4.5 2' stroke='#FF7F00' stroke-width='1' stroke-linecap='round' opacity='0.6' fill='none' filter='url(#ie-ptr-glow)' />
+            <path d='M 0 -9 L 4 -1 L 2 6 L -1 5 L -3 -1 Z' fill='#FF5F1F' opacity='0.95' filter='url(#ie-ptr-glow)'>
+              <animateTransform attributeName='transform' type='rotate' values='0 0 0; 3 0 0; 0 0 0' dur='0.9s' repeatCount='indefinite' />
+            </path>
+            <path d='M 0 -9 L 0.5 -5' stroke='#FFAA00' stroke-width='1.2' stroke-linecap='round' opacity='0.8' filter='url(#ie-ptr-glow)'>
+              <animate attributeName='opacity' values='0.5;1;0.6' dur='0.55s' repeatCount='indefinite' />
+            </path>
+            <path d='M 0 -7 L 2.5 -0.5 L 1 4 L -0.5 3 L -1.5 -0.5 Z' fill='#FFAA00' opacity='0.6' filter='url(#ie-ptr-glow)'>
+              <animate attributeName='opacity' values='0.35;0.8;0.45' dur='0.65s' repeatCount='indefinite' />
+            </path>
+            <path d='M 3.5 -2 Q 5 -1 4.5 2' stroke='#FF7F00' stroke-width='1' stroke-linecap='round' opacity='0.6' fill='none' filter='url(#ie-ptr-glow)'>
+              <animate attributeName='opacity' values='0.25;0.85;0.3' dur='0.58s' repeatCount='indefinite' />
+            </path>
           </g>
         </svg>`;
       }
@@ -625,14 +716,19 @@ function makeCursorSvg(themeName: ThemeName, accent: string, kind: CursorKind): 
           </radialGradient>
         </defs>
         <g transform='translate(14, 14)'>
-          <!-- Outer glow aura -->
-          <circle cx='0' cy='0' r='5.5' fill='url(#ie-default-fire)' opacity='0.3' filter='url(#ie-default-glow)' />
-          <!-- Main angular shard -->
-          <path d='M -1.5 -7 L 3 0.5 L 1.5 6 L -1.5 5.5 L -3 0.5 Z' fill='#FF5F1F' opacity='0.95' filter='url(#ie-default-glow)' />
-          <!-- Bright inner core -->
-          <path d='M -0.5 -4.5 L 2 0.5 L 0.5 4 L -0.5 3.5 L -1.5 0.5 Z' fill='#FFAA00' opacity='0.7' filter='url(#ie-default-glow)' />
-          <!-- Edge highlight -->
-          <line x1='2.5' y1='0.5' x2='3.5' y2='2.5' stroke='#FFD700' stroke-width='0.7' opacity='0.5' stroke-linecap='round' filter='url(#ie-default-glow)' />
+          <circle cx='0' cy='0' r='5.5' fill='url(#ie-default-fire)' opacity='0.3' filter='url(#ie-default-glow)'>
+            <animate attributeName='opacity' values='0.22;0.38;0.26' dur='0.8s' repeatCount='indefinite' />
+            <animate attributeName='r' values='5;6;5.3' dur='0.8s' repeatCount='indefinite' />
+          </circle>
+          <path d='M -1.5 -7 L 3 0.5 L 1.5 6 L -1.5 5.5 L -3 0.5 Z' fill='#FF5F1F' opacity='0.95' filter='url(#ie-default-glow)'>
+            <animateTransform attributeName='transform' type='rotate' values='0 0 0; 4 0 0; 0 0 0' dur='0.85s' repeatCount='indefinite' />
+          </path>
+          <path d='M -0.5 -4.5 L 2 0.5 L 0.5 4 L -0.5 3.5 L -1.5 0.5 Z' fill='#FFAA00' opacity='0.7' filter='url(#ie-default-glow)'>
+            <animate attributeName='opacity' values='0.45;0.85;0.5' dur='0.7s' repeatCount='indefinite' />
+          </path>
+          <line x1='2.5' y1='0.5' x2='3.5' y2='2.5' stroke='#FFD700' stroke-width='0.7' opacity='0.5' stroke-linecap='round' filter='url(#ie-default-glow)'>
+            <animate attributeName='opacity' values='0.3;0.8;0.35' dur='0.62s' repeatCount='indefinite' />
+          </line>
         </g>
       </svg>`;
 

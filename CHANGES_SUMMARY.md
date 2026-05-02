@@ -67,7 +67,7 @@ Files added/changed:
 - Documentation/backend/developer-api.md (new)
 
 ## ⚙️ New: Arcane Pastel Butterfly Cursors with Wing-Flapping Animation (May 2026)
-- Implemented whimsical butterfly cursors for Arcane Pastel theme with wing-flapping animations.
+- Implemented whimsical butterfly cursors for Arcane Pastel theme with wing-flapping animations embedded in the SVG assets for browser compatibility.
 - Butterflies use distinct colors per interaction type:
   - **Default/Pointer**: Purple (#C6A7FF) with subtle antenna details
   - **Post**: Pink (#FFB3D6) - soft and inviting for post creation
@@ -79,7 +79,7 @@ Files added/changed:
   - Central body and head elements
   - Antenna details on pointer variant for personality
   - Varying opacity layers for visual hierarchy
-- CSS keyframes added for smooth wing-flapping motion (`@keyframes butterflyFlap`, `@keyframes butterflyFlapFast`)
+- SVG SMIL animation drives the wing motion directly, with CSS hover styling kept as support/fallback (`@keyframes butterflyFlap`, `@keyframes butterflyFlapFast` remain for theme styling).
 - Hover effects integrated with Arcane Pastel button styles (subtle lift, soft glow box-shadow)
 - Hotspot positioning tuned per butterfly variant (center of body at 14-16px depending on canvas size)
 - Cursor toggle integration: butterflies display only when theme-specific cursors enabled in Settings
@@ -104,11 +104,12 @@ Files changed:
   - Particle rays (spark lines) on post cursor for explosive feel
   - Chat bubble geometry for message cursor (rounded rectangle with tail)
   - Ash particle indicators on dropdown (fade-colored dots)
-- CSS keyframe animations:
+- SVG-embedded motion plus CSS keyframe animations:
   - `@keyframes flameFlicker`: 4-stage glow intensity pulse (drop-shadow variation)
   - `@keyframes sparkBurst`: Center expansion with opacity fade (post cursor effect)
   - `@keyframes sparkEmit`: Radiating particle outburst simulation
   - `@keyframes ashDrift`: Slow vertical drift with horizontal sway and scale decay
+- Cursor shards themselves now animate inside the SVG, which makes the motion visible in browsers like Opera GX that can be stricter about CSS-driven cursor effects.
 - Infernal Ember button/interaction styling:
   - Hover: Strong lift (translateY -3px, scale 1.03) + volcanic glow box-shadow
   - Inset shadow glow on hover (inner flame effect)
