@@ -9,6 +9,7 @@ import Footer from '@components/Footer';
 import BugReportButton from '@components/BugReportButton'; // TODO: TEMPORARY - Remove after bug reporting period
 import ChatWidget from '@components/ChatWidget';
 import AccessRequirementModal from '@components/AccessRequirementModal';
+import { ThemeCursor } from '@components/ThemeCursor';
 import { GlobalUIProvider } from '@components/GlobalUI';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
@@ -99,6 +100,7 @@ function ThemedAppFrame({ children }: { children: ReactNode }) {
   return (
     <div className="app-theme-shell">
       <div className="app-theme-content">{children}</div>
+      <ThemeCursor />
     </div>
   );
 }

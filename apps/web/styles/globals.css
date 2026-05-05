@@ -81,24 +81,238 @@
   --theme-shell-shadow: 0 18px 42px rgba(0, 0, 0, 0.25);
   --theme-ambient-opacity: 0.42;
   --theme-ambient-animation: themeAmbientClassic 22s ease-in-out infinite;
-  /* Cursor variables populated by theme registry. Defaults to native cursor */
+  /* Native cursor fallbacks. The premium cursor is rendered by ThemeCursor. */
   --cursor-default: auto;
   --cursor-pointer: pointer;
+  --cursor-post: pointer;
+  --cursor-message: pointer;
+  --cursor-dropdown: pointer;
+  --cursor-disabled: not-allowed;
 }
 
-/* Use theme-provided cursor values when available */
 html, body {
   cursor: var(--cursor-default);
 }
 
-/* Interactive elements should use pointer cursor value defined by theme */
 a, button, [role='button'], .clickable {
   cursor: var(--cursor-pointer);
 }
 
-/* Inputs/Textareas keep text cursor */
 input, textarea, [contenteditable='true'] {
   cursor: text;
+}
+
+button:disabled,
+[aria-disabled='true'],
+.disabled {
+  cursor: var(--cursor-disabled);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html[data-theme-cursors='enabled'],
+  html[data-theme-cursors='enabled'] body,
+  html[data-theme-cursors='enabled'] body * {
+    cursor: none !important;
+  }
+}
+
+.theme-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 2147483647;
+  opacity: 0;
+  transition: opacity 160ms ease;
+  mix-blend-mode: normal;
+  contain: layout style paint;
+}
+
+.theme-cursor-visible {
+  opacity: 1;
+}
+
+.theme-cursor-ring,
+.theme-cursor-core,
+.theme-cursor-trail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.theme-cursor-ring {
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid rgba(var(--cursor-accent-rgb), 0.78);
+  background: rgba(var(--cursor-accent-rgb), 0.08);
+  box-shadow: 0 0 18px rgba(var(--cursor-accent-rgb), 0.28), inset 0 0 14px rgba(var(--cursor-accent-rgb), 0.12);
+  transition: width 170ms ease, height 170ms ease, border-radius 170ms ease, border-color 170ms ease, background 170ms ease, transform 80ms ease;
+}
+
+.theme-cursor-core {
+  width: 7px;
+  height: 7px;
+  display: grid;
+  place-items: center;
+  background: var(--cursor-accent);
+  color: var(--cursor-contrast);
+  box-shadow: 0 0 14px rgba(var(--cursor-accent-rgb), 0.42);
+  transition: width 170ms ease, height 170ms ease, border-radius 170ms ease, background 170ms ease, color 170ms ease;
+}
+
+.theme-cursor-trail {
+  width: 44px;
+  height: 44px;
+  background: radial-gradient(circle, rgba(var(--cursor-accent-2-rgb), 0.12), transparent 68%);
+  transform: translate(-50%, -50%) scale(0.82);
+  transition: transform 220ms ease, opacity 170ms ease;
+  opacity: 0.65;
+}
+
+.theme-cursor-glyph {
+  font: 700 11px/1 var(--font-body);
+  opacity: 0;
+  transform: translateY(-0.5px);
+  transition: opacity 120ms ease;
+}
+
+.theme-cursor-pointer .theme-cursor-ring {
+  width: 38px;
+  height: 38px;
+  background: rgba(var(--cursor-accent-rgb), 0.12);
+}
+
+.theme-cursor-pointer .theme-cursor-core {
+  width: 11px;
+  height: 11px;
+}
+
+.theme-cursor-text .theme-cursor-ring {
+  width: 16px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(var(--cursor-accent-rgb), 0.06);
+}
+
+.theme-cursor-text .theme-cursor-core {
+  width: 2px;
+  height: 24px;
+  border-radius: 4px;
+  background: var(--cursor-accent);
+}
+
+.theme-cursor-dropdown .theme-cursor-ring,
+.theme-cursor-post .theme-cursor-ring,
+.theme-cursor-message .theme-cursor-ring,
+.theme-cursor-disabled .theme-cursor-ring {
+  width: 42px;
+  height: 42px;
+}
+
+.theme-cursor-dropdown .theme-cursor-core,
+.theme-cursor-post .theme-cursor-core,
+.theme-cursor-message .theme-cursor-core,
+.theme-cursor-disabled .theme-cursor-core {
+  width: 20px;
+  height: 20px;
+}
+
+.theme-cursor-dropdown .theme-cursor-glyph,
+.theme-cursor-post .theme-cursor-glyph,
+.theme-cursor-message .theme-cursor-glyph,
+.theme-cursor-disabled .theme-cursor-glyph {
+  opacity: 1;
+}
+
+.theme-cursor-active .theme-cursor-ring {
+  transform: translate(-50%, -50%) scale(0.78);
+}
+
+.theme-cursor-active .theme-cursor-core {
+  width: 14px;
+  height: 14px;
+}
+
+[data-theme='arcane-pastel'] .theme-cursor-ring {
+  border-color: rgba(198, 167, 255, 0.74);
+  background:
+    radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.75) 0 8%, transparent 9%),
+    conic-gradient(from 120deg, rgba(198, 167, 255, 0.2), rgba(255, 179, 214, 0.24), rgba(142, 255, 193, 0.22), rgba(198, 167, 255, 0.2));
+  animation: cursorArcaneFloat 1.8s ease-in-out infinite;
+}
+
+[data-theme='arcane-pastel'] .theme-cursor-core {
+  background: linear-gradient(135deg, #C6A7FF, #FFB3D6 52%, #8EFFC1);
+}
+
+[data-theme='nightshade'] .theme-cursor-ring {
+  border-color: rgba(181, 124, 255, 0.8);
+  box-shadow: 0 0 20px rgba(181, 124, 255, 0.34), 0 0 34px rgba(60, 239, 255, 0.16);
+}
+
+[data-theme='nightshade'] .theme-cursor-core {
+  background: radial-gradient(circle at 35% 30%, #E5EDFF 0 12%, #B57CFF 46%, #281D56 100%);
+}
+
+[data-theme='nightshade'] .theme-cursor-core::after {
+  content: '';
+  position: absolute;
+  inset: -1px -5px 2px 5px;
+  border-radius: 999px;
+  background: var(--color-bg-primary);
+}
+
+[data-theme='infernal-ember'] .theme-cursor-ring {
+  border-color: rgba(255, 95, 31, 0.82);
+  background: radial-gradient(circle, rgba(255, 95, 31, 0.18), rgba(181, 0, 0, 0.04) 62%, transparent);
+  animation: cursorInfernalFlicker 0.8s ease-in-out infinite;
+}
+
+[data-theme='infernal-ember'] .theme-cursor-core {
+  background: linear-gradient(180deg, #FFE7A3, #FF5F1F 52%, #B50000);
+  border-radius: 70% 50% 58% 42%;
+}
+
+[data-theme='radiant-light'] .theme-cursor-ring {
+  border-color: rgba(51, 109, 255, 0.66);
+  background: radial-gradient(circle, rgba(255, 181, 71, 0.14), rgba(51, 109, 255, 0.08) 62%, transparent);
+}
+
+[data-theme='radiant-light'] .theme-cursor-core {
+  background: linear-gradient(135deg, #336DFF, #FFB547);
+}
+
+[data-theme='ocean-depths'] .theme-cursor-ring {
+  border-color: rgba(0, 217, 255, 0.74);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(224, 247, 255, 0.1) 0 20%, transparent 22%),
+    conic-gradient(from 30deg, rgba(0, 184, 212, 0.06), rgba(77, 208, 225, 0.2), rgba(0, 217, 255, 0.1), rgba(0, 184, 212, 0.06));
+  animation: cursorOceanDrift 1.5s ease-in-out infinite;
+}
+
+[data-theme='ocean-depths'] .theme-cursor-core {
+  background: linear-gradient(135deg, #E0F7FF, #00D9FF 45%, #006B88);
+}
+
+@keyframes cursorArcaneFloat {
+  0%, 100% { filter: hue-rotate(0deg) saturate(1); }
+  50% { filter: hue-rotate(14deg) saturate(1.16); }
+}
+
+@keyframes cursorInfernalFlicker {
+  0%, 100% { filter: brightness(1); }
+  35% { filter: brightness(1.25) saturate(1.18); }
+  70% { filter: brightness(0.92) saturate(1.05); }
+}
+
+@keyframes cursorOceanDrift {
+  0%, 100% { border-radius: 44% 56% 52% 48%; }
+  50% { border-radius: 56% 44% 46% 54%; }
 }
 
 [data-theme='classic'] {
@@ -314,15 +528,6 @@ input, textarea, [contenteditable='true'] {
   border-color: var(--color-accent-2);
 }
 
-/* Flame flicker effect on Infernal Ember cursors when enabled */
-[data-theme='infernal-ember'] {
-  --cursor-default: auto;
-  --cursor-pointer: pointer;
-  --cursor-post: pointer;
-  --cursor-message: pointer;
-  --cursor-dropdown: pointer;
-}
-
 /* Spark emission on button hover - creates radiating particle effect */
 [data-theme='infernal-ember'] button:hover::before,
 [data-theme='infernal-ember'] .discord-cta:hover::before {
@@ -407,67 +612,6 @@ input, textarea, [contenteditable='true'] {
   --theme-shell-border-glow: rgba(0, 217, 255, 0.32);
   --theme-ambient-opacity: 0.45;
   --theme-ambient-animation: themeAmbientOcean 19s ease-in-out infinite;
-}
-
-[data-theme='forest-mystic'] {
-  --font-heading: 'Cinzel', Georgia, serif;
-  --font-heading-weight: 700;
-  --font-heading-transform: none;
-  --font-heading-tracking: 0.018em;
-  --theme-shell-gradient:
-    radial-gradient(circle at 15% 12%, rgba(118, 255, 3, 0.22) 0%, transparent 42%),
-    linear-gradient(158deg, rgba(13, 31, 13, 0.99) 0%, rgba(26, 46, 26, 0.98) 56%, rgba(15, 36, 15, 1) 100%);
-  --theme-shell-overlay:
-    radial-gradient(circle at 82% 16%, rgba(105, 240, 174, 0.18) 0%, transparent 38%),
-    repeating-linear-gradient(132deg, rgba(201, 255, 210, 0.055) 0, rgba(201, 255, 210, 0.055) 1px, transparent 1px, transparent 13px);
-  --theme-surface-motif:
-    linear-gradient(138deg, rgba(118, 255, 3, 0.2) 0%, transparent 50%),
-    radial-gradient(circle at 84% 18%, rgba(105, 240, 174, 0.2) 0%, transparent 40%);
-  --theme-motif-opacity: 0.29;
-  --theme-shell-border-glow: rgba(118, 255, 3, 0.28);
-  --theme-ambient-opacity: 0.42;
-  --theme-ambient-animation: themeAmbientForest 23s ease-in-out infinite;
-}
-
-[data-theme='sunset-blaze'] {
-  --font-heading: 'Bebas Neue', 'Segoe UI', sans-serif;
-  --font-heading-weight: 700;
-  --font-heading-transform: uppercase;
-  --font-heading-tracking: 0.045em;
-  --theme-shell-gradient:
-    radial-gradient(circle at 12% 12%, rgba(255, 149, 0, 0.28) 0%, transparent 44%),
-    radial-gradient(circle at 86% 20%, rgba(255, 214, 10, 0.22) 0%, transparent 38%),
-    linear-gradient(152deg, rgba(31, 15, 10, 0.99) 0%, rgba(46, 24, 16, 0.98) 58%, rgba(38, 17, 11, 1) 100%);
-  --theme-shell-overlay:
-    radial-gradient(circle at 74% 84%, rgba(255, 171, 0, 0.18) 0%, transparent 36%),
-    repeating-linear-gradient(0deg, rgba(255, 236, 204, 0.045) 0, rgba(255, 236, 204, 0.045) 1px, transparent 1px, transparent 8px);
-  --theme-surface-motif:
-    linear-gradient(145deg, rgba(255, 149, 0, 0.22) 0%, transparent 50%),
-    radial-gradient(circle at 84% 16%, rgba(255, 214, 10, 0.2) 0%, transparent 42%);
-  --theme-motif-opacity: 0.3;
-  --theme-shell-border-glow: rgba(255, 149, 0, 0.3);
-  --theme-ambient-opacity: 0.42;
-  --theme-ambient-animation: themeAmbientSunset 18s ease-in-out infinite;
-}
-
-[data-theme='shadow-assassin'] {
-  --font-heading: 'Orbitron', 'Segoe UI', sans-serif;
-  --font-heading-weight: 700;
-  --font-heading-transform: uppercase;
-  --font-heading-tracking: 0.05em;
-  --theme-shell-gradient:
-    radial-gradient(circle at 18% 14%, rgba(139, 92, 246, 0.2) 0%, transparent 40%),
-    linear-gradient(160deg, rgba(5, 5, 8, 0.99) 0%, rgba(13, 13, 20, 0.99) 58%, rgba(8, 8, 13, 1) 100%);
-  --theme-shell-overlay:
-    radial-gradient(circle at 88% 22%, rgba(167, 139, 250, 0.18) 0%, transparent 36%),
-    repeating-linear-gradient(125deg, rgba(235, 220, 255, 0.04) 0, rgba(235, 220, 255, 0.04) 1px, transparent 1px, transparent 11px);
-  --theme-surface-motif:
-    linear-gradient(142deg, rgba(139, 92, 246, 0.2) 0%, transparent 50%),
-    radial-gradient(circle at 86% 14%, rgba(167, 139, 250, 0.2) 0%, transparent 38%);
-  --theme-motif-opacity: 0.28;
-  --theme-shell-border-glow: rgba(139, 92, 246, 0.3);
-  --theme-ambient-opacity: 0.4;
-  --theme-ambient-animation: themeAmbientShadow 21s ease-in-out infinite;
 }
 
 /* Keep typography stable across themes; only visual personality layers should vary. */
@@ -641,40 +785,6 @@ h6,
   }
 }
 
-@keyframes themeAmbientForest {
-  0%,
-  100% {
-    transform: translate3d(-1%, 1%, 0) scale(1.01);
-  }
-  50% {
-    transform: translate3d(1.2%, -1.2%, 0) scale(1.035);
-  }
-}
-
-@keyframes themeAmbientSunset {
-  0%,
-  100% {
-    transform: translate3d(-1.4%, 0.8%, 0) scale(1.02);
-    filter: saturate(1);
-  }
-  50% {
-    transform: translate3d(1.4%, -1%, 0) scale(1.04);
-    filter: saturate(1.09);
-  }
-}
-
-@keyframes themeAmbientShadow {
-  0%,
-  100% {
-    transform: translate3d(-1%, -0.8%, 0) scale(1.01);
-    opacity: 0.85;
-  }
-  50% {
-    transform: translate3d(1%, 0.8%, 0) scale(1.03);
-    opacity: 1;
-  }
-}
-
 /* Butterfly wing-flapping animations for Arcane Pastel theme */
 @keyframes butterflyFlap {
   0%, 100% {
@@ -781,21 +891,6 @@ h6,
     animation: none !important;
     transition: none !important;
   }
-  /* Reduce motion for butterfly animations */
-  [data-theme='arcane-pastel'] .cursor-post,
-  [data-theme='arcane-pastel'] .cursor-message,
-  [data-theme='arcane-pastel'] .cursor-dropdown {
-    animation: none !important;
-  }
-}
-
-/* Arcane Pastel theme: Butterfly cursor hover animations */
-[data-theme='arcane-pastel'] {
-  --cursor-default: auto;
-  --cursor-pointer: pointer;
-  --cursor-post: pointer;
-  --cursor-message: pointer;
-  --cursor-dropdown: pointer;
 }
 
 /* Smooth hover effects with butterfly wing flapping for Arcane Pastel button-like elements */

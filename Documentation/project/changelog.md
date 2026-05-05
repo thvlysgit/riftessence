@@ -1,8 +1,35 @@
 # Changelog
 
-> Last updated: 2026-05-05
+> Last updated: 2026-05-06
 
 ---
+
+## 2026-05-06 - Six-Theme System, Premium Cursor Layer, and Spinner Refresh
+
+### Objective: Complete the scalable theme system pass
+
+Overview: Removed the Forest Mystic, Sunset Blaze, and Shadow Assassin themes from the active theme catalog, onboarding, settings, and current documentation. Replaced the previous data-URI cursor approach with an optional global `ThemeCursor` runtime layer that detects interaction types and skins the cursor through theme CSS variables. Rebuilt the six active loading spinners with centered fixed-size geometry and stronger theme metaphors.
+
+Changes:
+
+- Updated [apps/web/utils/themeRegistry.ts](apps/web/utils/themeRegistry.ts):
+  - Reduced the registry to the six supported themes.
+  - Removed hardcoded SVG cursor data URIs.
+  - Added cursor color variables for the global cursor system.
+- Added [apps/web/components/ThemeCursor.tsx](apps/web/components/ThemeCursor.tsx):
+  - Detects default, pointer, text, dropdown, post, message, and disabled interaction states.
+  - Renders only on fine-pointer hover devices and remains opt-in from Settings.
+- Updated [apps/web/components/LoadingSpinner.tsx](apps/web/components/LoadingSpinner.tsx):
+  - Rebuilt Arcane Pastel as dancing pastel fruit shapes.
+  - Rebuilt Nightshade around a crescent moon and stars.
+  - Rebuilt Infernal Ember as layered flame SVG with embers.
+  - Rebuilt Ocean Depths with vortex, wave, and bubble motion.
+  - Kept Classic Dark and Radiant Light polished and centered.
+- Updated [apps/web/styles/globals.css](apps/web/styles/globals.css):
+  - Added theme-specific cursor skins and interaction-state animations.
+  - Removed retired theme shell CSS and ambient keyframes.
+- Updated [apps/web/components/OnboardingWizard.tsx](apps/web/components/OnboardingWizard.tsx) and [apps/web/translations/index.ts](apps/web/translations/index.ts):
+  - Removed retired themes from onboarding choices and translation dictionaries.
 
 ## 2026-05-05 - Duo Feed Banners, Discord Copy Chip, and Modal Button
 

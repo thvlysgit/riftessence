@@ -1,6 +1,6 @@
 # Frontend Components
 
-> Last updated: 2026-04-16
+> Last updated: 2026-05-06
 
 ## Top-Level Components (`apps/web/components/`)
 
@@ -10,6 +10,7 @@
 | `Footer` | Site footer |
 | `GlobalUI` | Global modals/toasts container |
 | `LoadingSpinner` | Loading indicator with custom animations per theme |
+| `ThemeCursor` | Optional premium cursor layer with theme-specific interaction states |
 | `OnboardingWizard` | New user onboarding flow |
 | `ConfirmModal` | Confirmation dialog |
 | `FeedbackModal` | Feedback/rating modal |
@@ -35,11 +36,24 @@ The `LoadingSpinner` component (`apps/web/components/LoadingSpinner.tsx`) render
 | **Infernal Ember** | Flickering animated flames with ember glow |
 | **Radiant Light** | Simple spinning circle |
 | **Ocean Depths** | Swirling water vortex with rising bubbles |
-| **Forest Mystic** | 6 large rotating leaves around a glowing center core |
-| **Sunset Blaze** | Pulsing sun core with 8 rotating gradient rays extending outward |
-| **Shadow Assassin** | 6 swirling purple smoke trails spiraling around a glowing center |
 
-Each animation uses theme-specific colors and CSS keyframes for smooth, engaging loading feedback. The settings page displays scaled previews of each spinner to help users choose their preferred theme. All animations are optimized for visibility with proper sizing, spacing, and opacity levels.
+Each animation uses theme-specific colors and CSS keyframes for smooth, engaging loading feedback. The settings page displays scaled previews of each spinner to help users choose their preferred theme. All animations use a centered fixed-size wrapper so previews and full-page loading states share the same geometry.
+
+### ThemeCursor — Theme-Specific Interaction Cursor
+
+The `ThemeCursor` component (`apps/web/components/ThemeCursor.tsx`) renders an optional custom cursor only on fine-pointer hover devices. It detects interaction states globally from semantic elements and optional `data-cursor` overrides:
+
+| State | Trigger examples |
+|-------|------------------|
+| **default** | Page background and non-interactive content |
+| **pointer** | Links, buttons, labels, role buttons, clickable elements |
+| **text** | Text inputs, textareas, editable content |
+| **dropdown** | Selects, comboboxes, menu/disclosure controls |
+| **post** | Create/publish/post actions or `data-cursor="post"` |
+| **message** | Chat/message/Discord actions or `data-cursor="message"` |
+| **disabled** | Disabled or aria-disabled controls |
+
+The cursor is opt-in from Settings, keeps native cursor behavior as the fallback, and uses theme CSS variables from the registry for maintainable styling.
 
 ### ChatWidget — League of Legends-Style Chat Interface
 

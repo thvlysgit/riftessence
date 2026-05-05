@@ -1,6 +1,6 @@
 # Theming System
 
-> Last updated: 2026-04-17  
+> Last updated: 2026-05-06  
 > Source: `apps/web/utils/themeRegistry.ts`, `apps/web/contexts/ThemeContext.tsx`, `apps/web/pages/_document.tsx`, `apps/web/pages/_app.tsx`, `apps/web/styles/globals.css`  
 > Guide: `apps/web/utils/README-theming.md`
 
@@ -13,7 +13,7 @@ The web app now uses a shared theme registry for both pre-hydration and runtime 
 - First-paint pre-hydration bootstrap: `apps/web/pages/_document.tsx`
 - Global shell visuals, typography, and ambient motion: `apps/web/styles/globals.css`
 
-This removes drift between first paint and hydrated state and ensures all 9 themes are available consistently.
+This removes drift between first paint and hydrated state and ensures all 6 supported themes are available consistently.
 
 ## Theme Catalog
 
@@ -23,9 +23,7 @@ This removes drift between first paint and hydrated state and ensures all 9 them
 4. **Infernal Ember** (`infernal-ember`) - molten ember intensity
 5. **Radiant Light** (`radiant-light`) - clean high-clarity daylight
 6. **Ocean Depths** (`ocean-depths`) - deep marine cyan atmosphere
-7. **Forest Mystic** (`forest-mystic`) - organic verdant enchantment
-8. **Sunset Blaze** (`sunset-blaze`) - warm cinematic dusk energy
-9. **Shadow Assassin** (`shadow-assassin`) - stealth matte violet-black
+Retired themes: Forest Mystic, Sunset Blaze, and Shadow Assassin were removed on 2026-05-06.
 
 ## Personality Layers
 
@@ -95,6 +93,7 @@ These classes are visual-only wrappers and should not change interaction semanti
 
 ## Implementation Notes
 
-- Onboarding now exposes all 9 themes with translated labels.
+- Onboarding exposes the 6 supported themes with translated labels.
 - Settings uses themed shell panels for stronger visual identity while preserving existing layout.
 - Loading spinner per-theme variants remain in `apps/web/components/LoadingSpinner.tsx`.
+- Theme cursor visuals are now handled by `apps/web/components/ThemeCursor.tsx`, with scalable CSS variables from the registry and runtime interaction-state detection.

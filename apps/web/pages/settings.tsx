@@ -209,9 +209,6 @@ export default function SettingsPage() {
         }}>
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             <h2 className="text-xl font-bold" style={{ color: 'var(--color-accent-1)' }}>{t('settings.theme.title')}</h2>
-            <span className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide rounded" style={{ backgroundColor: 'rgba(255, 179, 214, 0.16)', color: '#FFB3D6', border: '1px solid rgba(255, 179, 214, 0.5)' }}>
-              WIP
-            </span>
           </div>
           <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
             {t('settings.theme.description')}
@@ -222,8 +219,8 @@ export default function SettingsPage() {
               <div>
                 <p className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>Theme-Specific Cursors</p>
                 <p className="text-sm mt-1 max-w-2xl" style={{ color: 'var(--color-text-muted)' }}>
-                  Work in progress: when enabled, each theme can replace the normal cursor with its own styled variant.
-                  It is off by default.
+                  Optional: each theme adds a polished cursor that reacts to links, text fields, menus, posts, messages, and disabled controls.
+                  Native cursors stay as the fallback.
                 </p>
               </div>
               <button

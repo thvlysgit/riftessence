@@ -15,9 +15,6 @@ const THEMES = [
   { key: 'nightshade', nameKey: 'onboarding.themeNightshade', descKey: 'onboarding.themeNightshadeDesc' },
   { key: 'radiant-light', nameKey: 'onboarding.themeRadiantLight', descKey: 'onboarding.themeRadiantLightDesc' },
   { key: 'ocean-depths', nameKey: 'onboarding.themeOceanDepths', descKey: 'onboarding.themeOceanDepthsDesc' },
-  { key: 'forest-mystic', nameKey: 'onboarding.themeForestMystic', descKey: 'onboarding.themeForestMysticDesc' },
-  { key: 'sunset-blaze', nameKey: 'onboarding.themeSunsetBlaze', descKey: 'onboarding.themeSunsetBlazeDesc' },
-  { key: 'shadow-assassin', nameKey: 'onboarding.themeShadowAssassin', descKey: 'onboarding.themeShadowAssassinDesc' },
 ] as const;
 
 const LANGUAGES = [

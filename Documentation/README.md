@@ -21,7 +21,7 @@ Central documentation hub for the RiftEssence project. This is the single source
 ### Frontend
 - [Pages](frontend/pages.md) — All routes, pages, and their responsibilities
 - [Components](frontend/components.md) — Component inventory and usage
-- [Theming](frontend/theming.md) — CSS variables, 9 themes, shared registry, first-paint/runtime parity
+- [Theming](frontend/theming.md) — CSS variables, 6 themes, shared registry, first-paint/runtime parity
 - [Translations](frontend/translations.md) — i18n system, translation keys, adding languages
 - [State Management](frontend/state-management.md) — Contexts, React Query, data fetching
 

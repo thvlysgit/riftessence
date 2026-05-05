@@ -547,9 +547,6 @@ export type TranslationKey =
   | 'theme.infernalEmber'
   | 'theme.radiantLight'
   | 'theme.oceanDepths'
-  | 'theme.forestMystic'
-  | 'theme.sunsetBlaze'
-  | 'theme.shadowAssassin'
   | 'theme.clickToApply'
   
   // Teams
@@ -640,12 +637,6 @@ export type TranslationKey =
   | 'onboarding.themeRadiantLightDesc'
   | 'onboarding.themeOceanDepths'
   | 'onboarding.themeOceanDepthsDesc'
-  | 'onboarding.themeForestMystic'
-  | 'onboarding.themeForestMysticDesc'
-  | 'onboarding.themeSunsetBlaze'
-  | 'onboarding.themeSunsetBlazeDesc'
-  | 'onboarding.themeShadowAssassin'
-  | 'onboarding.themeShadowAssassinDesc'
   
   // Report Modal (additional)
   | 'report.reasonRequired'
@@ -1266,9 +1257,6 @@ export const translations: Record<LanguageCode, Translations> = {
     'theme.infernalEmber': 'Infernal Ember',
     'theme.radiantLight': 'Radiant Light',
     'theme.oceanDepths': 'Ocean Depths',
-    'theme.forestMystic': 'Forest Mystic',
-    'theme.sunsetBlaze': 'Sunset Blaze',
-    'theme.shadowAssassin': 'Shadow Assassin',
     'theme.clickToApply': 'Click to apply',
 
     // Teams - Dashboard
@@ -1359,12 +1347,6 @@ export const translations: Record<LanguageCode, Translations> = {
     'onboarding.themeRadiantLightDesc': 'Bright and uplifting',
     'onboarding.themeOceanDepths': 'Ocean Depths',
     'onboarding.themeOceanDepthsDesc': 'Deep and adaptive',
-    'onboarding.themeForestMystic': 'Forest Mystic',
-    'onboarding.themeForestMysticDesc': 'Organic and calm',
-    'onboarding.themeSunsetBlaze': 'Sunset Blaze',
-    'onboarding.themeSunsetBlazeDesc': 'Warm and cinematic',
-    'onboarding.themeShadowAssassin': 'Shadow Assassin',
-    'onboarding.themeShadowAssassinDesc': 'Minimal and lethal',
     
     // Report Modal (additional)
     'report.reasonRequired': 'Please provide a reason for the report.',
@@ -1982,9 +1964,6 @@ export const translations: Record<LanguageCode, Translations> = {
     'theme.infernalEmber': 'Braise infernale',
     'theme.radiantLight': 'Lumière radieuse',
     'theme.oceanDepths': 'Abysses Océaniques',
-    'theme.forestMystic': 'Forêt Mystique',
-    'theme.sunsetBlaze': 'Brasier du Couchant',
-    'theme.shadowAssassin': 'Assassin des Ombres',
     'theme.clickToApply': 'Cliquer pour appliquer',
 
     // Teams - Dashboard (French)
@@ -2075,12 +2054,6 @@ export const translations: Record<LanguageCode, Translations> = {
     'onboarding.themeRadiantLightDesc': 'Lumineux et inspirant',
     'onboarding.themeOceanDepths': 'Abysses Océaniques',
     'onboarding.themeOceanDepthsDesc': 'Profond et adaptatif',
-    'onboarding.themeForestMystic': 'Forêt Mystique',
-    'onboarding.themeForestMysticDesc': 'Organique et apaisant',
-    'onboarding.themeSunsetBlaze': 'Brasier du Couchant',
-    'onboarding.themeSunsetBlazeDesc': 'Chaleureux et cinématique',
-    'onboarding.themeShadowAssassin': 'Assassin des Ombres',
-    'onboarding.themeShadowAssassinDesc': 'Minimaliste et mortel',
     
     // Report Modal (additional)
     'report.reasonRequired': 'Veuillez fournir une raison pour le signalement.',

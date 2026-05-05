@@ -193,9 +193,8 @@ onMouseLeave={(e) => {
 4. **Infernal Ember** - Warm reds and oranges
 5. **Radiant Light** - Light mode with warm tones
 6. **Ocean Depths** - Deep ocean blues with cyan accents
-7. **Forest Mystic** - Dark natural greens with vivid emerald highlights
-8. **Sunset Blaze** - Warm dusk oranges and golds
-9. **Shadow Assassin** - Ultra-dark violet-black stealth style
+
+Retired themes: Forest Mystic, Sunset Blaze, and Shadow Assassin.
 
 ## Priority Pages to Convert
 
