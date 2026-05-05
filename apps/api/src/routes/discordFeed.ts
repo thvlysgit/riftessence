@@ -1,4 +1,5 @@
 import prisma from '../prisma';
+import * as riotClient from '../riotClient';
 import { ackMirrorDeletion, leaseMirrorDeletions } from '../services/discordMirrorDeletionQueue';
 import { syncUserVerification } from '../utils/verification';
 
@@ -260,7 +261,7 @@ function buildDiscordDisplayUsername(authorDiscordUsername: string, authorDiscor
   return trimmed.substring(0, 50);
 }
 
-async function createDiscordOnlyUser(prismaClient: any, authorDiscordUsername: string, authorDiscordId: string) {
+async function createDiscordOnlyUser(prismaClient: any, authorDiscordUsername: string, authorDiscordId: string, autoOptInDms: boolean = false) {
   const username = buildDiscordDisplayUsername(authorDiscordUsername, authorDiscordId);
 
   try {
@@ -268,6 +269,7 @@ async function createDiscordOnlyUser(prismaClient: any, authorDiscordUsername: s
       data: {
         username,
         anonymous: false,
+        discordDmNotifications: autoOptInDms ? true : false,
       },
     });
   } catch (error: any) {
@@ -280,6 +282,7 @@ async function createDiscordOnlyUser(prismaClient: any, authorDiscordUsername: s
       data: {
         username: fallbackUsername,
         anonymous: false,
+        discordDmNotifications: autoOptInDms ? true : false,
       },
     });
   }
@@ -663,7 +666,7 @@ export default async function discordFeedRoutes(fastify: any) {
         }
       } else {
         // Create a visible app user for Discord-only users so the Discord identity is shown in feed.
-        const discordUser = await createDiscordOnlyUser(prisma, authorDiscordUsername, authorDiscordId);
+        const discordUser = await createDiscordOnlyUser(prisma, authorDiscordUsername, authorDiscordId, isModal);
 
         userId = discordUser.id;
 
@@ -700,6 +703,99 @@ export default async function discordFeedRoutes(fastify: any) {
             role: 'MEMBER',
           },
         });
+      }
+
+      // If this was submitted from the Duo modal and a Riot ID was provided,
+      // try to resolve the Riot PUUID and enrich the posting account (rank/roles/region)
+      if (riotIdentity.gameName && riotIdentity.tagLine) {
+        const candidateRegions = Array.isArray(communityRegions) && communityRegions.length === 1
+          ? communityRegions
+          : ['NA','EUW','EUNE','KR','JP','OCE','LAN','LAS','BR','RU'];
+
+        let resolvedPuuid: string | null = null;
+        let resolvedRegion: string | null = null;
+
+        for (const candidateRegion of candidateRegions) {
+          try {
+            const puuid = await riotClient.getPuuid(riotIdentity.gameName, riotIdentity.tagLine, candidateRegion);
+            if (puuid) {
+              resolvedPuuid = puuid;
+              resolvedRegion = candidateRegion;
+              break;
+            }
+          } catch (err) {
+            // ignore and try next region
+            continue;
+          }
+        }
+
+        if (resolvedPuuid && resolvedRegion) {
+          // Look for an existing RiotAccount by puuid+region
+          const existingAccount = await prisma.riotAccount.findFirst({ where: { puuid: resolvedPuuid, region: resolvedRegion } });
+          if (existingAccount) {
+            postingRiotAccountId = existingAccount.id;
+            // adopt region from resolved account
+            region = existingAccount.region || region;
+
+            // If role info missing, try to copy from linked user for that riot account
+            if ((!role || role === 'FILL') && existingAccount.userId) {
+              const linkedUser = await prisma.user.findUnique({ where: { id: existingAccount.userId }, select: { primaryRole: true, preferredRole: true, secondaryRole: true } });
+              if (linkedUser) {
+                if (!role && linkedUser.primaryRole) role = linkedUser.primaryRole;
+                if (!role && linkedUser.preferredRole) role = linkedUser.preferredRole;
+                if (!secondRole && linkedUser.secondaryRole) secondRole = linkedUser.secondaryRole;
+              }
+            }
+
+            // If still missing, attempt role detection via Riot match history
+            if (!role) {
+              try {
+                const detected = await riotClient.detectPreferredRole(resolvedPuuid, resolvedRegion);
+                if (detected?.primary) role = detected.primary;
+                if (detected?.secondary) secondRole = detected.secondary;
+              } catch (err) {
+                // ignore failures
+              }
+            }
+          } else {
+            // Update placeholder RiotAccount (if we created one) with resolved puuid/region
+            try {
+              if (postingRiotAccountId) {
+                await prisma.riotAccount.update({
+                  where: { id: postingRiotAccountId },
+                  data: {
+                    puuid: resolvedPuuid,
+                    region: resolvedRegion,
+                    gameName: riotIdentity.gameName,
+                    tagLine: riotIdentity.tagLine,
+                  },
+                });
+              }
+
+              // Try role detection
+              if (!role) {
+                try {
+                  const detected = await riotClient.detectPreferredRole(resolvedPuuid, resolvedRegion);
+                  if (detected?.primary) role = detected.primary;
+                  if (detected?.secondary) secondRole = detected.secondary;
+                } catch (err) {
+                  // ignore
+                }
+              }
+            } catch (err) {
+              // ignore update errors
+            }
+          }
+        }
+      }
+
+      // If this is a modal submission, auto-opt-in the user to Discord DM forwards
+      if (isModal && userId) {
+        try {
+          await prisma.user.update({ where: { id: userId }, data: { discordDmNotifications: true } });
+        } catch (err) {
+          // ignore update failures
+        }
       }
 
       const fallbackCommunityLanguage = normalizeLanguageKey(community.language)
