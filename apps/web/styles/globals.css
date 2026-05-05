@@ -108,14 +108,6 @@ button:disabled,
   cursor: var(--cursor-disabled);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  html[data-theme-cursors='enabled'][data-theme-cursor-ready='true'],
-  html[data-theme-cursors='enabled'][data-theme-cursor-ready='true'] body,
-  html[data-theme-cursors='enabled'][data-theme-cursor-ready='true'] body * {
-    cursor: none !important;
-  }
-}
-
 .theme-cursor {
   position: fixed;
   top: 0;

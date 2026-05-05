@@ -84,7 +84,6 @@ function getCursorGlyph(kind: CursorKind) {
 export function ThemeCursor() {
   const { themeCursorsEnabled } = useTheme();
   const cursorRef = useRef<HTMLDivElement | null>(null);
-  const [canUseCustomCursor, setCanUseCustomCursor] = useState(false);
   const [state, setState] = useState<CursorState>({
     kind: 'default',
     visible: false,
@@ -92,31 +91,15 @@ export function ThemeCursor() {
   });
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const mediaQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
-    const syncCapability = () => setCanUseCustomCursor(mediaQuery.matches);
-    syncCapability();
-
-    mediaQuery.addEventListener('change', syncCapability);
-    return () => mediaQuery.removeEventListener('change', syncCapability);
-  }, []);
-
-  useEffect(() => {
-    const root = document.documentElement;
-
-    if (!themeCursorsEnabled || !canUseCustomCursor) {
-      root.removeAttribute('data-theme-cursor-ready');
+    if (!themeCursorsEnabled) {
       setState((current) => ({ ...current, visible: false, active: false }));
       return;
     }
 
-    const handlePointerMove = (event: PointerEvent) => {
-      if (event.pointerType && event.pointerType !== 'mouse') return;
+    const handleMouseMove = (event: MouseEvent) => {
       if (cursorRef.current) {
         cursorRef.current.style.transform = `translate3d(${event.clientX}px, ${event.clientY}px, 0)`;
       }
-      root.setAttribute('data-theme-cursor-ready', 'true');
       const kind = getCursorKind(event.target);
       setState((current) => {
         if (current.kind === kind && current.visible) return current;
@@ -128,33 +111,32 @@ export function ThemeCursor() {
       });
     };
 
-    const handlePointerDown = () => {
+    const handleMouseDown = () => {
       setState((current) => ({ ...current, active: true }));
     };
 
-    const handlePointerUp = () => {
+    const handleMouseUp = () => {
       setState((current) => ({ ...current, active: false }));
     };
 
-    const handlePointerLeave = () => {
+    const handleMouseLeave = () => {
       setState((current) => ({ ...current, visible: false, active: false }));
     };
 
-    window.addEventListener('pointermove', handlePointerMove, { passive: true });
-    window.addEventListener('pointerdown', handlePointerDown, { passive: true });
-    window.addEventListener('pointerup', handlePointerUp, { passive: true });
-    document.documentElement.addEventListener('mouseleave', handlePointerLeave);
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('mousedown', handleMouseDown, { passive: true });
+    window.addEventListener('mouseup', handleMouseUp, { passive: true });
+    document.documentElement.addEventListener('mouseleave', handleMouseLeave);
 
     return () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerdown', handlePointerDown);
-      window.removeEventListener('pointerup', handlePointerUp);
-      document.documentElement.removeEventListener('mouseleave', handlePointerLeave);
-      root.removeAttribute('data-theme-cursor-ready');
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+      document.documentElement.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [themeCursorsEnabled, canUseCustomCursor]);
+  }, [themeCursorsEnabled]);
 
-  if (!themeCursorsEnabled || !canUseCustomCursor) return null;
+  if (!themeCursorsEnabled) return null;
 
   return (
     <div
