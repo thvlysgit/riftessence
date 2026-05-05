@@ -1,7 +1,7 @@
 # Codebase Audit
 
 > Last updated: 2026-04-16  
-> Source: `COMPREHENSIVE_CODEBASE_ANALYSIS.md` (root-level, legacy)
+> Source: consolidated from legacy root-level audit notes
 
 ## Latest Session Audit
 
@@ -35,5 +35,5 @@
 
 ## Improvement Roadmap
 
-See `P0_QUICK_WINS_IMPLEMENTATION.md` (root) for completed quick wins.  
-See `COMPREHENSIVE_CODEBASE_ANALYSIS.md` (root) for full 10-week improvement plan.
+Completed quick wins and historical implementation notes are consolidated in [../project/changelog.md](../project/changelog.md).
+Use [2026-04-16 Audit Findings](2026-04-16-audit-findings.md) for the latest verified audit state.

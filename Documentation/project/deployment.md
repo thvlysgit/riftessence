@@ -2,10 +2,6 @@
 
 > Last updated: 2026-04-16
 
-See also:
-- Root-level `HEROKU_DEPLOYMENT.md` (legacy — to be consolidated here)
-- Root-level `RASPBERRY_PI_DEPLOYMENT.md` (legacy — to be consolidated here)
-
 ## Vercel (Frontend)
 
 Configuration in `vercel.json`:

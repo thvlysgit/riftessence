@@ -13,10 +13,8 @@ interface NoAccessProps {
 export default function NoAccess({ 
   title,
   message,
-  showButtons = true,
   action = 'view',
-  onClose,
-  closeIcon = 'close'
+  onClose
 }: NoAccessProps) {
   const defaultReasonByAction: Record<NonNullable<NoAccessProps['action']>, string> = {
     view: 'You need to have an account to access this page.',

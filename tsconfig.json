@@ -8,7 +8,6 @@
     "baseUrl": ".",
     "paths": {
       "@lfd/types": ["packages/types/src"],
-      "@lfd/ui": ["packages/ui/src"],
       "@components/*": ["apps/web/components/*"]
     },
     "strict": true,

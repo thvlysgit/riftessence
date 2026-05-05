@@ -1,69 +1,31 @@
-# LFD Hub — Monorepo
+# RiftEssence
 
-This repository is a minimal TypeScript monorepo skeleton for the LFD Hub project (Next.js web app, Fastify API, shared types and UI components).
+RiftEssence is a League of Legends LFD/LFT platform for finding duo partners, joining communities, managing teams and scrims, linking Riot/Discord accounts, and sharing posts through Discord.
 
-Quick commands
+The canonical project memory lives in [Documentation/README.md](Documentation/README.md). Start there for architecture, API contracts, page inventory, deployment notes, and the changelog.
 
-Install dependencies (requires pnpm):
+## Stack
 
-```powershell
-pnpm install
-```
+- `apps/web` - Next.js 14 Pages Router frontend
+- `apps/api` - Fastify REST API
+- `discord-bot` - standalone discord.js bot
+- `packages/types` - shared Zod/TypeScript schemas
+- `prisma` - PostgreSQL schema and migrations
 
-Run the web app (Next.js):
-
-```powershell
-pnpm --filter @lfd/web dev
-```
-
-Run the API (Fastify):
-
-```powershell
-pnpm --filter @lfd/api dev
-```
-
-Run lint and tests:
-
-```powershell
-pnpm -w -r run lint
-pnpm -w -r test
-```
-
-Project layout
-
-- `apps/web` — Next.js + Tailwind front-end (pages: `/feed`, `/profile/[id]`, `/create`)
-- `apps/api` — Fastify API exposing `/health` and OpenAPI docs at `/docs`
-- `packages/types` — shared TypeScript schemas (Zod) and unit tests
-- `packages/ui` — simple React components (Button, Card, Tag)
-
-Notes
-
-- Use `pnpm` at the repo root. CI workflow is provided at `.github/workflows/ci.yml`.
-- This is a skeleton: install any additional dependencies you need (e.g. `tailwindcss`, `react` peer deps) and expand the API and UI as required.
-# LFD Hub Monorepo
-
-Monorepo skeleton containing Next.js web app, Fastify API, shared types, and UI components.
-
-Getting started
-
-Prerequisites: `pnpm`, Node 18+
-
-Install
+## Common Commands
 
 ```powershell
 pnpm install
-```
-
-Run apps
-
-```powershell
 pnpm --filter @lfd/web dev
 pnpm --filter @lfd/api dev
-```
-
-Run lint and tests
-
-```powershell
-pnpm lint
 pnpm test
+pnpm --filter @lfd/web build
+pnpm --filter @lfd/api build
 ```
+
+## Notes
+
+- Use `pnpm` from the repository root.
+- Frontend reads `NEXT_PUBLIC_API_URL` for API calls.
+- API runs on port `3333` by default.
+- The Discord bot is not part of the pnpm workspace; see [discord-bot/README.md](discord-bot/README.md).

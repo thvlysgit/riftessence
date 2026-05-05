@@ -1,5 +1,0 @@
-export { Button } from './Button';
-export { Card } from './Card';
-export { Tag } from './Tag';
-
-export default {};

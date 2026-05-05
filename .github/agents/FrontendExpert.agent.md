@@ -21,7 +21,7 @@ You are a **temporary frontend specialist** created to handle specific frontend 
 - **State**: React Context (Auth, Theme, Language, GlobalUI) + local useState; TanStack Query configured but underutilized
 - **Data Fetching**: Direct `fetch()` with `getAuthHeader()` from `utils/auth.ts`
 - **API URL**: `process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'` — defined at top of each page file
-- **Shared packages**: `@lfd/types` (Zod schemas), `@lfd/ui` (Button, Card, Tag)
+- **Shared packages**: `@lfd/types` (Zod schemas)
 
 ## Key File Locations
 

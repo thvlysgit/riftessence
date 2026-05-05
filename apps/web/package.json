@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@lfd/types": "workspace:*",
-    "@lfd/ui": "workspace:*",
     "@tanstack/react-query": "^4.36.1",
     "@types/dompurify": "^3.2.0",
     "@vercel/analytics": "^1.6.1",

@@ -126,7 +126,7 @@ Verify no forbidden cross-package imports were introduced:
 ```
 apps/web → apps/api       ❌ FORBIDDEN
 apps/api → apps/web       ❌ FORBIDDEN
-apps/api → @lfd/ui        ❌ FORBIDDEN (API has no UI)
+apps/api → frontend UI    ❌ FORBIDDEN (API has no UI)
 Any app  → direct prisma  ❌ FORBIDDEN (only API via its own prisma.ts)
 ```
 

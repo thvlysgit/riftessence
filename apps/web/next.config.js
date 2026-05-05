@@ -8,7 +8,7 @@ const nextConfig = {
     esmExternals: false,
   },
   // Transpile local workspace packages that ship TS/TSX so Next can process them
-  transpilePackages: ['@lfd/ui', '@lfd/types', '@tanstack/react-query', '@tanstack/query-core', '@vercel/analytics'],
+  transpilePackages: ['@lfd/types', '@tanstack/react-query', '@tanstack/query-core', '@vercel/analytics'],
   images: {
     remotePatterns: [
       {

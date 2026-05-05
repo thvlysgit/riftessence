@@ -58,5 +58,6 @@ scripts
 
 # Misc
 erd.dot
+erd.svg
 .eslintrc*
 .prettierrc*

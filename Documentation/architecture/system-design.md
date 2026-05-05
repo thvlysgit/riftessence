@@ -51,10 +51,10 @@
 
 ### Import Boundaries (STRICT)
 ```
-apps/web  → CAN import  → @lfd/types, @lfd/ui
+apps/web  → CAN import  → @lfd/types, app-owned web components
 apps/web  → CANNOT      → apps/api, prisma, @prisma/client
 apps/api  → CAN import  → @prisma/client, internal modules
-apps/api  → CANNOT      → apps/web, @lfd/ui
+apps/api  → CANNOT      → apps/web, frontend components
 discord-bot → HTTP only → Communicates with API via REST
 ```
 

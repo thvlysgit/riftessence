@@ -412,7 +412,7 @@ type User = { id: string; username: string; ... };
 - Heavy dependencies for small component needs
 - Tailwind sufficient for styling
 
-**Current**: Minimal packages/ui with custom components
+**Current**: App-owned components in `apps/web/components` with shared theme variables
 
 ### Do Not Create Parallel Type Systems
 

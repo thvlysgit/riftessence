@@ -374,9 +374,8 @@ test('User schema validation', () => {
 - Pagination support
 - Filter state management
 
-### Shared Component
-**Reference**: `packages/ui/src/Button.tsx`
+### App-Owned Component
+**Reference**: `apps/web/components/SEOHead.tsx`
 - Functional component with TypeScript
-- Props spread pattern
-- Tailwind styling
-- Exported as named export
+- Narrow props interface
+- Kept in the web app because UI is not shared outside the frontend

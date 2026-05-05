@@ -11,6 +11,11 @@ node_modules/
 dist/
 .next/
 out/
+*.tsbuildinfo
+
+# Generated diagrams
+prisma/erd.dot
+prisma/erd.svg
 
 # Database
 pgdata/

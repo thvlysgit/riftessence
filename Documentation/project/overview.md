@@ -38,7 +38,6 @@ RiftEssence is a League of Legends LFD (Looking For Duo) platform with social ra
 apps/web      → @lfd/web    — Next.js 14 frontend (Vercel deployment)
 apps/api      → @lfd/api    — Fastify 4 REST API (Heroku/Docker deployment)
 packages/types → @lfd/types — Shared Zod schemas
-packages/ui   → @lfd/ui     — Shared React components (Button, Card, Tag)
 discord-bot   → @riftessence/discord-bot — Standalone Discord bot (NOT in pnpm workspace)
 prisma/       → Central database schema + migrations
 ```
@@ -53,3 +52,4 @@ prisma/       → Central database schema + migrations
 - All IDs are `cuid()` strings
 - Database has 18 models
 - React Query is configured but underutilized (manual `fetch()` is the norm)
+- Shared UI package was removed during cleanup because the web app uses app-owned components.

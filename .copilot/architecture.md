@@ -67,16 +67,6 @@ packages/
 - Database schema definition (in prisma/schema.prisma)
 - API-specific validation logic (in apps/api/src/validation.ts)
 
-### packages/ui
-- Minimal shared components (Button, Card, Tag)
-- Tailwind-based styling, no CSS modules
-- NOT a comprehensive design system
-- Transpiled by Next.js via `transpilePackages` config
-
-**NOT responsible for**:
-- Complex domain-specific components (those live in apps/web/components)
-- State management or data fetching
-
 ## Data Flow
 
 ### Request → Response (Typical Flow)

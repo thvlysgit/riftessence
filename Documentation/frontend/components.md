@@ -103,10 +103,6 @@ The `ChatWidget` component (`apps/web/components/ChatWidget.tsx`) provides a flo
 |-----------|---------|
 | `IconPicker` | Icon selection component |
 
-## Shared UI Package (`packages/ui/src/`)
+## Shared UI Package
 
-| Component | Status |
-|-----------|--------|
-| `Button` | Defined but currently unused by web |
-| `Card` | Defined but currently unused by web |
-| `Tag` | Defined but currently unused by web |
+The unused `packages/ui` skeleton package was removed during cleanup. Frontend UI now lives in `apps/web/components/` and `apps/web/src/components/`.

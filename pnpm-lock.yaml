@@ -127,9 +127,6 @@ importers:
       '@lfd/types':
         specifier: workspace:*
         version: link:../../packages/types
-      '@lfd/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       '@tanstack/react-query':
         specifier: ^4.36.1
         version: 4.43.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -198,12 +195,6 @@ importers:
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
-
-  packages/ui:
-    dependencies:
-      react:
-        specifier: ^18.0.0
-        version: 18.2.0
 
 packages:
 

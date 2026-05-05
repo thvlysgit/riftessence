@@ -3,10 +3,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import SEOHead from '@components/SEOHead';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAuthHeader, getAuthToken } from '../../utils/auth';
+import { getAuthToken } from '../../utils/auth';
 import NoAccess from '@components/NoAccess';
-import { useGlobalUI } from '@components/GlobalUI';
-import { CreateTeamLftModal } from '@components/CreateTeamLftModal';
 import { DiscordIcon } from '../../src/components/DiscordBrand';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -81,7 +79,6 @@ const TeamsDashboardPage: React.FC = () => {
   const router = useRouter();
   const { user } = useAuth();
   const { t } = useLanguage();
-  const { showToast, confirm: confirmAction } = useGlobalUI();
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +88,6 @@ const TeamsDashboardPage: React.FC = () => {
   const [preferredRegion, setPreferredRegion] = useState<string>(DEFAULT_TEAM_REGION);
   const [createForm, setCreateForm] = useState({ name: '', tag: '', description: '', region: DEFAULT_TEAM_REGION });
   const [creating, setCreating] = useState(false);
-  const [showTeamLftModal, setShowTeamLftModal] = useState(false);
   
   // Team selector modal for Manage Roster
   const [showTeamSelectorModal, setShowTeamSelectorModal] = useState(false);
@@ -256,90 +252,6 @@ const TeamsDashboardPage: React.FC = () => {
     }
   };
 
-  const handleOpenTeamLftModal = () => {
-    if (teams.length === 0) {
-      setShowCreateModal(true);
-      return;
-    }
-
-    setShowTeamLftModal(true);
-  };
-
-  const maybeShowDiscordRecruitingNudge = async (): Promise<boolean> => {
-    try {
-      const headers = getAuthHeader();
-      if (!headers || !('Authorization' in headers)) return false;
-
-      const profileRes = await fetch(`${apiUrl}/api/user/profile`, { headers });
-      if (!profileRes.ok) return false;
-
-      const profile = await profileRes.json();
-      const needsDiscordLink = !profile.discordLinked;
-      const needsDmSetup = !profile.discordDmNotifications;
-
-      if (!needsDiscordLink && !needsDmSetup) {
-        return false;
-      }
-
-      const setupNow = await confirmAction({
-        title: 'We Have a Feature That Helps',
-        message: needsDiscordLink
-          ? 'RiftEssence can help your team stay on top of recruiting through Discord reminders. Link your Discord account first, then enable DM notifications.'
-          : 'RiftEssence can help your team stay on top of recruiting through Discord reminders. Enable Discord DM notifications so the bot can send timely updates.',
-        confirmText: needsDiscordLink ? 'Open Profile Setup' : 'Open DM Setup',
-        cancelText: t('teams.dashboard.later'),
-      });
-
-      if (setupNow) {
-        await router.push(needsDiscordLink ? '/profile' : '/settings');
-        return true;
-      }
-
-      return false;
-    } catch (nudgeError) {
-      console.error('Failed to check Discord DM setup state:', nudgeError);
-      return false;
-    }
-  };
-
-  const handleTeamLftSubmit = async (data: any) => {
-    const token = getAuthToken();
-    if (!token) {
-      showToast(t('teams.lft.loginToPublish'), 'error');
-      return;
-    }
-
-    try {
-      const res = await fetch(`${apiUrl}/api/lft/posts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          ...data,
-          type: 'TEAM',
-        }),
-      });
-
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        showToast(body?.error || t('teams.lft.publishFailed'), 'error');
-        return;
-      }
-
-      showToast(body?.updated ? t('teams.lft.updated') : t('teams.lft.published'), 'success');
-      setShowTeamLftModal(false);
-      const redirectedToSetup = await maybeShowDiscordRecruitingNudge();
-      if (!redirectedToSetup) {
-        router.push('/lft');
-      }
-    } catch (submitError) {
-      console.error('Failed to publish team listing:', submitError);
-      showToast('Failed to publish team listing.', 'error');
-    }
-  };
-  
   // Handle Manage Roster click - if one team, go directly; if multiple, show modal
   const handleManageRosterClick = () => {
     if (teams.length === 0) {
@@ -1059,12 +971,6 @@ const TeamsDashboardPage: React.FC = () => {
         </div>
       )}
 
-      <CreateTeamLftModal
-        open={showTeamLftModal}
-        onClose={() => setShowTeamLftModal(false)}
-        onSubmit={handleTeamLftSubmit}
-      />
-      
       {/* Team Selector Modal */}
       {showTeamSelectorModal && (
         <div 

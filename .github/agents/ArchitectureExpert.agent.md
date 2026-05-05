@@ -50,17 +50,16 @@ pnpm-workspace.yaml → packages: ['apps/*', 'packages/*']
 apps/web     → @lfd/web    — Next.js 14 frontend (Vercel)
 apps/api     → @lfd/api    — Fastify 4 API (Heroku/Docker)
 packages/types → @lfd/types — Shared Zod schemas (currently underutilized)
-packages/ui  → @lfd/ui     — Shared React components (Button, Card, Tag — currently unused by web)
 discord-bot  → @riftessence/discord-bot — NOT in pnpm workspace (standalone)
 prisma/      → Central schema, used by API only
 ```
 
 ### Import Boundary Rules (STRICT)
 ```
-apps/web  → CAN import → @lfd/types, @lfd/ui
+apps/web  → CAN import → @lfd/types, app-owned web components
 apps/web  → CANNOT import → apps/api, prisma, @prisma/client
 apps/api  → CAN import → @prisma/client, internal modules
-apps/api  → CANNOT import → apps/web, @lfd/types (uses own validation.ts), @lfd/ui
+apps/api  → CANNOT import → apps/web, @lfd/types (uses own validation.ts), frontend components
 packages/ → CANNOT import → apps/*
 discord-bot → CANNOT import → any workspace package (standalone, communicates via HTTP)
 ```
@@ -95,14 +94,14 @@ discord-bot → CANNOT import → any workspace package (standalone, communicate
 | localStorage for JWT | Simple for SPA, XSS mitigated by CSP | If cookies needed for security upgrade |
 | Manual fetch() over React Query | Simpler, React Query underutilized | Complex caching/refetching patterns emerge |
 | @lfd/types underutilized | Frontend prefers inline types | If type drift causes bugs |
-| @lfd/ui unused | Web has own inline components | If design system formalized |
+| Shared UI package removed | Web has app-owned components | Reintroduce only if a real design system emerges |
 | Single index.ts (~1000 lines) | Organic growth | Should extract admin, feedback, report routes |
 | No WebSockets | No real-time features yet | Chat, live notifications needed |
 | No SSR/SSG | All data user-specific, no SEO need | Public pages need SEO |
 
 ## Known Technical Debt
 
-From COMPREHENSIVE_CODEBASE_ANALYSIS.md (overall: 6.25/10):
+From consolidated codebase audit notes (overall: 6.25/10):
 - **Architecture**: 7/10 — Clean monorepo, but index.ts is bloated
 - **Code Quality**: 6.5/10 — Heavy `any` usage, inconsistent patterns
 - **Security**: 5.5/10 — localStorage JWT, some CSRF gaps

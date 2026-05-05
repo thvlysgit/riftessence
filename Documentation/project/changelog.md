@@ -795,7 +795,7 @@ Changes:
   - Synced enum/model docs for `SCRIM_RESULT_*`, `ScrimAutoResultStatus`, `ScrimResultSource`, and `ScrimSeries` lifecycle fields/index.
 - Updated [Documentation/backend/integrations.md](Documentation/backend/integrations.md):
   - Added scrim lifecycle delivery routing notes and auto-result environment variable reference.
-- Updated [RASPBERRY_PI_DEPLOYMENT.md](RASPBERRY_PI_DEPLOYMENT.md):
+- Updated legacy Raspberry Pi deployment notes, now consolidated in [Documentation/project/deployment.md](Documentation/project/deployment.md):
   - Added Pi-focused environment defaults/tuning guidance for scrim auto-result sweep and conflict escalation support routing.
 
 Validation:
@@ -2754,7 +2754,7 @@ pnpm exec prisma migrate dev --name add_chat_system
 - DocumentationManager delegates via `runSubagent`, including specialist instructions from `.github/agents/*.agent.md`
 - Organized documentation from root-level .md files and .copilot/ into Documentation/ tree
 
-## 2025-12-29 — P0 Quick Wins (from P0_QUICK_WINS_IMPLEMENTATION.md)
+## 2025-12-29 — P0 Quick Wins
 - CSRF protection fix
 - Deep health check endpoint (`/health/deep`)
 - Enhanced .dockerignore
@@ -2762,7 +2762,7 @@ pnpm exec prisma migrate dev --name add_chat_system
 - JWT_SECRET validation on startup
 - Pre-commit hook for .env files
 
-## 2024-12-12 — Code Quality Improvements (from CHANGES_SUMMARY.md)
+## 2024-12-12 — Code Quality Improvements
 - Extracted auth routes to separate module
 - Removed localStorage userId dependency
 - Added DOMPurify sanitization

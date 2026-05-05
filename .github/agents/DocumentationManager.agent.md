@@ -17,7 +17,6 @@ RiftEssence is a pnpm monorepo with these key parts:
 - **apps/web** — Next.js 14 (Pages Router), React 18, Tailwind CSS, 5-theme system via CSS variables, custom i18n (en/fr), TanStack Query (configured but underutilized), client-side only (no SSR)
 - **apps/api** — Fastify 4 REST API, Prisma ORM (PostgreSQL), JWT auth (7-day), Zod validation, Riot API integration, Discord OAuth
 - **packages/types** — Shared Zod schemas (`@lfd/types`)
-- **packages/ui** — Shared React components (`@lfd/ui` — Button, Card, Tag)
 - **discord-bot** — Standalone discord.js v14 bot for feed channel mirroring
 - **prisma/** — Central schema (18 models), migrations, seeds
 
@@ -111,7 +110,7 @@ Documentation/
 - **Single source of truth** — Each topic has exactly one canonical doc file
 - **Code references** — Always include file paths when documenting patterns or features
 - **Date stamps** — Add `Last updated: YYYY-MM-DD` to every doc file header
-- **Stale doc cleanup** — When updating docs, check if root-level .md files (CHANGES_SUMMARY.md, IMPLEMENTATION_SUMMARY.md, etc.) should be consolidated into the Documentation/ tree and removed from root
+- **Stale doc cleanup** — Keep root-level one-off summaries out of the repo; consolidate active knowledge into the Documentation/ tree
 - **No duplication** — If `.copilot/` files overlap with `Documentation/`, the Documentation/ version is canonical; `.copilot/` files should reference or summarize it
 
 ### 5. Communication Style

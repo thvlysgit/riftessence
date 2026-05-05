@@ -29,10 +29,10 @@ import Navbar from '../../web/components/Navbar';
 ```typescript
 // ✅ ALLOWED in apps/web
 import { User, Post } from '@lfd/types';
-import { Button, Card } from '@lfd/ui';
+import Navbar from '../components/Navbar';
 ```
 
-**API MUST NOT import packages/types or packages/ui**:
+**API MUST NOT import packages/types or frontend components**:
 - API uses Prisma-generated types, not @lfd/types
 - API has no UI concerns
 - **Current state**: API doesn't import from packages/* (verified)
@@ -193,18 +193,11 @@ const res = await fetch(`${API_URL}/api/posts`, {
 
 **Current inconsistency**: Underutilized, frontend mostly defines types inline
 
-### packages/ui
-
-**Owned by**: Frontend design system (minimal)
-**Modified when**: Shared UI components needed
-**Consumers**: apps/web (via @lfd/ui import)
-**NOT consumed by**: apps/api
-
 ### apps/web
 
 **Owned by**: Frontend team
 **Modified when**: UI/UX changes, new pages, client-side features
-**Dependencies**: packages/types, packages/ui, external libraries (React, Next.js)
+**Dependencies**: packages/types, external libraries (React, Next.js)
 
 **Must not export**: Nothing (apps don't export, they consume)
 

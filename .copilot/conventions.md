@@ -540,9 +540,9 @@ const clean = sanitizeText(userInput);
 - No per-package READMEs
 
 **Markdown docs**:
-- Recent analysis documents (COMPREHENSIVE_CODEBASE_ANALYSIS.md, etc.)
-- Setup guides (COMMUNITIES_SETUP.md)
-- Not versioned or maintained historically
+- Canonical project docs live under `Documentation/`
+- Root-level one-off implementation summaries are removed during cleanup
+- Keep setup, audit, and changelog content in the Documentation tree
 
 **Convention**: Minimal inline documentation, rely on code clarity
 
@@ -560,8 +560,7 @@ const clean = sanitizeText(userInput);
 ```json
 {
   "dependencies": {
-    "@lfd/types": "workspace:*",
-    "@lfd/ui": "workspace:*"
+    "@lfd/types": "workspace:*"
   }
 }
 ```
