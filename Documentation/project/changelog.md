@@ -9,6 +9,8 @@
 ### Objective: Replace extra badges with clearer Duo banners and improve Discord-first posting flow
 
 Overview: Swapped the Duo feed verified badge for a full-width status banner, replaced the Discord-forwarded header with a richer community badge that flags Discord-originated posts, and refreshed the Discord username chip with Discord-style button treatment while keeping copy-to-clipboard. The verification banner now uses cursor-following glow and clearer account-link copy.
+Discord modal posts now prefer the linked Riot account region before falling back to the community region or UNKNOWN, which keeps them visible in the default region-filtered feed.
+Discord-only forwarded posts now create visible app users with the Discord username instead of anonymous placeholder users, so the feed shows the Discord identity directly.
 
 Changes:
 
@@ -19,6 +21,9 @@ Changes:
 - Updated [apps/web/styles/globals.css](apps/web/styles/globals.css):
   - Styled the community badge and Discord chip with richer, Discord-inspired treatments.
   - Replaced the static banner shimmer with a cursor-positioned glow.
+- Updated [apps/api/src/routes/discordFeed.ts](apps/api/src/routes/discordFeed.ts):
+  - Discord modal posts now use the linked Riot account region first so they are not hidden behind the default feed filter.
+  - Discord-only forwarded posts now create visible users named after the Discord account instead of anonymous placeholder users.
 - Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
   - Duo embeds now use green/red colors based on verification.
   - Added "Send my own post" button to forwarded Duo posts.

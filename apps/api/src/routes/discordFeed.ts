@@ -251,6 +251,40 @@ function normalizeLanguageArray(raw: any): string[] {
     .filter((value: string | null): value is string => Boolean(value));
 }
 
+function buildDiscordDisplayUsername(authorDiscordUsername: string, authorDiscordId: string): string {
+  const trimmed = String(authorDiscordUsername || '').trim();
+  if (!trimmed) {
+    return `discord_${authorDiscordId}`.substring(0, 50);
+  }
+
+  return trimmed.substring(0, 50);
+}
+
+async function createDiscordOnlyUser(prismaClient: any, authorDiscordUsername: string, authorDiscordId: string) {
+  const username = buildDiscordDisplayUsername(authorDiscordUsername, authorDiscordId);
+
+  try {
+    return await prismaClient.user.create({
+      data: {
+        username,
+        anonymous: false,
+      },
+    });
+  } catch (error: any) {
+    if (error?.code !== 'P2002') {
+      throw error;
+    }
+
+    const fallbackUsername = `${username}_${authorDiscordId.slice(-6)}`.substring(0, 50);
+    return prismaClient.user.create({
+      data: {
+        username: fallbackUsername,
+        anonymous: false,
+      },
+    });
+  }
+}
+
 function extractLanguagesFromContent(content: string): string[] {
   return parseLanguageInput(content);
 }
@@ -594,6 +628,12 @@ export default async function discordFeedRoutes(fastify: any) {
         const fallbackAccount = riotAccounts.find((acc: any) => acc.isMain) || riotAccounts[0];
         const selectedAccount = mainReal || fallbackAccount;
 
+        if (selectedAccount?.region) {
+          region = selectedAccount.region;
+        } else if (communityRegions.length === 1) {
+          region = communityRegions[0];
+        }
+
         if (selectedAccount) {
           postingRiotAccountId = selectedAccount.id;
         } else {
@@ -622,15 +662,10 @@ export default async function discordFeedRoutes(fastify: any) {
           languages = discordAccount.user.languages;
         }
       } else {
-        // Create anonymous user for Discord-only users
-        const anonUser = await prisma.user.create({
-          data: {
-            username: `discord_${authorDiscordUsername || authorDiscordId}`.substring(0, 20),
-            anonymous: true,
-          },
-        });
+        // Create a visible app user for Discord-only users so the Discord identity is shown in feed.
+        const discordUser = await createDiscordOnlyUser(prisma, authorDiscordUsername, authorDiscordId);
 
-        userId = anonUser.id;
+        userId = discordUser.id;
 
         // Create placeholder Riot account
         const fallbackSummoner = riotIdentity.summonerName || authorDiscordUsername || 'Discord User';
