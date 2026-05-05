@@ -103,7 +103,10 @@ export function ThemeCursor() {
   }, []);
 
   useEffect(() => {
+    const root = document.documentElement;
+
     if (!themeCursorsEnabled || !canUseCustomCursor) {
+      root.removeAttribute('data-theme-cursor-ready');
       setState((current) => ({ ...current, visible: false, active: false }));
       return;
     }
@@ -113,6 +116,7 @@ export function ThemeCursor() {
       if (cursorRef.current) {
         cursorRef.current.style.transform = `translate3d(${event.clientX}px, ${event.clientY}px, 0)`;
       }
+      root.setAttribute('data-theme-cursor-ready', 'true');
       const kind = getCursorKind(event.target);
       setState((current) => {
         if (current.kind === kind && current.visible) return current;
@@ -146,6 +150,7 @@ export function ThemeCursor() {
       window.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('pointerup', handlePointerUp);
       document.documentElement.removeEventListener('mouseleave', handlePointerLeave);
+      root.removeAttribute('data-theme-cursor-ready');
     };
   }, [themeCursorsEnabled, canUseCustomCursor]);
 
