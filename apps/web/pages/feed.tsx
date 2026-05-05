@@ -45,6 +45,7 @@ const defaultFilters = {
   languages: [] as string[],
   vcPreference: '',
   duoType: '',
+  verified: '',
   minRank: '',
   maxRank: '',
   minWinrate: '',
@@ -79,6 +80,7 @@ async function fetchPaginatedPosts({
   }
   if (filters.vcPreference) params.append('vcPreference', filters.vcPreference);
   if (filters.duoType) params.append('duoType', filters.duoType);
+  if (filters.verified) params.append('verified', filters.verified);
   params.append('limit', `${limit}`);
   params.append('offset', `${offset}`);
   if (viewerId) params.append('userId', viewerId);
@@ -143,6 +145,11 @@ type Post = {
   activeUsernameDecoration?: string | null;
   activeHoverEffect?: string | null;
   activeNameplateFont?: string | null;
+  verification?: {
+    isVerified: boolean;
+    missing: string[];
+  };
+  missingFields?: string[];
 };
 
 const USERNAME_DECORATION_STYLES: Record<string, React.CSSProperties> = {
@@ -318,7 +325,7 @@ export default function Feed() {
     };
 
     loadPosts(true);
-  }, [filters.regions, filters.roles, filters.languages, filters.vcPreference, filters.duoType, limit]);
+  }, [filters.regions, filters.roles, filters.languages, filters.vcPreference, filters.duoType, filters.verified, limit]);
 
   // Client-side filtering for rank, division, LP, winrate and smurf status
   // PERFORMANCE FIX: Memoize expensive filtering logic
@@ -713,6 +720,25 @@ export default function Feed() {
     );
   };
 
+  const formatVerificationMissing = (missing: string[]) => {
+    const labels = missing.map((value) => {
+      if (value === 'riot') return 'Riot link';
+      if (value === 'discord') return 'Discord link';
+      return value;
+    });
+    return labels.join(', ');
+  };
+
+  const formatMissingFields = (fields: string[]) => {
+    const labels = fields.map((value) => {
+      if (value === 'region') return 'region';
+      if (value === 'languages') return 'languages';
+      if (value === 'message') return 'message';
+      return value;
+    });
+    return labels.join(', ');
+  };
+
   if (loading) {
     return (
       <LoadingSpinner />
@@ -782,9 +808,9 @@ export default function Feed() {
         <div 
           className="overflow-hidden transition-all duration-300"
           style={{ 
-            maxHeight: (filters.regions.length > 0 || filters.roles.length > 0 || filters.languages.length > 0 || filters.vcPreference || filters.duoType) ? '500px' : '0',
-            opacity: (filters.regions.length > 0 || filters.roles.length > 0 || filters.languages.length > 0 || filters.vcPreference || filters.duoType) ? 1 : 0,
-            marginBottom: (filters.regions.length > 0 || filters.roles.length > 0 || filters.languages.length > 0 || filters.vcPreference || filters.duoType) ? '1.5rem' : '0'
+            maxHeight: (filters.regions.length > 0 || filters.roles.length > 0 || filters.languages.length > 0 || filters.vcPreference || filters.duoType || filters.verified) ? '500px' : '0',
+            opacity: (filters.regions.length > 0 || filters.roles.length > 0 || filters.languages.length > 0 || filters.vcPreference || filters.duoType || filters.verified) ? 1 : 0,
+            marginBottom: (filters.regions.length > 0 || filters.roles.length > 0 || filters.languages.length > 0 || filters.vcPreference || filters.duoType || filters.verified) ? '1.5rem' : '0'
           }}
         >
           <div className="flex flex-wrap gap-2 p-4 rounded-lg" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
@@ -842,6 +868,16 @@ export default function Feed() {
                   <span>✕</span>
                 </button>
               )}
+              {filters.verified && (
+                <button
+                  onClick={() => setFilters(prev => ({ ...prev, verified: '' }))}
+                  className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80"
+                  style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}
+                >
+                  {filters.verified === 'true' ? 'Verified Only' : 'Unverified Only'}
+                  <span>✕</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -863,7 +899,7 @@ export default function Feed() {
           </h2>
           
           {/* Primary Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
             <div>
               <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Regions</label>
               <div 
@@ -1034,6 +1070,32 @@ export default function Feed() {
                 <option value="SHORT_TERM">Short Term</option>
                 <option value="LONG_TERM">Long Term</option>
                 <option value="BOTH">Both</option>
+                </select>
+                <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
+                  <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
+                </svg>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Verification</label>
+              <div className="relative">
+                <select
+                  className="w-full p-2.5 border text-sm transition-all appearance-none cursor-pointer"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                    borderRadius: 'var(--border-radius)',
+                    paddingRight: '2.5rem'
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
+                  value={filters.verified}
+                  onChange={e => setFilters(prev => ({ ...prev, verified: e.target.value }))}
+                >
+                  <option value="">All</option>
+                  <option value="true">Verified</option>
+                  <option value="false">Unverified</option>
                 </select>
                 <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
                   <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
@@ -1245,7 +1307,7 @@ export default function Feed() {
           </div>
 
           {/* Clear Filters Button */}
-          {(filters.regions.length > 0 || filters.roles.length > 0 || filters.vcPreference || filters.duoType || filters.minRank || filters.maxRank || filters.minWinrate || filters.maxWinrate || filters.smurfFilter || filters.minDivision || filters.maxDivision || filters.minLp) && (
+          {(filters.regions.length > 0 || filters.roles.length > 0 || filters.vcPreference || filters.duoType || filters.verified || filters.minRank || filters.maxRank || filters.minWinrate || filters.maxWinrate || filters.smurfFilter || filters.minDivision || filters.maxDivision || filters.minLp) && (
             <div className="mt-4 flex justify-end">
               <button
                 onClick={() => setFilters({ ...defaultFilters, regions: userRegion ? [userRegion] : [] })}
@@ -1285,6 +1347,11 @@ export default function Feed() {
               const usernameHoverClass = post.activeHoverEffect
                 ? USERNAME_HOVER_EFFECT_CLASSES[post.activeHoverEffect] || ''
                 : '';
+              const verification = post.verification;
+              const verificationMissing = verification?.missing || [];
+              const isVerified = verification?.isVerified === true;
+              const missingFields = post.missingFields || [];
+              const regionLabel = post.region === 'UNKNOWN' ? 'Unknown' : post.region;
               return (
                 <React.Fragment key={post.id}>
                   {/* Show ad before this post if applicable */}
@@ -1326,6 +1393,32 @@ export default function Feed() {
                           {post.community.name}
                         </Link>
                       )}
+                      {verification && (
+                        <span
+                          className="px-2 py-0.5 rounded text-xs font-semibold border inline-flex items-center gap-1"
+                          title={verificationMissing.length > 0 ? `Missing: ${formatVerificationMissing(verificationMissing)}` : undefined}
+                          style={{
+                            background: isVerified ? 'rgba(34, 197, 94, 0.15)' : 'rgba(251, 191, 36, 0.15)',
+                            color: isVerified ? '#22C55E' : '#F59E0B',
+                            borderColor: isVerified ? '#22C55E' : '#F59E0B',
+                          }}
+                        >
+                          {isVerified ? 'Verified' : 'Unverified'}
+                        </span>
+                      )}
+                      {missingFields.length > 0 && (
+                        <span
+                          className="px-2 py-0.5 rounded text-xs font-semibold border inline-flex items-center gap-1"
+                          title={`Missing: ${formatMissingFields(missingFields)}`}
+                          style={{
+                            background: 'rgba(148, 163, 184, 0.15)',
+                            color: '#94A3B8',
+                            borderColor: '#94A3B8',
+                          }}
+                        >
+                          Needs Info
+                        </span>
+                      )}
                       {post.source === 'discord' && (
                         <span className="discord-chip px-2 py-0.5 rounded text-xs font-semibold border inline-flex items-center gap-1">
                           <DiscordIcon className="w-3.5 h-3.5" />
@@ -1338,7 +1431,7 @@ export default function Feed() {
                         {new Date(post.createdAt).toLocaleDateString()} at {new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                       <span style={{ color: 'var(--color-text-muted)' }}>•</span>
-                      <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{post.region}</span>
+                      <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{regionLabel}</span>
                       <span style={{ color: 'var(--color-text-muted)' }}>•</span>
                       <div className="flex items-center gap-1">
                         <span className="px-2 py-0.5 rounded font-semibold text-xs border inline-flex items-center gap-1" style={{ background: 'rgba(200, 170, 109, 0.15)', color: '#C8AA6D', borderColor: '#C8AA6D' }}>

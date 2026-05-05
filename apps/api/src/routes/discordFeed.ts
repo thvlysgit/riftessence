@@ -1,5 +1,6 @@
 import prisma from '../prisma';
 import { ackMirrorDeletion, leaseMirrorDeletions } from '../services/discordMirrorDeletionQueue';
+import { syncUserVerification } from '../utils/verification';
 
 // Ordered ranks for filter comparison (index = strength)
 const RANK_ORDER = [
@@ -27,6 +28,33 @@ const LANGUAGE_KEY_LOOKUP: Record<string, string> = ROLE_FORWARDING_LANGUAGE_KEY
   acc[key.toLowerCase()] = key;
   return acc;
 }, {} as Record<string, string>);
+
+const LANGUAGE_ALIASES: Record<string, string> = {
+  en: 'English',
+  eng: 'English',
+  es: 'Spanish',
+  spa: 'Spanish',
+  fr: 'French',
+  fre: 'French',
+  de: 'German',
+  ger: 'German',
+  it: 'Italian',
+  ita: 'Italian',
+  pt: 'Portuguese',
+  por: 'Portuguese',
+  pl: 'Polish',
+  pol: 'Polish',
+  ru: 'Russian',
+  rus: 'Russian',
+  tr: 'Turkish',
+  tur: 'Turkish',
+  kr: 'Korean',
+  kor: 'Korean',
+  jp: 'Japanese',
+  jpn: 'Japanese',
+  cn: 'Chinese',
+  zho: 'Chinese',
+};
 
 const DISCORD_ROLE_ID_REGEX = /^\d{6,30}$/;
 
@@ -63,7 +91,11 @@ const ROLE_ALIASES: { [key: string]: string } = {
   'support': 'SUPPORT',
   'sup': 'SUPPORT',
   'supp': 'SUPPORT',
+  'fill': 'FILL',
+  'flex': 'FILL',
 };
+
+const ROLE_VALUES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FILL'];
 
 // VC preference aliases
 const VC_ALWAYS: string[] = [
@@ -91,18 +123,31 @@ const VC_NEVER: string[] = [
   'no vocal',
 ];
 
-function extractRoleFromContent(content: string): string | null {
-  const lowerContent = content.toLowerCase();
-  
-  for (const [alias, role] of Object.entries(ROLE_ALIASES)) {
-    // Match whole words only (word boundaries)
-    const regex = new RegExp(`\\b${alias}\\b`);
-    if (regex.test(lowerContent)) {
-      return role;
+function normalizeRoleToken(token: string): string | null {
+  const normalized = token.trim().toLowerCase();
+  if (!normalized) return null;
+  const alias = ROLE_ALIASES[normalized];
+  if (alias) return alias;
+  const upper = normalized.toUpperCase();
+  return ROLE_VALUES.includes(upper) ? upper : null;
+}
+
+function extractRolesFromContent(content: string): { role: string | null; secondRole: string | null } {
+  const tokens = String(content || '').split(/[^a-zA-Z]+/).filter(Boolean);
+  const roles: string[] = [];
+
+  for (const token of tokens) {
+    const role = normalizeRoleToken(token);
+    if (role && !roles.includes(role)) {
+      roles.push(role);
     }
+    if (roles.length >= 2) break;
   }
-  
-  return null;
+
+  return {
+    role: roles[0] || null,
+    secondRole: roles[1] || null,
+  };
 }
 
 // Extract VC preference from message content
@@ -126,6 +171,60 @@ function extractVCPreferenceFromContent(content: string): string | null {
   return null;
 }
 
+function normalizeVcPreference(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const normalized = raw.trim().toUpperCase();
+  if (normalized === 'ALWAYS' || normalized === 'SOMETIMES' || normalized === 'NEVER') {
+    return normalized;
+  }
+  return extractVCPreferenceFromContent(raw);
+}
+
+function isRealRiotAccount(account: any): boolean {
+  const puuid = String(account?.puuid || '');
+  if (!puuid) return false;
+  const linked = Boolean(account?.rsoLinked || account?.verified);
+  return linked && !puuid.startsWith('discord_');
+}
+
+function parseRiotId(raw: string | null | undefined): { summonerName: string | null; gameName: string | null; tagLine: string | null } {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return { summonerName: null, gameName: null, tagLine: null };
+
+  const [gameNamePart, tagLinePart] = trimmed.split('#');
+  const gameName = gameNamePart ? gameNamePart.trim() : '';
+  const tagLine = tagLinePart ? tagLinePart.trim() : '';
+  const summonerName = tagLine ? `${gameName}#${tagLine}` : gameName;
+
+  if (!summonerName) return { summonerName: null, gameName: null, tagLine: null };
+  return {
+    summonerName,
+    gameName: gameName || null,
+    tagLine: tagLine || null,
+  };
+}
+
+function buildVerificationState(author: any): { isVerified: boolean; missing: string[] } {
+  const hasDiscord = Boolean(author?.discordAccount);
+  const riotAccounts = Array.isArray(author?.riotAccounts) ? author.riotAccounts : [];
+  const hasRiot = riotAccounts.some((account: any) => isRealRiotAccount(account));
+  const missing: string[] = [];
+  if (!hasRiot) missing.push('riot');
+  if (!hasDiscord) missing.push('discord');
+  return { isVerified: hasRiot && hasDiscord, missing };
+}
+
+function getMissingDuoFieldsForPost(post: any): string[] {
+  const missing: string[] = [];
+  const region = String(post?.region || '').toUpperCase();
+  if (!region || region === 'UNKNOWN') missing.push('region');
+  const languages = Array.isArray(post?.languages) ? post.languages : [];
+  if (languages.length === 0) missing.push('languages');
+  const message = String(post?.message || '').trim();
+  if (!message) missing.push('message');
+  return missing;
+}
+
 function normalizeDiscordRoleId(raw: any): string | null {
   if (typeof raw !== 'string') return null;
   const trimmed = raw.trim();
@@ -144,7 +243,7 @@ function normalizeRankKey(raw: any): string | null {
 function normalizeLanguageKey(raw: any): string | null {
   if (typeof raw !== 'string') return null;
   const normalized = raw.trim().toLowerCase();
-  return LANGUAGE_KEY_LOOKUP[normalized] || null;
+  return LANGUAGE_KEY_LOOKUP[normalized] || LANGUAGE_ALIASES[normalized] || null;
 }
 
 function normalizeLanguageArray(raw: any): string[] {
@@ -152,6 +251,27 @@ function normalizeLanguageArray(raw: any): string[] {
   return raw
     .map((value: any) => normalizeLanguageKey(value))
     .filter((value: string | null): value is string => Boolean(value));
+}
+
+function extractLanguagesFromContent(content: string): string[] {
+  return parseLanguageInput(content);
+}
+
+function parseLanguageInput(raw: string): string[] {
+  if (!raw) return [];
+  const parts = raw
+    .split(/[,/|]+|\s+/)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  const output: string[] = [];
+  for (const part of parts) {
+    const normalized = normalizeLanguageKey(part);
+    if (normalized && !output.includes(normalized)) {
+      output.push(normalized);
+    }
+  }
+  return output;
 }
 
 function matchesLanguageFilter(filterLanguages: any, postLanguages: any): boolean {
@@ -367,9 +487,21 @@ export default async function discordFeedRoutes(fastify: any) {
         authorDiscordId,
         authorDiscordUsername,
         timestamp,
+        source,
+        riotId,
+        roles,
+        languages: languagesInput,
+        message,
+        vcPreference: vcPreferenceInput,
       } = request.body as any;
 
-      if (!guildId || !channelId || !messageId || !content || !authorDiscordId) {
+      const isModal = String(source || '').toLowerCase() === 'modal';
+
+      if (!guildId || !authorDiscordId || !authorDiscordUsername) {
+        return reply.status(400).send({ error: 'Missing required fields' });
+      }
+
+      if (!isModal && (!channelId || !messageId || !content)) {
         return reply.status(400).send({ error: 'Missing required fields' });
       }
 
@@ -382,13 +514,15 @@ export default async function discordFeedRoutes(fastify: any) {
         return reply.status(404).send({ error: 'Community not found for this Discord server' });
       }
 
-      // Check if feed channel is registered
-      const feedChannel = await prisma.discordFeedChannel.findFirst({
-        where: { guildId, channelId },
-      });
+      if (!isModal) {
+        // Check if feed channel is registered
+        const feedChannel = await prisma.discordFeedChannel.findFirst({
+          where: { guildId, channelId },
+        });
 
-      if (!feedChannel) {
-        return reply.status(400).send({ error: 'This channel is not registered as a feed channel' });
+        if (!feedChannel) {
+          return reply.status(400).send({ error: 'This channel is not registered as a feed channel' });
+        }
       }
 
       // Try to find linked Discord account
@@ -406,21 +540,33 @@ export default async function discordFeedRoutes(fastify: any) {
 
       let userId: string;
       let postingRiotAccountId: string;
-      let region: any = 'EUW'; // Default
-      let role: any = 'FILL'; // Default
-      let vcPreference: any = 'SOMETIMES'; // Default
-      let languages: string[] = [community.language || 'English'];
+      const communityRegions = Array.isArray(community.regions) ? community.regions : [];
+      let region: any = communityRegions.length === 1 ? communityRegions[0] : 'UNKNOWN';
+      let role: any = null;
+      let secondRole: any = null;
+      let vcPreference: any = null;
+      let languages: string[] = [];
 
-      // Try to extract role from message content
-      const extractedRole = extractRoleFromContent(content);
-      if (extractedRole) {
-        role = extractedRole;
-      }
+      const messageContent = isModal ? String(message || '').trim() : String(content || '').trim();
+      const rolesInput = String(roles || '').trim();
+      const languageInput = String(languagesInput || '').trim();
+      const vcInput = String(vcPreferenceInput || '').trim();
+      const riotIdentity = parseRiotId(riotId);
 
-      // Try to extract VC preference from message content
-      const extractedVCPreference = extractVCPreferenceFromContent(content);
-      if (extractedVCPreference) {
-        vcPreference = extractedVCPreference;
+      const extractedRoles = rolesInput
+        ? extractRolesFromContent(rolesInput)
+        : extractRolesFromContent(messageContent);
+      role = extractedRoles.role;
+      secondRole = extractedRoles.secondRole;
+
+      const extractedVc = normalizeVcPreference(vcInput) || extractVCPreferenceFromContent(messageContent);
+      vcPreference = extractedVc;
+
+      const parsedLanguages = languageInput
+        ? parseLanguageInput(languageInput)
+        : extractLanguagesFromContent(messageContent);
+      if (parsedLanguages.length > 0) {
+        languages = parsedLanguages;
       }
 
       if (discordAccount && discordAccount.user) {
@@ -442,35 +588,39 @@ export default async function discordFeedRoutes(fastify: any) {
           });
         }
 
-        // Use main Riot account for posting
-        const mainAccount = discordAccount.user.riotAccounts.find((acc: any) => acc.isMain) || discordAccount.user.riotAccounts[0];
-        
-        if (mainAccount) {
-          postingRiotAccountId = mainAccount.id;
-          region = mainAccount.region || 'EUW';
-          // Use user's preferred role if available, otherwise fallback to extracted role or FILL
-          if (!extractedRole && discordAccount.user.preferredRole) {
-            role = discordAccount.user.preferredRole;
-          }
+        const riotAccounts = Array.isArray(discordAccount.user.riotAccounts)
+          ? discordAccount.user.riotAccounts
+          : [];
+        const realAccounts = riotAccounts.filter((acc: any) => isRealRiotAccount(acc));
+        const mainReal = realAccounts.find((acc: any) => acc.isMain) || realAccounts[0];
+        const fallbackAccount = riotAccounts.find((acc: any) => acc.isMain) || riotAccounts[0];
+        const selectedAccount = mainReal || fallbackAccount;
+
+        if (selectedAccount) {
+          postingRiotAccountId = selectedAccount.id;
         } else {
           // Create a placeholder Riot account for Discord users without linked Riot
+          const fallbackSummoner = riotIdentity.summonerName || authorDiscordUsername || 'Discord User';
           const placeholderAccount = await prisma.riotAccount.create({
             data: {
               puuid: `discord_${authorDiscordId}`,
-              summonerName: authorDiscordUsername || 'Discord User',
+              summonerName: fallbackSummoner,
+              gameName: riotIdentity.gameName,
+              tagLine: riotIdentity.tagLine,
               region: region,
               verified: false,
+              isMain: true,
               userId,
             },
           });
           postingRiotAccountId = placeholderAccount.id;
         }
 
-        // Use user's preferences if available
-        if (discordAccount.user.primaryRole) role = discordAccount.user.primaryRole;
-        if (discordAccount.user.region) region = discordAccount.user.region;
-        if (discordAccount.user.vcPreference) vcPreference = discordAccount.user.vcPreference;
-        if (discordAccount.user.languages && discordAccount.user.languages.length > 0) {
+        if (!role && discordAccount.user.primaryRole) role = discordAccount.user.primaryRole;
+        if (!role && discordAccount.user.preferredRole) role = discordAccount.user.preferredRole;
+        if (!secondRole && discordAccount.user.secondaryRole) secondRole = discordAccount.user.secondaryRole;
+        if (!vcPreference && discordAccount.user.vcPreference) vcPreference = discordAccount.user.vcPreference;
+        if (languages.length === 0 && Array.isArray(discordAccount.user.languages) && discordAccount.user.languages.length > 0) {
           languages = discordAccount.user.languages;
         }
       } else {
@@ -485,12 +635,16 @@ export default async function discordFeedRoutes(fastify: any) {
         userId = anonUser.id;
 
         // Create placeholder Riot account
+        const fallbackSummoner = riotIdentity.summonerName || authorDiscordUsername || 'Discord User';
         const placeholderAccount = await prisma.riotAccount.create({
           data: {
             puuid: `discord_${authorDiscordId}`,
-            summonerName: authorDiscordUsername || 'Discord User',
+            summonerName: fallbackSummoner,
+            gameName: riotIdentity.gameName,
+            tagLine: riotIdentity.tagLine,
             region: region,
             verified: false,
+            isMain: true,
             userId,
           },
         });
@@ -515,6 +669,19 @@ export default async function discordFeedRoutes(fastify: any) {
         });
       }
 
+      const fallbackCommunityLanguage = normalizeLanguageKey(community.language)
+        || (typeof community.language === 'string' ? community.language : 'English');
+
+      if (!role) role = 'FILL';
+      if (!vcPreference) vcPreference = 'SOMETIMES';
+      if (languages.length === 0) {
+        languages = fallbackCommunityLanguage ? [fallbackCommunityLanguage] : [];
+      }
+
+      await syncUserVerification(userId);
+
+      const normalizedMessage = messageContent ? messageContent.slice(0, 500) : null;
+
       // Delete user's old posts before creating new one (prevents spam)
       // This matches the behavior in the app post creation - one post per user at a time
       await prisma.post.deleteMany({
@@ -530,13 +697,14 @@ export default async function discordFeedRoutes(fastify: any) {
           postingRiotAccountId,
           region,
           role,
-          message: content,
+          secondRole: secondRole || null,
+          message: normalizedMessage,
           languages,
           vcPreference,
           duoType: 'BOTH',
           communityId: community.id,
           source: 'discord',
-          discordMessageId: messageId,
+          discordMessageId: isModal ? null : messageId,
         },
       });
 
@@ -585,6 +753,8 @@ export default async function discordFeedRoutes(fastify: any) {
       const formatted = posts.map((post: any) => {
         const mainAccount = post.author.riotAccounts.find((acc: any) => acc.isMain) || post.author.riotAccounts[0];
         const postingAccount = post.author.riotAccounts.find((acc: any) => acc.id === post.postingRiotAccountId) || mainAccount;
+        const verification = buildVerificationState(post.author);
+        const missingFields = getMissingDuoFieldsForPost(post);
 
         // Filter channels: only include channels whose filters match this post
         const matchingChannels = feedChannels.filter((fc: any) => {
@@ -613,6 +783,8 @@ export default async function discordFeedRoutes(fastify: any) {
           languages: post.languages,
           vcPreference: post.vcPreference,
           duoType: post.duoType,
+          verification,
+          missingFields,
           author: {
             id: post.author.id,
             username: post.author.anonymous ? 'Anonymous' : post.author.username,

@@ -45,7 +45,7 @@ export const ResetPasswordSchema = z.object({
 export const CreatePostSchema = z.object({
   userId: z.string().min(1),
   postingRiotAccountId: z.string().min(1),
-  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU']),
+  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'UNKNOWN']),
   role: z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FILL']),
   secondRole: z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FILL']).optional(),
   message: z.string().max(500, 'Message too long (max 500 characters)').transform(val => val === '' ? undefined : val).optional(),
@@ -61,14 +61,14 @@ export const CreatePostSchema = z.object({
 
 export const VerifyRiotSchema = z.object({
   summonerName: z.string().min(1).max(100),
-  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU']),
+  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'UNKNOWN']),
   verificationIconId: z.number().int().min(0),
   userId: z.string().optional().nullable(),
 });
 
 export const RiotLookupSchema = z.object({
   summonerName: z.string().min(1).max(100),
-  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU']),
+  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'UNKNOWN']),
 });
 
 // ============================================================
@@ -101,7 +101,7 @@ export const ReportSchema = z.object({
 export const CreateTeamLftSchema = z.object({
   userId: z.string().min(1),
   teamId: z.string().min(1),
-  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU']),
+  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'UNKNOWN']),
   rolesNeeded: z.array(z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'])).optional(),
   staffNeeded: z.array(z.enum(['MANAGER', 'COACH', 'OTHER'])).optional(),
   averageRank: z.string().optional(),
@@ -115,7 +115,7 @@ export const CreateTeamLftSchema = z.object({
 
 export const CreatePlayerLftSchema = z.object({
   userId: z.string().min(1),
-  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU']),
+  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'UNKNOWN']),
   candidateType: z.enum(['PLAYER', 'MANAGER', 'COACH', 'OTHER']).default('PLAYER'),
   representedName: z.string().max(80).optional(),
   mainRole: z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT']).optional(),
@@ -137,7 +137,7 @@ export const CreatePlayerLftSchema = z.object({
 export const CreateCoachingPostSchema = z.object({
   userId: z.string().min(1),
   type: z.enum(['OFFERING', 'SEEKING']),
-  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU']),
+  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'UNKNOWN']),
   roles: z.array(z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FILL'])).default([]),
   languages: z.array(z.string()).default([]),
   availability: z.enum(['ONCE_A_WEEK', 'TWICE_A_WEEK', 'THRICE_A_WEEK', 'FOUR_TIMES_A_WEEK', 'EVERYDAY']).optional(),
@@ -172,7 +172,7 @@ export const UpdateProfileSchema = z.object({
   playstyles: z.array(z.string()).optional(),
   languages: z.array(z.string()).optional(),
   primaryRole: z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FILL']).optional(),
-  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU']).optional(),
+  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'UNKNOWN']).optional(),
 });
 
 // ============================================================

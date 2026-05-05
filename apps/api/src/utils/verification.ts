@@ -2,7 +2,13 @@ import prisma from '../prisma';
 
 export async function syncUserVerification(userId: string): Promise<boolean> {
   const [riotAccountsCount, discordAccountsCount] = await Promise.all([
-    prisma.riotAccount.count({ where: { userId } }),
+    prisma.riotAccount.count({
+      where: {
+        userId,
+        puuid: { not: { startsWith: 'discord_' } },
+        OR: [{ rsoLinked: true }, { verified: true }],
+      },
+    }),
     prisma.discordAccount.count({ where: { userId } }),
   ]);
 

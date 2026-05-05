@@ -1,8 +1,35 @@
 # Changelog
 
-> Last updated: 2026-04-27
+> Last updated: 2026-05-04
 
 ---
+
+## 2026-05-04 - Discord-First Duo Modal, Verification Filters, and Unknown Regions
+
+### Objective: Make Discord-first duo posting viable with clear verification status and safer defaults
+
+Overview: Added a Discord modal flow for Duo posts, tightened verification logic to require Riot + Discord links, and surfaced verified/unverified filtering in the Duo feed. Discord ingestion now inherits community region (or sets Unknown when ambiguous) and highlights missing info.
+
+Changes:
+
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Added `/duo` command with a modal for Riot ID, roles, languages, message, and VC preference.
+  - Duo forward embeds now show verified/unverified status and missing-info warnings.
+- Updated [apps/api/src/routes/discordFeed.ts](apps/api/src/routes/discordFeed.ts):
+  - Added modal-aware ingestion with role/language parsing and community-based region resolution.
+  - Added verification + missing-info metadata to outgoing Duo payloads.
+- Updated [apps/api/src/routes/posts.ts](apps/api/src/routes/posts.ts) and [apps/api/src/utils/developerFeed.ts](apps/api/src/utils/developerFeed.ts):
+  - Added verified filter support and verification/missing-info fields in Duo responses.
+- Updated [apps/web/pages/feed.tsx](apps/web/pages/feed.tsx):
+  - Added verified/unverified filter and badges with missing-link detail.
+- Updated [prisma/schema.prisma](prisma/schema.prisma) and [apps/api/src/validation.ts](apps/api/src/validation.ts):
+  - Added `UNKNOWN` to Region for Discord-originated Duo posts when community regions are ambiguous.
+
+Validation:
+
+- `pnpm -C apps/api exec tsc --noEmit --pretty false`
+- `pnpm -C apps/web exec tsc --noEmit --pretty false`
+- `pnpm -C discord-bot exec tsc --noEmit --pretty false`
 
 ## 2026-04-28 - Premium Onboarding Lobby, Left-Side Dock, and Floating Button Collision Fix
 

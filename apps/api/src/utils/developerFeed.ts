@@ -19,6 +19,34 @@ function normalizeStringArray(value: unknown): string[] {
     .filter((entry) => entry.length > 0);
 }
 
+function isRealRiotAccount(account: any): boolean {
+  const puuid = String(account?.puuid || '');
+  if (!puuid) return false;
+  const linked = Boolean(account?.rsoLinked || account?.verified);
+  return linked && !puuid.startsWith('discord_');
+}
+
+function getVerificationState(author: any): { isVerified: boolean; missing: string[] } {
+  const hasDiscord = Boolean(author?.discordAccount);
+  const riotAccounts = Array.isArray(author?.riotAccounts) ? author.riotAccounts : [];
+  const hasRiot = riotAccounts.some((account: any) => isRealRiotAccount(account));
+  const missing: string[] = [];
+  if (!hasRiot) missing.push('riot');
+  if (!hasDiscord) missing.push('discord');
+  return { isVerified: hasRiot && hasDiscord, missing };
+}
+
+function getMissingDuoFields(post: any): string[] {
+  const missing: string[] = [];
+  const region = String(post?.region || '').toUpperCase();
+  if (!region || region === 'UNKNOWN') missing.push('region');
+  const languages = Array.isArray(post?.languages) ? post.languages : [];
+  if (languages.length === 0) missing.push('languages');
+  const message = String(post?.message || '').trim();
+  if (!message) missing.push('message');
+  return missing;
+}
+
 export function normalizeChampionPool(author: any): string[] {
   const lowerSeen = new Set<string>();
   const pool: string[] = [];
@@ -78,6 +106,8 @@ export function formatDuoPost(post: any, viewerIsAdmin: boolean = false) {
   const postingAccount = author.riotAccounts.find((acc: any) => acc.id === post.postingRiotAccountId);
   const mainAccount = author.riotAccounts.find((acc: any) => acc.isMain) || author.riotAccounts[0];
   const isSameAccount = postingAccount && mainAccount && postingAccount.id === mainAccount.id;
+  const verification = getVerificationState(author);
+  const missingFields = getMissingDuoFields(post);
 
   const ratings: any[] = author.ratingsReceived || [];
   const skillRatings = ratings.filter((r: any) => r.stars !== null && r.stars !== undefined);
@@ -109,8 +139,12 @@ export function formatDuoPost(post: any, viewerIsAdmin: boolean = false) {
     secondaryRole: author.anonymous ? null : author.secondaryRole,
     discordUsername: author.anonymous ? null : author.discordAccount?.username,
     postingRiotAccount: postingAccount ? {
-      gameName: author.anonymous ? 'Hidden' : postingAccount.summonerName?.split('#')[0] || 'Unknown',
-      tagLine: author.anonymous ? 'XXX' : postingAccount.summonerName?.split('#')[1] || '0000',
+      gameName: author.anonymous
+        ? 'Hidden'
+        : (postingAccount.gameName || postingAccount.summonerName?.split('#')[0] || 'Unknown'),
+      tagLine: author.anonymous
+        ? 'XXX'
+        : (postingAccount.tagLine || postingAccount.summonerName?.split('#')[1] || '0000'),
       region: postingAccount.region,
       rank: postingAccount.rank,
       division: postingAccount.division,
@@ -118,8 +152,12 @@ export function formatDuoPost(post: any, viewerIsAdmin: boolean = false) {
       winrate: postingAccount.winrate,
     } : null,
     bestRank: mainAccount && !isSameAccount ? {
-      gameName: author.anonymous ? 'Hidden' : mainAccount.summonerName?.split('#')[0] || 'Unknown',
-      tagLine: author.anonymous ? 'XXX' : mainAccount.summonerName?.split('#')[1] || '0000',
+      gameName: author.anonymous
+        ? 'Hidden'
+        : (mainAccount.gameName || mainAccount.summonerName?.split('#')[0] || 'Unknown'),
+      tagLine: author.anonymous
+        ? 'XXX'
+        : (mainAccount.tagLine || mainAccount.summonerName?.split('#')[1] || '0000'),
       rank: mainAccount.rank,
       division: mainAccount.division,
       lp: mainAccount.lp,
@@ -145,6 +183,8 @@ export function formatDuoPost(post: any, viewerIsAdmin: boolean = false) {
     activeUsernameDecoration: author.anonymous ? null : (author.activeUsernameDecoration || null),
     activeHoverEffect: author.anonymous ? null : (author.activeHoverEffect || null),
     activeNameplateFont: author.anonymous ? null : (author.activeNameplateFont || null),
+    verification,
+    missingFields,
   };
 }
 

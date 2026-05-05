@@ -2,7 +2,7 @@ import prisma from '../prisma';
 import { CreatePostSchema, validateRequest, PaginationSchema } from '../validation';
 import { getOrSetCache } from '../utils/requestCache';
 import { enqueueMirrorDeletion } from '../services/discordMirrorDeletionQueue';
-import { formatDuoPost } from '../utils/developerFeed';
+import { formatDuoPost, parseBooleanQuery } from '../utils/developerFeed';
 
 function toPositiveInt(value: string | undefined, fallback: number) {
   const parsed = Number(value);
@@ -46,7 +46,7 @@ export default async function postsRoutes(fastify: any) {
   // GET /api/posts - Get all posts for feed with pagination
   fastify.get('/posts', async (request: any, reply: any) => {
     try {
-      const { region, role, vcPreference, duoType, language, userId, limit = 10, offset = 0 } = (request.query || {}) as any;
+      const { region, role, vcPreference, duoType, language, userId, verified, limit = 10, offset = 0 } = (request.query || {}) as any;
       const where: any = {};
       
       // Validate pagination params
@@ -89,6 +89,13 @@ export default async function postsRoutes(fastify: any) {
       
       if (vcPreference) where.vcPreference = vcPreference;
       if (duoType) where.duoType = duoType;
+
+      if (verified !== undefined && verified !== null) {
+        const normalizedVerified = String(verified).trim().toLowerCase();
+        if (normalizedVerified && normalizedVerified !== 'all') {
+          where.author = { verified: parseBooleanQuery(verified) };
+        }
+      }
 
       // Check if viewer is admin
       let viewerIsAdmin = false;

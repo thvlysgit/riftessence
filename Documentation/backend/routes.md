@@ -1,6 +1,6 @@
 # Backend Routes
 
-> Last updated: 2026-02-12  
+> Last updated: 2026-05-04  
 > Source: `apps/api/src/routes/`, `apps/api/src/index.ts`
 
 ## Route Modules
@@ -18,6 +18,11 @@
 | `routes/blocks.ts` | `/api/user` | Block/unblock users |
 | `routes/leaderboards.ts` | `/api` | Leaderboard queries |
 | `routes/chat.ts` | `/api/chat` | Chat conversations, messages, unread counts |
+
+## Notes
+
+- `GET /api/posts` accepts `verified=true|false|all` to filter Duo posts by verification state.
+- `POST /api/discord/ingest` accepts modal payloads (`source=modal`) with Riot ID, roles, languages, message, and VC preference.
 
 ## Inline Routes (`index.ts`)
 

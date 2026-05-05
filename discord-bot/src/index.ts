@@ -74,6 +74,12 @@ const TEAM_EVENT_DURATION_INPUT = 'team_event_duration';
 const TEAM_EVENT_OPPONENT_INPUT = 'team_event_opponent';
 const TEAM_EVENT_DESCRIPTION_INPUT = 'team_event_description';
 const TEAM_EVENT_TYPES = ['SCRIM', 'PRACTICE', 'VOD_REVIEW', 'TOURNAMENT', 'TEAM_MEETING'] as const;
+const DUO_POST_MODAL = 'duo_post_modal';
+const DUO_RIOT_ID_INPUT = 'duo_riot_id';
+const DUO_ROLES_INPUT = 'duo_roles';
+const DUO_LANGUAGES_INPUT = 'duo_languages';
+const DUO_MESSAGE_INPUT = 'duo_message';
+const DUO_VC_INPUT = 'duo_vc';
 const CHAMPION_EMOJI_BATCH_COUNT = 4;
 const CHAMPION_POOL_TIER_ORDER = ['S', 'A', 'B', 'C'] as const;
 
@@ -527,6 +533,10 @@ const commands = [
     .setName('send-draft')
     .setDescription('Send a saved team draft embed to this channel')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('duo')
+    .setDescription('Create a RiftEssence duo post')
     .toJSON(),
   new SlashCommandBuilder()
     .setName('create-team-event')
@@ -1879,6 +1889,109 @@ async function handleSendDraft(interaction: ChatInputCommandInteraction) {
   });
 }
 
+function buildDuoPostModal() {
+  const modal = new ModalBuilder()
+    .setCustomId(DUO_POST_MODAL)
+    .setTitle('Create Duo Post');
+
+  const riotIdInput = new TextInputBuilder()
+    .setCustomId(DUO_RIOT_ID_INPUT)
+    .setLabel('Riot ID (GameName#TAG)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(60)
+    .setPlaceholder('PlayerName#NA1');
+
+  const rolesInput = new TextInputBuilder()
+    .setCustomId(DUO_ROLES_INPUT)
+    .setLabel('Roles (primary / secondary)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(40)
+    .setPlaceholder('TOP / JUNGLE');
+
+  const languagesInput = new TextInputBuilder()
+    .setCustomId(DUO_LANGUAGES_INPUT)
+    .setLabel('Languages (comma separated)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(80)
+    .setPlaceholder('English, French');
+
+  const messageInput = new TextInputBuilder()
+    .setCustomId(DUO_MESSAGE_INPUT)
+    .setLabel('Message')
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(false)
+    .setMaxLength(500)
+    .setPlaceholder('Tell teammates what you want to play, rank goals, availability, etc.');
+
+  const vcInput = new TextInputBuilder()
+    .setCustomId(DUO_VC_INPUT)
+    .setLabel('VC Preference (optional)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(20)
+    .setPlaceholder('ALWAYS | SOMETIMES | NEVER');
+
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(riotIdInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(rolesInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(languagesInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(messageInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(vcInput),
+  );
+
+  return modal;
+}
+
+async function handleDuoPost(interaction: ChatInputCommandInteraction) {
+  if (!interaction.guildId || !interaction.guild) {
+    return interaction.reply({ content: '❌ This command can only be used in a server.', ephemeral: true });
+  }
+
+  return interaction.showModal(buildDuoPostModal());
+}
+
+async function handleDuoPostModalSubmit(interaction: ModalSubmitInteraction) {
+  if (!interaction.guildId) {
+    return interaction.reply({ content: '❌ This action must be used in a server.', ephemeral: true });
+  }
+
+  const riotId = interaction.fields.getTextInputValue(DUO_RIOT_ID_INPUT).trim();
+  const roles = interaction.fields.getTextInputValue(DUO_ROLES_INPUT).trim();
+  const languages = interaction.fields.getTextInputValue(DUO_LANGUAGES_INPUT).trim();
+  const message = interaction.fields.getTextInputValue(DUO_MESSAGE_INPUT).trim();
+  const vcPreference = interaction.fields.getTextInputValue(DUO_VC_INPUT).trim();
+
+  const discordTag = interaction.user.tag || `${interaction.user.username}#${interaction.user.discriminator}`;
+
+  const payload = {
+    source: 'modal',
+    guildId: interaction.guildId,
+    channelId: interaction.channelId,
+    authorDiscordId: interaction.user.id,
+    authorDiscordUsername: discordTag,
+    riotId: riotId || undefined,
+    roles: roles || undefined,
+    languages: languages || undefined,
+    message: message || undefined,
+    vcPreference: vcPreference || undefined,
+    timestamp: new Date().toISOString(),
+  };
+
+  const result = await apiRequest('/api/discord/ingest', 'POST', payload);
+  if (!result.ok) {
+    const errorMessage = result.data?.error || 'Failed to create duo post.';
+    return interaction.reply({ content: `❌ ${errorMessage}`, ephemeral: true });
+  }
+
+  return interaction.reply({
+    content: `✅ Duo post created! View it in the app: ${APP_URL}/feed`,
+    ephemeral: true,
+  });
+}
+
 function describeFilters(fc: any): string {
   const parts: string[] = [];
   if (fc.filterRegions?.length > 0) parts.push(`Regions: ${fc.filterRegions.join(', ')}`);
@@ -2644,6 +2757,24 @@ function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): Embed
   const vcLine = formatVcLabelForDiscord(vcPreference, guild);
   const languagesLine = formatLanguagesForDiscord(languages, guild);
   const championSummary = buildChampionPoolSummary(post.championPoolMode, post.championList, post.championTierlist, guild);
+  const verification = post.verification || null;
+  const verificationMissing = Array.isArray(verification?.missing) ? verification.missing : [];
+  const isVerified = verification?.isVerified === true;
+  const verificationMissingLabel = verificationMissing.length > 0
+    ? verificationMissing
+        .map((value: string) => (value === 'riot' ? 'Riot link' : value === 'discord' ? 'Discord link' : value))
+        .join(', ')
+    : '';
+  const verificationLine = verification
+    ? (isVerified
+      ? `${resolveEmoji(guild, 'verified', '✅')} Verified`
+      : `${resolveEmoji(guild, 'unverified', '⚠️')} Unverified${verificationMissingLabel ? ` • Missing ${verificationMissingLabel}` : ''}`)
+    : null;
+  const missingFields = Array.isArray(post.missingFields) ? post.missingFields : [];
+  const missingFieldsLabel = missingFields.length > 0 ? missingFields.join(', ') : '';
+  const missingInfoLine = missingFieldsLabel
+    ? `${resolveEmoji(guild, 'missing', '🧩')} Missing info: ${missingFieldsLabel}`
+    : null;
 
   const descriptionParts = [
     truncateForDiscord(message, 320) ? `> ${truncateForDiscord(message, 320)}` : null,
@@ -2652,6 +2783,8 @@ function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): Embed
     [rankLine, winrateLine].filter(Boolean).join(' • ') || null,
     vcLine,
     languagesLine,
+    verificationLine,
+    missingInfoLine,
     championSummary ? `🗡️ Champion Pool\n${championSummary}` : null,
     communityName ? `🏠 ${communityName}` : null,
     `↗ [open in app](${postUrl})`,
@@ -4369,6 +4502,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleRoleMenu(interaction);
     } else if (commandName === 'send-draft') {
       await handleSendDraft(interaction);
+    } else if (commandName === 'duo') {
+      await handleDuoPost(interaction);
     } else if (commandName === 'create-team-event') {
       await handleCreateTeamEvent(interaction);
     } else if (commandName === 'import-league-icons' || commandName === 'import-champion-emojis') {
@@ -4435,6 +4570,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isModalSubmit()) {
     if (interaction.customId.startsWith(CHAT_REPLY_MODAL_PREFIX)) {
       await handleChatReplyModalSubmit(interaction as ModalSubmitInteraction);
+    } else if (interaction.customId === DUO_POST_MODAL) {
+      await handleDuoPostModalSubmit(interaction as ModalSubmitInteraction);
     } else if (interaction.customId === TEAM_EVENT_MODAL) {
       await handleTeamEventModalSubmit(interaction as ModalSubmitInteraction);
     }
