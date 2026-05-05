@@ -42,8 +42,6 @@ function getMissingDuoFields(post: any): string[] {
   if (!region || region === 'UNKNOWN') missing.push('region');
   const languages = Array.isArray(post?.languages) ? post.languages : [];
   if (languages.length === 0) missing.push('languages');
-  const message = String(post?.message || '').trim();
-  if (!message) missing.push('message');
   return missing;
 }
 

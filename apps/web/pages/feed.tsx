@@ -477,6 +477,21 @@ export default function Feed() {
     }
   };
 
+  const handleCopyDiscord = async (username: string | null) => {
+    if (!username) return;
+    try {
+      if (!navigator?.clipboard) {
+        showToast('Clipboard not available', 'error');
+        return;
+      }
+      await navigator.clipboard.writeText(username);
+      showToast('Discord username copied!', 'success');
+    } catch (err) {
+      console.error('Failed to copy Discord username:', err);
+      showToast('Failed to copy Discord username', 'error');
+    }
+  };
+
   const getRankColor = (rank: string) => {
     const isLightTheme = (() => {
       const hex = theme.colors.bgPrimary.replace('#','');
@@ -1359,6 +1374,40 @@ export default function Feed() {
                     <AdSpot ad={ad} feed="duo" userId={currentUserId} onDismiss={handleDismissAd} />
                   )}
                   <div className="border rounded-xl p-4 sm:p-6" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow)' }}>
+                {post.source === 'discord' && (
+                  <div className="post-forward-banner mb-3 rounded-lg border px-3 py-2 text-xs font-semibold inline-flex flex-wrap items-center gap-2">
+                    <span>Forwarded from Discord:</span>
+                    {post.community ? (
+                      <Link
+                        href={`/communities/${post.community.id}`}
+                        className="underline decoration-dotted underline-offset-2"
+                        style={{ color: 'var(--color-accent-1)' }}
+                      >
+                        {post.community.name}
+                      </Link>
+                    ) : (
+                      <span style={{ color: 'var(--color-text-secondary)' }}>Unknown server</span>
+                    )}
+                  </div>
+                )}
+                {verification && (
+                  <div
+                    className="post-status-banner mb-3 rounded-xl border px-4 py-2 text-sm font-semibold flex flex-wrap items-center justify-between gap-2"
+                    title={verificationMissing.length > 0 ? `Missing: ${formatVerificationMissing(verificationMissing)}` : undefined}
+                    style={{
+                      background: isVerified ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                      color: isVerified ? '#22C55E' : '#EF4444',
+                      borderColor: isVerified ? 'rgba(34, 197, 94, 0.35)' : 'rgba(239, 68, 68, 0.35)',
+                    }}
+                  >
+                    <span>{isVerified ? 'Verified account' : 'Unverified account'}</span>
+                    {verificationMissing.length > 0 && (
+                      <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                        Missing {formatVerificationMissing(verificationMissing)}
+                      </span>
+                    )}
+                  </div>
+                )}
                 {/* Header */}
                 <div className="flex flex-wrap justify-between items-start mb-4 gap-2">
                   <div>
@@ -1374,10 +1423,15 @@ export default function Feed() {
                         {post.username}
                       </h3>
                       {post.discordUsername && (
-                        <span className="discord-chip px-2 py-0.5 rounded text-xs font-semibold border inline-flex items-center gap-1" title={`Discord: ${post.discordUsername}`}>
-                          <DiscordIcon className="w-3.5 h-3.5" />
+                        <button
+                          type="button"
+                          onClick={() => handleCopyDiscord(post.discordUsername)}
+                          className="discord-chip chip-interactive inline-flex items-center gap-2 border"
+                          title="Click to copy Discord username"
+                        >
+                          <DiscordIcon className="w-4 h-4" />
                           {post.discordUsername}
-                        </span>
+                        </button>
                       )}
                       {post.community && (
                         <Link 
@@ -1393,36 +1447,12 @@ export default function Feed() {
                           {post.community.name}
                         </Link>
                       )}
-                      {verification && (
-                        <span
-                          className="px-2 py-0.5 rounded text-xs font-semibold border inline-flex items-center gap-1"
-                          title={verificationMissing.length > 0 ? `Missing: ${formatVerificationMissing(verificationMissing)}` : undefined}
-                          style={{
-                            background: isVerified ? 'rgba(34, 197, 94, 0.15)' : 'rgba(251, 191, 36, 0.15)',
-                            color: isVerified ? '#22C55E' : '#F59E0B',
-                            borderColor: isVerified ? '#22C55E' : '#F59E0B',
-                          }}
-                        >
-                          {isVerified ? 'Verified' : 'Unverified'}
-                        </span>
-                      )}
                       {missingFields.length > 0 && (
                         <span
-                          className="px-2 py-0.5 rounded text-xs font-semibold border inline-flex items-center gap-1"
+                          className="missing-info-chip chip-interactive inline-flex items-center gap-2 border"
                           title={`Missing: ${formatMissingFields(missingFields)}`}
-                          style={{
-                            background: 'rgba(148, 163, 184, 0.15)',
-                            color: '#94A3B8',
-                            borderColor: '#94A3B8',
-                          }}
                         >
-                          Needs Info
-                        </span>
-                      )}
-                      {post.source === 'discord' && (
-                        <span className="discord-chip px-2 py-0.5 rounded text-xs font-semibold border inline-flex items-center gap-1">
-                          <DiscordIcon className="w-3.5 h-3.5" />
-                          Discord
+                          Missing Info
                         </span>
                       )}
                     </div>

@@ -1,8 +1,32 @@
 # Changelog
 
-> Last updated: 2026-05-04
+> Last updated: 2026-05-05
 
 ---
+
+## 2026-05-05 - Duo Feed Banners, Discord Copy Chip, and Modal Button
+
+### Objective: Replace extra badges with clearer Duo banners and improve Discord-first posting flow
+
+Overview: Swapped the Duo feed verified badge for a full-width status banner, added a Discord-forwarded header, and upgraded the Discord username chip to copy on click. Discord embeds now color by verification state and include a button to open the Duo modal.
+
+Changes:
+
+- Updated [apps/web/pages/feed.tsx](apps/web/pages/feed.tsx):
+  - Added verification and Discord-forwarded banners to Duo cards.
+  - Replaced extra badges with interactive Discord and Missing Info chips.
+  - Discord chip now copies the username to clipboard with hover guidance.
+- Updated [apps/web/styles/globals.css](apps/web/styles/globals.css):
+  - Added interactive chip styling and banner hover effects.
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Duo embeds now use green/red colors based on verification.
+  - Added "Send my own post" button to forwarded Duo posts.
+
+Validation:
+
+- `pnpm -C apps/api exec tsc --noEmit --pretty false`
+- `pnpm -C apps/web exec tsc --noEmit --pretty false`
+- `pnpm -C discord-bot exec tsc --noEmit --pretty false`
 
 ## 2026-05-04 - Discord-First Duo Modal, Verification Filters, and Unknown Regions
 

@@ -1,6 +1,6 @@
 # Discord Bot
 
-> Last updated: 2026-05-04  
+> Last updated: 2026-05-05  
 > Source: `discord-bot/src/index.ts`  
 > Package: `@riftessence/discord-bot` (standalone, NOT in pnpm workspace)
 
@@ -39,6 +39,8 @@
   - Discord mention (if linked)
   - Winrate stats
   - Post message
+  - Verified posts use a green embed color; unverified posts use red
+  - Duo forwards include a "Send my own post" button to open the modal
 
 ## Bot → API Communication
 

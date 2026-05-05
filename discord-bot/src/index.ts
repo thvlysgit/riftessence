@@ -75,6 +75,7 @@ const TEAM_EVENT_OPPONENT_INPUT = 'team_event_opponent';
 const TEAM_EVENT_DESCRIPTION_INPUT = 'team_event_description';
 const TEAM_EVENT_TYPES = ['SCRIM', 'PRACTICE', 'VOD_REVIEW', 'TOURNAMENT', 'TEAM_MEETING'] as const;
 const DUO_POST_MODAL = 'duo_post_modal';
+const DUO_POST_MODAL_BUTTON = 'duo_post_modal_open';
 const DUO_RIOT_ID_INPUT = 'duo_riot_id';
 const DUO_ROLES_INPUT = 'duo_roles';
 const DUO_LANGUAGES_INPUT = 'duo_languages';
@@ -716,6 +717,26 @@ async function fetchTeamEventOptions(guildId: string, discordId: string) {
     status: String(result.data?.status || 'ERROR'),
     teams: Array.isArray(result.data?.teams) ? (result.data.teams as TeamEventTeamOption[]) : [],
   };
+}
+
+async function ensureDuoCommunity(interaction: ChatInputCommandInteraction | ButtonInteraction) {
+  const guildId = interaction.guildId;
+  if (!guildId) {
+    await interaction.reply({ content: '❌ This action must be used in a server.', ephemeral: true });
+    return false;
+  }
+
+  const communityRes = await apiRequest(`/api/communities?discordServerId=${guildId}`);
+  const communities = communityRes.ok ? communityRes.data?.communities : null;
+  if (!communityRes.ok || !Array.isArray(communities) || communities.length === 0) {
+    await interaction.reply({
+      content: '❌ No community is linked to this server. Use `/linkserver` and complete community registration first.',
+      ephemeral: true,
+    });
+    return false;
+  }
+
+  return true;
 }
 
 async function createTeamEventFromDiscord(payload: {
@@ -1946,10 +1967,8 @@ function buildDuoPostModal() {
 }
 
 async function handleDuoPost(interaction: ChatInputCommandInteraction) {
-  if (!interaction.guildId || !interaction.guild) {
-    return interaction.reply({ content: '❌ This command can only be used in a server.', ephemeral: true });
-  }
-
+  const ok = await ensureDuoCommunity(interaction);
+  if (!ok) return;
   return interaction.showModal(buildDuoPostModal());
 }
 
@@ -1964,7 +1983,8 @@ async function handleDuoPostModalSubmit(interaction: ModalSubmitInteraction) {
   const message = interaction.fields.getTextInputValue(DUO_MESSAGE_INPUT).trim();
   const vcPreference = interaction.fields.getTextInputValue(DUO_VC_INPUT).trim();
 
-  const discordTag = interaction.user.tag || `${interaction.user.username}#${interaction.user.discriminator}`;
+  const rawTag = interaction.user.tag || `${interaction.user.username}#${interaction.user.discriminator}`;
+  const discordTag = rawTag.endsWith('#0') ? interaction.user.username : rawTag;
 
   const payload = {
     source: 'modal',
@@ -2770,6 +2790,7 @@ function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): Embed
       ? `${resolveEmoji(guild, 'verified', '✅')} Verified`
       : `${resolveEmoji(guild, 'unverified', '⚠️')} Unverified${verificationMissingLabel ? ` • Missing ${verificationMissingLabel}` : ''}`)
     : null;
+  const embedColor = verification ? (isVerified ? 0x22C55E : 0xEF4444) : 0x3B82F6;
   const missingFields = Array.isArray(post.missingFields) ? post.missingFields : [];
   const missingFieldsLabel = missingFields.length > 0 ? missingFields.join(', ') : '';
   const missingInfoLine = missingFieldsLabel
@@ -2791,7 +2812,7 @@ function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): Embed
   ].filter(Boolean);
 
   return new EmbedBuilder()
-    .setColor(0x3B82F6)
+    .setColor(embedColor)
     .setTitle(`Duo • ${author.username}`)
     .setURL(postUrl)
     .setDescription(descriptionParts.join('\n'))
@@ -2799,7 +2820,12 @@ function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): Embed
     .setTimestamp();
 }
 
-function buildForwardMessagePayload(embed: EmbedBuilder, mentionDiscordId?: string | null, messageUrl?: string) {
+function buildForwardMessagePayload(
+  embed: EmbedBuilder,
+  mentionDiscordId?: string | null,
+  messageUrl?: string,
+  extraButton?: { label: string; customId: string },
+) {
   const payload: any = {
     embeds: [embed],
   };
@@ -2811,15 +2837,27 @@ function buildForwardMessagePayload(embed: EmbedBuilder, mentionDiscordId?: stri
     };
   }
 
+  const buttons: ButtonBuilder[] = [];
   if (messageUrl) {
-    payload.components = [
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setStyle(ButtonStyle.Link)
-          .setLabel('💬 Message in App')
-          .setURL(messageUrl)
-      ),
-    ];
+    buttons.push(
+      new ButtonBuilder()
+        .setStyle(ButtonStyle.Link)
+        .setLabel('💬 Message in App')
+        .setURL(messageUrl)
+    );
+  }
+
+  if (extraButton) {
+    buttons.push(
+      new ButtonBuilder()
+        .setStyle(ButtonStyle.Primary)
+        .setCustomId(extraButton.customId)
+        .setLabel(extraButton.label)
+    );
+  }
+
+  if (buttons.length > 0) {
+    payload.components = [new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons)];
   }
 
   return payload;
@@ -2846,7 +2884,14 @@ async function mirrorPostToDiscord(post: any) {
       if (channel && channel.isTextBased() && 'guild' in channel) {
         const textChannel = channel as TextChannel;
         const embed = buildDuoForwardEmbed(post, textChannel.guild);
-        const sent = await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId, `${APP_URL}/share/post/${id}`));
+        const sent = await textChannel.send(
+          buildForwardMessagePayload(
+            embed,
+            post.author?.discordId,
+            `${APP_URL}/share/post/${id}`,
+            { label: 'Send my own post', customId: DUO_POST_MODAL_BUTTON }
+          )
+        );
         storeMirroredMessageRef('DUO', id, textChannel.guild.id, fc.channelId, sent.id);
         console.log(`✅ Mirrored duo post ${id} to channel ${fc.channelId}`);
       }
@@ -4530,6 +4575,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.customId.startsWith(CHAT_REPLY_BUTTON_PREFIX)) {
       await handleChatReplyButton(interaction as ButtonInteraction);
       return;
+    }
+
+    if (interaction.customId === DUO_POST_MODAL_BUTTON) {
+      const ok = await ensureDuoCommunity(interaction as ButtonInteraction);
+      if (!ok) return;
+      return interaction.showModal(buildDuoPostModal());
     }
     
     // Only allow administrators for setup buttons

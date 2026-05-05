@@ -1056,6 +1056,61 @@ h6,
   border-color: rgba(88, 101, 242, 0.58);
 }
 
+.chip-interactive {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 999px;
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.chip-interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(88, 101, 242, 0.22);
+  filter: saturate(1.08);
+}
+
+.missing-info-chip {
+  background: rgba(148, 163, 184, 0.16);
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.45);
+}
+
+.missing-info-chip:hover {
+  box-shadow: 0 8px 18px rgba(148, 163, 184, 0.2);
+}
+
+.post-status-banner {
+  position: relative;
+  overflow: hidden;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.post-status-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, 0.08) 50%, transparent 65%);
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+
+.post-status-banner:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
+}
+
+.post-status-banner:hover::after {
+  opacity: 1;
+}
+
+.post-forward-banner {
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.28);
+  color: var(--color-text-secondary);
+}
+
 .discord-cta-outline {
   background: rgba(88, 101, 242, 0.14);
   color: #bfc8ff;
