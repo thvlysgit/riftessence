@@ -1051,9 +1051,11 @@ h6,
 }
 
 .discord-chip {
-  background: rgba(88, 101, 242, 0.15);
-  color: #5865f2;
-  border-color: rgba(88, 101, 242, 0.58);
+  background: linear-gradient(180deg, rgba(88, 101, 242, 0.95), rgba(71, 82, 196, 0.95));
+  color: #ffffff;
+  border-color: rgba(88, 101, 242, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 16px rgba(88, 101, 242, 0.25);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 .chip-interactive {
@@ -1070,6 +1072,11 @@ h6,
   filter: saturate(1.08);
 }
 
+.discord-chip.chip-interactive:hover {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 12px 22px rgba(88, 101, 242, 0.3);
+  filter: saturate(1.12);
+}
+
 .missing-info-chip {
   background: rgba(148, 163, 184, 0.16);
   color: #94a3b8;
@@ -1078,6 +1085,67 @@ h6,
 
 .missing-info-chip:hover {
   box-shadow: 0 8px 18px rgba(148, 163, 184, 0.2);
+}
+
+.community-badge {
+  --community-accent: #60a5fa;
+  --community-accent-soft: rgba(96, 165, 250, 0.18);
+  --community-accent-border: rgba(96, 165, 250, 0.55);
+  --community-shadow: rgba(96, 165, 250, 0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--community-accent-border);
+  background: linear-gradient(120deg, var(--community-accent-soft), rgba(15, 23, 42, 0.05));
+  color: var(--community-accent);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 16px var(--community-shadow);
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.community-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 12px 22px var(--community-shadow);
+  filter: saturate(1.06);
+}
+
+.community-badge--partner {
+  --community-accent: #22c55e;
+  --community-accent-soft: rgba(34, 197, 94, 0.2);
+  --community-accent-border: rgba(34, 197, 94, 0.55);
+  --community-shadow: rgba(34, 197, 94, 0.24);
+}
+
+.community-badge__name {
+  line-height: 1;
+}
+
+.community-badge__status {
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--community-accent-border);
+  line-height: 1;
+}
+
+.community-badge__origin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  background: rgba(88, 101, 242, 0.18);
+  color: #5865f2;
+  border: 1px solid rgba(88, 101, 242, 0.5);
+  line-height: 1;
 }
 
 .post-status-banner {
@@ -1090,7 +1158,7 @@ h6,
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, 0.08) 50%, transparent 65%);
+  background: radial-gradient(140px circle at var(--banner-x, 50%) var(--banner-y, 50%), rgba(255, 255, 255, 0.18), transparent 70%);
   opacity: 0;
   transition: opacity 200ms ease;
   pointer-events: none;
@@ -1103,12 +1171,6 @@ h6,
 
 .post-status-banner:hover::after {
   opacity: 1;
-}
-
-.post-forward-banner {
-  background: rgba(148, 163, 184, 0.08);
-  border-color: rgba(148, 163, 184, 0.28);
-  color: var(--color-text-secondary);
 }
 
 .discord-cta-outline {

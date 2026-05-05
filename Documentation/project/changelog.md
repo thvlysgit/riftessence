@@ -8,16 +8,17 @@
 
 ### Objective: Replace extra badges with clearer Duo banners and improve Discord-first posting flow
 
-Overview: Swapped the Duo feed verified badge for a full-width status banner, added a Discord-forwarded header, and upgraded the Discord username chip to copy on click. Discord embeds now color by verification state and include a button to open the Duo modal.
+Overview: Swapped the Duo feed verified badge for a full-width status banner, replaced the Discord-forwarded header with a richer community badge that flags Discord-originated posts, and refreshed the Discord username chip with Discord-style button treatment while keeping copy-to-clipboard. The verification banner now uses cursor-following glow and clearer account-link copy.
 
 Changes:
 
 - Updated [apps/web/pages/feed.tsx](apps/web/pages/feed.tsx):
-  - Added verification and Discord-forwarded banners to Duo cards.
-  - Replaced extra badges with interactive Discord and Missing Info chips.
-  - Discord chip now copies the username to clipboard with hover guidance.
+  - Replaced the Discord-forwarded header with a detailed community badge that adds a Discord origin tag when applicable.
+  - Updated verification banner copy to use "Account not Linked" phrasing and wired cursor tracking for the hover glow.
+  - Discord chip still copies the username to clipboard with hover guidance.
 - Updated [apps/web/styles/globals.css](apps/web/styles/globals.css):
-  - Added interactive chip styling and banner hover effects.
+  - Styled the community badge and Discord chip with richer, Discord-inspired treatments.
+  - Replaced the static banner shimmer with a cursor-positioned glow.
 - Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
   - Duo embeds now use green/red colors based on verification.
   - Added "Send my own post" button to forwarded Duo posts.

@@ -492,6 +492,19 @@ export default function Feed() {
     }
   };
 
+  const handleBannerMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    event.currentTarget.style.setProperty('--banner-x', `${x}px`);
+    event.currentTarget.style.setProperty('--banner-y', `${y}px`);
+  };
+
+  const handleBannerLeave = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.currentTarget.style.removeProperty('--banner-x');
+    event.currentTarget.style.removeProperty('--banner-y');
+  };
+
   const getRankColor = (rank: string) => {
     const isLightTheme = (() => {
       const hex = theme.colors.bgPrimary.replace('#','');
@@ -737,8 +750,8 @@ export default function Feed() {
 
   const formatVerificationMissing = (missing: string[]) => {
     const labels = missing.map((value) => {
-      if (value === 'riot') return 'Riot link';
-      if (value === 'discord') return 'Discord link';
+      if (value === 'riot') return 'Riot Account not Linked';
+      if (value === 'discord') return 'Discord Account not Linked';
       return value;
     });
     return labels.join(', ');
@@ -1374,26 +1387,12 @@ export default function Feed() {
                     <AdSpot ad={ad} feed="duo" userId={currentUserId} onDismiss={handleDismissAd} />
                   )}
                   <div className="border rounded-xl p-4 sm:p-6" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow)' }}>
-                {post.source === 'discord' && (
-                  <div className="post-forward-banner mb-3 rounded-lg border px-3 py-2 text-xs font-semibold inline-flex flex-wrap items-center gap-2">
-                    <span>Forwarded from Discord:</span>
-                    {post.community ? (
-                      <Link
-                        href={`/communities/${post.community.id}`}
-                        className="underline decoration-dotted underline-offset-2"
-                        style={{ color: 'var(--color-accent-1)' }}
-                      >
-                        {post.community.name}
-                      </Link>
-                    ) : (
-                      <span style={{ color: 'var(--color-text-secondary)' }}>Unknown server</span>
-                    )}
-                  </div>
-                )}
                 {verification && (
                   <div
                     className="post-status-banner mb-3 rounded-xl border px-4 py-2 text-sm font-semibold flex flex-wrap items-center justify-between gap-2"
-                    title={verificationMissing.length > 0 ? `Missing: ${formatVerificationMissing(verificationMissing)}` : undefined}
+                    title={verificationMissing.length > 0 ? formatVerificationMissing(verificationMissing) : undefined}
+                    onMouseMove={handleBannerMove}
+                    onMouseLeave={handleBannerLeave}
                     style={{
                       background: isVerified ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
                       color: isVerified ? '#22C55E' : '#EF4444',
@@ -1403,7 +1402,7 @@ export default function Feed() {
                     <span>{isVerified ? 'Verified account' : 'Unverified account'}</span>
                     {verificationMissing.length > 0 && (
                       <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                        Missing {formatVerificationMissing(verificationMissing)}
+                        {formatVerificationMissing(verificationMissing)}
                       </span>
                     )}
                   </div>
@@ -1434,17 +1433,21 @@ export default function Feed() {
                         </button>
                       )}
                       {post.community && (
-                        <Link 
+                        <Link
                           href={`/communities/${post.community.id}`}
-                          className="px-2 py-0.5 rounded text-xs font-semibold border inline-flex items-center gap-1 transition-colors hover:opacity-80"
-                          style={{ 
-                            background: post.community.isPartner ? 'rgba(34, 197, 94, 0.15)' : 'rgba(96, 165, 250, 0.15)', 
-                            color: post.community.isPartner ? '#22C55E' : '#60A5FA',
-                            borderColor: post.community.isPartner ? '#22C55E' : '#60A5FA'
-                          }}
+                          className={`community-badge ${post.community.isPartner ? 'community-badge--partner' : ''}`.trim()}
+                          title={post.source === 'discord' ? 'Forwarded from this community on Discord' : 'Community badge'}
                         >
-                          {post.community.isPartner && '🤝'}
-                          {post.community.name}
+                          <span className="community-badge__name">{post.community.name}</span>
+                          {post.community.isPartner && (
+                            <span className="community-badge__status">Partner</span>
+                          )}
+                          {post.source === 'discord' && (
+                            <span className="community-badge__origin">
+                              <DiscordIcon className="w-3.5 h-3.5" />
+                              Discord
+                            </span>
+                          )}
                         </Link>
                       )}
                       {missingFields.length > 0 && (
