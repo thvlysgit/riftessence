@@ -32,28 +32,42 @@ const REGION_OPTIONS = ['NA','EUW','EUNE','KR','JP','OCE','LAN','LAS','BR','RU']
 const ROLE_OPTIONS = ['TOP','JUNGLE','MID','ADC','SUPPORT','FILL'];
 const LANGUAGE_OPTIONS = ['English','French','Spanish','German','Portuguese','Italian','Polish','Turkish','Russian','Korean','Japanese','Chinese'];
 
+const REGION_META: Record<string, { label: string; icon: string }> = {
+  NA: { label: 'North America', icon: 'https://flagcdn.com/w40/us.png' },
+  EUW: { label: 'Europe West', icon: 'https://flagcdn.com/w40/eu.png' },
+  EUNE: { label: 'Europe Nordic & East', icon: 'https://flagcdn.com/w40/eu.png' },
+  KR: { label: 'Korea', icon: 'https://flagcdn.com/w40/kr.png' },
+  JP: { label: 'Japan', icon: 'https://flagcdn.com/w40/jp.png' },
+  OCE: { label: 'Oceania', icon: 'https://flagcdn.com/w40/au.png' },
+  LAN: { label: 'Latin America North', icon: 'https://flagcdn.com/w40/mx.png' },
+  LAS: { label: 'Latin America South', icon: 'https://flagcdn.com/w40/cl.png' },
+  BR: { label: 'Brazil', icon: 'https://flagcdn.com/w40/br.png' },
+  RU: { label: 'Russia', icon: 'https://flagcdn.com/w40/ru.png' },
+};
+
+const LANGUAGE_FLAG_URLS: Record<string, string> = {
+  English: 'https://flagcdn.com/w40/gb.png',
+  French: 'https://flagcdn.com/w40/fr.png',
+  Spanish: 'https://flagcdn.com/w40/es.png',
+  German: 'https://flagcdn.com/w40/de.png',
+  Portuguese: 'https://flagcdn.com/w40/pt.png',
+  Italian: 'https://flagcdn.com/w40/it.png',
+  Polish: 'https://flagcdn.com/w40/pl.png',
+  Turkish: 'https://flagcdn.com/w40/tr.png',
+  Russian: 'https://flagcdn.com/w40/ru.png',
+  Korean: 'https://flagcdn.com/w40/kr.png',
+  Japanese: 'https://flagcdn.com/w40/jp.png',
+  Chinese: 'https://flagcdn.com/w40/cn.png',
+};
+
+const FilterImageIcon = ({ src, alt }: { src: string; alt: string }) => (
+  <img src={src} alt={alt} className="h-4 w-5 shrink-0 rounded-sm object-cover shadow-sm" loading="lazy" />
+);
+
 const SmallIcon = ({ children }: { children: React.ReactNode }) => (
   <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden="true">
     {children}
   </span>
-);
-
-const PinIcon = () => (
-  <SmallIcon>
-    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 12.2a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4Z" />
-    </svg>
-  </SmallIcon>
-);
-
-const GlobeIcon = () => (
-  <SmallIcon>
-    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M3.5 12h17M12 3.5c2.2 2.2 3.4 5.1 3.4 8.5s-1.2 6.3-3.4 8.5M12 3.5C9.8 5.7 8.6 8.6 8.6 12s1.2 6.3 3.4 8.5" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M20.5 12a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0Z" />
-    </svg>
-  </SmallIcon>
 );
 
 const MicIcon = () => (
@@ -285,6 +299,7 @@ export default function Feed() {
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [filters, setFilters] = useState(defaultFilters);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const postsContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -604,6 +619,10 @@ export default function Feed() {
   const rankMaxIndex = getRankFilterIndex(filters.maxRank, RANK_FILTER_OPTIONS.length - 1);
   const rankRangeLeft = (rankMinIndex / (RANK_FILTER_OPTIONS.length - 1)) * 100;
   const rankRangeRight = 100 - (rankMaxIndex / (RANK_FILTER_OPTIONS.length - 1)) * 100;
+  const winrateMinValue = filters.minWinrate ? parseFloat(filters.minWinrate) : 0;
+  const winrateMaxValue = filters.maxWinrate ? parseFloat(filters.maxWinrate) : 100;
+  const winrateRangeLeft = winrateMinValue;
+  const winrateRangeRight = 100 - winrateMaxValue;
 
   const updateRankRange = (nextMinIndex: number, nextMaxIndex: number) => {
     const minIndex = Math.max(0, Math.min(nextMinIndex, nextMaxIndex));
@@ -614,6 +633,25 @@ export default function Feed() {
       maxRank: maxIndex === RANK_FILTER_OPTIONS.length - 1 ? '' : RANK_FILTER_OPTIONS[maxIndex].value,
     }));
   };
+
+  const updateWinrateRange = (nextMinValue: number, nextMaxValue: number) => {
+    const minValue = Math.max(0, Math.min(nextMinValue, nextMaxValue));
+    const maxValue = Math.min(100, Math.max(nextMaxValue, minValue));
+    setFilters(prev => ({
+      ...prev,
+      minWinrate: minValue === 0 ? '' : String(minValue),
+      maxWinrate: maxValue === 100 ? '' : String(maxValue),
+    }));
+  };
+
+  const moreFilterCount =
+    (filters.minRank || filters.maxRank ? 1 : 0) +
+    (filters.minDivision || filters.maxDivision ? 1 : 0) +
+    (filters.minLp ? 1 : 0) +
+    (filters.minWinrate || filters.maxWinrate ? 1 : 0) +
+    (filters.smurfFilter ? 1 : 0);
+
+  const moreFiltersOpen = showMoreFilters;
 
   const activeFilterCount =
     filters.regions.length +
@@ -960,6 +998,87 @@ export default function Feed() {
           background: transparent;
           border: 0;
         }
+        .filter-chip {
+          min-height: 2.5rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.55rem;
+          border: 1px solid var(--color-border);
+          border-radius: var(--border-radius);
+          background: var(--color-bg-tertiary);
+          color: var(--color-text-secondary);
+          padding: 0.45rem 0.7rem;
+          font-size: 0.82rem;
+          font-weight: 700;
+          transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease, transform 160ms ease;
+          white-space: nowrap;
+        }
+        .filter-chip:hover {
+          border-color: var(--color-border-hover);
+          transform: translateY(-1px);
+        }
+        .filter-chip[data-selected="true"] {
+          background: color-mix(in srgb, var(--color-accent-1) 22%, var(--color-bg-tertiary));
+          border-color: var(--color-accent-1);
+          color: var(--color-text-primary);
+        }
+        .filter-chip input {
+          width: 1rem;
+          height: 1rem;
+          flex: 0 0 auto;
+          accent-color: var(--color-accent-1);
+        }
+        .filter-card {
+          min-width: 0;
+          border: 1px solid var(--color-border);
+          border-radius: var(--border-radius);
+          background: color-mix(in srgb, var(--color-bg-tertiary) 86%, transparent);
+          padding: 1rem;
+        }
+        .filter-section-title {
+          margin-bottom: 0.7rem;
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--color-text-muted);
+        }
+        .winrate-range-input {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 2rem;
+          appearance: none;
+          background: transparent;
+          pointer-events: none;
+        }
+        .winrate-range-input::-webkit-slider-thumb {
+          appearance: none;
+          width: 1.15rem;
+          height: 1.15rem;
+          border-radius: 999px;
+          border: 2px solid var(--color-bg-primary);
+          background: var(--wr-thumb, #22c55e);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--wr-thumb, #22c55e) 28%, transparent);
+          cursor: pointer;
+          pointer-events: auto;
+        }
+        .winrate-range-input::-moz-range-thumb {
+          width: 1.15rem;
+          height: 1.15rem;
+          border-radius: 999px;
+          border: 2px solid var(--color-bg-primary);
+          background: var(--wr-thumb, #22c55e);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--wr-thumb, #22c55e) 28%, transparent);
+          cursor: pointer;
+          pointer-events: auto;
+        }
+        .winrate-range-input::-webkit-slider-runnable-track,
+        .winrate-range-input::-moz-range-track {
+          background: transparent;
+          border: 0;
+        }
       `}</style>
       <SEOHead
         title="Looking for Duo"
@@ -968,7 +1087,7 @@ export default function Feed() {
         keywords="league of legends duo finder, lol duo partner, league of legends duo queue, lol ranked duo, duo partner lol, LoL duo finder, find duo partner, ranked duo, duo queue lol, lol duo NA, lol duo EUW, lol duo EUNE, lol duo KR, duo partner lol plat, duo partner lol diamond, duo partner lol gold, lol duo partner NA, lol duo partner EUW, lol duo partner KR, lol duo partner OCE, lol duo partner BR, league of legends duo NA, league of legends duo EUW, duo partner lol iron, duo partner lol bronze, duo partner lol silver, duo partner lol emerald, duo partner lol master, duo partner lol grandmaster, duo partner lol challenger"
       />
       <div className="min-h-screen py-8 px-4" style={{ backgroundColor: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}>
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6">
         {/* Refreshing indicator - positioned absolutely to not affect layout */}
         {isRefreshing && (
           <div 
@@ -1022,7 +1141,7 @@ export default function Feed() {
                 className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80"
                 style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}
               >
-                <PinIcon />
+                <FilterImageIcon src={REGION_META[region].icon} alt={`${REGION_META[region].label} icon`} />
                 {region}
                 <span>✕</span>
               </button>
@@ -1046,7 +1165,7 @@ export default function Feed() {
                 className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80"
                 style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}
               >
-                <GlobeIcon />
+                <FilterImageIcon src={LANGUAGE_FLAG_URLS[language]} alt={`${language} flag`} />
                 {language}
                 <span>✕</span>
               </button>
@@ -1130,34 +1249,45 @@ export default function Feed() {
             boxShadow: 'var(--shadow)',
           }}
         >
-          <h2 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--color-accent-1)' }}>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-            Filters
-          </h2>
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2" style={{ color: 'var(--color-accent-1)' }}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              Filters
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowMoreFilters(prev => !prev)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors"
+              style={{
+                backgroundColor: moreFiltersOpen ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
+                borderColor: moreFiltersOpen ? 'var(--color-accent-1)' : 'var(--color-border)',
+                color: moreFiltersOpen ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+              }}
+            >
+              <SparkIcon />
+              {moreFiltersOpen ? 'Hide More Filters' : `More Filters${moreFilterCount > 0 ? ` (${moreFilterCount})` : ''}`}
+            </button>
+          </div>
           
           {/* Primary Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Regions</label>
               <div 
-                className="border p-3 max-h-48 overflow-y-auto space-y-1"
+                className="border p-3 flex flex-wrap gap-2"
                 style={{
                   backgroundColor: 'var(--color-bg-tertiary)',
                   borderColor: 'var(--color-border)',
                   borderRadius: 'var(--border-radius)',
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: 'var(--color-accent-1) var(--color-bg-secondary)',
                 }}
               >
                 {REGION_OPTIONS.map(r => (
                   <label 
                     key={r} 
-                    className="flex items-center gap-3 py-1.5 px-2 cursor-pointer transition-colors group"
-                    style={{ borderRadius: 'var(--border-radius)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    className="filter-chip cursor-pointer"
+                    data-selected={filters.regions.includes(r)}
                   >
                     <input
                       type="checkbox"
@@ -1177,7 +1307,7 @@ export default function Feed() {
                       }}
                     />
                     <span className="text-sm font-medium transition-colors inline-flex items-center gap-2" style={{ color: 'var(--color-text-secondary)' }}>
-                      <PinIcon />
+                      <FilterImageIcon src={REGION_META[r].icon} alt={`${REGION_META[r].label} icon`} />
                       {r}
                     </span>
                   </label>
@@ -1187,7 +1317,7 @@ export default function Feed() {
             <div>
               <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Roles</label>
               <div 
-                className="border p-3 space-y-1"
+                className="border p-3 flex flex-wrap gap-2"
                 style={{
                   backgroundColor: 'var(--color-bg-tertiary)',
                   borderColor: 'var(--color-border)',
@@ -1197,10 +1327,8 @@ export default function Feed() {
                 {ROLE_OPTIONS.map(r => (
                   <label 
                     key={r} 
-                    className="flex items-center gap-3 py-1.5 px-2 cursor-pointer transition-colors group"
-                    style={{ borderRadius: 'var(--border-radius)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    className="filter-chip cursor-pointer"
+                    data-selected={filters.roles.includes(r)}
                   >
                     <input
                       type="checkbox"
@@ -1230,22 +1358,18 @@ export default function Feed() {
             <div>
               <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Languages</label>
               <div 
-                className="border p-3 max-h-48 overflow-y-auto space-y-1"
+                className="border p-3 flex flex-wrap gap-2"
                 style={{
                   backgroundColor: 'var(--color-bg-tertiary)',
                   borderColor: 'var(--color-border)',
                   borderRadius: 'var(--border-radius)',
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: 'var(--color-accent-1) var(--color-bg-secondary)',
                 }}
               >
                 {LANGUAGE_OPTIONS.map(lang => (
                   <label 
                     key={lang} 
-                    className="flex items-center gap-3 py-1.5 px-2 cursor-pointer transition-colors group"
-                    style={{ borderRadius: 'var(--border-radius)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    className="filter-chip cursor-pointer"
+                    data-selected={filters.languages.includes(lang)}
                   >
                     <input
                       type="checkbox"
@@ -1265,7 +1389,7 @@ export default function Feed() {
                       }}
                     />
                     <span className="text-sm font-medium transition-colors inline-flex items-center gap-2" style={{ color: 'var(--color-text-secondary)' }}>
-                      <GlobeIcon />
+                      <FilterImageIcon src={LANGUAGE_FLAG_URLS[lang]} alt={`${lang} flag`} />
                       {lang}
                     </span>
                   </label>
@@ -1364,6 +1488,7 @@ export default function Feed() {
           </div>
 
           {/* Advanced Filters */}
+          {moreFiltersOpen && (
           <div className="border-t pt-4" style={{ borderColor: 'var(--color-border)' }}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Rank Range */}
@@ -1416,11 +1541,10 @@ export default function Feed() {
                       onChange={(event) => updateRankRange(rankMinIndex, Number(event.target.value))}
                     />
                   </div>
-                  <div className="mt-2 grid grid-cols-4 gap-1 text-[10px] sm:grid-cols-8" style={{ color: 'var(--color-text-muted)' }}>
+                  <div className="mt-3 flex items-center justify-between gap-2" style={{ color: 'var(--color-text-muted)' }}>
                     {RANK_FILTER_OPTIONS.map((rank) => (
-                      <span key={rank.value} className="flex flex-col items-center gap-1 text-center">
-                        {rank.value !== 'MASTER_PLUS' ? getRankIcon(rank.value) : <ShieldIcon />}
-                        {rank.label}
+                      <span key={rank.value} className="flex h-8 w-8 items-center justify-center" title={rank.label} aria-label={rank.label}>
+                        {rank.value === 'MASTER_PLUS' ? getRankIcon('MASTER') : getRankIcon(rank.value)}
                       </span>
                     ))}
                   </div>
@@ -1488,7 +1612,7 @@ export default function Feed() {
                       onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
                       onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
                       value={filters.minLp} onChange={e => setFilters(prev => ({ ...prev, minLp: e.target.value }))}>
-                      <option value="">LP ≥</option>
+                      <option value="">LP &gt;=</option>
                       {['0','200','400','600','800','1000','1200'].map(lp => <option key={lp} value={lp}>{lp}+ LP</option>)}
                     </select>
                     <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
@@ -1500,50 +1624,64 @@ export default function Feed() {
 
               {/* Winrate Range */}
               <div className="space-y-2">
-                <label className="block text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Winrate Range (%)</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="relative">
-                    <select 
-                      className="w-full p-2.5 rounded-lg border text-sm transition-all appearance-none cursor-pointer" 
+                <div className="flex items-center justify-between gap-2">
+                  <label className="block text-xs font-medium inline-flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
+                    <SparkIcon />
+                    Winrate Range
+                  </label>
+                  <span className="text-xs font-semibold" style={{ color: getWinrateColor(winrateMaxValue) }}>
+                    {winrateMinValue}% - {winrateMaxValue}%
+                  </span>
+                </div>
+                <div
+                  className="border px-3 py-4"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    borderRadius: 'var(--border-radius)',
+                  }}
+                >
+                  <div className="relative h-8">
+                    <div
+                      className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full"
+                      style={{ background: 'linear-gradient(to right, #ef4444, #fb923c, #9ca3af, #3b82f6, #22c55e, #D4AF37, #a855f7)' }}
+                    />
+                    <div
+                      className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
                       style={{
-                        backgroundColor: 'var(--color-bg-tertiary)',
-                        borderColor: 'var(--color-border)',
-                        color: 'var(--color-text-primary)',
-                        paddingRight: '2.5rem'
+                        left: `${winrateRangeLeft}%`,
+                        right: `${winrateRangeRight}%`,
+                        background: 'rgba(255,255,255,0.54)',
+                        boxShadow: `0 0 12px ${getWinrateColor(winrateMaxValue)}66`,
                       }}
-                      onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
-                      onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                      value={filters.minWinrate} onChange={e => setFilters(prev => ({ ...prev, minWinrate: e.target.value }))}>
-                      <option value="">Min WR</option>
-                      {['40','45','50','55','60','65','70'].map(w => <option key={w} value={w}>{w}%</option>)}
-                    </select>
-                    <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
-                      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
-                    </svg>
+                    />
+                    <input
+                      aria-label="Minimum winrate"
+                      className="winrate-range-input"
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={winrateMinValue}
+                      onChange={(event) => updateWinrateRange(Number(event.target.value), winrateMaxValue)}
+                      style={{ '--wr-thumb': getWinrateColor(winrateMinValue) } as React.CSSProperties}
+                    />
+                    <input
+                      aria-label="Maximum winrate"
+                      className="winrate-range-input"
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={winrateMaxValue}
+                      onChange={(event) => updateWinrateRange(winrateMinValue, Number(event.target.value))}
+                      style={{ '--wr-thumb': getWinrateColor(winrateMaxValue) } as React.CSSProperties}
+                    />
                   </div>
-                  <div className="relative">
-                    <select 
-                      className="w-full p-2.5 rounded-lg border text-sm transition-all appearance-none cursor-pointer" 
-                      style={{
-                        backgroundColor: 'var(--color-bg-tertiary)',
-                        borderColor: 'var(--color-border)',
-                        color: 'var(--color-text-primary)',
-                        paddingRight: '2.5rem'
-                      }}
-                      onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
-                      onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                      value={filters.maxWinrate} onChange={e => setFilters(prev => ({ ...prev, maxWinrate: e.target.value }))}>
-                      <option value="">Max WR</option>
-                      {['50','55','60','65','70','75','80','100'].map(w => {
-                        const minWr = filters.minWinrate ? parseFloat(filters.minWinrate) : 0;
-                        const currentWr = parseFloat(w);
-                        const isDisabled = minWr > 0 && currentWr < minWr;
-                        return <option key={w} value={w} disabled={isDisabled}>{w}%</option>;
-                      })}
-                    </select>
-                    <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
-                      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
-                    </svg>
+                  <div className="mt-3 flex items-center justify-between text-[11px] font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+                    {[0, 40, 50, 65, 80, 100].map(value => (
+                      <span key={value} style={{ color: getWinrateColor(value) }}>{value}%</span>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1583,6 +1721,7 @@ export default function Feed() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Clear Filters Button */}
           {activeFilterCount > 0 && (

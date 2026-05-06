@@ -4,6 +4,33 @@
 
 ---
 
+## 2026-05-06 - Duo Feed Filter Layout Breathing Room
+
+### Objective: Make the duo feed filters readable and prevent cramped checkbox columns
+
+Overview: Reworked the duo feed filter panel after visual review showed the controls were too dense. The default panel now uses a wider content area, wrapping checkbox chips for region/role/language filters, and a "More Filters" toggle for rank, division, LP, winrate, and smurf controls. Rank ticks are icon-only, Master+ uses the Master emblem, and winrate now has a two-thumb slider styled with the app's winrate color scale.
+
+Changes:
+
+- Updated [apps/web/pages/feed.tsx](apps/web/pages/feed.tsx):
+  - Expanded the feed content container from `max-w-4xl` to `max-w-6xl`.
+  - Replaced cramped scroll columns with wrapping checkbox chips for regions, roles, and languages.
+  - Added region icon/flag affordances and country flags for languages.
+  - Added a "More Filters" toggle around the advanced filter controls.
+  - Swapped rank tick labels for icon-only ticks and used the Master emblem for Master+.
+  - Replaced winrate min/max dropdowns with a two-thumb 0-100 slider using the existing winrate color scale.
+- Updated [Documentation/frontend/pages.md](Documentation/frontend/pages.md):
+  - Documented the chip layout, "More Filters" behavior, icon-only rank ticks, and winrate slider.
+
+Validation:
+
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/web lint` passes.
+- `git diff --check` reports no whitespace errors; only Windows line-ending normalization warnings.
+- Local dev server starts on `http://localhost:3001`; `/feed` responds with HTTP 200.
+
+---
+
 ## 2026-05-06 - Duo Feed Filter Ergonomics and Scroll Restoration
 
 ### Objective: Remove frustrating duo feed UI behaviors and make filters easier to scan

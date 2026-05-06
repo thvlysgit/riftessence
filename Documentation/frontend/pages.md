@@ -68,8 +68,10 @@
 - **Personalized Defaults**: Automatically pre-filters by user's region (from main Riot account) and languages (from profile)
 - **Server-side Filters**: Regions, Roles, Languages, Voice Chat preference, Duo Type (applied via API query params)
 - **Client-side Filters**: Rank range, divisions, LP threshold (Master+), winrate range, smurf status (applied after fetch)
-- **Filter UX**: Region, role, language, voice chat, duo type, verification, rank, winrate, and smurf filters use icon/text affordances where practical; VC, duo type, verification, and smurf filters use segmented buttons instead of dropdowns.
-- **Rank Range Slider**: Rank filtering uses a two-thumb slider from Iron to Master+ and stores full-span ranges as empty filters so default queries stay clean.
+- **Filter UX**: Region, role, language, voice chat, duo type, verification, rank, winrate, and smurf filters use icon/text affordances where practical; region/language/role filters render as wrapping checkbox chips so controls are not clipped.
+- **More Filters Drawer**: Rank, division, LP, winrate, and smurf controls live behind a "More Filters" button to keep the default filter surface readable.
+- **Rank Range Slider**: Rank filtering uses a two-thumb slider from Iron to Master+ with icon-only tick marks; Master+ uses the Master emblem and full-span ranges are stored as empty filters so default queries stay clean.
+- **Winrate Range Slider**: Winrate filtering uses a two-thumb 0-100 slider styled with the same red/orange/grey/blue/green/gold/purple winrate scale used by feed badges.
 - **Active Filters Display**: Removable icon-backed pills showing current filters above the feed, including advanced filters.
 - **Reload Scroll Reset**: The feed opts into manual scroll restoration and starts at the top on mount to avoid reloads restoring the user to the bottom of long duo feeds.
 - **Pagination**: Load more button with "has more" indicator
@@ -86,7 +88,7 @@
 - **Voice Chat**: ALWAYS, SOMETIMES, NEVER (single-select segmented buttons)
 - **Looking For**: Short Term, Long Term, Both (single-select segmented buttons)
 - **Rank Range**: Two-thumb Iron -> Master+ slider with division and LP filters
-- **Winrate Range**: Min/Max percentage sliders (0-100%)
+- **Winrate Range**: Two-thumb percentage slider (0-100%)
 - **Smurf Filter**: Only Smurfs, No Smurfs, All (single-select)
 
 **Post Card Actions**:
