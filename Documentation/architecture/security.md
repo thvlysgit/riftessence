@@ -38,6 +38,27 @@
 
 ## Recently Fixed Vulnerabilities
 
+### CVE-2026-004: Notification Ownership and Contact Sender Spoofing (Fixed 2026-05-06)
+**Severity**: HIGH
+
+**Description**: Notification endpoints accepted user identity from client-controlled fields. `GET /api/notifications` read notifications for a `userId` query parameter, `PATCH /api/notifications/:id/read` updated a notification by ID without proving ownership, and `POST /api/notifications/contact` trusted `fromUserId` from the request body.
+
+**Impact**:
+- Authenticated users could request another user's notifications by changing `userId`.
+- Any caller could mark another user's notification as read by ID.
+- Contact requests could spoof the sender identity.
+
+**Fix Applied**:
+- Notification list, contact, single-read, and read-all endpoints now require JWT authentication.
+- Notification ownership is derived from `getUserIdFromRequest()`.
+- Contact sender identity is always the JWT user.
+- Notification-list cache entries are invalidated after contact and read writes.
+- Added regression tests in `apps/api/__tests__/notificationsAuth.test.ts`.
+
+**Lesson Learned**: User-specific notification APIs must never accept user identity from query strings or request bodies. Use JWT-derived identity for both reads and writes, and treat cross-user misses as `404` to avoid leaking notification existence.
+
+---
+
 ### CVE-2026-003: Feedback & Report Authentication Missing (Fixed 2026-02-15)
 **Severity**: MEDIUM  
 **CVSS Score**: 6.5 (Medium)

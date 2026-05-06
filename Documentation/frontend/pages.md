@@ -9,7 +9,7 @@
 |-----------|-------|---------|
 | `_app.tsx` | — | App wrapper (QueryClient, Theme, Language, Auth, GlobalUI providers, Vercel Analytics), themed shell frame (`app-theme-shell`), runtime `theme-color` meta sync, Navbar, Footer, OnboardingWizard |
 | `index.tsx` | `/` | Home/landing page |
-| `feed.tsx` | `/feed` | LFD (Looking for Duo) feed with filters (regions, roles, languages, VC, rank, etc.) |
+| `feed.tsx` | `/feed` | LFD (Looking for Duo) feed with icon-backed filters, rank range slider, and post status banners |
 | `create.tsx` | `/create` | Create new duo post |
 | `lft.tsx` | `/lft` | Looking for Team feed |
 | `coaching/index.tsx` | `/coaching` | Coaching marketplace (offer/seek coaching) |
@@ -68,20 +68,24 @@
 - **Personalized Defaults**: Automatically pre-filters by user's region (from main Riot account) and languages (from profile)
 - **Server-side Filters**: Regions, Roles, Languages, Voice Chat preference, Duo Type (applied via API query params)
 - **Client-side Filters**: Rank range, divisions, LP threshold (Master+), winrate range, smurf status (applied after fetch)
-- **Active Filters Display**: Removable pills showing current filters above the feed
+- **Filter UX**: Region, role, language, voice chat, duo type, verification, rank, winrate, and smurf filters use icon/text affordances where practical; VC, duo type, verification, and smurf filters use segmented buttons instead of dropdowns.
+- **Rank Range Slider**: Rank filtering uses a two-thumb slider from Iron to Master+ and stores full-span ranges as empty filters so default queries stay clean.
+- **Active Filters Display**: Removable icon-backed pills showing current filters above the feed, including advanced filters.
+- **Reload Scroll Reset**: The feed opts into manual scroll restoration and starts at the top on mount to avoid reloads restoring the user to the bottom of long duo feeds.
 - **Pagination**: Load more button with "has more" indicator
 - **Blocking**: Automatically filters out posts from blocked users (bidirectional)
 - **Ad Integration**: Shows ads at regular intervals between posts (dismissible)
 - **Real-time Updates**: Refreshing indicator when filters change
 - **Share Button**: "Share Post" button visible only to post authors, copies shareable link to clipboard (links to `/share/post/:id`)
+- **Verification Banner**: Post status banners keep the cursor glow at its last pointer position while hover fades, preventing the glow from jumping back to center on mouse leave.
 
 **Filter Options**:
 - **Regions**: NA, EUW, EUNE, KR, JP, OCE, LAN, LAS, BR, RU (multi-select checkboxes)
 - **Roles**: TOP, JUNGLE, MID, ADC, SUPPORT, FILL (multi-select checkboxes)
 - **Languages**: English, French, Spanish, German, Portuguese, Italian, Polish, Turkish, Russian, Korean, Japanese, Chinese (multi-select checkboxes)
-- **Voice Chat**: ALWAYS, SOMETIMES, NEVER (single-select dropdown)
-- **Looking For**: Short Term, Long Term, Both (single-select dropdown)
-- **Rank Range**: Min/Max rank with division and LP filters (dropdowns)
+- **Voice Chat**: ALWAYS, SOMETIMES, NEVER (single-select segmented buttons)
+- **Looking For**: Short Term, Long Term, Both (single-select segmented buttons)
+- **Rank Range**: Two-thumb Iron -> Master+ slider with division and LP filters
 - **Winrate Range**: Min/Max percentage sliders (0-100%)
 - **Smurf Filter**: Only Smurfs, No Smurfs, All (single-select)
 

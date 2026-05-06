@@ -122,6 +122,53 @@ const getRelativeTime = (dateString: string) => {
   return date.toLocaleDateString();
 };
 
+function useAdaptivePolling(
+  enabled: boolean,
+  poll: () => Promise<boolean>,
+  options: { initialMs: number; baseMs: number; hiddenMs: number; maxMs: number }
+) {
+  const pollRef = useRef(poll);
+  const failuresRef = useRef(0);
+
+  useEffect(() => {
+    pollRef.current = poll;
+  }, [poll]);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const schedule = (delayMs: number) => {
+      timeoutId = setTimeout(run, delayMs);
+    };
+
+    const run = async () => {
+      if (cancelled) return;
+
+      const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+      if (isHidden) {
+        schedule(options.hiddenMs);
+        return;
+      }
+
+      const ok = await pollRef.current().catch(() => false);
+      if (cancelled) return;
+      failuresRef.current = ok ? 0 : Math.min(failuresRef.current + 1, 4);
+      const nextDelay = Math.min(options.baseMs * 2 ** failuresRef.current, options.maxMs);
+      schedule(nextDelay);
+    };
+
+    schedule(options.initialMs);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [enabled, options.baseMs, options.hiddenMs, options.initialMs, options.maxMs]);
+}
+
 export default function ChatWidget() {
   const { user } = useAuth();
   const { conversationToOpen, clearConversationToOpen } = useChat();
@@ -138,6 +185,11 @@ export default function ChatWidget() {
   const [showGuestRestriction, setShowGuestRestriction] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<Message[]>([]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Scroll to bottom of messages - more robust for different browsers
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
@@ -188,41 +240,19 @@ export default function ChatWidget() {
     }
   }, [selectedConversation]);
 
-  // Fetch unread count periodically
-  useEffect(() => {
-    if (!user) return;
+  useAdaptivePolling(Boolean(user), async () => {
+    const headers = getAuthHeader();
+    if (!headers || !('Authorization' in headers)) return false;
 
-    const fetchUnreadCount = async () => {
-      try {
-        const headers = getAuthHeader();
-        // Don't fetch if no auth token available
-        if (!headers || !('Authorization' in headers)) {
-          return;
-        }
-        
-        const res = await fetch(`${API_URL}/api/chat/unread-count`, {
-          headers,
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setUnreadCount(data.unreadCount);
-        } else if (res.status === 401) {
-          // Silently ignore auth errors
-          return;
-        }
-      } catch (err) {
-        console.error('Error fetching unread count:', err);
-      }
-    };
+    const res = await fetch(`${API_URL}/api/chat/unread-count`, { headers });
+    if (res.ok) {
+      const data = await res.json();
+      setUnreadCount(data.unreadCount);
+      return true;
+    }
 
-    // Small delay before first fetch to ensure token is set
-    const initialTimeout = setTimeout(fetchUnreadCount, 500);
-    const interval = setInterval(fetchUnreadCount, 10000); // Poll every 10 seconds
-    return () => {
-      clearTimeout(initialTimeout);
-      clearInterval(interval);
-    };
-  }, [user]);
+    return res.status === 401;
+  }, { initialMs: 500, baseMs: 15000, hiddenMs: 60000, maxMs: 60000 });
 
   // Load DM banner dismiss state and Discord DM notification preference
   useEffect(() => {
@@ -254,32 +284,19 @@ export default function ChatWidget() {
     }
   }, [isOpen, user]);
 
-  // Poll for conversation updates when widget is open
-  useEffect(() => {
-    if (!isOpen || !user) return;
+  useAdaptivePolling(Boolean(isOpen && user), async () => {
+    const headers = getAuthHeader();
+    if (!headers || !('Authorization' in headers)) return false;
 
-    const pollConversations = async () => {
-      try {
-        const headers = getAuthHeader();
-        if (!headers || !('Authorization' in headers)) return;
+    const res = await fetch(`${API_URL}/api/chat/conversations`, { headers });
+    if (res.ok) {
+      const data = await res.json();
+      setConversations(data.conversations);
+      return true;
+    }
 
-        const res = await fetch(`${API_URL}/api/chat/conversations`, {
-          headers,
-        });
-        
-        if (res.ok) {
-          const data = await res.json();
-          setConversations(data.conversations);
-        }
-      } catch (err) {
-        console.error('Error polling conversations:', err);
-      }
-    };
-
-    // Poll every 5 seconds for conversation list updates
-    const interval = setInterval(pollConversations, 5000);
-    return () => clearInterval(interval);
-  }, [isOpen, user]);
+    return false;
+  }, { initialMs: 8000, baseMs: 8000, hiddenMs: 60000, maxMs: 45000 });
 
   // Fetch messages when conversation is selected
   useEffect(() => {
@@ -288,41 +305,30 @@ export default function ChatWidget() {
     }
   }, [selectedConversation]);
 
-  // Poll for new messages in active conversation
-  useEffect(() => {
-    if (!selectedConversation || !user) return;
+  useAdaptivePolling(Boolean(selectedConversation && user), async () => {
+    if (!selectedConversation) return false;
 
-    const pollMessages = async () => {
-      try {
-        const headers = getAuthHeader();
-        if (!headers || !('Authorization' in headers)) return;
+    const headers = getAuthHeader();
+    if (!headers || !('Authorization' in headers)) return false;
 
-        const res = await fetch(`${API_URL}/api/chat/conversations/${selectedConversation.id}/messages`, {
-          headers,
-        });
-        
-        if (res.ok) {
-          const data = await res.json();
-          const newMessages = data.messages;
-          
-          // Only update if there are new messages (check length or last message ID)
-          if (newMessages.length !== messages.length || 
-              (newMessages.length > 0 && messages.length > 0 && 
-               newMessages[newMessages.length - 1]?.id !== messages[messages.length - 1]?.id)) {
-            setMessages(newMessages);
-            // Update conversations to reflect read status
-            await fetchConversations();
-          }
-        }
-      } catch (err) {
-        console.error('Error polling messages:', err);
-      }
-    };
+    const res = await fetch(`${API_URL}/api/chat/conversations/${selectedConversation.id}/messages`, {
+      headers,
+    });
+    if (!res.ok) return false;
 
-    // Poll every 2 seconds for real-time feel
-    const interval = setInterval(pollMessages, 2000);
-    return () => clearInterval(interval);
-  }, [selectedConversation, user, messages]);
+    const data = await res.json();
+    const newMessages = data.messages;
+    const currentMessages = messagesRef.current;
+
+    if (newMessages.length !== currentMessages.length ||
+        (newMessages.length > 0 && currentMessages.length > 0 &&
+         newMessages[newMessages.length - 1]?.id !== currentMessages[currentMessages.length - 1]?.id)) {
+      setMessages(newMessages);
+      await fetchConversations();
+    }
+
+    return true;
+  }, { initialMs: 4000, baseMs: 4000, hiddenMs: 60000, maxMs: 30000 });
 
   // Wrap openConversationWithUser in useCallback to prevent stale closures
   const openConversationWithUser = useCallback(async (userId: string) => {

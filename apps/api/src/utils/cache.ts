@@ -116,7 +116,7 @@ export async function cacheClear(): Promise<void> {
 }
 
 // Cleanup memory cache on intervals
-setInterval(() => {
+const cleanupInterval = setInterval(() => {
   const now = Date.now();
   let cleaned = 0;
   for (const [key, cached] of memoryCache.entries()) {
@@ -129,3 +129,5 @@ setInterval(() => {
     console.log(`♻️  Cleaned ${cleaned} expired cache entries`);
   }
 }, 60000); // Every minute
+
+cleanupInterval.unref?.();

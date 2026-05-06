@@ -1,6 +1,7 @@
 import prisma from '../prisma';
 import { CreatePostSchema, validateRequest, PaginationSchema } from '../validation';
 import { getOrSetCache } from '../utils/requestCache';
+import { cacheDel } from '../utils/cache';
 import { enqueueMirrorDeletion } from '../services/discordMirrorDeletionQueue';
 import { formatDuoPost, parseBooleanQuery } from '../utils/developerFeed';
 
@@ -14,6 +15,7 @@ function toPositiveInt(value: string | undefined, fallback: number) {
 }
 
 const NOTIFICATIONS_CACHE_TTL_SECONDS = toPositiveInt(process.env.NOTIFICATIONS_CACHE_TTL_SECONDS, 6);
+const notificationsCacheKey = (userId: string) => `api:notifications:list:v1:user:${userId}`;
 
 export default async function postsRoutes(fastify: any) {
   // Helper to extract userId from Authorization header using JWT
@@ -294,10 +296,13 @@ export default async function postsRoutes(fastify: any) {
   // POST /api/notifications/contact - Send contact request
   fastify.post('/notifications/contact', async (request: any, reply: any) => {
     try {
-      const { fromUserId, toUserId, postId } = request.body as any;
+      const fromUserId = await getUserIdFromRequest(request, reply);
+      if (!fromUserId) return;
 
-      if (!fromUserId || !toUserId) {
-        return reply.status(400).send({ error: 'Missing required fields' });
+      const { toUserId, postId } = request.body as any;
+
+      if (!toUserId) {
+        return reply.status(400).send({ error: 'Missing recipient user' });
       }
 
       // Prevent self-contact
@@ -338,6 +343,7 @@ export default async function postsRoutes(fastify: any) {
           message,
         },
       });
+      await cacheDel(notificationsCacheKey(toUserId));
 
       return { notification };
     } catch (error) {
@@ -349,13 +355,10 @@ export default async function postsRoutes(fastify: any) {
   // GET /api/notifications - Get user's notifications
   fastify.get('/notifications', async (request: any, reply: any) => {
     try {
-      const { userId } = request.query as any;
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
 
-      if (!userId) {
-        return reply.status(400).send({ error: 'Missing userId' });
-      }
-
-      const cacheKey = `api:notifications:list:v1:user:${userId}`;
+      const cacheKey = notificationsCacheKey(userId);
       const payload = await getOrSetCache(cacheKey, NOTIFICATIONS_CACHE_TTL_SECONDS, async () => {
         const notifications = await prisma.notification.findMany({
           where: { userId },
@@ -404,17 +407,48 @@ export default async function postsRoutes(fastify: any) {
   // PATCH /api/notifications/:id/read - Mark notification as read
   fastify.patch('/notifications/:id/read', async (request: any, reply: any) => {
     try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
       const { id } = request.params as any;
 
-      const notification = await prisma.notification.update({
+      const existing = await prisma.notification.findFirst({
+        where: { id, userId },
+      });
+
+      if (!existing) {
+        return reply.status(404).send({ error: 'Notification not found' });
+      }
+
+      const notification = existing.read ? existing : await prisma.notification.update({
         where: { id },
         data: { read: true },
       });
+      await cacheDel(notificationsCacheKey(userId));
 
       return { notification };
     } catch (error) {
       fastify.log.error('Error marking notification as read:', error);
       return reply.status(500).send({ error: 'Failed to update notification' });
+    }
+  });
+
+  // PATCH /api/notifications/read-all - Mark all notifications as read for the authenticated user
+  fastify.patch('/notifications/read-all', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const result = await prisma.notification.updateMany({
+        where: { userId, read: false },
+        data: { read: true },
+      });
+      await cacheDel(notificationsCacheKey(userId));
+
+      return { success: true, updatedCount: result.count };
+    } catch (error) {
+      fastify.log.error('Error marking all notifications as read:', error);
+      return reply.status(500).send({ error: 'Failed to update notifications' });
     }
   });
 

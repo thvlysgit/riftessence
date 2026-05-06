@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useGlobalUI } from '@components/GlobalUI';
 import Link from 'next/link';
-import { getAuthToken, getUserIdFromToken } from '../utils/auth';
+import { getAuthHeader, getAuthToken, getUserIdFromToken } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -127,7 +127,7 @@ export default function NotificationsPage() {
 
       const authHeaders = { Authorization: `Bearer ${token}` };
       const [notificationRes, proposalRes] = await Promise.all([
-        fetch(`${API_URL}/api/notifications?userId=${encodeURIComponent(uid)}`, { headers: authHeaders }),
+        fetch(`${API_URL}/api/notifications`, { headers: authHeaders }),
         fetch(`${API_URL}/api/scrims/proposals/incoming`, { headers: authHeaders }),
       ]);
 
@@ -164,7 +164,10 @@ export default function NotificationsPage() {
 
   const markAsRead = async (id: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/notifications/${id}/read`, { method: 'PATCH' });
+      const res = await fetch(`${API_URL}/api/notifications/${id}/read`, {
+        method: 'PATCH',
+        headers: getAuthHeader(),
+      });
       if (!res.ok) throw new Error('Failed to update');
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
     } catch (err) {
@@ -174,11 +177,18 @@ export default function NotificationsPage() {
   };
 
   const markAllAsRead = async () => {
-    const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
-    for (const id of unreadIds) {
-      await markAsRead(id);
+    try {
+      const res = await fetch(`${API_URL}/api/notifications/read-all`, {
+        method: 'PATCH',
+        headers: getAuthHeader(),
+      });
+      if (!res.ok) throw new Error('Failed to update');
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      showToast('All notifications marked as read', 'success');
+    } catch (err) {
+      console.error('Failed to mark all as read', err);
+      showToast('Failed to mark notifications as read', 'error');
     }
-    showToast('All notifications marked as read', 'success');
   };
 
   const decideProposal = async (proposalId: string, action: 'ACCEPT' | 'REJECT' | 'DELAY') => {

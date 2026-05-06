@@ -74,13 +74,16 @@ This audit session focused on production reliability and architecture hygiene. T
 ## 4) High-frequency polling in user-facing flows
 
 - Severity: Medium
-- Status: Open
+- Status: Partially mitigated
 - Description:
   - Chat, notifications, and some profile-adjacent flows still use frequent polling patterns that can amplify load during traffic spikes.
 - Impact:
   - Unnecessary backend load and noisy incident behavior when API is degraded.
+- Mitigation:
+  - ChatWidget now uses adaptive timeout-based polling with page-visibility throttling and capped backoff instead of fixed 2s/5s/10s intervals.
+  - Notifications "mark all as read" now uses one batch API call instead of one PATCH per unread notification.
 - Recommendation:
-  - Introduce adaptive polling or event-driven updates (where practical), with a fallback backoff strategy.
+  - Continue applying adaptive polling or event-driven updates to remaining profile-adjacent flows.
 
 ## 5) Large-file maintenance hotspots
 

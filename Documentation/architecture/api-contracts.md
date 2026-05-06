@@ -61,6 +61,53 @@ All protected endpoints require: `Authorization: Bearer <jwt_token>`
 
 ---
 
+## Notification Endpoints (`/api/notifications`)
+
+### POST `/api/notifications/contact`
+Send a contact request notification.
+
+Auth: Required
+
+Body:
+- `toUserId`
+- optional `postId`
+
+Behavior:
+- sender is derived from the JWT, not from request body fields
+- rejects self-contact
+- invalidates the recipient notification-list cache
+
+### GET `/api/notifications`
+Fetch notifications for the authenticated user.
+
+Auth: Required
+
+Behavior:
+- ignores caller-supplied `userId` query parameters
+- returns only notifications owned by the JWT user
+- enriches sender profile links with batched sender lookups
+
+### PATCH `/api/notifications/:id/read`
+Mark one owned notification as read.
+
+Auth: Required
+
+Behavior:
+- returns `404` when the notification does not belong to the JWT user
+- invalidates the user's notification-list cache
+
+### PATCH `/api/notifications/read-all`
+Mark all notifications owned by the authenticated user as read in one batch.
+
+Auth: Required
+
+Response:
+```json
+{ "success": true, "updatedCount": 3 }
+```
+
+---
+
 ## Scrim Finder Endpoints (`/api/scrims`)
 
 ### GET `/api/scrims/posts`

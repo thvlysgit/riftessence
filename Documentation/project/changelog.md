@@ -4,6 +4,71 @@
 
 ---
 
+## 2026-05-06 - Duo Feed Filter Ergonomics and Scroll Restoration
+
+### Objective: Remove frustrating duo feed UI behaviors and make filters easier to scan
+
+Overview: Smoothed the verified/unverified banner hover glow so it fades from the cursor position instead of snapping back to center, replaced text-only duo feed filters with icon-backed controls, moved small single-choice filters away from dropdowns, and prevented reloads from restoring long duo feeds near the bottom.
+
+Changes:
+
+- Updated [apps/web/pages/feed.tsx](apps/web/pages/feed.tsx):
+  - Kept the post status banner glow anchored at the last cursor position on mouse leave, removing the visible recenter blink.
+  - Added icon-backed filter labels, active filter pills, and segmented controls for voice chat, duo type, verification, and smurf status.
+  - Replaced the min/max rank dropdowns with a two-thumb Iron-to-Master+ rank range slider.
+  - Expanded active filter counting so languages and advanced filters participate in the active filter bar and clear/reset affordances.
+  - Added manual scroll restoration on feed mount so reloads begin at the top of the duo feed instead of restoring to a stale bottom position.
+- Updated [Documentation/frontend/pages.md](Documentation/frontend/pages.md):
+  - Documented the duo feed filter UX, rank slider, banner glow behavior, and scroll restoration expectations.
+
+Validation:
+
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/web lint` passes.
+- `git diff --check` reports no whitespace errors; only existing Windows line-ending normalization warnings.
+- Local dev server starts on `http://localhost:3001`; `/feed` responds with HTTP 200.
+
+---
+
+## 2026-05-06 - Notification Authorization Hardening and Chat Polling Backoff
+
+### Objective: Close notification ownership gaps and reduce hot-path polling pressure
+
+Overview: Hardened in-app notification APIs so all user-specific reads/writes are scoped to the JWT user, removed client-controlled sender identity from contact requests, and reduced chat polling load with adaptive backoff and page-visibility throttling.
+
+Changes:
+
+- Updated [apps/api/src/routes/posts.ts](apps/api/src/routes/posts.ts):
+  - `POST /api/notifications/contact` now derives `fromUserId` from the JWT and invalidates recipient notification cache.
+  - `GET /api/notifications` now ignores query-string identity and returns only the authenticated user's notifications.
+  - `PATCH /api/notifications/:id/read` now verifies notification ownership before writing.
+  - Added `PATCH /api/notifications/read-all` for a single batch read update.
+- Updated [apps/web/pages/notifications.tsx](apps/web/pages/notifications.tsx):
+  - Removed `userId` from notification list requests.
+  - Added auth headers to single-read updates.
+  - Replaced sequential "mark all" requests with the batch endpoint.
+- Updated [apps/web/pages/feed.tsx](apps/web/pages/feed.tsx):
+  - Removed client-supplied `fromUserId` from contact notification requests.
+- Updated [apps/web/components/ChatWidget.tsx](apps/web/components/ChatWidget.tsx):
+  - Replaced fixed 2s/5s/10s polling intervals with adaptive timeout polling, visibility throttling, and capped backoff.
+- Updated [apps/api/src/utils/cache.ts](apps/api/src/utils/cache.ts):
+  - Allowed the memory-cache cleanup interval to `unref()` so it does not hold Node/Jest processes open.
+- Added [apps/api/__tests__/notificationsAuth.test.ts](apps/api/__tests__/notificationsAuth.test.ts):
+  - Covers authenticated notification scoping, cross-user read protection, and contact sender spoof prevention.
+- Updated documentation:
+  - [Documentation/architecture/api-contracts.md](Documentation/architecture/api-contracts.md)
+  - [Documentation/architecture/security.md](Documentation/architecture/security.md)
+  - [Documentation/analysis/2026-04-16-audit-findings.md](Documentation/analysis/2026-04-16-audit-findings.md)
+
+Validation:
+
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/web lint` passes.
+- Focused Jest regression file was added but could not run to completion locally because the configured database host `db:5432` is unreachable and Docker is not installed in this environment.
+
+---
+
 ## 2026-05-06 - Six-Theme System, Premium Cursor Layer, and Spinner Refresh
 
 ### Objective: Complete the scalable theme system pass

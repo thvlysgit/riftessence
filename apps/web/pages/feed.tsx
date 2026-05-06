@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
@@ -15,6 +15,81 @@ import { AdSpot, useAds, getAdForPosition } from '@components/AdSpot';
 import { DiscordIcon } from '../src/components/DiscordBrand';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
+const RANK_FILTER_OPTIONS = [
+  { value: 'IRON', label: 'Iron' },
+  { value: 'BRONZE', label: 'Bronze' },
+  { value: 'SILVER', label: 'Silver' },
+  { value: 'GOLD', label: 'Gold' },
+  { value: 'PLATINUM', label: 'Platinum' },
+  { value: 'EMERALD', label: 'Emerald' },
+  { value: 'DIAMOND', label: 'Diamond' },
+  { value: 'MASTER_PLUS', label: 'Master+' },
+];
+
+const REGION_OPTIONS = ['NA','EUW','EUNE','KR','JP','OCE','LAN','LAS','BR','RU'];
+const ROLE_OPTIONS = ['TOP','JUNGLE','MID','ADC','SUPPORT','FILL'];
+const LANGUAGE_OPTIONS = ['English','French','Spanish','German','Portuguese','Italian','Polish','Turkish','Russian','Korean','Japanese','Chinese'];
+
+const SmallIcon = ({ children }: { children: React.ReactNode }) => (
+  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden="true">
+    {children}
+  </span>
+);
+
+const PinIcon = () => (
+  <SmallIcon>
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 12.2a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4Z" />
+    </svg>
+  </SmallIcon>
+);
+
+const GlobeIcon = () => (
+  <SmallIcon>
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M3.5 12h17M12 3.5c2.2 2.2 3.4 5.1 3.4 8.5s-1.2 6.3-3.4 8.5M12 3.5C9.8 5.7 8.6 8.6 8.6 12s1.2 6.3 3.4 8.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M20.5 12a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0Z" />
+    </svg>
+  </SmallIcon>
+);
+
+const MicIcon = () => (
+  <SmallIcon>
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 14.5a3 3 0 0 0 3-3v-4a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6" />
+    </svg>
+  </SmallIcon>
+);
+
+const DuoIcon = () => (
+  <SmallIcon>
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M8.5 11a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6ZM15.5 11a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M3.8 19.5c.7-3 2.5-5 4.7-5s4 2 4.7 5M10.8 19.5c.7-3 2.5-5 4.7-5s4 2 4.7 5" />
+    </svg>
+  </SmallIcon>
+);
+
+const ShieldIcon = () => (
+  <SmallIcon>
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 21s7-3.5 7-10V5.5L12 3 5 5.5V11c0 6.5 7 10 7 10Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="m8.8 12 2.1 2.1 4.5-4.7" />
+    </svg>
+  </SmallIcon>
+);
+
+const SparkIcon = () => (
+  <SmallIcon>
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9L18 15Z" />
+    </svg>
+  </SmallIcon>
+);
 
 // Role icon helper (League of Legends client style)
 const getRoleIcon = (role: string) => {
@@ -212,6 +287,21 @@ export default function Feed() {
   const [filters, setFilters] = useState(defaultFilters);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const postsContainerRef = React.useRef<HTMLDivElement>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    if (typeof window === 'undefined') return;
+    const previousRestoration = 'scrollRestoration' in window.history ? window.history.scrollRestoration : null;
+    if (previousRestoration) {
+      window.history.scrollRestoration = 'manual';
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+
+    return () => {
+      if (previousRestoration) {
+        window.history.scrollRestoration = previousRestoration;
+      }
+    };
+  }, []);
   
   // Ads
   const { ads, frequency: adFrequency } = useAds('duo');
@@ -462,7 +552,6 @@ export default function Feed() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({
-          fromUserId: currentUserId,
           toUserId: post.authorId,
           postId: post.id,
         }),
@@ -500,10 +589,44 @@ export default function Feed() {
     event.currentTarget.style.setProperty('--banner-y', `${y}px`);
   };
 
-  const handleBannerLeave = (event: React.MouseEvent<HTMLDivElement>) => {
-    event.currentTarget.style.removeProperty('--banner-x');
-    event.currentTarget.style.removeProperty('--banner-y');
+  const getFilterRoleIcon = (role: string) => {
+    if (role === 'FILL') return <SparkIcon />;
+    return getRoleIcon(role);
   };
+
+  const getRankFilterIndex = (rank: string, fallback: number) => {
+    if (!rank) return fallback;
+    const index = RANK_FILTER_OPTIONS.findIndex((option) => option.value === rank);
+    return index === -1 ? fallback : index;
+  };
+
+  const rankMinIndex = getRankFilterIndex(filters.minRank, 0);
+  const rankMaxIndex = getRankFilterIndex(filters.maxRank, RANK_FILTER_OPTIONS.length - 1);
+  const rankRangeLeft = (rankMinIndex / (RANK_FILTER_OPTIONS.length - 1)) * 100;
+  const rankRangeRight = 100 - (rankMaxIndex / (RANK_FILTER_OPTIONS.length - 1)) * 100;
+
+  const updateRankRange = (nextMinIndex: number, nextMaxIndex: number) => {
+    const minIndex = Math.max(0, Math.min(nextMinIndex, nextMaxIndex));
+    const maxIndex = Math.min(RANK_FILTER_OPTIONS.length - 1, Math.max(nextMaxIndex, minIndex));
+    setFilters(prev => ({
+      ...prev,
+      minRank: minIndex === 0 ? '' : RANK_FILTER_OPTIONS[minIndex].value,
+      maxRank: maxIndex === RANK_FILTER_OPTIONS.length - 1 ? '' : RANK_FILTER_OPTIONS[maxIndex].value,
+    }));
+  };
+
+  const activeFilterCount =
+    filters.regions.length +
+    filters.roles.length +
+    filters.languages.length +
+    (filters.vcPreference ? 1 : 0) +
+    (filters.duoType ? 1 : 0) +
+    (filters.verified ? 1 : 0) +
+    (filters.minRank || filters.maxRank ? 1 : 0) +
+    (filters.minDivision || filters.maxDivision ? 1 : 0) +
+    (filters.minLp ? 1 : 0) +
+    (filters.minWinrate || filters.maxWinrate ? 1 : 0) +
+    (filters.smurfFilter ? 1 : 0);
 
   const getRankColor = (rank: string) => {
     const isLightTheme = (() => {
@@ -791,6 +914,52 @@ export default function Feed() {
             box-shadow: 0 3px 15px currentColor, inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 30px currentColor;
           }
         }
+        .rank-range-input {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 2rem;
+          appearance: none;
+          background: transparent;
+          pointer-events: none;
+        }
+        .rank-range-input::-webkit-slider-thumb {
+          appearance: none;
+          width: 1.15rem;
+          height: 1.15rem;
+          border-radius: 999px;
+          border: 2px solid var(--color-bg-primary);
+          background: var(--color-accent-1);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent-1) 28%, transparent);
+          cursor: pointer;
+          pointer-events: auto;
+        }
+        .rank-range-input:last-of-type::-webkit-slider-thumb {
+          background: var(--color-accent-2);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent-2) 28%, transparent);
+        }
+        .rank-range-input::-moz-range-thumb {
+          width: 1.15rem;
+          height: 1.15rem;
+          border-radius: 999px;
+          border: 2px solid var(--color-bg-primary);
+          background: var(--color-accent-1);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent-1) 28%, transparent);
+          cursor: pointer;
+          pointer-events: auto;
+        }
+        .rank-range-input:last-of-type::-moz-range-thumb {
+          background: var(--color-accent-2);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent-2) 28%, transparent);
+        }
+        .rank-range-input::-webkit-slider-runnable-track {
+          background: transparent;
+          border: 0;
+        }
+        .rank-range-input::-moz-range-track {
+          background: transparent;
+          border: 0;
+        }
       `}</style>
       <SEOHead
         title="Looking for Duo"
@@ -836,13 +1005,16 @@ export default function Feed() {
         <div 
           className="overflow-hidden transition-all duration-300"
           style={{ 
-            maxHeight: (filters.regions.length > 0 || filters.roles.length > 0 || filters.languages.length > 0 || filters.vcPreference || filters.duoType || filters.verified) ? '500px' : '0',
-            opacity: (filters.regions.length > 0 || filters.roles.length > 0 || filters.languages.length > 0 || filters.vcPreference || filters.duoType || filters.verified) ? 1 : 0,
-            marginBottom: (filters.regions.length > 0 || filters.roles.length > 0 || filters.languages.length > 0 || filters.vcPreference || filters.duoType || filters.verified) ? '1.5rem' : '0'
+            maxHeight: activeFilterCount > 0 ? '500px' : '0',
+            opacity: activeFilterCount > 0 ? 1 : 0,
+            marginBottom: activeFilterCount > 0 ? '1.5rem' : '0'
           }}
         >
           <div className="flex flex-wrap gap-2 p-4 rounded-lg" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
-            <span className="text-sm font-medium" style={{ color: 'var(--color-text-muted)' }}>Active filters:</span>
+            <span className="text-sm font-medium inline-flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
+              <SparkIcon />
+              Active filters:
+            </span>
             {filters.regions.map(region => (
               <button
                 key={`region-${region}`}
@@ -850,6 +1022,7 @@ export default function Feed() {
                 className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80"
                 style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}
               >
+                <PinIcon />
                 {region}
                 <span>✕</span>
               </button>
@@ -861,6 +1034,7 @@ export default function Feed() {
                 className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80"
                 style={{ backgroundColor: 'var(--color-accent-2)', color: 'var(--color-bg-primary)' }}
               >
+                {getFilterRoleIcon(role)}
                 {role}
                 <span>✕</span>
               </button>
@@ -872,6 +1046,7 @@ export default function Feed() {
                 className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80"
                 style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}
               >
+                <GlobeIcon />
                 {language}
                 <span>✕</span>
               </button>
@@ -882,6 +1057,7 @@ export default function Feed() {
                   className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80"
                   style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}
                 >
+                  <MicIcon />
                   VC: {filters.vcPreference}
                   <span>✕</span>
                 </button>
@@ -892,7 +1068,8 @@ export default function Feed() {
                   className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80"
                   style={{ backgroundColor: 'var(--color-accent-2)', color: 'var(--color-bg-primary)' }}
                 >
-                  {filters.duoType === 'main' ? 'Main Account' : 'Smurf'} Only
+                  <DuoIcon />
+                  {filters.duoType === 'SHORT_TERM' ? 'Short Term' : filters.duoType === 'LONG_TERM' ? 'Long Term' : 'Both'}
                   <span>✕</span>
                 </button>
               )}
@@ -902,8 +1079,42 @@ export default function Feed() {
                   className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80"
                   style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}
                 >
+                  <ShieldIcon />
                   {filters.verified === 'true' ? 'Verified Only' : 'Unverified Only'}
                   <span>✕</span>
+                </button>
+              )}
+              {(filters.minRank || filters.maxRank) && (
+                <button
+                  onClick={() => setFilters(prev => ({ ...prev, minRank: '', maxRank: '' }))}
+                  className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80"
+                  style={{ backgroundColor: 'var(--color-accent-2)', color: 'var(--color-bg-primary)' }}
+                >
+                  <ShieldIcon />
+                  {RANK_FILTER_OPTIONS[rankMinIndex].label} - {RANK_FILTER_OPTIONS[rankMaxIndex].label}
+                  <span>x</span>
+                </button>
+              )}
+              {(filters.minWinrate || filters.maxWinrate) && (
+                <button
+                  onClick={() => setFilters(prev => ({ ...prev, minWinrate: '', maxWinrate: '' }))}
+                  className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80"
+                  style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}
+                >
+                  <SparkIcon />
+                  WR {filters.minWinrate || '0'}%-{filters.maxWinrate || '100'}%
+                  <span>x</span>
+                </button>
+              )}
+              {filters.smurfFilter && (
+                <button
+                  onClick={() => setFilters(prev => ({ ...prev, smurfFilter: '' }))}
+                  className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-colors hover:opacity-80"
+                  style={{ backgroundColor: 'var(--color-accent-2)', color: 'var(--color-bg-primary)' }}
+                >
+                  <SparkIcon />
+                  {filters.smurfFilter === 'only-smurfs' ? 'Only Smurfs' : 'No Smurfs'}
+                  <span>x</span>
                 </button>
               )}
             </div>
@@ -940,7 +1151,7 @@ export default function Feed() {
                   scrollbarColor: 'var(--color-accent-1) var(--color-bg-secondary)',
                 }}
               >
-                {['NA','EUW','EUNE','KR','JP','OCE','LAN','LAS','BR','RU'].map(r => (
+                {REGION_OPTIONS.map(r => (
                   <label 
                     key={r} 
                     className="flex items-center gap-3 py-1.5 px-2 cursor-pointer transition-colors group"
@@ -965,7 +1176,10 @@ export default function Feed() {
                         backgroundColor: 'var(--color-bg-tertiary)',
                       }}
                     />
-                    <span className="text-sm font-medium transition-colors" style={{ color: 'var(--color-text-secondary)' }}>{r}</span>
+                    <span className="text-sm font-medium transition-colors inline-flex items-center gap-2" style={{ color: 'var(--color-text-secondary)' }}>
+                      <PinIcon />
+                      {r}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -980,7 +1194,7 @@ export default function Feed() {
                   borderRadius: 'var(--border-radius)',
                 }}
               >
-                {['TOP','JUNGLE','MID','ADC','SUPPORT','FILL'].map(r => (
+                {ROLE_OPTIONS.map(r => (
                   <label 
                     key={r} 
                     className="flex items-center gap-3 py-1.5 px-2 cursor-pointer transition-colors group"
@@ -1005,7 +1219,10 @@ export default function Feed() {
                         backgroundColor: 'var(--color-bg-tertiary)',
                       }}
                     />
-                    <span className="text-sm font-medium transition-colors" style={{ color: 'var(--color-text-secondary)' }}>{r}</span>
+                    <span className="text-sm font-medium transition-colors inline-flex items-center gap-2" style={{ color: 'var(--color-text-secondary)' }}>
+                      {getFilterRoleIcon(r)}
+                      {r}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -1022,7 +1239,7 @@ export default function Feed() {
                   scrollbarColor: 'var(--color-accent-1) var(--color-bg-secondary)',
                 }}
               >
-                {['English','French','Spanish','German','Portuguese','Italian','Polish','Turkish','Russian','Korean','Japanese','Chinese'].map(lang => (
+                {LANGUAGE_OPTIONS.map(lang => (
                   <label 
                     key={lang} 
                     className="flex items-center gap-3 py-1.5 px-2 cursor-pointer transition-colors group"
@@ -1047,87 +1264,101 @@ export default function Feed() {
                         backgroundColor: 'var(--color-bg-tertiary)',
                       }}
                     />
-                    <span className="text-sm font-medium transition-colors" style={{ color: 'var(--color-text-secondary)' }}>{lang}</span>
+                    <span className="text-sm font-medium transition-colors inline-flex items-center gap-2" style={{ color: 'var(--color-text-secondary)' }}>
+                      <GlobeIcon />
+                      {lang}
+                    </span>
                   </label>
                 ))}
               </div>
             </div>
             <div>
               <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Voice Chat</label>
-              <div className="relative">
-                <select 
-                  className="w-full p-2.5 border text-sm transition-all appearance-none cursor-pointer" 
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    borderColor: 'var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                    borderRadius: 'var(--border-radius)',
-                    paddingRight: '2.5rem'
-                  }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                value={filters.vcPreference} 
-                onChange={e => setFilters(prev => ({ ...prev, vcPreference: e.target.value }))}
-                >
-                <option value="">All Preferences</option>
-                {['ALWAYS','SOMETIMES','NEVER'].map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
-                <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
-                  <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
-                </svg>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: '', label: 'Any' },
+                  { value: 'ALWAYS', label: 'Always' },
+                  { value: 'SOMETIMES', label: 'Sometimes' },
+                  { value: 'NEVER', label: 'Never' },
+                ].map((option) => {
+                  const selected = filters.vcPreference === option.value;
+                  return (
+                    <button
+                      key={`vc-${option.value || 'all'}`}
+                      type="button"
+                      onClick={() => setFilters(prev => ({ ...prev, vcPreference: option.value }))}
+                      className="min-h-10 px-2 py-2 border text-xs font-semibold transition-all flex items-center justify-center gap-1"
+                      style={{
+                        backgroundColor: selected ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
+                        borderColor: selected ? 'var(--color-accent-1)' : 'var(--color-border)',
+                        color: selected ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+                        borderRadius: 'var(--border-radius)',
+                      }}
+                    >
+                      <MicIcon />
+                      {option.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <div>
               <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Looking For</label>
-              <div className="relative">
-                <select 
-                  className="w-full p-2.5 border text-sm transition-all appearance-none cursor-pointer"
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    borderColor: 'var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                    borderRadius: 'var(--border-radius)',
-                    paddingRight: '2.5rem'
-                  }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                value={filters.duoType} 
-                onChange={e => setFilters(prev => ({ ...prev, duoType: e.target.value }))}
-                >
-                <option value="">All</option>
-                <option value="SHORT_TERM">Short Term</option>
-                <option value="LONG_TERM">Long Term</option>
-                <option value="BOTH">Both</option>
-                </select>
-                <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
-                  <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
-                </svg>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: '', label: 'Any' },
+                  { value: 'SHORT_TERM', label: 'Short' },
+                  { value: 'LONG_TERM', label: 'Long' },
+                  { value: 'BOTH', label: 'Both' },
+                ].map((option) => {
+                  const selected = filters.duoType === option.value;
+                  return (
+                    <button
+                      key={`duo-${option.value || 'all'}`}
+                      type="button"
+                      onClick={() => setFilters(prev => ({ ...prev, duoType: option.value }))}
+                      className="min-h-10 px-2 py-2 border text-xs font-semibold transition-all flex items-center justify-center gap-1"
+                      style={{
+                        backgroundColor: selected ? 'var(--color-accent-2)' : 'var(--color-bg-tertiary)',
+                        borderColor: selected ? 'var(--color-accent-2)' : 'var(--color-border)',
+                        color: selected ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+                        borderRadius: 'var(--border-radius)',
+                      }}
+                    >
+                      <DuoIcon />
+                      {option.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <div>
               <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Verification</label>
-              <div className="relative">
-                <select
-                  className="w-full p-2.5 border text-sm transition-all appearance-none cursor-pointer"
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    borderColor: 'var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                    borderRadius: 'var(--border-radius)',
-                    paddingRight: '2.5rem'
-                  }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                  value={filters.verified}
-                  onChange={e => setFilters(prev => ({ ...prev, verified: e.target.value }))}
-                >
-                  <option value="">All</option>
-                  <option value="true">Verified</option>
-                  <option value="false">Unverified</option>
-                </select>
-                <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
-                  <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
-                </svg>
+              <div className="grid grid-cols-1 gap-2">
+                {[
+                  { value: '', label: 'All accounts' },
+                  { value: 'true', label: 'Verified' },
+                  { value: 'false', label: 'Unverified' },
+                ].map((option) => {
+                  const selected = filters.verified === option.value;
+                  return (
+                    <button
+                      key={`verified-${option.value || 'all'}`}
+                      type="button"
+                      onClick={() => setFilters(prev => ({ ...prev, verified: option.value }))}
+                      className="min-h-10 px-2 py-2 border text-xs font-semibold transition-all flex items-center justify-center gap-1"
+                      style={{
+                        backgroundColor: selected ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
+                        borderColor: selected ? 'var(--color-accent-1)' : 'var(--color-border)',
+                        color: selected ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+                        borderRadius: 'var(--border-radius)',
+                      }}
+                    >
+                      <ShieldIcon />
+                      {option.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1137,51 +1368,61 @@ export default function Feed() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Rank Range */}
               <div className="space-y-2">
-                <label className="block text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Rank Range</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <div className="relative">
-                      <select 
-                      className="w-full p-2.5 rounded-lg border text-sm transition-all appearance-none cursor-pointer" 
+                <div className="flex items-center justify-between gap-2">
+                  <label className="block text-xs font-medium inline-flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
+                    <ShieldIcon />
+                    Rank Range
+                  </label>
+                  <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                    {RANK_FILTER_OPTIONS[rankMinIndex].label} - {RANK_FILTER_OPTIONS[rankMaxIndex].label}
+                  </span>
+                </div>
+                <div
+                  className="border px-3 py-4"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    borderColor: 'var(--color-border)',
+                    borderRadius: 'var(--border-radius)',
+                  }}
+                >
+                  <div className="relative h-8">
+                    <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full" style={{ backgroundColor: 'var(--color-border)' }} />
+                    <div
+                      className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full"
                       style={{
-                        backgroundColor: 'var(--color-bg-tertiary)',
-                        borderColor: 'var(--color-border)',
-                        color: 'var(--color-text-primary)',
-                        paddingRight: '2.5rem'
+                        left: `${rankRangeLeft}%`,
+                        right: `${rankRangeRight}%`,
+                        background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
                       }}
-                      value={filters.minRank} onChange={e => setFilters(prev => ({ ...prev, minRank: e.target.value }))}>
-                      <option value="">Min Rank</option>
-                      {['IRON','BRONZE','SILVER','GOLD','PLATINUM','EMERALD','DIAMOND','MASTER_PLUS'].map(r => <option key={r} value={r}>{r === 'MASTER_PLUS' ? 'MASTER+' : r}</option>)}
-                      </select>
-                      <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
-                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
-                      </svg>
-                    </div>
+                    />
+                    <input
+                      aria-label="Minimum rank"
+                      className="rank-range-input"
+                      type="range"
+                      min={0}
+                      max={RANK_FILTER_OPTIONS.length - 1}
+                      step={1}
+                      value={rankMinIndex}
+                      onChange={(event) => updateRankRange(Number(event.target.value), rankMaxIndex)}
+                    />
+                    <input
+                      aria-label="Maximum rank"
+                      className="rank-range-input"
+                      type="range"
+                      min={0}
+                      max={RANK_FILTER_OPTIONS.length - 1}
+                      step={1}
+                      value={rankMaxIndex}
+                      onChange={(event) => updateRankRange(rankMinIndex, Number(event.target.value))}
+                    />
                   </div>
-                  <div>
-                    <div className="relative">
-                      <select 
-                      className="w-full p-2.5 rounded-lg border text-sm transition-all appearance-none cursor-pointer" 
-                      style={{
-                        backgroundColor: 'var(--color-bg-tertiary)',
-                        borderColor: 'var(--color-border)',
-                        color: 'var(--color-text-primary)',
-                        paddingRight: '2.5rem'
-                      }}
-                      value={filters.maxRank} onChange={e => setFilters(prev => ({ ...prev, maxRank: e.target.value }))}>
-                      <option value="">Max Rank</option>
-                      {['IRON','BRONZE','SILVER','GOLD','PLATINUM','EMERALD','DIAMOND','MASTER_PLUS'].map(r => {
-                        const rankOrder = ['IRON','BRONZE','SILVER','GOLD','PLATINUM','EMERALD','DIAMOND','MASTER_PLUS'];
-                        const minRankIndex = filters.minRank ? rankOrder.indexOf(filters.minRank) : -1;
-                        const currentIndex = rankOrder.indexOf(r);
-                        const isDisabled = minRankIndex !== -1 && currentIndex < minRankIndex;
-                        return <option key={r} value={r} disabled={isDisabled}>{r === 'MASTER_PLUS' ? 'MASTER+' : r}</option>;
-                      })}
-                      </select>
-                      <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
-                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
-                      </svg>
-                    </div>
+                  <div className="mt-2 grid grid-cols-4 gap-1 text-[10px] sm:grid-cols-8" style={{ color: 'var(--color-text-muted)' }}>
+                    {RANK_FILTER_OPTIONS.map((rank) => (
+                      <span key={rank.value} className="flex flex-col items-center gap-1 text-center">
+                        {rank.value !== 'MASTER_PLUS' ? getRankIcon(rank.value) : <ShieldIcon />}
+                        {rank.label}
+                      </span>
+                    ))}
                   </div>
                 </div>
                 
@@ -1309,33 +1550,42 @@ export default function Feed() {
 
               {/* Smurf Filter */}
               <div className="space-y-2">
-                <label className="block text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Smurf Status</label>
-                <div className="relative">
-                  <select 
-                    className="w-full p-2.5 rounded-lg border text-sm transition-all appearance-none cursor-pointer" 
-                    style={{
-                      backgroundColor: 'var(--color-bg-tertiary)',
-                      borderColor: 'var(--color-border)',
-                      color: 'var(--color-text-primary)',
-                      paddingRight: '2.5rem'
-                    }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                    value={filters.smurfFilter} onChange={e => setFilters(prev => ({ ...prev, smurfFilter: e.target.value }))}>
-                    <option value="">All Players</option>
-                    <option value="only-smurfs">Only Smurfs</option>
-                    <option value="no-smurfs">No Smurfs</option>
-                  </select>
-                  <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
-                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
-                  </svg>
+                <label className="block text-xs font-medium inline-flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
+                  <SparkIcon />
+                  Smurf Status
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { value: '', label: 'All Players' },
+                    { value: 'only-smurfs', label: 'Only Smurfs' },
+                    { value: 'no-smurfs', label: 'No Smurfs' },
+                  ].map((option) => {
+                    const selected = filters.smurfFilter === option.value;
+                    return (
+                      <button
+                        key={`smurf-${option.value || 'all'}`}
+                        type="button"
+                        onClick={() => setFilters(prev => ({ ...prev, smurfFilter: option.value }))}
+                        className="min-h-10 px-2 py-2 border text-xs font-semibold transition-all flex items-center justify-center gap-1"
+                        style={{
+                          backgroundColor: selected ? 'var(--color-accent-2)' : 'var(--color-bg-tertiary)',
+                          borderColor: selected ? 'var(--color-accent-2)' : 'var(--color-border)',
+                          color: selected ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+                          borderRadius: 'var(--border-radius)',
+                        }}
+                      >
+                        <SparkIcon />
+                        {option.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
           </div>
 
           {/* Clear Filters Button */}
-          {(filters.regions.length > 0 || filters.roles.length > 0 || filters.vcPreference || filters.duoType || filters.verified || filters.minRank || filters.maxRank || filters.minWinrate || filters.maxWinrate || filters.smurfFilter || filters.minDivision || filters.maxDivision || filters.minLp) && (
+          {activeFilterCount > 0 && (
             <div className="mt-4 flex justify-end">
               <button
                 onClick={() => setFilters({ ...defaultFilters, regions: userRegion ? [userRegion] : [] })}
@@ -1392,7 +1642,6 @@ export default function Feed() {
                     className="post-status-banner mb-3 rounded-xl border px-4 py-2 text-sm font-semibold flex flex-wrap items-center justify-between gap-2"
                     title={verificationMissing.length > 0 ? formatVerificationMissing(verificationMissing) : undefined}
                     onMouseMove={handleBannerMove}
-                    onMouseLeave={handleBannerLeave}
                     style={{
                       background: isVerified ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
                       color: isVerified ? '#22C55E' : '#EF4444',
