@@ -1204,7 +1204,7 @@ async function build() {
     }
   });
 
-  // Admin: Broadcast system message to all users
+  // Admin: Queue a Discord DM embed broadcast for linked users with DMs enabled
   server.post('/api/admin/broadcast-message', async (request: any, reply: any) => {
     try {
       const userId = await getUserIdFromRequest(request, reply);
@@ -1216,7 +1216,12 @@ async function build() {
         return reply.code(400).send({ error: 'Invalid request', details: validation.errors });
       }
 
-      const { content } = validation.data;
+      const { title, description } = validation.data;
+      const rawColor = validation.data.color || '#5865F2';
+      const color = rawColor.startsWith('#') ? rawColor : `#${rawColor}`;
+      const url = validation.data.url?.trim() || null;
+      const footer = validation.data.footer?.trim() || null;
+      const imageUrl = validation.data.imageUrl?.trim() || null;
 
       // Check admin status
       const user = await prisma.user.findUnique({
@@ -1233,123 +1238,92 @@ async function build() {
         return reply.code(403).send({ error: 'Admin access required' });
       }
 
-      logInfo(request, 'Admin broadcasting system message', { adminId: userId, contentLength: content.length });
-
-      // Get or create System user
-      let systemUser = await prisma.user.findFirst({
-        where: { username: 'System' },
+      logInfo(request, 'Admin queueing Discord DM embed broadcast', {
+        adminId: userId,
+        titleLength: title.length,
+        descriptionLength: description.length,
       });
 
-      if (!systemUser) {
-        logInfo(request, 'Creating System user');
-        systemUser = await prisma.user.create({
-          data: {
-            username: 'System',
-            email: 'system@riftessence.gg',
-            password: '', // No password needed for system user
-            verified: true,
-            profileIconId: 29, // RiftEssence logo
-            anonymous: false,
-          },
-        });
-      }
+      const audienceWhere = {
+        id: { not: userId },
+        username: { not: 'System' },
+      };
 
-      // Get all active users (exclude system user and admin themselves)
-      const allUsers = await prisma.user.findMany({
+      const totalAudience = await prisma.user.count({
+        where: audienceWhere,
+      });
+
+      const recipients = await prisma.user.findMany({
         where: {
           AND: [
-            { id: { not: systemUser.id } },
-            { id: { not: userId } }, // Don't message admin themselves
+            audienceWhere,
+            { discordDmNotifications: true },
+            { discordAccount: { isNot: null } },
           ],
         },
-        select: { id: true },
+        select: {
+          id: true,
+          discordAccount: {
+            select: { discordId: true },
+          },
+        },
       });
 
-      logInfo(request, `Broadcasting to ${allUsers.length} users`);
+      const broadcastId = `admin-broadcast:${Date.now()}`;
+      const queueRows = recipients
+        .map((recipient: any) => recipient.discordAccount?.discordId)
+        .filter((discordId: string | undefined): discordId is string => Boolean(discordId))
+        .map((discordId: string) => ({
+          recipientDiscordId: discordId,
+          senderUsername: 'RiftEssence',
+          messagePreview: description.substring(0, 200),
+          conversationId: broadcastId,
+          kind: 'ADMIN_EMBED',
+          embedTitle: title,
+          embedDescription: description,
+          embedColor: color,
+          embedUrl: url,
+          embedFooter: footer,
+          embedImageUrl: imageUrl,
+        }));
 
-      let conversationsCreated = 0;
-      let messagesSent = 0;
-
-      // Process each user
-      for (const targetUser of allUsers) {
-        // Determine user order for conversation (smaller ID first)
-        const [smallerId, largerId] = [systemUser.id, targetUser.id].sort();
-
-        // Find or create conversation
-        let conversation = await prisma.conversation.findFirst({
-          where: {
-            user1Id: smallerId,
-            user2Id: largerId,
-          },
+      if (queueRows.length > 0) {
+        await (prisma as any).discordDmQueue.createMany({
+          data: queueRows,
         });
-
-        if (!conversation) {
-          conversation = await prisma.conversation.create({
-            data: {
-              user1Id: smallerId,
-              user2Id: largerId,
-            },
-          });
-          conversationsCreated++;
-        }
-
-        // Send message in transaction
-        await prisma.$transaction(async (tx: any) => {
-          await tx.message.create({
-            data: {
-              conversationId: conversation.id,
-              senderId: systemUser.id,
-              content: content,
-            },
-          });
-
-          // Update conversation
-          const isSystemUser1 = conversation.user1Id === systemUser.id;
-          await tx.conversation.update({
-            where: { id: conversation.id },
-            data: {
-              lastMessageAt: new Date(),
-              lastMessagePreview: content.substring(0, 100),
-              ...(isSystemUser1
-                ? { user2UnreadCount: { increment: 1 } }
-                : { user1UnreadCount: { increment: 1 } }),
-            },
-          });
-        });
-
-        messagesSent++;
       }
 
       // Log the admin action
       await logAdminAction({
         adminId: userId,
         action: AuditActions.SYSTEM_BROADCAST,
-        targetId: systemUser.id,
+        targetId: userId,
         details: {
-          contentPreview: content.substring(0, 100),
-          totalUsers: allUsers.length,
-          conversationsCreated,
-          messagesSent,
+          channel: 'DISCORD_DM',
+          title,
+          descriptionPreview: description.substring(0, 100),
+          totalAudience,
+          dmQueued: queueRows.length,
+          skippedNoDiscordOrDisabled: Math.max(totalAudience - queueRows.length, 0),
         },
       });
 
-      logInfo(request, 'Broadcast completed', {
-        totalUsers: allUsers.length,
-        conversationsCreated,
-        messagesSent,
+      logInfo(request, 'Discord DM broadcast queued', {
+        totalAudience,
+        dmQueued: queueRows.length,
       });
 
       return reply.send({
         success: true,
         stats: {
-          totalUsers: allUsers.length,
-          conversationsCreated,
-          messagesSent,
+          totalUsers: totalAudience,
+          dmQueued: queueRows.length,
+          skippedNoDiscordOrDisabled: Math.max(totalAudience - queueRows.length, 0),
         },
       });
     } catch (error: any) {
-      logError(request, 'Failed to broadcast message', error);
-      return Errors.serverError(reply, request, 'broadcast message', error);
+      logError(request, 'Failed to queue Discord DM broadcast', error);
+      return Errors.serverError(reply, request, 'queue Discord DM broadcast', error);
     }
   });
 

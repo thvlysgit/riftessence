@@ -49,7 +49,7 @@ export default function SettingsPage() {
         const res = await fetch(`${API_URL}/api/user/profile`, { headers });
         if (res.ok) {
           const data = await res.json();
-          setDiscordDmEnabled(data.discordDmNotifications || false);
+          setDiscordDmEnabled(Boolean(data.discordDmNotifications));
           setDiscordLinked(Boolean(data.discordLinked ?? data.discordAccount));
           setDiscordUsername(data.discordUsername || null);
         }
@@ -64,7 +64,7 @@ export default function SettingsPage() {
     if (!router.isReady) return;
     if (router.query.dmConsent !== '1') return;
 
-    setDmMessage('Optional but recommended: add RiftEssence Discord app and enable DMs so the bot can deliver reminders.');
+    setDmMessage('Discord DMs are enabled by default for linked accounts. Adding the RiftEssence Discord app improves delivery when you do not share a server with the bot.');
 
     const nextQuery = { ...router.query } as Record<string, any>;
     delete nextQuery.dmConsent;
@@ -121,7 +121,7 @@ export default function SettingsPage() {
 
   const handleToggleDiscordDm = async (enabled: boolean) => {
     if (!discordLinked) {
-      setDmMessage('Link your Discord account in Profile before enabling DM notifications.');
+      setDmMessage('Link your Discord account in Profile before managing Discord DM notifications.');
       return;
     }
 
@@ -140,8 +140,8 @@ export default function SettingsPage() {
       if (res.ok) {
         setDiscordDmEnabled(enabled);
         setDmMessage(enabled
-          ? 'Discord DM notifications enabled! You will receive chat previews and team event notifications in your Discord DMs.'
-          : 'Discord DM notifications disabled.'
+          ? 'Discord DM notifications are back on. You will receive chat previews, team event updates, and announcements in Discord DMs when delivery is allowed.'
+          : 'Discord DM notifications are off. You can turn them back on here at any time.'
         );
       } else {
         const data = await res.json();
@@ -363,13 +363,13 @@ export default function SettingsPage() {
           {discordLinked ? (
             <>
               <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
-                  Receive your in-app chat previews and team event notifications as Discord DMs.
-                  The RiftEssence bot will send these updates directly on Discord when your account is linked{discordUsername ? ` as ${discordUsername}` : ''}.
+                  Discord DMs are enabled by default for linked accounts{discordUsername ? ` like ${discordUsername}` : ''}.
+                  The RiftEssence bot can send chat previews, team event updates, and announcements directly to Discord.
               </p>
               <p className="text-xs mb-4" style={{ color: 'var(--color-text-muted)' }}>
-                Important: this toggle only enables DM forwarding from RiftEssence.
-                Discord must also allow the bot to DM you (mutual server + server privacy setting "Allow direct messages from server members").
-                You can disable this at any time. By enabling, you consent to your message content being relayed to Discord.
+                You can disable this at any time. Discord must still allow the bot to DM you.
+                Adding the RiftEssence Discord app is recommended for delivery when you do not share a server with the bot, and Discord privacy settings can still block DMs.
+                When this is on, message previews and notification content may be relayed to Discord.
                 See our <a href="/privacy" className="underline" style={{ color: 'var(--color-accent-1)' }}>Privacy Policy</a> for details.
               </p>
 
@@ -432,7 +432,7 @@ export default function SettingsPage() {
           ) : (
             <>
               <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
-                Link your Discord account first, then you can opt in to DM notifications for chat previews and team events.
+                Link your Discord account to receive bot DMs by default for chat previews, team events, and announcements. You can turn them off here after linking.
               </p>
               <div className="flex flex-wrap gap-2 mb-4">
                 <a

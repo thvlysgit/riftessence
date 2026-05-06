@@ -158,7 +158,7 @@ export default function TermsOfServicePage() {
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
               <li>Discord OAuth for authentication</li>
               <li>Riot Sign-On (RSO) for Riot Games account authentication and verification</li>
-              <li>Discord DM notifications: If enabled, in-app chat message previews and team event updates are sent to your Discord account via the RiftEssence bot. This is an opt-in feature that you can disable at any time in your settings. Message delivery depends on your Discord privacy settings</li>
+              <li>Discord DM notifications: linked Discord accounts receive in-app chat message previews, team event updates, and admin announcements by default via the RiftEssence bot. You can disable this at any time in your settings. Message delivery depends on your Discord privacy settings</li>
               <li>Riot Games API for League of Legends data and account information</li>
               <li>Cloudflare for security and bot protection</li>
               <li>These services have their own terms and privacy policies</li>

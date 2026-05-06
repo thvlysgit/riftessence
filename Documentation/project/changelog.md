@@ -4,6 +4,28 @@
 
 ---
 
+## 2026-05-07 - Discord DM Defaults and Admin Embed Broadcasts
+
+### Objective: Make Discord DMs default-on and replace in-app admin broadcasts with Discord embeds
+
+Overview: Linked Discord accounts now keep bot DMs enabled by default while preserving the user settings opt-out. The admin broadcast flow now builds and previews Discord embeds, then queues bot DM jobs instead of creating System chat conversations.
+
+Changes:
+
+- Updated [prisma/schema.prisma](prisma/schema.prisma):
+  - Changed `User.discordDmNotifications` default to `true`.
+  - Extended `DiscordDmQueue` with `kind` and optional embed payload fields for admin Discord broadcasts.
+- Updated [apps/api/src/index.ts](apps/api/src/index.ts) and [apps/api/src/validation.ts](apps/api/src/validation.ts):
+  - Changed `POST /api/admin/broadcast-message` to queue `ADMIN_EMBED` Discord DM rows for eligible linked users.
+  - Replaced chat-message validation with Discord embed validation.
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Added rendering for `ADMIN_EMBED` queue jobs.
+- Updated [apps/web/pages/admin/broadcast.tsx](apps/web/pages/admin/broadcast.tsx):
+  - Replaced the System chat broadcast composer with a Discord embed builder and live preview.
+- Updated settings, terms, wallet quest, and scrim copy to reflect default-on Discord DMs with a user-controlled opt-out.
+
+---
+
 ## 2026-05-07 - Duo Feed Primary Rank and Winrate Filters
 
 ### Objective: Put the most scannable duo filters on the default surface

@@ -518,7 +518,7 @@ async function assertDiscordReliabilityReady(userId: string, reply: any): Promis
 
   if (!user.discordDmNotifications) {
     reply.status(400).send({
-      error: 'Enable Discord DM notifications before using Scrim Finder.',
+      error: 'Turn Discord DM notifications back on before using Scrim Finder.',
       code: 'SCRIM_DM_REQUIRED',
     });
     return false;

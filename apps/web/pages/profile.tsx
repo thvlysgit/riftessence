@@ -1147,7 +1147,7 @@ export default function ProfilePage() {
     if (urlParams.get('discord') === 'linked') {
       showToast('Discord account linked successfully!', 'success');
       if (urlParams.get('promptDiscordDm') === '1') {
-        showToast('Next step: allow RiftEssence Discord app DMs in Settings to receive bot messages.', 'info');
+        showToast('Discord DMs are on by default. Add the RiftEssence Discord app in Settings to improve delivery when needed.', 'info');
       }
       // Clean up URL
       window.history.replaceState({}, '', '/profile');

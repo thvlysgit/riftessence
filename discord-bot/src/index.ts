@@ -3248,6 +3248,13 @@ async function sendChatDmNotification(dm: {
   senderUsername: string;
   messagePreview: string;
   conversationId: string;
+  kind?: string;
+  embedTitle?: string | null;
+  embedDescription?: string | null;
+  embedColor?: string | null;
+  embedUrl?: string | null;
+  embedFooter?: string | null;
+  embedImageUrl?: string | null;
 }) {
   const markResult = await apiRequest(`/api/discord/dm-queue/${dm.id}/sent`, 'PATCH');
   if (!markResult.ok) {
@@ -3263,6 +3270,34 @@ async function sendChatDmNotification(dm: {
     }
 
     const isAdRequestNotification = typeof dm.conversationId === 'string' && dm.conversationId.startsWith('ad-request:');
+
+    if (dm.kind === 'ADMIN_EMBED') {
+      const colorHex = (dm.embedColor || '#5865F2').replace('#', '');
+      const embedColor = /^[0-9a-fA-F]{6}$/.test(colorHex) ? parseInt(colorHex, 16) : 0x5865f2;
+      const embed = new EmbedBuilder()
+        .setColor(embedColor)
+        .setTitle((dm.embedTitle || 'RiftEssence Announcement').substring(0, 256))
+        .setDescription((dm.embedDescription || dm.messagePreview || '').substring(0, 4000))
+        .setTimestamp();
+
+      if (dm.embedUrl) {
+        embed.setURL(dm.embedUrl);
+      }
+
+      if (dm.embedFooter) {
+        embed.setFooter({ text: dm.embedFooter.substring(0, 2048) });
+      } else {
+        embed.setFooter({ text: 'You can disable DM notifications in your RiftEssence settings.' });
+      }
+
+      if (dm.embedImageUrl) {
+        embed.setImage(dm.embedImageUrl);
+      }
+
+      await user.send({ embeds: [embed] });
+      console.log(`âœ… Sent admin broadcast DM embed to ${dm.recipientDiscordId}`);
+      return;
+    }
 
     if (isAdRequestNotification) {
       const embed = new EmbedBuilder()

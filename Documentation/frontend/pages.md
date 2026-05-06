@@ -21,7 +21,7 @@
 | `profile/[username].tsx` | `/profile/:username` | Public profile view |
 | `login.tsx` | `/login` | Login page |
 | `register.tsx` | `/register` | Registration page |
-| `settings.tsx` | `/settings` | User settings (theme, language, profile) |
+| `settings.tsx` | `/settings` | User settings (theme, language, profile, default-on Discord DM toggle) |
 | `notifications.tsx` | `/notifications` | Notification center |
 | `leaderboards.tsx` | `/leaderboards` | Leaderboards |
 | `status.tsx` | `/status` | System status |
@@ -39,6 +39,7 @@
 | `admin/badges.tsx` | `/admin/badges` | Badge management |
 | `admin/ads.tsx` | `/admin/ads` | Ad management |
 | `admin/settings.tsx` | `/admin/settings` | Admin settings |
+| `admin/broadcast.tsx` | `/admin/broadcast` | Discord DM embed broadcast builder with live preview |
 | `share/post/[id].tsx` | `/share/post/:id` | Shareable duo post page with OpenGraph metadata |
 | `api/og/post/[id].tsx` | `/api/og/post/:id` | Dynamic OG image generation for duo posts (Edge API) |
 

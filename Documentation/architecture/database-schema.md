@@ -1,6 +1,6 @@
 # Database Schema
 
-> Last updated: 2026-04-20  
+> Last updated: 2026-05-07
 > Source: `prisma/schema.prisma` (~1330 lines)
 
 ## Models (48 total, core highlights below)
@@ -26,6 +26,7 @@
 | **VerificationRequest** | Riot verification requests | → User, RiotAccount |
 | **RatingAppeal** | Appeal system for ratings | → Rating, User |
 | **DiscordFeedChannel** | Discord channel ↔ Community mirroring | → Community |
+| **DiscordDmQueue** | Bot-polled Discord DM jobs for chat previews, admin embeds, and legacy notifications | recipient Discord ID payload |
 | **AuditLog** | Admin action tracking | → User |
 | **Ad + AdImpression + AdClick + AdSettings** | Ad monetization system | Complex |
 

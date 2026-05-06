@@ -54,8 +54,8 @@ const DUO_STEPS: FlowStep[] = [
   },
   {
     id: 'link-discord',
-    title: 'Link Discord + enable DMs',
-    description: 'Optional but strongly recommended so you can receive in-app DMs in Discord.',
+    title: 'Link Discord',
+    description: 'Optional but strongly recommended so bot DMs can reach you in Discord by default.',
     optional: true,
     ctaLabel: 'Link Discord',
   },

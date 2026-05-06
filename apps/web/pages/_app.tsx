@@ -137,7 +137,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/admin/ads': 'Ad Management | RiftEssence',
   '/admin/prismatic': 'Prismatic Grants | RiftEssence',
   '/admin/settings': 'Admin Settings | RiftEssence',
-  '/admin/broadcast': 'Broadcast Message | RiftEssence',
+  '/admin/broadcast': 'Discord DM Broadcast | RiftEssence',
   // Region / role landing pages
   '/region/na':   'Find Duo Partner NA | RiftEssence',
   '/region/euw':  'Find Duo Partner EUW | RiftEssence',

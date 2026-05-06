@@ -157,7 +157,7 @@ Auth: Required
 
 Reliability gate:
 - linked Discord account required
-- Discord DM notifications opt-in required
+- Discord DM notifications must still be enabled (default-on for linked accounts; users can disable in settings)
 
 Core body fields:
 - `teamId`
@@ -189,7 +189,7 @@ Auth: Required
 
 Reliability gate:
 - linked Discord account required
-- Discord DM notifications opt-in required
+- Discord DM notifications must still be enabled (default-on for linked accounts; users can disable in settings)
 
 Body:
 - `proposerTeamId`
@@ -684,13 +684,18 @@ Check if the authenticated user has admin privileges.
 ## Admin Endpoints
 
 ### POST `/api/admin/broadcast-message`
-Send a system message to all users (except admin and system user).
+Queue a Discord embed DM broadcast to eligible linked users.
 
 **Auth**: Required (admin badge)  
 **Request Body**:
 ```json
 {
-  "content": "string (min: 10, max: 2000)"
+  "title": "string (min: 3, max: 256)",
+  "description": "string (min: 10, max: 4000)",
+  "color": "#5865F2",
+  "url": "optional https URL",
+  "footer": "optional string (max: 2048)",
+  "imageUrl": "optional https URL"
 }
 ```
 
@@ -700,21 +705,21 @@ Send a system message to all users (except admin and system user).
   "success": true,
   "stats": {
     "totalUsers": 150,
-    "conversationsCreated": 45,
-    "messagesSent": 150
+    "dmQueued": 120,
+    "skippedNoDiscordOrDisabled": 30
   }
 }
 ```
 
 **Behavior**:
-- Creates or uses System user (username: "System", profileIconId: 29)
-- Creates conversation between System and each user if not exists
-- Sends message from System to all users except admin and System itself
-- Increments unread count for each recipient
+- Enqueues `DiscordDmQueue` rows with `kind = "ADMIN_EMBED"` for users who have a linked Discord account and have not disabled Discord DM notifications.
+- Does not create in-app chat conversations or unread chat messages.
+- The Discord bot renders the queued payload as a Discord embed DM.
+- Delivery can still be blocked by Discord privacy settings or by no mutual server/app install.
 - Logs admin action for audit trail
 
 **Error Responses**:
-- `400` — "Invalid request" (validation error, content too short/long)
+- `400` — "Invalid request" (validation error, content too short/long or invalid URL/color)
 - `403` — "Admin access required" (user not admin)
 - `404` — "User not found" (admin user not found)
 - `401` — Not authenticated

@@ -81,7 +81,7 @@ export default function PrivacyPolicyPage() {
               <li>With Other Users: Your profile information and posts are visible to other platform users</li>
               <li>Third-Party Services: Discord for authentication, Riot Games for authentication and game data via RSO and Riot API, Cloudflare for security</li>
               <li>Riot Games: We access your Riot Games data through their official API and RSO in accordance with their Developer Terms of Service. We do not share your data with Riot Games beyond what is required for authentication</li>
-              <li>Discord DM Notifications: If you enable Discord DM notifications, a preview of your in-app chat messages (sender username and message content) is forwarded to your Discord account via the RiftEssence bot. This requires an explicit opt-in and can be disabled at any time from your settings</li>
+              <li>Discord DM Notifications: linked Discord accounts receive chat previews, team event updates, and announcements by default via the RiftEssence bot. You can disable this at any time from your settings</li>
               <li>Legal Requirements: When required by law or to protect rights and safety</li>
             </ul>
           </section>

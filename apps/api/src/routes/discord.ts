@@ -170,6 +170,8 @@ export default async function discordRoutes(fastify: FastifyInstance) {
           return redirectDiscordError(reply, 'account_already_linked', 'This Discord account is already linked to another user');
         }
 
+        const isFirstLinkForUser = !existingLink;
+
         // Create or update Discord account link
         await prisma.discordAccount.upsert({
           where: { discordId: discordUser.id },
@@ -185,6 +187,13 @@ export default async function discordRoutes(fastify: FastifyInstance) {
             userId: stateData.userId,
           },
         });
+
+        if (isFirstLinkForUser) {
+          await prisma.user.update({
+            where: { id: stateData.userId },
+            data: { discordDmNotifications: true },
+          });
+        }
 
         await syncUserVerification(stateData.userId);
         return reply.redirect(`${frontendUrl}/profile?discord=linked&promptDiscordDm=1`);
@@ -206,6 +215,7 @@ export default async function discordRoutes(fastify: FastifyInstance) {
           data: {
             username,
             email: discordUser.email || null,
+            discordDmNotifications: true,
           },
         });
 

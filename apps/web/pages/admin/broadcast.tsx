@@ -1,8 +1,8 @@
-// Admin Broadcast System Message
+// Admin Discord DM Broadcast
 // Protected - requires admin badge
-// Sends a system message to all users
+// Queues a Discord embed DM for eligible linked users
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Head from 'next/head';
@@ -15,9 +15,38 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
 type BroadcastStats = {
   totalUsers: number;
-  conversationsCreated: number;
-  messagesSent: number;
+  dmQueued: number;
+  skippedNoDiscordOrDisabled: number;
 };
+
+type EmbedDraft = {
+  title: string;
+  description: string;
+  color: string;
+  url: string;
+  footer: string;
+  imageUrl: string;
+};
+
+const DEFAULT_EMBED: EmbedDraft = {
+  title: '',
+  description: '',
+  color: '#5865F2',
+  url: '',
+  footer: 'RiftEssence',
+  imageUrl: '',
+};
+
+function isOptionalUrlValid(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 export default function AdminBroadcast() {
   const router = useRouter();
@@ -25,11 +54,10 @@ export default function AdminBroadcast() {
   const { t } = useLanguage();
   const { showToast, confirm } = useGlobalUI();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [messageContent, setMessageContent] = useState('');
+  const [draft, setDraft] = useState<EmbedDraft>(DEFAULT_EMBED);
   const [isSending, setIsSending] = useState(false);
   const [lastBroadcastStats, setLastBroadcastStats] = useState<BroadcastStats | null>(null);
 
-  // Check admin status on mount
   useEffect(() => {
     if (loading) return;
 
@@ -67,19 +95,36 @@ export default function AdminBroadcast() {
     checkAdminStatus();
   }, [user, loading, router]);
 
+  const descriptionLength = draft.description.length;
+  const isTitleValid = draft.title.trim().length >= 3 && draft.title.trim().length <= 256;
+  const isDescriptionValid = descriptionLength >= 10 && descriptionLength <= 4000;
+  const areLinksValid = isOptionalUrlValid(draft.url) && isOptionalUrlValid(draft.imageUrl);
+  const isValid = isTitleValid && isDescriptionValid && areLinksValid;
+
+  const previewColor = useMemo(() => {
+    return /^#[0-9a-fA-F]{6}$/.test(draft.color) ? draft.color : '#5865F2';
+  }, [draft.color]);
+
+  const updateDraft = (key: keyof EmbedDraft, value: string) => {
+    setDraft((current) => ({ ...current, [key]: value }));
+  };
+
   const handleSendBroadcast = async () => {
-    // Validate message length
-    if (messageContent.length < 10) {
-      showToast(t('admin.broadcastTooShort'), 'error');
+    if (!isTitleValid) {
+      showToast('Title must be between 3 and 256 characters.', 'error');
       return;
     }
 
-    if (messageContent.length > 2000) {
-      showToast(t('admin.broadcastTooLong'), 'error');
+    if (!isDescriptionValid) {
+      showToast(descriptionLength < 10 ? t('admin.broadcastTooShort') : t('admin.broadcastTooLong'), 'error');
       return;
     }
 
-    // Confirm with user
+    if (!areLinksValid) {
+      showToast('Use valid http or https URLs for links and images.', 'error');
+      return;
+    }
+
     const confirmed = await confirm({
       title: t('admin.broadcastTitle'),
       message: t('admin.broadcastConfirm'),
@@ -98,32 +143,34 @@ export default function AdminBroadcast() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        body: JSON.stringify({ content: messageContent }),
+        body: JSON.stringify({
+          title: draft.title.trim(),
+          description: draft.description.trim(),
+          color: previewColor,
+          url: draft.url.trim(),
+          footer: draft.footer.trim(),
+          imageUrl: draft.imageUrl.trim(),
+        }),
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to broadcast message');
+        throw new Error(errorData.error || 'Failed to queue Discord broadcast');
       }
 
       const data = await res.json();
-      
-      // Store stats
       setLastBroadcastStats(data.stats);
 
-      // Show success message with stats
       const statsMessage = t('admin.broadcastStats')
         .replace('{users}', String(data.stats.totalUsers))
-        .replace('{convos}', String(data.stats.conversationsCreated))
-        .replace('{msgs}', String(data.stats.messagesSent));
+        .replace('{queued}', String(data.stats.dmQueued))
+        .replace('{skipped}', String(data.stats.skippedNoDiscordOrDisabled));
 
       showToast(`${t('admin.broadcastSuccess')} ${statsMessage}`, 'success');
-
-      // Clear the message
-      setMessageContent('');
+      setDraft(DEFAULT_EMBED);
     } catch (err: any) {
-      console.error('Failed to broadcast message:', err);
-      showToast(err.message || 'Failed to broadcast message', 'error');
+      console.error('Failed to queue Discord broadcast:', err);
+      showToast(err.message || 'Failed to queue Discord broadcast', 'error');
     } finally {
       setIsSending(false);
     }
@@ -132,33 +179,29 @@ export default function AdminBroadcast() {
   if (loading || isAdmin === null) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: `linear-gradient(to bottom right, var(--color-bg-primary), var(--color-bg-secondary), var(--color-bg-primary))` }}>
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'var(--color-accent-1)' }}></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'var(--color-accent-1)' }} />
       </div>
     );
   }
 
   if (!isAdmin) {
-    return null; // Will redirect to 404
+    return null;
   }
-
-  const charCount = messageContent.length;
-  const isValid = charCount >= 10 && charCount <= 2000;
 
   return (
     <>
       <Head>
         <title>{t('admin.broadcastTitle')} | LFD Admin</title>
-        <meta name="description" content="Broadcast system message to all users" />
+        <meta name="description" content="Broadcast Discord DM embeds to eligible users" />
       </Head>
 
       <div className="min-h-screen" style={{ background: `linear-gradient(to bottom right, var(--color-bg-primary), var(--color-bg-secondary), var(--color-bg-primary))` }}>
-        {/* Header */}
         <div className="border-b shadow-lg" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                  📡 {t('admin.broadcastTitle')}
+                  {t('admin.broadcastTitle')}
                 </h1>
                 <p style={{ color: 'var(--color-text-secondary)' }}>
                   {t('admin.broadcastDescription')}
@@ -166,145 +209,170 @@ export default function AdminBroadcast() {
               </div>
               <Link
                 href="/admin"
-                className="px-4 py-2 rounded-lg transition-colors"
+                className="px-4 py-2 rounded-lg transition-colors text-center"
                 style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}
               >
-                ← Back to Admin
+                Back to Admin
               </Link>
             </div>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          {/* Broadcast Form */}
-          <div className="mb-8 p-6 rounded-lg border shadow-lg" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  Message Content
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-6">
+            <section className="p-6 rounded-lg border shadow-lg" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+              <div className="grid grid-cols-1 gap-5">
+                <label className="block">
+                  <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Embed Title</span>
+                  <input
+                    value={draft.title}
+                    onChange={(e) => updateDraft('title', e.target.value)}
+                    placeholder="RiftEssence announcement"
+                    className="mt-2 w-full p-3 rounded-lg border outline-none"
+                    style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: isTitleValid || !draft.title ? 'var(--color-border)' : 'var(--color-error)', color: 'var(--color-text-primary)' }}
+                    disabled={isSending}
+                  />
                 </label>
-                <span 
-                  className="text-sm"
-                  style={{ 
-                    color: charCount < 10 ? 'var(--color-error)' : charCount > 2000 ? 'var(--color-error)' : 'var(--color-text-secondary)' 
-                  }}
-                >
-                  {charCount} / 2000 {t('admin.broadcastCharCount')}
-                </span>
-              </div>
-              <textarea
-                value={messageContent}
-                onChange={(e) => setMessageContent(e.target.value)}
-                placeholder={t('admin.broadcastPlaceholder')}
-                className="w-full p-4 rounded-lg border outline-none resize-none"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  borderColor: 'var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                  minHeight: '200px',
-                }}
-                disabled={isSending}
-              />
-              {charCount < 10 && charCount > 0 && (
-                <p className="text-sm mt-2" style={{ color: 'var(--color-error)' }}>
-                  {t('admin.broadcastTooShort')}
-                </p>
-              )}
-              {charCount > 2000 && (
-                <p className="text-sm mt-2" style={{ color: 'var(--color-error)' }}>
-                  {t('admin.broadcastTooLong')}
-                </p>
-              )}
-            </div>
 
-            {/* Message Preview */}
-            {messageContent && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  {t('admin.broadcastPreview')}
-                </h3>
-                <div className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: 'var(--color-accent-1)' }}>
-                      ⚙️
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-semibold mb-1" style={{ color: 'var(--color-accent-1)' }}>
-                        System
-                      </div>
-                      <div className="whitespace-pre-wrap break-words" style={{ color: 'var(--color-text-primary)' }}>
-                        {messageContent}
-                      </div>
-                    </div>
+                <label className="block">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Description</span>
+                    <span className="text-xs" style={{ color: !isDescriptionValid && descriptionLength > 0 ? 'var(--color-error)' : 'var(--color-text-secondary)' }}>
+                      {descriptionLength} / 4000 {t('admin.broadcastCharCount')}
+                    </span>
                   </div>
+                  <textarea
+                    value={draft.description}
+                    onChange={(e) => updateDraft('description', e.target.value)}
+                    placeholder={t('admin.broadcastPlaceholder')}
+                    className="mt-2 w-full p-4 rounded-lg border outline-none resize-none"
+                    style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: isDescriptionValid || descriptionLength === 0 ? 'var(--color-border)' : 'var(--color-error)', color: 'var(--color-text-primary)', minHeight: '220px' }}
+                    disabled={isSending}
+                  />
+                </label>
+
+                <div className="grid grid-cols-1 md:grid-cols-[160px_minmax(0,1fr)] gap-4">
+                  <label className="block">
+                    <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Accent Color</span>
+                    <input
+                      type="color"
+                      value={previewColor}
+                      onChange={(e) => updateDraft('color', e.target.value)}
+                      className="mt-2 h-12 w-full rounded-lg border p-1"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
+                      disabled={isSending}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Title Link</span>
+                    <input
+                      value={draft.url}
+                      onChange={(e) => updateDraft('url', e.target.value)}
+                      placeholder="https://riftessence.gg/..."
+                      className="mt-2 w-full p-3 rounded-lg border outline-none"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: isOptionalUrlValid(draft.url) ? 'var(--color-border)' : 'var(--color-error)', color: 'var(--color-text-primary)' }}
+                      disabled={isSending}
+                    />
+                  </label>
+                </div>
+
+                <label className="block">
+                  <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Image URL</span>
+                  <input
+                    value={draft.imageUrl}
+                    onChange={(e) => updateDraft('imageUrl', e.target.value)}
+                    placeholder="https://..."
+                    className="mt-2 w-full p-3 rounded-lg border outline-none"
+                    style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: isOptionalUrlValid(draft.imageUrl) ? 'var(--color-border)' : 'var(--color-error)', color: 'var(--color-text-primary)' }}
+                    disabled={isSending}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Footer</span>
+                  <input
+                    value={draft.footer}
+                    onChange={(e) => updateDraft('footer', e.target.value)}
+                    placeholder="RiftEssence"
+                    className="mt-2 w-full p-3 rounded-lg border outline-none"
+                    style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: draft.footer.length <= 2048 ? 'var(--color-border)' : 'var(--color-error)', color: 'var(--color-text-primary)' }}
+                    disabled={isSending}
+                  />
+                </label>
+
+                <button
+                  onClick={handleSendBroadcast}
+                  disabled={!isValid || isSending}
+                  className="w-full py-3 rounded-lg font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}
+                >
+                  {isSending ? 'Queueing...' : t('admin.broadcastSendButton')}
+                </button>
+              </div>
+            </section>
+
+            <aside className="p-6 rounded-lg border shadow-lg self-start" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+              <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
+                {t('admin.broadcastPreview')}
+              </h2>
+              <div className="rounded-lg p-4" style={{ backgroundColor: '#313338', color: '#dbdee1' }}>
+                <div className="mb-3 text-sm font-semibold" style={{ color: '#f2f3f5' }}>RiftEssence</div>
+                <div className="rounded p-4" style={{ backgroundColor: '#2b2d31', borderLeft: `4px solid ${previewColor}` }}>
+                  <div className="font-semibold break-words" style={{ color: '#f2f3f5' }}>
+                    {draft.url.trim() ? (
+                      <a href={draft.url.trim()} target="_blank" rel="noreferrer" style={{ color: '#00a8fc' }}>
+                        {draft.title.trim() || 'Embed title'}
+                      </a>
+                    ) : (
+                      draft.title.trim() || 'Embed title'
+                    )}
+                  </div>
+                  <div className="mt-2 text-sm whitespace-pre-wrap break-words" style={{ color: '#dbdee1' }}>
+                    {draft.description.trim() || 'Embed description will appear here.'}
+                  </div>
+                  {draft.imageUrl.trim() && isOptionalUrlValid(draft.imageUrl) && (
+                    <img
+                      src={draft.imageUrl.trim()}
+                      alt=""
+                      className="mt-4 w-full rounded"
+                      style={{ maxHeight: 240, objectFit: 'cover' }}
+                    />
+                  )}
+                  {draft.footer.trim() && (
+                    <div className="mt-4 text-xs" style={{ color: '#b5bac1' }}>
+                      {draft.footer.trim()}
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-
-            {/* Send Button */}
-            <button
-              onClick={handleSendBroadcast}
-              disabled={!isValid || isSending}
-              className="w-full py-3 rounded-lg font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                backgroundColor: 'var(--color-accent-1)',
-                color: 'var(--color-bg-primary)',
-              }}
-            >
-              {isSending ? '📤 Sending...' : `📡 ${t('admin.broadcastSendButton')}`}
-            </button>
+              <p className="mt-4 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                Eligible recipients are linked Discord users who have not disabled Discord DM notifications. Discord may still block delivery based on privacy settings.
+              </p>
+            </aside>
           </div>
 
-          {/* Last Broadcast Stats */}
           {lastBroadcastStats && (
-            <div className="p-6 rounded-lg border" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+            <section className="mt-8 p-6 rounded-lg border" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
               <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
-                ✅ Last Broadcast Results
+                Last Broadcast Results
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
-                  <div className="text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                    Total Users Messaged
-                  </div>
-                  <div className="text-2xl font-bold" style={{ color: 'var(--color-accent-1)' }}>
-                    {lastBroadcastStats.totalUsers}
-                  </div>
+                  <div className="text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>Audience</div>
+                  <div className="text-2xl font-bold" style={{ color: 'var(--color-accent-1)' }}>{lastBroadcastStats.totalUsers}</div>
                 </div>
                 <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
-                  <div className="text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                    Conversations Created
-                  </div>
-                  <div className="text-2xl font-bold" style={{ color: 'var(--color-accent-1)' }}>
-                    {lastBroadcastStats.conversationsCreated}
-                  </div>
+                  <div className="text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>DMs Queued</div>
+                  <div className="text-2xl font-bold" style={{ color: 'var(--color-success)' }}>{lastBroadcastStats.dmQueued}</div>
                 </div>
                 <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
-                  <div className="text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                    Messages Sent
-                  </div>
-                  <div className="text-2xl font-bold" style={{ color: 'var(--color-accent-1)' }}>
-                    {lastBroadcastStats.messagesSent}
-                  </div>
+                  <div className="text-sm mb-1" style={{ color: 'var(--color-text-secondary)' }}>Skipped</div>
+                  <div className="text-2xl font-bold" style={{ color: 'var(--color-warning)' }}>{lastBroadcastStats.skippedNoDiscordOrDisabled}</div>
                 </div>
               </div>
-            </div>
+            </section>
           )}
-
-          {/* Help Text */}
-          <div className="mt-8 p-4 rounded-lg" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
-            <h4 className="font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-              ℹ️ How it works
-            </h4>
-            <ul className="space-y-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              <li>• Messages are sent from a "System" user with a special icon</li>
-              <li>• Each user will receive the message in their chat inbox</li>
-              <li>• The system creates a new conversation if one doesn't exist</li>
-              <li>• You (the admin) won't receive a copy of the message</li>
-              <li>• Message length must be between 10 and 2000 characters</li>
-              <li>• Use this feature sparingly for important announcements only</li>
-            </ul>
-          </div>
         </div>
       </div>
     </>

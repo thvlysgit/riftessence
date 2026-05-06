@@ -1354,17 +1354,17 @@ export const translations: Record<LanguageCode, Translations> = {
     'report.detailsPlaceholder': 'Describe why you are reporting this user...',
     
     // Admin
-    'admin.broadcastTitle': 'Broadcast System Message',
-    'admin.broadcastDescription': 'Send a message from "System" to all users',
-    'admin.broadcastPlaceholder': 'Enter your system message here...',
+    'admin.broadcastTitle': 'Discord DM Broadcast',
+    'admin.broadcastDescription': 'Build a Discord embed and queue it to eligible linked users',
+    'admin.broadcastPlaceholder': 'Write the Discord embed message...',
     'admin.broadcastCharCount': 'characters',
-    'admin.broadcastPreview': 'Message Preview',
-    'admin.broadcastSendButton': 'Send to All Users',
-    'admin.broadcastConfirm': 'Are you sure you want to send this message to ALL users? This action cannot be undone.',
-    'admin.broadcastSuccess': 'Successfully sent message to all users!',
-    'admin.broadcastStats': 'Users: {users}, Conversations: {convos}, Messages: {msgs}',
+    'admin.broadcastPreview': 'Discord Preview',
+    'admin.broadcastSendButton': 'Queue Discord DMs',
+    'admin.broadcastConfirm': 'Queue this Discord embed for every eligible linked Discord user? This action cannot be undone.',
+    'admin.broadcastSuccess': 'Discord DM broadcast queued.',
+    'admin.broadcastStats': 'Audience: {users}, Queued: {queued}, Skipped: {skipped}',
     'admin.broadcastTooShort': 'Message must be at least 10 characters',
-    'admin.broadcastTooLong': 'Message exceeds 2000 character limit',
+    'admin.broadcastTooLong': 'Message exceeds 4000 character limit',
     
     // Matchups
     'matchups.title': 'Matchups',
@@ -2061,17 +2061,17 @@ export const translations: Record<LanguageCode, Translations> = {
     'report.detailsPlaceholder': 'Décrivez pourquoi vous signalez cet utilisateur...',
     
     // Admin
-    'admin.broadcastTitle': 'Diffuser un Message Système',
-    'admin.broadcastDescription': 'Envoyer un message de "Système" à tous les utilisateurs',
-    'admin.broadcastPlaceholder': 'Entrez votre message système ici...',
+    'admin.broadcastTitle': 'Diffusion DM Discord',
+    'admin.broadcastDescription': 'Créer un embed Discord et le mettre en file pour les utilisateurs liés éligibles',
+    'admin.broadcastPlaceholder': 'Rédigez le message de l embed Discord...',
     'admin.broadcastCharCount': 'caractères',
-    'admin.broadcastPreview': 'Aperçu du Message',
-    'admin.broadcastSendButton': 'Envoyer à Tous',
-    'admin.broadcastConfirm': 'Êtes-vous sûr de vouloir envoyer ce message à TOUS les utilisateurs ? Cette action est irréversible.',
-    'admin.broadcastSuccess': 'Message envoyé avec succès à tous les utilisateurs !',
-    'admin.broadcastStats': 'Utilisateurs : {users}, Conversations : {convos}, Messages : {msgs}',
+    'admin.broadcastPreview': 'Aperçu Discord',
+    'admin.broadcastSendButton': 'Mettre les DMs en file',
+    'admin.broadcastConfirm': 'Mettre cet embed Discord en file pour tous les utilisateurs Discord liés éligibles ? Cette action est irréversible.',
+    'admin.broadcastSuccess': 'Diffusion DM Discord mise en file.',
+    'admin.broadcastStats': 'Audience : {users}, En file : {queued}, Ignorés : {skipped}',
     'admin.broadcastTooShort': 'Le message doit contenir au moins 10 caractères',
-    'admin.broadcastTooLong': 'Le message dépasse la limite de 2000 caractères',
+    'admin.broadcastTooLong': 'Le message dépasse la limite de 4000 caractères',
     
     // Matchups
     'matchups.title': 'Matchups',

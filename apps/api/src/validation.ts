@@ -210,7 +210,12 @@ export function validateRequest<T>(schema: z.ZodSchema<T>, data: unknown): { suc
 // ============================================================
 
 export const BroadcastMessageSchema = z.object({
-  content: z.string().min(10, 'Message too short').max(2000, 'Message too long'),
+  title: z.string().trim().min(3, 'Title too short').max(256, 'Title too long'),
+  description: z.string().trim().min(10, 'Message too short').max(4000, 'Message too long'),
+  color: z.string().trim().regex(/^#?[0-9a-fA-F]{6}$/, 'Use a hex color').default('#5865F2'),
+  url: z.string().trim().url('Invalid URL').optional().or(z.literal('')),
+  footer: z.string().trim().max(2048, 'Footer too long').optional().or(z.literal('')),
+  imageUrl: z.string().trim().url('Invalid image URL').optional().or(z.literal('')),
 });
 
 // ============================================================

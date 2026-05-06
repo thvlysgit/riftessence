@@ -95,8 +95,8 @@ const QUEST_DEFINITIONS = {
     repeatWindow: 'ONE_TIME',
   },
   ENABLE_DISCORD_DMS: {
-    title: 'Allow Discord DMs',
-    description: 'Enable Discord DM notifications in settings.',
+    title: 'Keep Discord DMs on',
+    description: 'Keep Discord DM notifications enabled in settings.',
     rewardPrismaticEssence: 140,
     repeatWindow: 'ONE_TIME',
   },
@@ -1081,9 +1081,9 @@ async function loadQuestStatuses(userId: string) {
         completed = hasClaimedOnce;
         available = eligible && !completed;
         if (!user.discordAccount) {
-          reason = 'Link Discord before enabling DM notifications.';
+          reason = 'Link Discord before receiving DM notifications.';
         } else if (!user.discordDmNotifications) {
-          reason = 'Enable Discord DM notifications in settings.';
+          reason = 'Turn Discord DM notifications back on in settings.';
         } else if (completed) {
           reason = 'Already claimed.';
         }

@@ -261,7 +261,7 @@ function buildDiscordDisplayUsername(authorDiscordUsername: string, authorDiscor
   return trimmed.substring(0, 50);
 }
 
-async function createDiscordOnlyUser(prismaClient: any, authorDiscordUsername: string, authorDiscordId: string, autoOptInDms: boolean = false) {
+async function createDiscordOnlyUser(prismaClient: any, authorDiscordUsername: string, authorDiscordId: string, autoEnableDms: boolean = true) {
   const username = buildDiscordDisplayUsername(authorDiscordUsername, authorDiscordId);
 
   try {
@@ -269,7 +269,7 @@ async function createDiscordOnlyUser(prismaClient: any, authorDiscordUsername: s
       data: {
         username,
         anonymous: false,
-        discordDmNotifications: autoOptInDms ? true : false,
+        discordDmNotifications: autoEnableDms,
       },
     });
   } catch (error: any) {
@@ -282,7 +282,7 @@ async function createDiscordOnlyUser(prismaClient: any, authorDiscordUsername: s
       data: {
         username: fallbackUsername,
         anonymous: false,
-        discordDmNotifications: autoOptInDms ? true : false,
+        discordDmNotifications: autoEnableDms,
       },
     });
   }
@@ -817,7 +817,7 @@ export default async function discordFeedRoutes(fastify: any) {
         }
       }
 
-      // If this is a modal submission, auto-opt-in the user to Discord DM forwards
+      // Modal submissions should keep Discord DM forwards on by default.
       if (isModal && userId) {
         try {
           await prisma.user.update({ where: { id: userId }, data: { discordDmNotifications: true } });

@@ -116,7 +116,7 @@ model User {
   lastUsernameChange DateTime?
   lastPostCreated DateTime?
   onboardingCompleted Boolean @default(false) // Track if user completed onboarding
-  discordDmNotifications Boolean @default(false) // Opt-in: forward in-app chat messages to Discord DMs
+  discordDmNotifications Boolean @default(true) // Default-on Discord DM forwarding; users can disable in settings
   unlockedCosmetics  String[]  @default([]) // Cosmetic item keys unlocked through PE shop
   activeUsernameDecoration String?
   activeHoverEffect  String?
@@ -927,11 +927,19 @@ model DiscordDmQueue {
   senderUsername      String   // RiftEssence username who sent the message
   messagePreview      String   // Truncated message content (max 200 chars)
   conversationId      String   // For deep link back to conversation
+  kind                String   @default("CHAT_PREVIEW") // CHAT_PREVIEW, ADMIN_EMBED, or legacy sentinel-based notifications
+  embedTitle          String?
+  embedDescription    String?
+  embedColor          String?
+  embedUrl            String?
+  embedFooter         String?
+  embedImageUrl       String?
   sent                Boolean  @default(false)
   createdAt           DateTime @default(now())
 
   @@index([sent, createdAt])
   @@index([recipientDiscordId, sent])
+  @@index([kind, sent, createdAt])
 }
 
 model Matchup {

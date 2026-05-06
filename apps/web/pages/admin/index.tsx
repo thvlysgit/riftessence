@@ -170,10 +170,10 @@ export default function AdminDashboard() {
       description: 'Review API requests, keys, and usage',
     },
     {
-      label: 'Broadcast Message',
+      label: 'Discord DM Broadcast',
       href: '/admin/broadcast',
       icon: '📡',
-      description: 'Send a system message to all users',
+      description: 'Send Discord embed announcements to eligible users',
     },
   ];
 
