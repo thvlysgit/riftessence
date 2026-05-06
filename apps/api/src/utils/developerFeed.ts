@@ -26,6 +26,27 @@ function isRealRiotAccount(account: any): boolean {
   return linked && !puuid.startsWith('discord_');
 }
 
+const REAL_LINKED_RIOT_ACCOUNT_WHERE = {
+  puuid: { not: { startsWith: 'discord_' } },
+  OR: [{ rsoLinked: true }, { verified: true }],
+};
+
+export function getDuoVerificationAuthorWhere(verified: boolean) {
+  if (verified) {
+    return {
+      discordAccount: { isNot: null },
+      riotAccounts: { some: REAL_LINKED_RIOT_ACCOUNT_WHERE },
+    };
+  }
+
+  return {
+    OR: [
+      { discordAccount: { is: null } },
+      { riotAccounts: { none: REAL_LINKED_RIOT_ACCOUNT_WHERE } },
+    ],
+  };
+}
+
 function getVerificationState(author: any): { isVerified: boolean; missing: string[] } {
   const hasDiscord = Boolean(author?.discordAccount);
   const riotAccounts = Array.isArray(author?.riotAccounts) ? author.riotAccounts : [];
@@ -101,8 +122,10 @@ export function normalizeChampionTierlist(author: any): { S: string[]; A: string
 
 export function formatDuoPost(post: any, viewerIsAdmin: boolean = false) {
   const author: any = post.author;
-  const postingAccount = author.riotAccounts.find((acc: any) => acc.id === post.postingRiotAccountId);
-  const mainAccount = author.riotAccounts.find((acc: any) => acc.isMain) || author.riotAccounts[0];
+  const authorAccounts = Array.isArray(author.riotAccounts) ? author.riotAccounts : [];
+  const postingAccount = authorAccounts.find((acc: any) => acc.id === post.postingRiotAccountId)
+    || (post.postingRiotAccount?.id === post.postingRiotAccountId ? post.postingRiotAccount : null);
+  const mainAccount = authorAccounts.find((acc: any) => acc.isMain) || authorAccounts[0];
   const isSameAccount = postingAccount && mainAccount && postingAccount.id === mainAccount.id;
   const verification = getVerificationState(author);
   const missingFields = getMissingDuoFields(post);

@@ -5,6 +5,13 @@ export interface RiotAccountRef {
   region: string;
 }
 
+export interface RiotRankStats {
+  rank: string;
+  division: string | null;
+  lp: number | null;
+  winrate: number | null;
+}
+
 import { cacheGet, cacheSet } from './utils/cache';
 import { createHash } from 'crypto';
 
@@ -46,6 +53,7 @@ const RIOT_429_ABORT_THRESHOLD = Math.max(1, toPositiveInt(process.env.RIOT_429_
 const RIOT_MATCH_LIST_CACHE_TTL_SECONDS = toPositiveInt(process.env.RIOT_MATCH_LIST_CACHE_TTL_SECONDS, 300);
 const RIOT_MATCH_DETAILS_CACHE_TTL_SECONDS = toPositiveInt(process.env.RIOT_MATCH_DETAILS_CACHE_TTL_SECONDS, 21600);
 const RIOT_ROLE_CACHE_TTL_SECONDS = toPositiveInt(process.env.RIOT_ROLE_CACHE_TTL_SECONDS, 21600);
+const RIOT_RANK_STATS_CACHE_TTL_SECONDS = toPositiveInt(process.env.RIOT_RANK_STATS_CACHE_TTL_SECONDS, 900);
 const RIOT_ACTIVITY_MATCH_SCAN_LIMIT = Math.max(1, toPositiveInt(process.env.RIOT_ACTIVITY_MATCH_SCAN_LIMIT, 40));
 const RIOT_ROLE_MATCH_SCAN_LIMIT = Math.max(1, toPositiveInt(process.env.RIOT_ROLE_MATCH_SCAN_LIMIT, 40));
 
@@ -240,6 +248,75 @@ export async function getAccountByPuuid(puuid: string): Promise<{ gameName: stri
   }
 
   return null;
+}
+
+export async function getRankStatsByPuuid(puuid: string, region: string): Promise<RiotRankStats> {
+  const normalizedRegion = String(region || '').trim().toUpperCase();
+  const cacheKey = `riot:rankStats:${puuid}:${normalizedRegion}`;
+  const cached = await cacheGet<RiotRankStats>(cacheKey);
+  if (cached !== null) {
+    return cached;
+  }
+
+  if (process.env.USE_FAKE_RIOT === '1') {
+    const fakeStats: RiotRankStats = {
+      rank: 'UNRANKED',
+      division: null,
+      lp: null,
+      winrate: null,
+    };
+    await cacheSet(cacheKey, fakeStats, RIOT_RANK_STATS_CACHE_TTL_SECONDS);
+    return fakeStats;
+  }
+
+  const apiKey = process.env.RIOT_API_KEY;
+  if (!apiKey) throw new Error('Riot API key (RIOT_API_KEY) not set');
+
+  const platformHost = platformHostForRegion(normalizedRegion);
+  const leagueUrl = `https://${platformHost}/lol/league/v4/entries/by-puuid/${encodeURIComponent(puuid)}`;
+  const response = await riotFetchWithBackoff(leagueUrl, apiKey, 'rank stats lookup');
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      const unranked: RiotRankStats = { rank: 'UNRANKED', division: null, lp: null, winrate: null };
+      await cacheSet(cacheKey, unranked, RIOT_RANK_STATS_CACHE_TTL_SECONDS);
+      return unranked;
+    }
+
+    const txt = await response.text().catch(() => '');
+    const err = new Error(`Riot League API error: ${response.status} ${response.statusText} ${txt}`);
+    (err as any).status = response.status;
+    throw err;
+  }
+
+  const entries = await response.json();
+  let stats: RiotRankStats = {
+    rank: 'UNRANKED',
+    division: null,
+    lp: null,
+    winrate: null,
+  };
+
+  if (Array.isArray(entries) && entries.length > 0) {
+    const soloEntry = entries.find((entry: any) => entry.queueType === 'RANKED_SOLO_5x5');
+    const flexEntry = entries.find((entry: any) => entry.queueType === 'RANKED_FLEX_SR');
+    const best = soloEntry || flexEntry;
+
+    if (best) {
+      const wins = Number(best.wins) || 0;
+      const losses = Number(best.losses) || 0;
+      const total = wins + losses;
+      stats = {
+        rank: best.tier || 'UNRANKED',
+        division: best.rank || null,
+        lp: typeof best.leaguePoints === 'number' ? best.leaguePoints : null,
+        winrate: total > 0 ? (wins / total) * 100 : null,
+      };
+    }
+  }
+
+  await cacheSet(cacheKey, stats, RIOT_RANK_STATS_CACHE_TTL_SECONDS);
+  return stats;
 }
 
 export async function getProfileIcon(account: RiotAccountRef, bypassCache: boolean = false): Promise<number | null> {

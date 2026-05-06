@@ -3,7 +3,7 @@ import { CreatePostSchema, validateRequest, PaginationSchema } from '../validati
 import { getOrSetCache } from '../utils/requestCache';
 import { cacheDel } from '../utils/cache';
 import { enqueueMirrorDeletion } from '../services/discordMirrorDeletionQueue';
-import { formatDuoPost, parseBooleanQuery } from '../utils/developerFeed';
+import { formatDuoPost, getDuoVerificationAuthorWhere, parseBooleanQuery } from '../utils/developerFeed';
 
 function toPositiveInt(value: string | undefined, fallback: number) {
   const parsed = Number(value);
@@ -16,6 +16,28 @@ function toPositiveInt(value: string | undefined, fallback: number) {
 
 const NOTIFICATIONS_CACHE_TTL_SECONDS = toPositiveInt(process.env.NOTIFICATIONS_CACHE_TTL_SECONDS, 6);
 const notificationsCacheKey = (userId: string) => `api:notifications:list:v1:user:${userId}`;
+
+async function attachPostingRiotAccounts(posts: any[]) {
+  const accountIds = Array.from(new Set(
+    posts
+      .map((post: any) => post.postingRiotAccountId)
+      .filter((id: any): id is string => typeof id === 'string' && id.length > 0)
+  ));
+
+  if (accountIds.length === 0) {
+    return posts;
+  }
+
+  const accounts = await prisma.riotAccount.findMany({
+    where: { id: { in: accountIds } },
+  });
+  const accountById = new Map(accounts.map((account: any) => [account.id, account]));
+
+  return posts.map((post: any) => ({
+    ...post,
+    postingRiotAccount: accountById.get(post.postingRiotAccountId) || null,
+  }));
+}
 
 export default async function postsRoutes(fastify: any) {
   // Helper to extract userId from Authorization header using JWT
@@ -95,7 +117,7 @@ export default async function postsRoutes(fastify: any) {
       if (verified !== undefined && verified !== null) {
         const normalizedVerified = String(verified).trim().toLowerCase();
         if (normalizedVerified && normalizedVerified !== 'all') {
-          where.author = { verified: parseBooleanQuery(verified) };
+          where.author = getDuoVerificationAuthorWhere(parseBooleanQuery(verified));
         }
       }
 
@@ -149,8 +171,8 @@ export default async function postsRoutes(fastify: any) {
         },
       });
 
-      // Format posts for feed display
-      const formattedPosts = posts.map((post: any) => formatDuoPost(post, viewerIsAdmin));
+      const postsWithPostingAccounts = await attachPostingRiotAccounts(posts);
+      const formattedPosts = postsWithPostingAccounts.map((post: any) => formatDuoPost(post, viewerIsAdmin));
 
       return reply.send({ 
         posts: formattedPosts,
@@ -199,9 +221,8 @@ export default async function postsRoutes(fastify: any) {
         return reply.status(404).send({ error: 'Post not found' });
       }
 
-      // Format the post using the same logic as the list endpoint
-      // No viewer admin status since this is a public endpoint
-      const formattedPost = formatDuoPost(post, false);
+      const [postWithPostingAccount] = await attachPostingRiotAccounts([post]);
+      const formattedPost = formatDuoPost(postWithPostingAccount, false);
 
       return reply.send({ post: formattedPost });
     } catch (error) {

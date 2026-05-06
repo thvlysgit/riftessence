@@ -730,12 +730,42 @@ export default async function discordFeedRoutes(fastify: any) {
         }
 
         if (resolvedPuuid && resolvedRegion) {
+          let rankStats: riotClient.RiotRankStats | null = null;
+          try {
+            rankStats = await riotClient.getRankStatsByPuuid(resolvedPuuid, resolvedRegion);
+          } catch (err) {
+            fastify.log.warn({ err, resolvedRegion }, 'Failed to hydrate Discord-submitted Riot rank stats');
+          }
+
+          const resolvedAccountData: any = {
+            region: resolvedRegion,
+            gameName: riotIdentity.gameName,
+            tagLine: riotIdentity.tagLine,
+            summonerName: riotIdentity.summonerName || `${riotIdentity.gameName}#${riotIdentity.tagLine}`,
+          };
+          if (rankStats) {
+            resolvedAccountData.rank = rankStats.rank as any;
+            resolvedAccountData.division = rankStats.division;
+            resolvedAccountData.lp = rankStats.lp;
+            resolvedAccountData.winrate = rankStats.winrate;
+            resolvedAccountData.lastStatsUpdate = new Date();
+          }
+
           // Look for an existing RiotAccount by puuid+region
           const existingAccount = await prisma.riotAccount.findFirst({ where: { puuid: resolvedPuuid, region: resolvedRegion } });
           if (existingAccount) {
             postingRiotAccountId = existingAccount.id;
             // adopt region from resolved account
             region = existingAccount.region || region;
+
+            try {
+              await prisma.riotAccount.update({
+                where: { id: existingAccount.id },
+                data: resolvedAccountData,
+              });
+            } catch (err) {
+              fastify.log.warn({ err, accountId: existingAccount.id }, 'Failed to update existing Discord-submitted Riot account stats');
+            }
 
             // If role info missing, try to copy from linked user for that riot account
             if ((!role || role === 'FILL') && existingAccount.userId) {
@@ -765,9 +795,7 @@ export default async function discordFeedRoutes(fastify: any) {
                   where: { id: postingRiotAccountId },
                   data: {
                     puuid: resolvedPuuid,
-                    region: resolvedRegion,
-                    gameName: riotIdentity.gameName,
-                    tagLine: riotIdentity.tagLine,
+                    ...resolvedAccountData,
                   },
                 });
               }

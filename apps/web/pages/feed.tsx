@@ -1026,7 +1026,37 @@ export default function Feed() {
           width: 1rem;
           height: 1rem;
           flex: 0 0 auto;
-          accent-color: var(--color-accent-1);
+          appearance: none;
+          display: grid;
+          place-content: center;
+          border: 1.5px solid var(--color-border-hover);
+          border-radius: 0.25rem;
+          background: color-mix(in srgb, var(--color-bg-primary) 72%, var(--color-bg-tertiary));
+          box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28);
+          cursor: pointer;
+          transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+        }
+        .filter-chip input::after {
+          content: "";
+          width: 0.32rem;
+          height: 0.58rem;
+          border: solid var(--color-bg-primary);
+          border-width: 0 2px 2px 0;
+          transform: translateY(-0.04rem) rotate(45deg) scale(0);
+          transform-origin: center;
+          transition: transform 120ms ease;
+        }
+        .filter-chip input:checked {
+          border-color: var(--color-accent-1);
+          background: var(--color-accent-1);
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent-1) 26%, transparent);
+        }
+        .filter-chip input:checked::after {
+          transform: translateY(-0.04rem) rotate(45deg) scale(1);
+        }
+        .filter-chip input:focus-visible {
+          outline: 2px solid var(--color-accent-2);
+          outline-offset: 2px;
         }
         .filter-card {
           min-width: 0;

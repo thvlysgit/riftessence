@@ -20,6 +20,32 @@ const DRAFT_ALLOWED_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP'] as const;
 const DRAFT_BAN_COUNT = 5;
 const DRAFT_PICK_COUNT = 10;
 
+function isRealRiotPuuid(puuid: any): puuid is string {
+  return typeof puuid === 'string' && puuid.length > 0 && !puuid.startsWith('discord_');
+}
+
+function hasRank(account: any): boolean {
+  const rank = String(account?.rank || '').toUpperCase();
+  return Boolean(rank && rank !== 'UNRANKED');
+}
+
+function pickTeamRosterAccount(accounts: any[], teamRegion: string | null | undefined) {
+  const list = Array.isArray(accounts) ? accounts.filter((account) => isRealRiotPuuid(account?.puuid)) : [];
+  if (list.length === 0) return null;
+
+  const normalizedRegion = String(teamRegion || '').toUpperCase();
+  const inTeamRegion = (account: any) => String(account?.region || '').toUpperCase() === normalizedRegion;
+  const visible = (account: any) => account?.hidden !== true;
+
+  return list.find((account) => visible(account) && inTeamRegion(account) && hasRank(account))
+    || list.find((account) => account?.isMain && hasRank(account))
+    || list.find((account) => visible(account) && hasRank(account))
+    || list.find((account) => inTeamRegion(account))
+    || list.find((account) => account?.isMain)
+    || list.find(visible)
+    || list[0];
+}
+
 export default async function teamsRoutes(fastify: any) {
   const isSchemaOutOfDateError = (error: any) => {
     const code = error?.code;
@@ -435,16 +461,24 @@ export default async function teamsRoutes(fastify: any) {
     return isTeamMember(userId, teamId);
   };
 
-  // Helper to get user's Riot account PUUID
-  const getUserPuuid = async (userId: string): Promise<string | null> => {
-    const account = await prisma.riotAccount.findFirst({
-      where: { userId, isMain: true }
+  const getUserPuuids = async (userId: string): Promise<string[]> => {
+    const accounts = await prisma.riotAccount.findMany({
+      where: {
+        userId,
+        puuid: { not: { startsWith: 'discord_' } },
+      },
+      select: { puuid: true },
     });
-    return account?.puuid || null;
+    return accounts.map((account: any) => account.puuid).filter(isRealRiotPuuid);
   };
 
   const hasLinkedRiotAccount = async (userId: string): Promise<boolean> => {
-    const count = await prisma.riotAccount.count({ where: { userId } });
+    const count = await prisma.riotAccount.count({
+      where: {
+        userId,
+        puuid: { not: { startsWith: 'discord_' } },
+      },
+    });
     return count > 0;
   };
 
@@ -527,14 +561,14 @@ export default async function teamsRoutes(fastify: any) {
       const userId = await getUserIdFromRequest(request, reply);
       if (!userId) return;
 
-      const [user, userPuuid] = await Promise.all([
+      const [user, userPuuids] = await Promise.all([
         prisma.user.findUnique({ where: { id: userId }, select: { username: true } }),
-        getUserPuuid(userId),
+        getUserPuuids(userId),
       ]);
 
       const inviteFilters: any[] = [];
-      if (userPuuid) {
-        inviteFilters.push({ puuid: userPuuid });
+      if (userPuuids.length > 0) {
+        inviteFilters.push({ puuid: { in: userPuuids } });
       }
       if (user?.username) {
         inviteFilters.push({ username: user.username });
@@ -677,8 +711,7 @@ export default async function teamsRoutes(fastify: any) {
                   riotAccounts: {
                     where: { OR: [{ isMain: true }, { hidden: false }] },
                     orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
-                    take: 1,
-                    select: { rank: true, division: true, lp: true, gameName: true, tagLine: true, region: true }
+                    select: { puuid: true, rank: true, division: true, lp: true, gameName: true, tagLine: true, region: true, hidden: true, isMain: true }
                   }
                 } 
               }
@@ -777,9 +810,10 @@ export default async function teamsRoutes(fastify: any) {
       
       if (!isMember) {
         // Check by PUUID (for players)
-        const userPuuid = await getUserPuuid(userId);
-        if (userPuuid) {
-          const spotByPuuid = team.pendingSpots.find((s: any) => s.puuid === userPuuid);
+        const userPuuids = await getUserPuuids(userId);
+        if (userPuuids.length > 0) {
+          const userPuuidSet = new Set(userPuuids);
+          const spotByPuuid = team.pendingSpots.find((s: any) => userPuuidSet.has(s.puuid));
           if (spotByPuuid) {
             canJoin = true;
             pendingSpotId = spotByPuuid.id;
@@ -823,7 +857,7 @@ export default async function teamsRoutes(fastify: any) {
         canManageRoster: canManage,
         canEditSchedule: canEditScheduleValue,
         members: team.members.map((m: any) => {
-          const riotAccount = m.user.riotAccounts?.[0];
+          const riotAccount = pickTeamRosterAccount(m.user.riotAccounts, team.region);
           return {
             id: m.id,
             userId: m.userId,
@@ -1210,9 +1244,10 @@ export default async function teamsRoutes(fastify: any) {
       let matchingSpot: any = null;
 
       // Check by PUUID
-      const userPuuid = await getUserPuuid(userId);
-      if (userPuuid) {
-        matchingSpot = team.pendingSpots.find((s: any) => s.puuid === userPuuid);
+      const userPuuids = await getUserPuuids(userId);
+      if (userPuuids.length > 0) {
+        const userPuuidSet = new Set(userPuuids);
+        matchingSpot = team.pendingSpots.find((s: any) => userPuuidSet.has(s.puuid));
       }
 
       // Check by username

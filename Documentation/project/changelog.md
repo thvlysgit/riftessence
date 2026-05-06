@@ -1,6 +1,34 @@
 # Changelog
 
-> Last updated: 2026-05-06
+> Last updated: 2026-05-07
+
+---
+
+## 2026-05-07 - Feed Verification and Roster Account Reliability
+
+### Objective: Fix feed filter correctness and make Discord/team Riot account displays reliable
+
+Overview: Aligned duo feed verified filtering with the visible verified/unverified banner, replaced browser-native filter checkboxes with app-rendered controls for theme consistency, hydrated Discord-submitted Riot IDs with rank/winrate stats, and improved team roster account selection for users with multiple Riot accounts.
+
+Changes:
+
+- Updated [apps/web/pages/feed.tsx](apps/web/pages/feed.tsx):
+  - Replaced native filter chip checkbox rendering with a custom visible checkbox and centered check mark for Classic Dark and other themes.
+- Updated [apps/api/src/routes/posts.ts](apps/api/src/routes/posts.ts) and [apps/api/src/utils/developerFeed.ts](apps/api/src/utils/developerFeed.ts):
+  - Made `verified=true/false` filter use the same linked Discord plus real linked Riot account criteria as the feed banner.
+  - Resolved `postingRiotAccountId` directly so Discord-submitted display accounts can still show rank and winrate.
+- Updated [apps/api/src/routes/discordFeed.ts](apps/api/src/routes/discordFeed.ts) and [apps/api/src/riotClient.ts](apps/api/src/riotClient.ts):
+  - Added cached Riot rank/winrate hydration by PUUID and region for Discord modal submissions.
+- Updated [apps/api/src/routes/teams.ts](apps/api/src/routes/teams.ts):
+  - Team roster views now pick the most relevant real Riot account for the team region and rank display.
+  - Team invite/join matching checks all real Riot account PUUIDs owned by the user instead of only the main account.
+- Updated [Documentation/architecture/api-contracts.md](Documentation/architecture/api-contracts.md) and [Documentation/frontend/pages.md](Documentation/frontend/pages.md):
+  - Documented verified filter semantics, posting account resolution, roster account selection, and custom checkbox rendering.
+
+Validation:
+
+- `pnpm --filter @lfd/api build` passes.
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
 
 ---
 

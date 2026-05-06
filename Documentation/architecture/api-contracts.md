@@ -354,6 +354,10 @@ Fetch team detail payload used by the team profile page.
 
 Auth: Required
 
+Roster member account fields:
+- `rank`, `division`, `lp`, `gameName`, `tagLine`, and `riotRegion` are selected from the member's most relevant real Riot account for the team, preferring visible accounts in the team region with rank data before falling back to the main account.
+- Team invites and joins match all real Riot account PUUIDs owned by the user, not only the main account.
+
 Scrim-related response additions:
 - `scrimPerformance`
   - `totalSeries`
@@ -729,6 +733,7 @@ Fetch all duo posts with pagination and filters.
 - `role`: string | string[] (optional) — Filter by role(s)
 - `language`: string | string[] (optional) — Filter by language(s)
 - `vcPreference`: 'ALWAYS' | 'SOMETIMES' | 'NEVER' (optional)
+- `verified`: `true` | `false` | `all` (optional) - Matches the same post banner criteria used by the feed (`true` requires a linked Discord account plus a real linked Riot account; Discord-only placeholder Riot accounts are unverified)
 - `duoType`: string (optional) — Filter by duo type
 - `userId`: string (optional) — Used to filter blocked users and check admin status
 - `limit`: number (default: 10, max validated) — Number of posts per page
@@ -798,6 +803,8 @@ Fetch all duo posts with pagination and filters.
 **Features**:
 - Server-side pagination with limit/offset
 - Multi-filter support (regions, roles, languages)
+- Verification filtering is aligned with the response `verification.isVerified` banner state.
+- `postingRiotAccount` is resolved from `postingRiotAccountId` even when a Discord-submitted Riot ID belongs to a display-only external account, so rank/winrate can be shown without marking the author verified.
 - Bidirectional blocking filter
 - Admin status detection
 - Ordered by `createdAt DESC`
