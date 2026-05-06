@@ -645,10 +645,8 @@ export default function Feed() {
   };
 
   const moreFilterCount =
-    (filters.minRank || filters.maxRank ? 1 : 0) +
-    (filters.minDivision || filters.maxDivision ? 1 : 0) +
-    (filters.minLp ? 1 : 0) +
-    (filters.minWinrate || filters.maxWinrate ? 1 : 0) +
+    (filters.vcPreference ? 1 : 0) +
+    (filters.duoType ? 1 : 0) +
     (filters.smurfFilter ? 1 : 0);
 
   const moreFiltersOpen = showMoreFilters;
@@ -1427,66 +1425,6 @@ export default function Feed() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Voice Chat</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: '', label: 'Any' },
-                  { value: 'ALWAYS', label: 'Always' },
-                  { value: 'SOMETIMES', label: 'Sometimes' },
-                  { value: 'NEVER', label: 'Never' },
-                ].map((option) => {
-                  const selected = filters.vcPreference === option.value;
-                  return (
-                    <button
-                      key={`vc-${option.value || 'all'}`}
-                      type="button"
-                      onClick={() => setFilters(prev => ({ ...prev, vcPreference: option.value }))}
-                      className="min-h-10 px-2 py-2 border text-xs font-semibold transition-all flex items-center justify-center gap-1"
-                      style={{
-                        backgroundColor: selected ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
-                        borderColor: selected ? 'var(--color-accent-1)' : 'var(--color-border)',
-                        color: selected ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
-                        borderRadius: 'var(--border-radius)',
-                      }}
-                    >
-                      <MicIcon />
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Looking For</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: '', label: 'Any' },
-                  { value: 'SHORT_TERM', label: 'Short' },
-                  { value: 'LONG_TERM', label: 'Long' },
-                  { value: 'BOTH', label: 'Both' },
-                ].map((option) => {
-                  const selected = filters.duoType === option.value;
-                  return (
-                    <button
-                      key={`duo-${option.value || 'all'}`}
-                      type="button"
-                      onClick={() => setFilters(prev => ({ ...prev, duoType: option.value }))}
-                      className="min-h-10 px-2 py-2 border text-xs font-semibold transition-all flex items-center justify-center gap-1"
-                      style={{
-                        backgroundColor: selected ? 'var(--color-accent-2)' : 'var(--color-bg-tertiary)',
-                        borderColor: selected ? 'var(--color-accent-2)' : 'var(--color-border)',
-                        color: selected ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
-                        borderRadius: 'var(--border-radius)',
-                      }}
-                    >
-                      <DuoIcon />
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div>
               <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Verification</label>
               <div className="grid grid-cols-1 gap-2">
                 {[
@@ -1515,124 +1453,88 @@ export default function Feed() {
                 })}
               </div>
             </div>
-          </div>
+            {/* Rank Range */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="block text-xs font-medium inline-flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
+                  <ShieldIcon />
+                  Rank Range
+                </label>
+                <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                  {RANK_FILTER_OPTIONS[rankMinIndex].label} - {RANK_FILTER_OPTIONS[rankMaxIndex].label}
+                </span>
+              </div>
+              <div
+                className="border px-3 py-4"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  borderRadius: 'var(--border-radius)',
+                }}
+              >
+                <div className="relative h-8">
+                  <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full" style={{ backgroundColor: 'var(--color-border)' }} />
+                  <div
+                    className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full"
+                    style={{
+                      left: `${rankRangeLeft}%`,
+                      right: `${rankRangeRight}%`,
+                      background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
+                    }}
+                  />
+                  <input
+                    aria-label="Minimum rank"
+                    className="rank-range-input"
+                    type="range"
+                    min={0}
+                    max={RANK_FILTER_OPTIONS.length - 1}
+                    step={1}
+                    value={rankMinIndex}
+                    onChange={(event) => updateRankRange(Number(event.target.value), rankMaxIndex)}
+                  />
+                  <input
+                    aria-label="Maximum rank"
+                    className="rank-range-input"
+                    type="range"
+                    min={0}
+                    max={RANK_FILTER_OPTIONS.length - 1}
+                    step={1}
+                    value={rankMaxIndex}
+                    onChange={(event) => updateRankRange(rankMinIndex, Number(event.target.value))}
+                  />
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-2" style={{ color: 'var(--color-text-muted)' }}>
+                  {RANK_FILTER_OPTIONS.map((rank) => (
+                    <span key={rank.value} className="flex h-8 w-8 items-center justify-center" title={rank.label} aria-label={rank.label}>
+                      {rank.value === 'MASTER_PLUS' ? getRankIcon('MASTER') : getRankIcon(rank.value)}
+                    </span>
+                  ))}
+                </div>
+              </div>
 
-          {/* Advanced Filters */}
-          {moreFiltersOpen && (
-          <div className="border-t pt-4" style={{ borderColor: 'var(--color-border)' }}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Rank Range */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <label className="block text-xs font-medium inline-flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
-                    <ShieldIcon />
-                    Rank Range
-                  </label>
-                  <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
-                    {RANK_FILTER_OPTIONS[rankMinIndex].label} - {RANK_FILTER_OPTIONS[rankMaxIndex].label}
-                  </span>
-                </div>
-                <div
-                  className="border px-3 py-4"
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    borderColor: 'var(--color-border)',
-                    borderRadius: 'var(--border-radius)',
-                  }}
-                >
-                  <div className="relative h-8">
-                    <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full" style={{ backgroundColor: 'var(--color-border)' }} />
-                    <div
-                      className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full"
-                      style={{
-                        left: `${rankRangeLeft}%`,
-                        right: `${rankRangeRight}%`,
-                        background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
-                      }}
-                    />
-                    <input
-                      aria-label="Minimum rank"
-                      className="rank-range-input"
-                      type="range"
-                      min={0}
-                      max={RANK_FILTER_OPTIONS.length - 1}
-                      step={1}
-                      value={rankMinIndex}
-                      onChange={(event) => updateRankRange(Number(event.target.value), rankMaxIndex)}
-                    />
-                    <input
-                      aria-label="Maximum rank"
-                      className="rank-range-input"
-                      type="range"
-                      min={0}
-                      max={RANK_FILTER_OPTIONS.length - 1}
-                      step={1}
-                      value={rankMaxIndex}
-                      onChange={(event) => updateRankRange(rankMinIndex, Number(event.target.value))}
-                    />
+              {/* Division filters (show below rank slider) */}
+              {((filters.minRank && filters.minRank !== 'MASTER_PLUS') || (filters.maxRank && filters.maxRank !== 'MASTER_PLUS')) && (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div className="relative">
+                    <select
+                    className="w-full p-2.5 rounded-lg border text-sm transition-all appearance-none cursor-pointer"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                      paddingRight: '2.5rem'
+                    }}
+                    value={filters.minDivision} onChange={e => setFilters(prev => ({ ...prev, minDivision: e.target.value }))}>
+                    <option value="">Min Div</option>
+                    {['IV','III','II','I'].map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                    <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
+                      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
+                    </svg>
                   </div>
-                  <div className="mt-3 flex items-center justify-between gap-2" style={{ color: 'var(--color-text-muted)' }}>
-                    {RANK_FILTER_OPTIONS.map((rank) => (
-                      <span key={rank.value} className="flex h-8 w-8 items-center justify-center" title={rank.label} aria-label={rank.label}>
-                        {rank.value === 'MASTER_PLUS' ? getRankIcon('MASTER') : getRankIcon(rank.value)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Division filters (show below rank selects) */}
-                {((filters.minRank && filters.minRank !== 'MASTER_PLUS') || (filters.maxRank && filters.maxRank !== 'MASTER_PLUS')) && (
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div className="relative">
-                      <select 
-                      className="w-full p-2.5 rounded-lg border text-sm transition-all appearance-none cursor-pointer" 
-                      style={{
-                        backgroundColor: 'var(--color-bg-tertiary)',
-                        borderColor: 'var(--color-border)',
-                        color: 'var(--color-text-primary)',
-                        paddingRight: '2.5rem'
-                      }}
-                      value={filters.minDivision} onChange={e => setFilters(prev => ({ ...prev, minDivision: e.target.value }))}>
-                      <option value="">Min Div</option>
-                      {['IV','III','II','I'].map(d => <option key={d} value={d}>{d}</option>)}
-                      </select>
-                      <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
-                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
-                      </svg>
-                    </div>
-                    <div className="relative">
-                      <select 
-                        className="w-full p-2.5 rounded-lg border text-sm transition-all appearance-none cursor-pointer" 
-                        style={{
-                          backgroundColor: 'var(--color-bg-tertiary)',
-                          borderColor: 'var(--color-border)',
-                          color: 'var(--color-text-primary)',
-                          paddingRight: '2.5rem'
-                        }}
-                        onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
-                        onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                        value={filters.maxDivision} onChange={e => setFilters(prev => ({ ...prev, maxDivision: e.target.value }))}>
-                        <option value="">Max Div</option>
-                        {['IV','III','II','I'].map(d => {
-                          const divOrder = ['IV','III','II','I'];
-                          const minDivIndex = filters.minDivision ? divOrder.indexOf(filters.minDivision) : -1;
-                          const currentIndex = divOrder.indexOf(d);
-                          const isDisabled = minDivIndex !== -1 && currentIndex < minDivIndex;
-                          return <option key={d} value={d} disabled={isDisabled}>{d}</option>;
-                        })}
-                      </select>
-                      <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
-                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
-                      </svg>
-                    </div>
-                  </div>
-                )}
-                
-                {/* LP threshold (show below rank selects) */}
-                {((filters.minRank === 'MASTER_PLUS') || (filters.maxRank === 'MASTER_PLUS')) && (
-                  <div className="mt-2 relative">
-                    <select 
-                      className="w-full p-2.5 rounded-lg border text-sm transition-all appearance-none cursor-pointer" 
+                  <div className="relative">
+                    <select
+                      className="w-full p-2.5 rounded-lg border text-sm transition-all appearance-none cursor-pointer"
                       style={{
                         backgroundColor: 'var(--color-bg-tertiary)',
                         borderColor: 'var(--color-border)',
@@ -1641,81 +1543,176 @@ export default function Feed() {
                       }}
                       onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
                       onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                      value={filters.minLp} onChange={e => setFilters(prev => ({ ...prev, minLp: e.target.value }))}>
-                      <option value="">LP &gt;=</option>
-                      {['0','200','400','600','800','1000','1200'].map(lp => <option key={lp} value={lp}>{lp}+ LP</option>)}
+                      value={filters.maxDivision} onChange={e => setFilters(prev => ({ ...prev, maxDivision: e.target.value }))}>
+                      <option value="">Max Div</option>
+                      {['IV','III','II','I'].map(d => {
+                        const divOrder = ['IV','III','II','I'];
+                        const minDivIndex = filters.minDivision ? divOrder.indexOf(filters.minDivision) : -1;
+                        const currentIndex = divOrder.indexOf(d);
+                        const isDisabled = minDivIndex !== -1 && currentIndex < minDivIndex;
+                        return <option key={d} value={d} disabled={isDisabled}>{d}</option>;
+                      })}
                     </select>
                     <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
                       <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
                     </svg>
                   </div>
-                )}
-              </div>
-
-              {/* Winrate Range */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <label className="block text-xs font-medium inline-flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
-                    <SparkIcon />
-                    Winrate Range
-                  </label>
-                  <span className="text-xs font-semibold" style={{ color: getWinrateColor(winrateMaxValue) }}>
-                    {winrateMinValue}% - {winrateMaxValue}%
-                  </span>
                 </div>
-                <div
-                  className="border px-3 py-4"
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    borderColor: 'var(--color-border)',
-                    borderRadius: 'var(--border-radius)',
-                  }}
-                >
-                  <div className="relative h-8">
-                    <div
-                      className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full"
-                      style={{ background: 'linear-gradient(to right, #ef4444, #fb923c, #9ca3af, #3b82f6, #22c55e, #D4AF37, #a855f7)' }}
-                    />
-                    <div
-                      className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
-                      style={{
-                        left: `${winrateRangeLeft}%`,
-                        right: `${winrateRangeRight}%`,
-                        background: 'rgba(255,255,255,0.54)',
-                        boxShadow: `0 0 12px ${getWinrateColor(winrateMaxValue)}66`,
-                      }}
-                    />
-                    <input
-                      aria-label="Minimum winrate"
-                      className="winrate-range-input"
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={winrateMinValue}
-                      onChange={(event) => updateWinrateRange(Number(event.target.value), winrateMaxValue)}
-                      style={{ '--wr-thumb': getWinrateColor(winrateMinValue) } as React.CSSProperties}
-                    />
-                    <input
-                      aria-label="Maximum winrate"
-                      className="winrate-range-input"
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={winrateMaxValue}
-                      onChange={(event) => updateWinrateRange(winrateMinValue, Number(event.target.value))}
-                      style={{ '--wr-thumb': getWinrateColor(winrateMaxValue) } as React.CSSProperties}
-                    />
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-[11px] font-semibold" style={{ color: 'var(--color-text-muted)' }}>
-                    {[0, 40, 50, 65, 80, 100].map(value => (
-                      <span key={value} style={{ color: getWinrateColor(value) }}>{value}%</span>
-                    ))}
-                  </div>
+              )}
+
+              {/* LP threshold (show below rank slider) */}
+              {((filters.minRank === 'MASTER_PLUS') || (filters.maxRank === 'MASTER_PLUS')) && (
+                <div className="mt-2 relative">
+                  <select
+                    className="w-full p-2.5 rounded-lg border text-sm transition-all appearance-none cursor-pointer"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                      paddingRight: '2.5rem'
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
+                    value={filters.minLp} onChange={e => setFilters(prev => ({ ...prev, minLp: e.target.value }))}>
+                    <option value="">LP &gt;=</option>
+                    {['0','200','400','600','800','1000','1200'].map(lp => <option key={lp} value={lp}>{lp}+ LP</option>)}
+                  </select>
+                  <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
+                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M6 8l4 4 4-4" />
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            {/* Winrate Range */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="block text-xs font-medium inline-flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
+                  <SparkIcon />
+                  Winrate Range
+                </label>
+                <span className="text-xs font-semibold" style={{ color: getWinrateColor(winrateMaxValue) }}>
+                  {winrateMinValue}% - {winrateMaxValue}%
+                </span>
+              </div>
+              <div
+                className="border px-3 py-4"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  borderColor: 'var(--color-border)',
+                  borderRadius: 'var(--border-radius)',
+                }}
+              >
+                <div className="relative h-8">
+                  <div
+                    className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full"
+                    style={{ background: 'linear-gradient(to right, #ef4444, #fb923c, #9ca3af, #3b82f6, #22c55e, #D4AF37, #a855f7)' }}
+                  />
+                  <div
+                    className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
+                    style={{
+                      left: `${winrateRangeLeft}%`,
+                      right: `${winrateRangeRight}%`,
+                      background: 'rgba(255,255,255,0.54)',
+                      boxShadow: `0 0 12px ${getWinrateColor(winrateMaxValue)}66`,
+                    }}
+                  />
+                  <input
+                    aria-label="Minimum winrate"
+                    className="winrate-range-input"
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={winrateMinValue}
+                    onChange={(event) => updateWinrateRange(Number(event.target.value), winrateMaxValue)}
+                    style={{ '--wr-thumb': getWinrateColor(winrateMinValue) } as React.CSSProperties}
+                  />
+                  <input
+                    aria-label="Maximum winrate"
+                    className="winrate-range-input"
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={winrateMaxValue}
+                    onChange={(event) => updateWinrateRange(winrateMinValue, Number(event.target.value))}
+                    style={{ '--wr-thumb': getWinrateColor(winrateMaxValue) } as React.CSSProperties}
+                  />
+                </div>
+                <div className="mt-3 flex items-center justify-between text-[11px] font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+                  {[0, 40, 50, 65, 80, 100].map(value => (
+                    <span key={value} style={{ color: getWinrateColor(value) }}>{value}%</span>
+                  ))}
                 </div>
               </div>
+            </div>
+          </div>
 
+          {/* Advanced Filters */}
+          {moreFiltersOpen && (
+          <div className="border-t pt-4" style={{ borderColor: 'var(--color-border)' }}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Voice Chat</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: '', label: 'Any' },
+                    { value: 'ALWAYS', label: 'Always' },
+                    { value: 'SOMETIMES', label: 'Sometimes' },
+                    { value: 'NEVER', label: 'Never' },
+                  ].map((option) => {
+                    const selected = filters.vcPreference === option.value;
+                    return (
+                      <button
+                        key={`vc-${option.value || 'all'}`}
+                        type="button"
+                        onClick={() => setFilters(prev => ({ ...prev, vcPreference: option.value }))}
+                        className="min-h-10 px-2 py-2 border text-xs font-semibold transition-all flex items-center justify-center gap-1"
+                        style={{
+                          backgroundColor: selected ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
+                          borderColor: selected ? 'var(--color-accent-1)' : 'var(--color-border)',
+                          color: selected ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+                          borderRadius: 'var(--border-radius)',
+                        }}
+                      >
+                        <MicIcon />
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Looking For</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: '', label: 'Any' },
+                    { value: 'SHORT_TERM', label: 'Short' },
+                    { value: 'LONG_TERM', label: 'Long' },
+                    { value: 'BOTH', label: 'Both' },
+                  ].map((option) => {
+                    const selected = filters.duoType === option.value;
+                    return (
+                      <button
+                        key={`duo-${option.value || 'all'}`}
+                        type="button"
+                        onClick={() => setFilters(prev => ({ ...prev, duoType: option.value }))}
+                        className="min-h-10 px-2 py-2 border text-xs font-semibold transition-all flex items-center justify-center gap-1"
+                        style={{
+                          backgroundColor: selected ? 'var(--color-accent-2)' : 'var(--color-bg-tertiary)',
+                          borderColor: selected ? 'var(--color-accent-2)' : 'var(--color-border)',
+                          color: selected ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+                          borderRadius: 'var(--border-radius)',
+                        }}
+                      >
+                        <DuoIcon />
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               {/* Smurf Filter */}
               <div className="space-y-2">
                 <label className="block text-xs font-medium inline-flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>

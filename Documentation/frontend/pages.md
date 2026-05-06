@@ -70,7 +70,7 @@
 - **Client-side Filters**: Rank range, divisions, LP threshold (Master+), winrate range, smurf status (applied after fetch)
 - **Filter UX**: Region, role, language, voice chat, duo type, verification, rank, winrate, and smurf filters use icon/text affordances where practical; region/language/role filters render as wrapping checkbox chips so controls are not clipped.
 - **Checkbox Rendering**: Filter chip checkboxes use app-drawn boxes and centered check marks instead of browser-native styling, keeping them visible across Classic Dark and other themes.
-- **More Filters Drawer**: Rank, division, LP, winrate, and smurf controls live behind a "More Filters" button to keep the default filter surface readable.
+- **More Filters Drawer**: Voice chat preference, looking-for duration, and smurf status live behind a "More Filters" button so the default filter surface prioritizes account, rank, and winrate discovery.
 - **Rank Range Slider**: Rank filtering uses a two-thumb slider from Iron to Master+ with icon-only tick marks; Master+ uses the Master emblem and full-span ranges are stored as empty filters so default queries stay clean.
 - **Winrate Range Slider**: Winrate filtering uses a two-thumb 0-100 slider styled with the same red/orange/grey/blue/green/gold/purple winrate scale used by feed badges.
 - **Active Filters Display**: Removable icon-backed pills showing current filters above the feed, including advanced filters.

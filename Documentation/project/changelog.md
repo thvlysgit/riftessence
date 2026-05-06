@@ -4,6 +4,30 @@
 
 ---
 
+## 2026-05-07 - Duo Feed Primary Rank and Winrate Filters
+
+### Objective: Put the most scannable duo filters on the default surface
+
+Overview: Rebalanced the duo feed filter layout so rank and winrate ranges are always visible, while voice chat preference and short/long-term intent move into the "More Filters" drawer with smurf status.
+
+Changes:
+
+- Updated [apps/web/pages/feed.tsx](apps/web/pages/feed.tsx):
+  - Moved Rank Range and Winrate Range from the advanced drawer into the primary filter grid.
+  - Moved Voice Chat and Looking For controls into the "More Filters" drawer.
+  - Updated the "More Filters" active count to track only drawer-owned filters.
+- Updated [Documentation/frontend/pages.md](Documentation/frontend/pages.md):
+  - Documented the new default vs drawer filter split.
+
+Validation:
+
+- `pnpm --filter @lfd/web exec tsc -p tsconfig.json --noEmit` passes.
+- `pnpm --filter @lfd/web lint` passes.
+- `git diff --check` reports no whitespace errors; only Windows line-ending normalization warnings.
+- Local dev server starts on `http://localhost:3001`; `/feed` responds with HTTP 200.
+
+---
+
 ## 2026-05-07 - Feed Verification and Roster Account Reliability
 
 ### Objective: Fix feed filter correctness and make Discord/team Riot account displays reliable
