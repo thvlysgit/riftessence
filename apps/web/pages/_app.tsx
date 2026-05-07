@@ -163,7 +163,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
   const pageTitle = pageProps.ssrTitle || routeTitle || 'RiftEssence - The League of Legends Community Platform';
   const pageDescription = pageProps.ssrDescription || 'Find your duo partner, join a team, get free coaching and share matchup knowledge. The all-in-one platform for the LoL community.';
   const pageUrl = pageProps.ssrUrl || `${SITE_URL}${router.asPath === '/' ? '' : router.asPath.split('#')[0]}`;
-  const pageOgImage = pageProps.ssrOgImage || `${SITE_URL}/api/og/app`;
+  const pageOgImage = `${SITE_URL}/api/og/app`;
 
   // Track new visitors on app load
   useEffect(() => {

@@ -17,12 +17,14 @@ const defaultKeywords = 'League of Legends, LoL, LFD, Looking for Duo, LFT, Look
 export default function SEOHead({ 
   title = defaultTitle, 
   description = defaultDescription,
-  ogImage = defaultOgImage,
+  ogImage: _ogImage = defaultOgImage,
   path = '',
   keywords = defaultKeywords
 }: SEOHeadProps) {
+  void _ogImage;
   const fullTitle = title === defaultTitle ? title : `${title} | RiftEssence`;
   const url = `${baseUrl}${path}`;
+  const ogImage = defaultOgImage;
   
   return (
     <Head>
