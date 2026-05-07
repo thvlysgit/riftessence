@@ -7,7 +7,7 @@ The Open Graph (OG) image is displayed when you share RiftEssence links on Disco
 RiftEssence uses one global branded Edge OG image for every public link:
 
 - `/api/og/app` — default app showcase image
-`_app.tsx` always publishes `/api/og/app` for `og:image` and `twitter:image`, even when pages provide older `ssrOgImage` props. `SEOHead` also ignores per-page `ogImage` overrides so Discord receives one consistent brand image.
+`_app.tsx` and `SEOHead` publish the shared image through `globalOgImageUrl()` in `apps/web/utils/ogImage.ts`. The URL includes a version query string because Discord and OG validators can cache image URLs aggressively.
 
 The global OG template is designed as a fixed 1200x630 share surface with bounded copy areas. Keep text short and avoid dynamic user content; the image should sell the brand and core features without risking text collision in Discord previews.
 

@@ -20,6 +20,7 @@ import { trackNewVisitor } from '../utils/analytics';
 import { Analytics } from '@vercel/analytics/react';
 import { OnboardingProvider } from '../contexts/OnboardingContext';
 import GlobalOnboardingModal from '../components/GlobalOnboardingModal';
+import { globalOgImageUrl } from '../utils/ogImage';
 
 const queryClient = new QueryClient();
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -163,7 +164,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
   const pageTitle = pageProps.ssrTitle || routeTitle || 'RiftEssence - The League of Legends Community Platform';
   const pageDescription = pageProps.ssrDescription || 'Find your duo partner, join a team, get free coaching and share matchup knowledge. The all-in-one platform for the LoL community.';
   const pageUrl = pageProps.ssrUrl || `${SITE_URL}${router.asPath === '/' ? '' : router.asPath.split('#')[0]}`;
-  const pageOgImage = `${SITE_URL}/api/og/app`;
+  const pageOgImage = globalOgImageUrl(SITE_URL);
 
   // Track new visitors on app load
   useEffect(() => {
@@ -213,6 +214,9 @@ export default function App({ Component, pageProps, router }: AppProps) {
         <meta key="og:title" property="og:title" content={pageTitle} />
         <meta key="og:description" property="og:description" content={pageDescription} />
         <meta key="og:image" property="og:image" content={pageOgImage} />
+        <meta key="og:image:secure_url" property="og:image:secure_url" content={pageOgImage} />
+        <meta key="og:image:type" property="og:image:type" content="image/png" />
+        <meta key="og:image:alt" property="og:image:alt" content="RiftEssence - Find better League teammates with duo posts, team rosters, player ratings, and coaching." />
         <meta key="og:image:width" property="og:image:width" content="1200" />
         <meta key="og:image:height" property="og:image:height" content="630" />
         <meta key="twitter:card" name="twitter:card" content="summary_large_image" />
@@ -220,6 +224,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
         <meta key="twitter:title" name="twitter:title" content={pageTitle} />
         <meta key="twitter:description" name="twitter:description" content={pageDescription} />
         <meta key="twitter:image" name="twitter:image" content={pageOgImage} />
+        <meta key="twitter:image:alt" name="twitter:image:alt" content="RiftEssence - Find better League teammates with duo posts, team rosters, player ratings, and coaching." />
         <meta name="keywords" content="league of legends duo finder, lol duo partner, league of legends duo queue, lol ranked duo, duo partner lol, LoL duo finder, find duo partner, lol duo NA, lol duo EUW, lol duo EUNE, lol duo KR, duo partner lol plat, duo partner lol diamond, duo partner lol gold, League of Legends, LoL, LFD, Looking for Duo, LFT, Looking for Team, Coaching LoL, Matchups LoL" />
         
         {/* Favicon */}
