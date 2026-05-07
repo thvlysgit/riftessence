@@ -21,7 +21,7 @@ export default function TermsOfServicePage() {
             Terms of Service
           </h1>
           <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            Last Updated: March 29, 2026
+            Last Updated: May 7, 2026
           </p>
         </div>
 
@@ -53,8 +53,8 @@ export default function TermsOfServicePage() {
               To use certain features, you must create an account:
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
-              <li>You must authenticate using a valid Discord account or Riot Games account</li>
-              <li>If using Riot Sign-On (RSO), you authorize us to access your Riot Games account information as permitted by Riot Games</li>
+              <li>You may authenticate using a RiftEssence account, Discord account, or approved Riot Games authentication flow when available</li>
+              <li>If Riot Sign-On (RSO) is enabled for RiftEssence, you authorize us to access only the Riot Games account information and scopes you approve through Riot&apos;s OAuth flow</li>
               <li>You must provide accurate and complete information</li>
               <li>You are responsible for maintaining the security of your account</li>
               <li>You must notify us immediately of any unauthorized access</li>
@@ -157,12 +157,12 @@ export default function TermsOfServicePage() {
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
               <li>Discord OAuth for authentication</li>
-              <li>Riot Sign-On (RSO) for Riot Games account authentication and verification</li>
+              <li>Riot Sign-On (RSO), when approved and enabled, for Riot Games account authentication and verification</li>
               <li>Discord DM notifications: linked Discord accounts receive in-app chat message previews, team event updates, and admin announcements by default via the RiftEssence bot. You can disable this at any time in your settings. Message delivery depends on your Discord privacy settings</li>
               <li>Riot Games API for League of Legends data and account information</li>
               <li>Cloudflare for security and bot protection</li>
               <li>These services have their own terms and privacy policies</li>
-              <li>By using Riot Sign-On, you agree to Riot Games&apos; Terms of Service and Privacy Policy</li>
+              <li>By using Riot Sign-On when available, you agree to Riot Games&apos; Terms of Service and Privacy Policy</li>
             </ul>
           </section>
 

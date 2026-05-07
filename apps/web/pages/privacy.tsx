@@ -21,7 +21,7 @@ export default function PrivacyPolicyPage() {
             Privacy Policy
           </h1>
           <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            Last Updated: March 29, 2026
+            Last Updated: May 7, 2026
           </p>
         </div>
 
@@ -39,9 +39,9 @@ export default function PrivacyPolicyPage() {
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
               <li>Discord Account Information: Username, user ID, avatar, and email when you authenticate via Discord OAuth</li>
-              <li>Riot Games Account Information (via Riot Sign-On): When you authenticate using RSO, we collect your PUUID (Player Universal Unique Identifier), summoner name, tagline, region, account verification status, and associated game data</li>
+              <li>Riot Games Account Information: We collect Riot ID, PUUID (Player Universal Unique Identifier), region, account verification status, and associated game data when you link or verify a Riot account. If Riot Sign-On is approved and enabled, this data is collected only through the Riot OAuth scopes you authorize</li>
               <li>Riot Games Data (via API): Rank, division, LP, match history, champion statistics, profile icon, and other publicly available game data from Riot Games</li>
-              <li>Authentication Tokens: Secure OAuth tokens from Discord and Riot Games to maintain your authenticated session</li>
+              <li>Authentication Tokens: Secure OAuth tokens from Discord, and Riot Games tokens only if Riot Sign-On is approved and enabled, to maintain authorized integrations</li>
               <li>Profile Information: Bio, roles, champions, language preferences, and other data you provide</li>
               <li>Posts and Content: LFT posts, community posts, comments, and ratings you create</li>
               <li>Usage Data: Pages visited, interactions, and feature usage (if analytics implemented)</li>
@@ -57,7 +57,7 @@ export default function PrivacyPolicyPage() {
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
               <li>Provide and maintain the platform services</li>
-              <li>Authenticate your account via Discord OAuth or Riot Sign-On and maintain your session</li>
+              <li>Authenticate your account via Discord OAuth, RiftEssence credentials, or Riot Sign-On when approved and enabled</li>
               <li>Verify your Riot Games account ownership and link it to your profile</li>
               <li>Retrieve and display your League of Legends game statistics, rank, match history, and champion data</li>
               <li>Display your profile information to other users</li>
@@ -79,8 +79,8 @@ export default function PrivacyPolicyPage() {
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
               <li>With Other Users: Your profile information and posts are visible to other platform users</li>
-              <li>Third-Party Services: Discord for authentication, Riot Games for authentication and game data via RSO and Riot API, Cloudflare for security</li>
-              <li>Riot Games: We access your Riot Games data through their official API and RSO in accordance with their Developer Terms of Service. We do not share your data with Riot Games beyond what is required for authentication</li>
+              <li>Third-Party Services: Discord for authentication and optional notifications, Riot Games for game data via official Riot API and Riot Sign-On when approved and enabled, Cloudflare for security</li>
+              <li>Riot Games: We access Riot Games data through official Riot services in accordance with Riot Developer Terms. We do not sell Riot account data or share it with unrelated third parties</li>
               <li>Discord DM Notifications: linked Discord accounts receive chat previews, team event updates, and announcements by default via the RiftEssence bot. You can disable this at any time from your settings</li>
               <li>Legal Requirements: When required by law or to protect rights and safety</li>
             </ul>
@@ -94,7 +94,7 @@ export default function PrivacyPolicyPage() {
               We implement security measures to protect your information:
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
-              <li>Encrypted Storage: OAuth tokens from Discord and Riot Games are stored securely</li>
+              <li>Encrypted Storage: OAuth tokens from Discord, and Riot Games tokens if Riot Sign-On is approved and enabled, are stored securely</li>
               <li>Password Hashing: Passwords are hashed using bcrypt</li>
               <li>JWT Tokens: Secure authentication tokens with 7-day expiration</li>
               <li>HTTPS: All data transmitted over secure connections (TLS/SSL)</li>
@@ -175,7 +175,7 @@ export default function PrivacyPolicyPage() {
             </p>
             <ul className="list-disc pl-6 mb-4 space-y-2" style={{ color: 'var(--color-text-secondary)' }}>
               <li>Discord: For account authentication (OAuth 2.0) and optional chat message DM notifications</li>
-              <li>Riot Games Sign-On (RSO): For secure Riot Games account authentication via OAuth 2.0. When you use RSO, you authorize us to access your account information as permitted by Riot Games</li>
+              <li>Riot Games Sign-On (RSO): When approved and enabled, for secure Riot Games account authentication via OAuth 2.0. When you use RSO, you authorize us to access account information through Riot-approved scopes</li>
               <li>Riot Games API: For League of Legends account verification, match history, champion statistics, and other publicly available game data</li>
               <li>Cloudflare: For security, DDoS protection, and Turnstile bot prevention</li>
             </ul>

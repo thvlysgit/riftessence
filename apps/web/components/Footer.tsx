@@ -92,6 +92,11 @@ export default function Footer() {
                   Developer API
                 </Link>
               </li>
+              <li>
+                <Link href="/riot" className="text-sm hover:underline" style={{ color: 'var(--color-text-muted)' }}>
+                  Riot API Review
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
