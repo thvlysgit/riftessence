@@ -23,15 +23,25 @@
   --color-warning: #f59e0b;
   --border-radius: 0.75rem;
   --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -1px rgb(0 0 0 / 0.2);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -1px rgb(0 0 0 / 0.2);
   --shadow-lg: 0 10px 20px -5px rgb(0 0 0 / 0.5), 0 6px 10px -3px rgb(0 0 0 / 0.3);
   --border-width: 1px;
   
   /* Additional variables for enhanced styling */
   --bg-card: #1F1F23;
+  --bg-main: #0B0D12;
+  --bg-secondary: #1A1A1D;
+  --bg-elevated: rgba(26, 26, 29, 0.82);
+  --bg-tooltip: rgba(11, 13, 18, 0.94);
+  --color-card: #1F1F23;
   --border-card: #3B3B3F;
   --text-main: #F5F5F5;
+  --color-text-main: #F5F5F5;
+  --text-primary: #F5F5F5;
   --text-secondary: #C4C4C4;
   --text-muted: #888888;
+  --text-error: #ef4444;
   --accent-primary: #C8AA6E;
   --accent-primary-bg: rgba(200, 170, 110, 0.15);
   --accent-primary-border: rgba(200, 170, 110, 0.4);
@@ -42,9 +52,17 @@
   --accent-success: #22c55e;
   --accent-success-bg: rgba(34, 197, 94, 0.15);
   --accent-success-border: rgba(34, 197, 94, 0.4);
+  --accent-warning: #f59e0b;
   --accent-danger: #ef4444;
   --accent-danger-bg: rgba(239, 68, 68, 0.15);
   --accent-danger-border: rgba(239, 68, 68, 0.4);
+  --color-accent-primary-bg: rgba(200, 170, 110, 0.15);
+  --color-accent-primary-border: rgba(200, 170, 110, 0.4);
+  --color-accent-success-bg: rgba(34, 197, 94, 0.15);
+  --color-accent-danger-bg: rgba(239, 68, 68, 0.15);
+  --color-accent-danger-border: rgba(239, 68, 68, 0.4);
+  --color-accent-warning-bg: rgba(245, 158, 11, 0.15);
+  --color-accent-warning-border: rgba(245, 158, 11, 0.4);
   --accent-discord: #5865F2;
   --accent-discord-bg: rgba(88, 101, 242, 0.15);
   --accent-discord-border: rgba(88, 101, 242, 0.4);
@@ -52,8 +70,13 @@
   --accent-info-bg: rgba(59, 130, 246, 0.15);
   --accent-info-border: rgba(59, 130, 246, 0.4);
   --btn-disabled-bg: #2B2B2F;
+  --btn-disabled-text: #888888;
+  --btn-cancel-bg: #2B2B2F;
+  --btn-cancel-text: #C4C4C4;
   --color-accent-1-bg: rgba(200, 170, 110, 0.15);
   --color-accent-1-border: rgba(200, 170, 110, 0.4);
+  --theme-surface-bg: linear-gradient(145deg, rgba(31, 31, 35, 0.72) 0%, rgba(43, 43, 47, 0.36) 100%);
+  --theme-surface-border: rgba(200, 170, 110, 0.18);
 
   --font-body: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   --font-heading: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -687,6 +710,30 @@ button:disabled,
 
 .theme-section-shell-strong::before {
   opacity: calc(var(--theme-motif-opacity) * 1.05);
+}
+
+.theme-premium-surface {
+  position: relative;
+  overflow: hidden;
+  background: var(--theme-surface-bg);
+  border: var(--border-width) solid var(--theme-surface-border);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(14px);
+}
+
+.theme-premium-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--theme-surface-motif);
+  opacity: calc(var(--theme-motif-opacity) * 0.72);
+}
+
+.theme-premium-surface > * {
+  position: relative;
+  z-index: 1;
 }
 
 html, body, #__next {

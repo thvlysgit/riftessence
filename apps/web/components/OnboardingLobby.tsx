@@ -87,17 +87,12 @@ export default function OnboardingLobby() {
 
   return (
     <section
-      className="mt-10 overflow-hidden rounded-[32px] border"
-      style={{
-        borderColor: 'rgba(148, 163, 184, 0.16)',
-        background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.97) 0%, rgba(2, 6, 23, 0.98) 100%)',
-        boxShadow: '0 24px 72px rgba(2, 6, 23, 0.32)',
-      }}
+      className="theme-premium-surface mt-10 overflow-hidden rounded-2xl"
     >
       <div className="p-6 sm:p-8 lg:p-10 space-y-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ borderColor: 'rgba(148, 163, 184, 0.18)', backgroundColor: 'rgba(15, 23, 42, 0.72)', color: 'rgba(226, 232, 240, 0.72)' }}>
+            <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase" style={{ borderColor: 'var(--accent-primary-border)', backgroundColor: 'var(--bg-elevated)', color: 'var(--color-text-secondary)', letterSpacing: '0.16em' }}>
               <span className="h-2 w-2 rounded-full" style={{ background: 'linear-gradient(135deg, var(--color-accent-1), var(--color-accent-2))' }} />
               Onboarding studio
             </div>
@@ -112,17 +107,17 @@ export default function OnboardingLobby() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:min-w-[320px]">
-            <div className="rounded-2xl border p-4" style={{ borderColor: 'rgba(148, 163, 184, 0.16)', backgroundColor: 'rgba(15, 23, 42, 0.72)' }}>
+            <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--bg-elevated)' }}>
               <div className="text-2xl font-black" style={{ color: 'var(--color-text-primary)' }}>{FLOW_ORDER.length}</div>
-              <div className="mt-1 text-[11px] uppercase tracking-[0.18em]" style={{ color: 'rgba(226, 232, 240, 0.56)' }}>Guides</div>
+              <div className="mt-1 text-[11px] uppercase" style={{ color: 'var(--color-text-muted)', letterSpacing: '0.16em' }}>Guides</div>
             </div>
-            <div className="rounded-2xl border p-4" style={{ borderColor: 'rgba(148, 163, 184, 0.16)', backgroundColor: 'rgba(15, 23, 42, 0.72)' }}>
+            <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--bg-elevated)' }}>
               <div className="text-2xl font-black" style={{ color: 'var(--color-text-primary)' }}>{inProgressCount}</div>
-              <div className="mt-1 text-[11px] uppercase tracking-[0.18em]" style={{ color: 'rgba(226, 232, 240, 0.56)' }}>Running</div>
+              <div className="mt-1 text-[11px] uppercase" style={{ color: 'var(--color-text-muted)', letterSpacing: '0.16em' }}>Running</div>
             </div>
-            <div className="rounded-2xl border p-4" style={{ borderColor: 'rgba(148, 163, 184, 0.16)', backgroundColor: 'rgba(15, 23, 42, 0.72)' }}>
+            <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--bg-elevated)' }}>
               <div className="text-2xl font-black" style={{ color: 'var(--color-text-primary)' }}>{completeCount}</div>
-              <div className="mt-1 text-[11px] uppercase tracking-[0.18em]" style={{ color: 'rgba(226, 232, 240, 0.56)' }}>Finished</div>
+              <div className="mt-1 text-[11px] uppercase" style={{ color: 'var(--color-text-muted)', letterSpacing: '0.16em' }}>Finished</div>
             </div>
           </div>
         </div>
@@ -138,11 +133,7 @@ export default function OnboardingLobby() {
             return (
               <article
                 key={flowId}
-                className="group relative overflow-hidden rounded-[28px] border transition-transform duration-300 hover:-translate-y-1"
-                style={{
-                  borderColor: 'rgba(148, 163, 184, 0.16)',
-                  background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(15, 23, 42, 0.88) 100%)',
-                }}
+                className="theme-premium-surface group relative rounded-2xl transition-transform duration-300 hover:-translate-y-1"
               >
                 <div className="absolute inset-x-0 top-0 h-1" style={{ background: meta.accent }} />
                 <div className="p-5 space-y-4">
@@ -152,7 +143,7 @@ export default function OnboardingLobby() {
                         <Icon className="h-6 w-6" />
                       </div>
                       <div className="min-w-0 space-y-1">
-                        <div className="inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ borderColor: meta.accent, color: meta.accent, backgroundColor: 'rgba(15, 23, 42, 0.65)' }}>
+                        <div className="inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase" style={{ borderColor: meta.accent, color: meta.accent, backgroundColor: 'var(--bg-elevated)', letterSpacing: '0.14em' }}>
                           {statusLabel}
                         </div>
                         <h3 className="text-xl font-black leading-snug tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
@@ -170,7 +161,7 @@ export default function OnboardingLobby() {
                     {meta.summary}
                   </p>
 
-                  <div className="h-2 overflow-hidden rounded-full" style={{ backgroundColor: 'rgba(148, 163, 184, 0.14)' }}>
+                  <div className="h-2 overflow-hidden rounded-full" style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
                     <div className="h-full rounded-full" style={{ width: `${progress}%`, background: meta.accent }} />
                   </div>
 
@@ -179,7 +170,7 @@ export default function OnboardingLobby() {
                     className="w-full rounded-2xl border px-4 py-3.5 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5"
                     style={{
                       borderColor: meta.accent,
-                      backgroundColor: 'rgba(15, 23, 42, 0.82)',
+                      backgroundColor: 'var(--bg-elevated)',
                       color: 'var(--color-text-primary)',
                     }}
                   >

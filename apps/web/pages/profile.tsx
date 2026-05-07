@@ -1727,7 +1727,7 @@ export default function ProfilePage() {
     : '';
   
   return (
-    <div className="min-h-screen py-8 px-4" style={{ background: 'var(--color-bg-primary)' }}>
+    <div className="min-h-screen py-8 px-4" style={{ background: 'transparent' }}>
       {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx global>{`
         @keyframes rainbow {
@@ -1746,7 +1746,7 @@ export default function ProfilePage() {
           }
         }
       `}</style>
-        <div className="max-w-5xl mx-auto space-y-6">
+        <div className="max-w-6xl mx-auto space-y-6">
         
         {/* Edit Mode Toggle + Refresh Stats */}
         <div className="flex flex-wrap justify-end gap-2">
@@ -1832,8 +1832,7 @@ export default function ProfilePage() {
 
         {/* Profile Header */}
         <div
-          className={`rounded-xl p-4 sm:p-6 profile-card-shell ${profileVisualEffectClass}`.trim()}
-          style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}
+          className={`theme-premium-surface rounded-2xl p-4 sm:p-6 profile-card-shell ${profileVisualEffectClass}`.trim()}
         >
           <div className="space-y-6">
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
@@ -1863,9 +1862,9 @@ export default function ProfilePage() {
                     <div
                       className="min-w-0 flex-1 rounded-xl border px-4 py-3"
                       style={{
-                        background: 'linear-gradient(140deg, rgba(15,23,42,0.72), rgba(30,41,59,0.58))',
+                        background: 'var(--bg-elevated)',
                         borderColor: 'var(--accent-primary-border)',
-                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
+                        boxShadow: 'var(--shadow-sm)',
                       }}
                     >
                       <p className="text-[10px] uppercase tracking-[0.18em] mb-1" style={{ color: 'var(--text-secondary)' }}>
@@ -1923,7 +1922,7 @@ export default function ProfilePage() {
                       }}
                       className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-85"
                       style={{
-                        background: 'linear-gradient(140deg, rgba(51,65,85,0.42), rgba(30,41,59,0.66))',
+                        background: 'var(--bg-elevated)',
                         border: '1px solid var(--accent-primary-border)',
                         color: 'var(--text-main)',
                       }}
@@ -1983,7 +1982,7 @@ export default function ProfilePage() {
                 )}
 
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  <div className="rounded-lg border px-3 py-2.5" style={{ background: 'rgba(15,23,42,0.42)', borderColor: 'var(--border-card)' }}>
+                  <div className="rounded-lg border px-3 py-2.5" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-card)' }}>
                     <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Skill ({user.feedback.length} ratings)</p>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center space-x-1">
@@ -2003,7 +2002,7 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
-                  <div className="rounded-lg border px-3 py-2.5" style={{ background: 'rgba(15,23,42,0.42)', borderColor: 'var(--border-card)' }}>
+                  <div className="rounded-lg border px-3 py-2.5" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-card)' }}>
                     <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Personality ({user.feedback.length} ratings)</p>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center space-x-1">
@@ -2026,11 +2025,11 @@ export default function ProfilePage() {
                   </div>
 
                   {user.reportCount > 0 && (
-                    <div className="rounded-lg border px-3 py-2.5" style={{ background: 'rgba(127,29,29,0.22)', borderColor: 'rgba(239,68,68,0.38)' }}>
-                      <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: '#fca5a5' }}>Status</p>
+                    <div className="rounded-lg border px-3 py-2.5" style={{ background: 'var(--accent-danger-bg)', borderColor: 'var(--accent-danger-border)' }}>
+                      <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: 'var(--accent-danger)' }}>Status</p>
                       <div className="flex items-center gap-2">
                         {user.reportCount > 3 ? (
-                          <span className="text-sm font-medium px-2 py-1 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}>⚠️ Flagged</span>
+                          <span className="text-sm font-medium px-2 py-1 rounded" style={{ backgroundColor: 'var(--accent-danger-bg)', color: 'var(--accent-danger)' }}>⚠️ Flagged</span>
                         ) : (
                           <>
                             <span className="text-2xl">💀</span>
@@ -2047,7 +2046,7 @@ export default function ProfilePage() {
                 <div
                   className="rounded-xl border p-4 sm:p-5"
                   style={{
-                    background: 'var(--bg-input)',
+                    background: 'var(--bg-elevated)',
                     border: '1px solid var(--border-card)',
                     boxShadow: 'var(--shadow)',
                   }}
@@ -2116,7 +2115,7 @@ export default function ProfilePage() {
               <div
                 className="rounded-xl border p-4 sm:p-5"
                 style={{
-                  background: 'linear-gradient(150deg, rgba(15,23,42,0.72), rgba(30,41,59,0.56))',
+                  background: 'var(--bg-elevated)',
                   border: '1px solid var(--accent-primary-border)',
                   boxShadow: 'var(--shadow)',
                 }}
@@ -2140,7 +2139,7 @@ export default function ProfilePage() {
                   )}
                 </div>
 
-                <div className="rounded-lg border px-3 py-3 min-h-[148px]" style={{ background: 'rgba(15,23,42,0.52)', borderColor: 'var(--border-card)' }}>
+                <div className="rounded-lg border px-3 py-3 min-h-[148px]" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)' }}>
                   {isEditMode ? (
                     <>
                       <textarea
@@ -2196,8 +2195,8 @@ export default function ProfilePage() {
               <div
                 className="rounded-xl border p-4 sm:p-5"
                 style={{
-                  background: 'linear-gradient(150deg, rgba(30,41,59,0.7), rgba(15,23,42,0.58))',
-                  border: '1px solid rgba(250,204,21,0.28)',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--accent-primary-border)',
                   boxShadow: 'var(--shadow)',
                 }}
               >
@@ -2216,14 +2215,14 @@ export default function ProfilePage() {
                 {user.riotAccounts && user.riotAccounts.length > 0 ? (
                   <>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-lg p-3 border" style={{ background: 'linear-gradient(140deg, rgba(37,99,235,0.18), rgba(15,23,42,0.45))', borderColor: 'rgba(59,130,246,0.35)' }}>
+                      <div className="rounded-lg p-3 border" style={{ background: 'linear-gradient(140deg, rgba(37,99,235,0.18), var(--bg-card))', borderColor: 'rgba(59,130,246,0.35)' }}>
                         <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: '#bfdbfe' }}>{t('profile.activity.24h')}</p>
                         <div className="flex items-baseline gap-1.5">
                           <span className="text-3xl font-extrabold" style={{ color: '#dbeafe' }}>{user.gamesPerDay || 0}</span>
                           <span className="text-xs" style={{ color: '#bfdbfe' }}>{t('profile.activity.games')}</span>
                         </div>
                       </div>
-                      <div className="rounded-lg p-3 border" style={{ background: 'linear-gradient(140deg, rgba(217,119,6,0.18), rgba(15,23,42,0.45))', borderColor: 'rgba(245,158,11,0.35)' }}>
+                      <div className="rounded-lg p-3 border" style={{ background: 'linear-gradient(140deg, rgba(217,119,6,0.18), var(--bg-card))', borderColor: 'rgba(245,158,11,0.35)' }}>
                         <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: '#fde68a' }}>{t('profile.activity.7d')}</p>
                         <div className="flex items-baseline gap-1.5">
                           <span className="text-3xl font-extrabold" style={{ color: '#fef3c7' }}>{user.gamesPerWeek || 0}</span>
@@ -2335,7 +2334,7 @@ export default function ProfilePage() {
                         role="tooltip"
                         className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-[min(22rem,calc(100vw-2.5rem))] -translate-x-1/2 rounded-lg border px-3 py-2 text-xs leading-relaxed opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
                         style={{
-                          background: 'rgba(2, 6, 23, 0.96)',
+                          background: 'var(--bg-tooltip)',
                           borderColor: 'var(--accent-primary-border)',
                           color: 'var(--text-main)',
                           boxShadow: 'var(--shadow-lg)',
@@ -2345,7 +2344,7 @@ export default function ProfilePage() {
                         <span
                           className="absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border"
                           style={{
-                            background: 'rgba(2, 6, 23, 0.96)',
+                            background: 'var(--bg-tooltip)',
                             borderColor: 'var(--accent-primary-border)',
                             borderBottom: 'none',
                             borderRight: 'none',
@@ -2391,7 +2390,7 @@ export default function ProfilePage() {
                         role="tooltip"
                         className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-[min(22rem,calc(100vw-2.5rem))] -translate-x-1/2 rounded-lg border px-3 py-2 text-xs leading-relaxed opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
                         style={{
-                          background: 'rgba(2, 6, 23, 0.96)',
+                          background: 'var(--bg-tooltip)',
                           borderColor: 'var(--accent-primary-border)',
                           color: 'var(--text-main)',
                           boxShadow: 'var(--shadow-lg)',
@@ -2401,7 +2400,7 @@ export default function ProfilePage() {
                         <span
                           className="absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border"
                           style={{
-                            background: 'rgba(2, 6, 23, 0.96)',
+                            background: 'var(--bg-tooltip)',
                             borderColor: 'var(--accent-primary-border)',
                             borderBottom: 'none',
                             borderRight: 'none',
@@ -2505,7 +2504,7 @@ export default function ProfilePage() {
 
                 {/* Search results */}
                 {championInput.trim().length > 0 && (
-                  <div className="rounded-lg p-3 mb-4" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-card)' }}>
+                  <div className="rounded-lg p-3 mb-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
                     <div className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
                       Search Results - Drag to a tier
                     </div>
@@ -2661,7 +2660,7 @@ export default function ProfilePage() {
                               onDragEnd={() => setDraggedChampion(null)}
                               className="group relative flex items-center gap-2 px-3 py-2 rounded-lg cursor-grab active:cursor-grabbing transition-all hover:scale-105" 
                               style={{ 
-                                background: 'var(--bg-main)', 
+                                background: 'var(--bg-elevated)',
                                 border: `1px solid ${colors.border}40`,
                                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                               }}
@@ -2677,7 +2676,7 @@ export default function ProfilePage() {
                               <button 
                                 onClick={(e) => { e.stopPropagation(); removeFromTier(tier, c); }} 
                                 className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                                style={{ background: 'var(--accent-danger)', color: 'white' }}
+                                style={{ background: 'var(--accent-danger)', color: 'var(--btn-gradient-text)' }}
                               >
                                 ×
                               </button>
@@ -2999,7 +2998,7 @@ export default function ProfilePage() {
                       role="tooltip"
                       className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-56 rounded-lg border px-3 py-2 text-xs leading-relaxed opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
                       style={{
-                        background: 'rgba(2, 6, 23, 0.96)',
+                        background: 'var(--bg-tooltip)',
                         borderColor: 'var(--accent-primary-border)',
                         color: 'var(--text-main)',
                         boxShadow: 'var(--shadow-lg)',
@@ -3092,9 +3091,9 @@ export default function ProfilePage() {
             <button
               className="px-4 py-2 rounded font-bold shadow transition-colors flex items-center gap-2"
               style={{
-                backgroundColor: 'var(--bg-secondary)',
+                backgroundColor: 'var(--bg-elevated)',
                 borderColor: 'var(--border-card)',
-                color: 'var(--text-primary)',
+                color: 'var(--text-main)',
                 border: '2px solid',
               }}
               onClick={() => openConversation(user.id)}
@@ -3113,8 +3112,8 @@ export default function ProfilePage() {
             <button
               className="px-4 py-2 rounded font-bold shadow transition-opacity disabled:opacity-50"
               style={{
-                background: isBlocked ? 'var(--color-bg-tertiary)' : '#6B7280',
-                color: '#fff',
+                background: isBlocked ? 'var(--color-bg-tertiary)' : 'var(--btn-cancel-bg)',
+                color: isBlocked ? 'var(--text-secondary)' : 'var(--btn-cancel-text)',
                 border: isBlocked ? '1px solid var(--color-border)' : 'none',
               }}
               onClick={handleToggleBlock}

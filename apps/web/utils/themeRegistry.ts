@@ -234,6 +234,10 @@ export function getThemeCssVariables(theme: ThemeDefinition): Record<string, str
   const isLight = isLightHex(theme.colors.bgPrimary);
   const bgOpacity = isLight ? 0.12 : 0.18;
   const borderOpacity = isLight ? 0.35 : 0.5;
+  const surfaceOpacity = isLight ? 0.78 : 0.72;
+  const elevatedOpacity = isLight ? 0.9 : 0.82;
+  const tooltipOpacity = isLight ? 0.96 : 0.94;
+  const shadowColor = '0, 0, 0';
 
   return {
     '--color-bg-primary': theme.colors.bgPrimary,
@@ -259,6 +263,14 @@ export function getThemeCssVariables(theme: ThemeDefinition): Record<string, str
     '--text-secondary': theme.colors.textSecondary,
     '--text-muted': theme.colors.textMuted,
     '--bg-input': theme.colors.bgTertiary,
+    '--bg-main': theme.colors.bgPrimary,
+    '--bg-secondary': theme.colors.bgSecondary,
+    '--bg-elevated': `rgba(${hexToRgbChannels(theme.colors.bgSecondary)}, ${elevatedOpacity})`,
+    '--bg-tooltip': `rgba(${hexToRgbChannels(theme.colors.bgPrimary)}, ${tooltipOpacity})`,
+    '--color-card': theme.colors.bgSecondary,
+    '--color-text-main': theme.colors.textPrimary,
+    '--text-primary': theme.colors.textPrimary,
+    '--text-error': theme.colors.error,
     '--accent-primary': theme.colors.accent1,
     '--color-accent-1-rgb': accentRgb,
     '--color-accent-2-rgb': accent2Rgb,
@@ -277,12 +289,28 @@ export function getThemeCssVariables(theme: ThemeDefinition): Record<string, str
     '--accent-success': theme.colors.success,
     '--accent-success-bg': `rgba(${successRgb}, 0.15)`,
     '--accent-success-border': `rgba(${successRgb}, 0.4)`,
+    '--accent-warning': theme.colors.warning,
+    '--color-accent-primary-bg': `rgba(${accentRgb}, ${bgOpacity})`,
+    '--color-accent-primary-border': `rgba(${accentRgb}, ${borderOpacity})`,
+    '--color-accent-success-bg': `rgba(${successRgb}, 0.15)`,
+    '--color-accent-danger-bg': `rgba(${errorRgb}, 0.15)`,
+    '--color-accent-danger-border': `rgba(${errorRgb}, 0.4)`,
+    '--color-accent-warning-bg': `rgba(${hexToRgbChannels(theme.colors.warning)}, 0.15)`,
+    '--color-accent-warning-border': `rgba(${hexToRgbChannels(theme.colors.warning)}, 0.4)`,
     '--btn-gradient': `linear-gradient(135deg, rgba(${accentRgb}, ${isLight ? 0.9 : 1}) 0%, rgba(${accent2Rgb}, ${isLight ? 0.9 : 1}) 100%)`,
     '--btn-gradient-text': isLight ? '#1F2530' : '#F5F7FA',
     '--btn-disabled-bg': theme.colors.bgTertiary,
+    '--btn-disabled-text': theme.colors.textMuted,
+    '--btn-cancel-bg': theme.colors.bgTertiary,
+    '--btn-cancel-text': theme.colors.textSecondary,
     '--gradient-card': `linear-gradient(135deg, ${theme.colors.accent1}1F 0%, ${theme.colors.accent2}0D 100%)`,
+    '--shadow-sm': `0 2px 8px rgba(${shadowColor}, ${isLight ? 0.07 : 0.18})`,
+    '--shadow-md': theme.style.shadow,
+    '--shadow-lg': `0 18px 42px rgba(${shadowColor}, ${isLight ? 0.1 : 0.32})`,
     '--theme-outline-glow': `rgba(${accentRgb}, ${isLight ? 0.22 : 0.34})`,
     '--theme-soft-highlight': `rgba(${accent2Rgb}, ${isLight ? 0.2 : 0.28})`,
+    '--theme-surface-bg': `linear-gradient(145deg, rgba(${hexToRgbChannels(theme.colors.bgSecondary)}, ${surfaceOpacity}) 0%, rgba(${hexToRgbChannels(theme.colors.bgTertiary)}, ${isLight ? 0.5 : 0.36}) 100%)`,
+    '--theme-surface-border': `rgba(${accentRgb}, ${isLight ? 0.2 : 0.18})`,
     '--cursor-accent': theme.colors.accent1,
     '--cursor-accent-2': theme.colors.accent2,
     '--cursor-accent-3': theme.colors.accent3 || theme.colors.accent1,
