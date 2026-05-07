@@ -13,6 +13,8 @@ RiftEssence now uses dynamic Edge OG images for share-heavy pages:
 
 Pages should set exactly one `ssrOgImage` through server-side props when they need a feature-specific Discord embed. `_app.tsx` reads `ssrTitle`, `ssrDescription`, `ssrOgImage`, and `ssrUrl` as the shared metadata source.
 
+The current OG templates are designed as fixed 1200x630 share surfaces with bounded copy areas. Keep dynamic user text truncated before rendering instead of relying on browser-style wrapping; Satori can clip or overlap long text differently from normal CSS. Duo post images should foreground the player's own message and role intent, while keeping region as small metadata because most Discord communities already provide that context.
+
 ## Static Image Method
 
 1. **Open the template**:

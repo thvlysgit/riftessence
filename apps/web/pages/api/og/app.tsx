@@ -4,6 +4,12 @@ export const config = {
   runtime: 'edge',
 };
 
+const valueCards = [
+  ['Duo Finder', 'Share once. Replies keep rank and account context attached.', '#8BE3F9'],
+  ['Team Invites', 'Roster links show roles, spots, and next steps instantly.', '#47D889'],
+  ['Player Trust', 'Ratings stay tied to shared games, not anonymous noise.', '#F4D03F'],
+];
+
 export default async function handler() {
   return new ImageResponse(
     (
@@ -12,42 +18,43 @@ export default async function handler() {
           width: '1200px',
           height: '630px',
           display: 'flex',
-          backgroundColor: '#06101F',
+          backgroundColor: '#050B14',
           color: '#F0E6D2',
-          padding: '54px',
+          padding: '42px',
           fontFamily: 'Inter, Segoe UI, sans-serif',
         }}
       >
-        <div style={{ display: 'flex', width: '100%', height: '100%', border: '2px solid #24364D', borderRadius: '18px', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '52px', backgroundColor: '#08182B' }}>
-            <div style={{ display: 'flex', color: '#C8AA6D', fontSize: '22px', fontWeight: 800, letterSpacing: '4px' }}>
-              RIFTESSENCE
+        <div style={{ display: 'flex', width: '100%', height: '100%', border: '2px solid #223650', borderRadius: '20px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', width: '704px', padding: '50px', backgroundColor: '#08172A' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <div style={{ display: 'flex', width: '14px', height: '48px', borderRadius: '7px', backgroundColor: '#C8AA6D' }} />
+              <div style={{ display: 'flex', marginLeft: '16px', color: '#C8AA6D', fontSize: '24px', fontWeight: 900 }}>
+                RIFTESSENCE
+              </div>
             </div>
-            <div style={{ display: 'flex', marginTop: '44px', fontSize: '76px', fontWeight: 900, lineHeight: 1.02 }}>
-              Find the right League people faster.
+
+            <div style={{ display: 'flex', marginTop: '42px', height: '230px', fontSize: '62px', fontWeight: 950, lineHeight: 1.08, width: '610px', overflow: 'hidden' }}>
+              Find teammates worth adding.
             </div>
-            <div style={{ display: 'flex', marginTop: '30px', color: '#A9BDD7', fontSize: '28px', lineHeight: 1.35, maxWidth: '700px' }}>
-              Duo posts, team rosters, scrims, ratings, coaching and matchup knowledge in one community workspace.
+
+            <div style={{ display: 'flex', color: '#B7C8DD', fontSize: '27px', lineHeight: 1.28, width: '610px', height: '106px', overflow: 'hidden' }}>
+              Share duo posts, roster invites, scrims, and rating pages with the context Discord chats usually lose.
             </div>
-            <div style={{ display: 'flex', gap: '14px', marginTop: 'auto' }}>
-              {['Duo Finder', 'Teams', 'Ratings', 'Scrims'].map((label) => (
-                <div key={label} style={{ display: 'flex', padding: '12px 18px', border: '1px solid #3A5370', borderRadius: '8px', color: '#D9C98C', fontSize: '20px', fontWeight: 700 }}>
-                  {label}
+
+            <div style={{ display: 'flex', marginTop: 'auto', color: '#526A88', fontSize: '18px', fontWeight: 750 }}>
+              riftessence.app
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '42px', backgroundColor: '#0B223A', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {valueCards.map(([title, body, color]) => (
+                <div key={title} style={{ display: 'flex', flexDirection: 'column', height: '132px', padding: '21px', borderRadius: '12px', backgroundColor: '#071427', border: `1px solid ${color}` }}>
+                  <div style={{ display: 'flex', color, fontSize: '25px', fontWeight: 950 }}>{title}</div>
+                  <div style={{ display: 'flex', marginTop: '10px', color: '#A9BDD7', fontSize: '18px', lineHeight: 1.22, width: '322px', height: '64px', overflow: 'hidden' }}>{body}</div>
                 </div>
               ))}
             </div>
-          </div>
-          <div style={{ display: 'flex', width: '320px', flexDirection: 'column', justifyContent: 'center', gap: '22px', padding: '40px', backgroundColor: '#0C2138' }}>
-            {[
-              ['Queue', 'verified player context'],
-              ['Roster', 'invite and join flow'],
-              ['Trust', 'shared-game ratings'],
-            ].map(([title, body]) => (
-              <div key={title} style={{ display: 'flex', flexDirection: 'column', padding: '22px', borderRadius: '10px', backgroundColor: '#071427', border: '1px solid #24364D' }}>
-                <div style={{ display: 'flex', color: '#C8AA6D', fontSize: '24px', fontWeight: 900 }}>{title}</div>
-                <div style={{ display: 'flex', marginTop: '8px', color: '#8EA6C4', fontSize: '18px' }}>{body}</div>
-              </div>
-            ))}
           </div>
         </div>
       </div>
