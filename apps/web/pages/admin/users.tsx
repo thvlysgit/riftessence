@@ -30,6 +30,12 @@ type User = {
   createdAt: string;
   reportCount: number;
   discordDmNotifications: boolean;
+  discordAccount: {
+    discordId: string;
+    username?: string | null;
+    discriminator?: string | null;
+    createdAt: string;
+  } | null;
   isBanned: boolean;
   bannedAt?: string | null;
   badges: Badge[];
@@ -317,6 +323,9 @@ export default function AdminUsersPage() {
                       <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
                         Badges
                       </th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                        Discord
+                      </th>
                       <th className="px-6 py-3 text-center text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
                         Discord DMs
                       </th>
@@ -388,6 +397,24 @@ export default function AdminUsersPage() {
                               <span style={{ color: 'var(--color-text-muted)', opacity: 0.5 }}>No badges</span>
                             )}
                           </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                          {u.discordAccount ? (
+                            <div className="space-y-1">
+                              <span
+                                className="inline-block px-2 py-1 rounded text-xs font-semibold"
+                                style={{ backgroundColor: 'rgba(88, 101, 242, 0.18)', color: '#AEB8FF' }}
+                              >
+                                Connected
+                              </span>
+                              <div>{u.discordAccount.username || 'Discord user'}</div>
+                              <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                                ID: {u.discordAccount.discordId}
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--color-text-muted)', opacity: 0.5 }}>Not connected</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span

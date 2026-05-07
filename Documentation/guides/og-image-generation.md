@@ -2,7 +2,18 @@
 
 The Open Graph (OG) image is displayed when you share RiftEssence links on Discord, Twitter, Facebook, etc.
 
-## Quick Method (Recommended)
+## Current Dynamic OG Routes
+
+RiftEssence now uses dynamic Edge OG images for share-heavy pages:
+
+- `/api/og/app` — default app showcase image
+- `/api/og/post/:id` — Looking For Duo post card
+- `/api/og/rating/:username` — external rating page card
+- `/api/og/team/:id` — team invite/roster card
+
+Pages should set exactly one `ssrOgImage` through server-side props when they need a feature-specific Discord embed. `_app.tsx` reads `ssrTitle`, `ssrDescription`, `ssrOgImage`, and `ssrUrl` as the shared metadata source.
+
+## Static Image Method
 
 1. **Open the template**:
    - Navigate to `apps/web/public/assets/og-image-template.html`

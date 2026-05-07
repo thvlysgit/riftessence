@@ -1902,13 +1902,24 @@ export default function ProfilePage() {
 
                   {!isViewingOther && !isEditMode && (
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         const shareUrl = `${window.location.origin}/rate/${user.username}`;
-                        navigator.clipboard.writeText(shareUrl).then(() => {
-                          showToast('Rating page link copied! Share it with players you\'ve met in-game.', 'success');
-                        }).catch(() => {
+                        try {
+                          if (navigator.share) {
+                            await navigator.share({
+                              title: `Rate ${user.username} on RiftEssence`,
+                              text: 'Leave verified feedback after shared League games.',
+                              url: shareUrl,
+                            });
+                            showToast('Rating page ready to share.', 'success');
+                            return;
+                          }
+
+                          await navigator.clipboard.writeText(shareUrl);
+                          showToast('Rating page link copied.', 'success');
+                        } catch {
                           showToast('Failed to copy link', 'error');
-                        });
+                        }
                       }}
                       className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-85"
                       style={{

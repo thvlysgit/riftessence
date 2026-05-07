@@ -11,7 +11,7 @@ interface SEOHeadProps {
 const defaultTitle = 'RiftEssence - The League of Legends Community Platform';
 const defaultDescription = 'Find your duo partner, join a team, get free coaching and share matchup knowledge. The all-in-one platform for the LoL community.';
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://www.riftessence.app';
-const defaultOgImage = `${baseUrl}/assets/og-image.png`;
+const defaultOgImage = `${baseUrl}/api/og/app`;
 const defaultKeywords = 'League of Legends, LoL, LFD, Looking for Duo, LFT, Looking for Team, Coaching LoL, Matchups LoL, LoL Community';
 
 export default function SEOHead({ 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import type { GetServerSideProps, GetServerSidePropsContext } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import SEOHead from '@components/SEOHead';
@@ -96,6 +97,15 @@ interface TeamDetails {
 const PLAYER_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS'];
 const STAFF_ROLES = ['MANAGER', 'COACH'];
 const ALL_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS', 'MANAGER', 'COACH'];
+const SERVER_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://www.riftessence.app';
+
+function requestOrigin(req: GetServerSidePropsContext['req']): string {
+  const host = req.headers.host;
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const protocol = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto || 'http';
+  return host ? `${protocol}://${host}` : SITE_URL;
+}
 
 // Rank colors for visual consistency
 const getRankColor = (rank: string | null): string => {
@@ -186,7 +196,14 @@ const renderRatingStars = (rating: number): string => {
   return `${'★'.repeat(rounded)}${'☆'.repeat(5 - rounded)}`;
 };
 
-const TeamDetailPage: React.FC = () => {
+type TeamSharePageProps = {
+  ssrTitle?: string;
+  ssrDescription?: string;
+  ssrOgImage?: string;
+  ssrUrl?: string;
+};
+
+const TeamDetailPage: React.FC<TeamSharePageProps> = ({ ssrOgImage }) => {
   const router = useRouter();
   const { id } = router.query;
   const { user } = useAuth();
@@ -365,7 +382,7 @@ const TeamDetailPage: React.FC = () => {
   };
 
   const handleCopyLink = () => {
-    const url = `${window.location.origin}/teams/${id}`;
+    const url = `${window.location.origin}/teams/${id}?joinInvite=1`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -546,6 +563,7 @@ const TeamDetailPage: React.FC = () => {
         description={currentLanguage === 'fr'
           ? `Voir et gérer le roster et le planning de ${team.name}.`
           : `View and manage ${team.name} team roster and schedule.`}
+        ogImage={ssrOgImage}
         path={`/teams/${team.id}`}
       />
       <div className="min-h-screen py-10 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
@@ -726,7 +744,7 @@ const TeamDetailPage: React.FC = () => {
                           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                           <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                         </svg>
-                        Share Link
+                        Share Invite
                       </>
                     )}
                   </button>
@@ -1835,6 +1853,52 @@ const TeamDetailPage: React.FC = () => {
       )}
     </>
   );
+};
+
+export const getServerSideProps: GetServerSideProps<TeamSharePageProps> = async (context) => {
+  const id = typeof context.params?.id === 'string' ? context.params.id : '';
+  const origin = requestOrigin(context.req);
+  const pageUrl = `${origin}/teams/${encodeURIComponent(id)}${context.query.joinInvite === '1' ? '?joinInvite=1' : ''}`;
+  const ogImage = `${origin}/api/og/team/${encodeURIComponent(id)}`;
+
+  try {
+    const response = await fetch(`${SERVER_API_URL}/api/teams/${encodeURIComponent(id)}/share`);
+    if (!response.ok) {
+      return {
+        props: {
+          ssrTitle: 'Team invite | RiftEssence',
+          ssrDescription: 'Join and manage a League of Legends team roster on RiftEssence.',
+          ssrOgImage: ogImage,
+          ssrUrl: pageUrl,
+        },
+      };
+    }
+
+    const data = await response.json();
+    const team = data.team;
+    const label = team?.tag ? `${team.name} [${team.tag}]` : team?.name || 'Team';
+    const description = team?.pendingSpotCount > 0
+      ? `${label} has ${team.pendingSpotCount} roster invite${team.pendingSpotCount === 1 ? '' : 's'} open on RiftEssence.`
+      : `View ${label}'s roster, schedule and team context on RiftEssence.`;
+
+    return {
+      props: {
+        ssrTitle: `${label} team invite | RiftEssence`,
+        ssrDescription: description,
+        ssrOgImage: ogImage,
+        ssrUrl: pageUrl,
+      },
+    };
+  } catch {
+    return {
+      props: {
+        ssrTitle: 'Team invite | RiftEssence',
+        ssrDescription: 'Join and manage a League of Legends team roster on RiftEssence.',
+        ssrOgImage: ogImage,
+        ssrUrl: pageUrl,
+      },
+    };
+  }
 };
 
 export default TeamDetailPage;

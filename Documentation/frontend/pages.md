@@ -19,6 +19,7 @@
 | `matchups/[id].tsx` | `/matchups/:id` | Matchup detail view |
 | `profile.tsx` | `/profile` | Own profile view |
 | `profile/[username].tsx` | `/profile/:username` | Public profile view |
+| `rate/[username].tsx` | `/rate/:username` | External shared rating flow with server-rendered share metadata |
 | `login.tsx` | `/login` | Login page |
 | `register.tsx` | `/register` | Registration page |
 | `settings.tsx` | `/settings` | User settings (theme, language, profile, default-on Discord DM toggle) |
@@ -40,12 +41,24 @@
 | `admin/ads.tsx` | `/admin/ads` | Ad management |
 | `admin/settings.tsx` | `/admin/settings` | Admin settings |
 | `admin/broadcast.tsx` | `/admin/broadcast` | Discord DM embed broadcast builder with live preview |
-| `share/post/[id].tsx` | `/share/post/:id` | Shareable duo post page with OpenGraph metadata |
+| `share/post/[id].tsx` | `/share/post/:id` | Shareable duo post page with server-rendered OpenGraph metadata and matching copyable Discord image |
 | `api/og/post/[id].tsx` | `/api/og/post/:id` | Dynamic OG image generation for duo posts (Edge API) |
+| `api/og/app.tsx` | `/api/og/app` | Default app showcase OG image (Edge API) |
+| `api/og/rating/[username].tsx` | `/api/og/rating/:username` | Dynamic OG image generation for external rating pages (Edge API) |
+| `api/og/team/[id].tsx` | `/api/og/team/:id` | Dynamic OG image generation for team invite/share pages (Edge API) |
 
 ---
 
 ## Page Details
+
+### Admin Users Page (`/admin/users`)
+
+**Recent addition (2026-05-07):**
+- The users table includes a **Discord** column showing whether a `DiscordAccount` is linked.
+- Linked users show the Discord username when available and the Discord ID.
+- Discord DM notification status remains separate because a user can be linked but have DMs disabled.
+
+---
 
 ### Profile Page (`/profile`)
 
@@ -499,7 +512,7 @@ The matchups system allows users to create, manage, and share detailed champion-
 **Purpose**: Shareable duo post page with rich OpenGraph metadata for Discord/social media embeds.
 
 **Key Features**:
-- **Server-Side Rendering**: Uses `getServerSideProps` to fetch post data from API
+- **Server-Side Rendering**: Uses `getServerSideProps` to fetch post data from API and emit per-post `ssrTitle`, `ssrDescription`, `ssrOgImage`, and `ssrUrl`
 - **Public Access**: No authentication required (shareable links)
 - **Rich OpenGraph Tags**: Custom meta tags for Discord/Twitter/Facebook:
   - Dynamic title: "{username} - Looking For Duo on {region}"
@@ -508,18 +521,12 @@ The matchups system allows users to create, manage, and share detailed champion-
   - Proper dimensions (1200x630)
   - Discord theme color (#C8AA6D)
 - **Visual Post Display**:
-  - Username, region, timestamp
-  - Role badges with icons (primary + secondary)
-  - Riot account cards:
-    - Posting account (with smurf label if applicable)
-    - Main account (if different from posting account)
-  - Rank badges with tier-based color coding
-  - Winrate badges (green ≥50%, red <50%)
-  - Message content
-  - VC preference and languages
-- **Clear CTAs**:
-  - "Browse More Duo Posts" → `/feed`
-  - "Create Your Own Post" → `/register`
+  - Renders the same `/api/og/post/:id` image that Discord receives, so the on-page preview and embed cannot drift
+  - Snapshot panel with Riot ID, role, region, and rank
+- **Share Actions**:
+  - Native share when supported
+  - Copy link fallback
+  - Copy image to clipboard for Discord channels that benefit from an attached image
 - **Error Handling**: User-friendly 404 page if post not found
 
 **API Calls**:
@@ -527,12 +534,12 @@ The matchups system allows users to create, manage, and share detailed champion-
 
 **User Flow**:
 1. User clicks "Share Post" button on their duo post in `/feed`
-2. Link copied to clipboard: `{origin}/share/post/{postId}`
-3. User pastes link in Discord → Rich embed appears with custom image
-4. Others click link → Redirected to share page with full post details
-5. CTAs encourage browsing feed or creating account
+2. Share page opens with the final Discord card already rendered
+3. User can copy/share the link or copy the image directly
+4. User pastes link in Discord → Rich embed appears with the same custom image
+5. Others click link → Redirected to share page with post summary and feed CTA
 
-**State Management**: Server-side data fetching only (no client state)
+**State Management**: Server-side initial data with small client state for copy/share feedback
 
 ---
 

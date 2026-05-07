@@ -4,10 +4,20 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import type { GetServerSideProps, GetServerSidePropsContext } from 'next';
 import IconPicker from '../../src/components/IconPicker';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const SERVER_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://www.riftessence.app';
+
+function requestOrigin(req: GetServerSidePropsContext['req']): string {
+  const host = req.headers.host;
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const protocol = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto || 'http';
+  return host ? `${protocol}://${host}` : SITE_URL;
+}
 
 type ReceiverProfile = {
   id: string;
@@ -27,15 +37,20 @@ type ReceiverProfile = {
 
 type Step = 'loading' | 'enter_riot_id' | 'verify_icon' | 'verifying_matches' | 'submit_rating' | 'success' | 'error';
 
-export default function RateUserPage(): JSX.Element {
+type RateUserPageProps = {
+  initialReceiver: ReceiverProfile | null;
+  initialError: string | null;
+};
+
+export default function RateUserPage({ initialReceiver, initialError }: RateUserPageProps): JSX.Element {
   const router = useRouter();
   const { username } = router.query;
   const { t: _t } = useLanguage();
 
   // State
-  const [step, setStep] = useState<Step>('loading');
-  const [receiver, setReceiver] = useState<ReceiverProfile | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>(initialReceiver ? 'enter_riot_id' : initialError ? 'error' : 'loading');
+  const [receiver, setReceiver] = useState<ReceiverProfile | null>(initialReceiver);
+  const [error, setError] = useState<string | null>(initialError);
 
   // Riot ID state
   const [riotId, setRiotId] = useState('');
@@ -57,6 +72,7 @@ export default function RateUserPage(): JSX.Element {
 
   // Load receiver profile
   useEffect(() => {
+    if (initialReceiver || initialError) return;
     if (!username || typeof username !== 'string') return;
 
     const fetchReceiver = async () => {
@@ -80,7 +96,7 @@ export default function RateUserPage(): JSX.Element {
     };
 
     fetchReceiver();
-  }, [username]);
+  }, [initialError, initialReceiver, username]);
 
   function isValidRiotId(id: string): boolean {
     const trimmed = id.trim();
@@ -592,7 +608,7 @@ export default function RateUserPage(): JSX.Element {
   return (
     <>
       <Head>
-        <title>{receiver ? `Rate ${receiver.username}` : 'Rate Player'} | RiftEssence</title>
+        <title>{`${receiver ? `Rate ${receiver.username}` : 'Rate Player'} | RiftEssence`}</title>
         <meta name="description" content={receiver ? `Rate ${receiver.username} on RiftEssence` : 'Rate a League of Legends player'} />
       </Head>
 
@@ -653,3 +669,55 @@ export default function RateUserPage(): JSX.Element {
     </>
   );
 }
+
+export const getServerSideProps: GetServerSideProps<RateUserPageProps> = async (context) => {
+  const username = typeof context.params?.username === 'string' ? context.params.username : '';
+  const origin = requestOrigin(context.req);
+  const pageUrl = `${origin}/rate/${encodeURIComponent(username)}`;
+  const ogImage = `${origin}/api/og/rating/${encodeURIComponent(username)}`;
+
+  try {
+    const response = await fetch(`${SERVER_API_URL}/api/rate/${encodeURIComponent(username)}`);
+    if (!response.ok) {
+      return {
+        props: {
+          initialReceiver: null,
+          initialError: response.status === 404 ? 'User not found' : 'Failed to load user profile',
+          ssrTitle: 'Rate a player | RiftEssence',
+          ssrDescription: 'Rate a League of Legends player on RiftEssence after verified shared games.',
+          ssrOgImage: ogImage,
+          ssrUrl: pageUrl,
+        } as any,
+      };
+    }
+
+    const data = await response.json();
+    const receiver = (data.user || null) as ReceiverProfile | null;
+    const account = receiver?.mainAccount;
+    const displayName = account?.gameName
+      ? `${account.gameName}${account.tagLine ? `#${account.tagLine}` : ''}`
+      : receiver?.username || username;
+
+    return {
+      props: {
+        initialReceiver: receiver,
+        initialError: null,
+        ssrTitle: `Rate ${displayName} | RiftEssence`,
+        ssrDescription: `Leave verified feedback for ${displayName} after shared League of Legends games.`,
+        ssrOgImage: ogImage,
+        ssrUrl: pageUrl,
+      } as any,
+    };
+  } catch {
+    return {
+      props: {
+        initialReceiver: null,
+        initialError: 'Failed to load user profile',
+        ssrTitle: 'Rate a player | RiftEssence',
+        ssrDescription: 'Rate a League of Legends player on RiftEssence after verified shared games.',
+        ssrOgImage: ogImage,
+        ssrUrl: pageUrl,
+      } as any,
+    };
+  }
+};

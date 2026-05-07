@@ -690,6 +690,70 @@ export default async function teamsRoutes(fastify: any) {
     }
   });
 
+  // GET /api/teams/:id/share - Public team summary for social embeds and invite previews
+  fastify.get('/teams/:id/share', async (request: any, reply: any) => {
+    try {
+      const { id } = request.params as { id: string };
+
+      const team = await prisma.team.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          name: true,
+          tag: true,
+          description: true,
+          iconUrl: true,
+          region: true,
+          createdAt: true,
+          members: {
+            select: { role: true },
+          },
+          pendingSpots: {
+            select: { role: true },
+          },
+          _count: {
+            select: {
+              members: true,
+              pendingSpots: true,
+            },
+          },
+        },
+      });
+
+      if (!team) {
+        return reply.status(404).send({ error: 'Team not found' });
+      }
+
+      const roleCounts = team.members.reduce((acc: Record<string, number>, member: any) => {
+        acc[member.role] = (acc[member.role] || 0) + 1;
+        return acc;
+      }, {});
+      const openRoles = team.pendingSpots.reduce((acc: Record<string, number>, spot: any) => {
+        acc[spot.role] = (acc[spot.role] || 0) + 1;
+        return acc;
+      }, {});
+
+      return reply.send({
+        team: {
+          id: team.id,
+          name: team.name,
+          tag: team.tag,
+          description: team.description,
+          iconUrl: team.iconUrl,
+          region: team.region,
+          createdAt: team.createdAt,
+          memberCount: team._count.members,
+          pendingSpotCount: team._count.pendingSpots,
+          roleCounts,
+          openRoles,
+        },
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch team share summary' });
+    }
+  });
+
   // GET /api/teams/:id - Get team details (public for link sharing, returns canJoin info)
   fastify.get('/teams/:id', async (request: any, reply: any) => {
     try {

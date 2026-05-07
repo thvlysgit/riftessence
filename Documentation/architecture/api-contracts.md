@@ -400,6 +400,35 @@ Behavior:
 
 ---
 
+### GET `/api/teams/:id/share`
+Fetch a public team summary for social previews and invite embeds.
+
+Auth: Not required
+
+Response:
+```json
+{
+  "team": {
+    "id": "cuid",
+    "name": "Team Name",
+    "tag": "TAG",
+    "description": "optional team description",
+    "iconUrl": "optional image URL",
+    "region": "EUW",
+    "memberCount": 5,
+    "pendingSpotCount": 1,
+    "roleCounts": { "TOP": 1, "JGL": 1 },
+    "openRoles": { "ADC": 1 }
+  }
+}
+```
+
+Used by:
+- `GET /api/og/team/:id`
+- `/teams/:id` server-side metadata
+
+---
+
 ## Chat Endpoints (`/api/chat`)
 
 ### GET `/api/chat/conversations`
@@ -682,6 +711,15 @@ Check if the authenticated user has admin privileges.
 ---
 
 ## Admin Endpoints
+
+### GET `/api/admin/users`
+List users for the admin panel with pagination.
+
+Auth: Required (admin badge)
+
+Response additions:
+- `discordAccount`: `null` when no Discord account is linked, otherwise includes `discordId`, optional `username`, optional `discriminator`, and `createdAt`
+- `discordDmNotifications`: remains a separate boolean because linked Discord identity and DM opt-in are different states
 
 ### POST `/api/admin/broadcast-message`
 Queue a Discord embed DM broadcast to eligible linked users.

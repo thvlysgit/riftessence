@@ -874,6 +874,14 @@ async function build() {
           include: {
             badges: true,
             riotAccounts: { select: { summonerName: true, region: true, verified: true } },
+            discordAccount: {
+              select: {
+                discordId: true,
+                username: true,
+                discriminator: true,
+                createdAt: true,
+              },
+            },
           },
           take: limitNum,
           skip: offsetNum,
@@ -904,6 +912,14 @@ async function build() {
           bannedAt: u.bannedAt,
           badges: u.badges.map((b: any) => ({ key: b.key, name: b.name })),
           riotAccounts: u.riotAccounts,
+          discordAccount: u.discordAccount
+            ? {
+                discordId: u.discordAccount.discordId,
+                username: u.discordAccount.username,
+                discriminator: u.discordAccount.discriminator,
+                createdAt: u.discordAccount.createdAt,
+              }
+            : null,
         })),
         pagination: {
           total,
