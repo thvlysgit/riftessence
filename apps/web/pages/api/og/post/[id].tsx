@@ -35,11 +35,11 @@ function getWinrateColor(winrate: number | null | undefined): string {
 
 function formatVc(value: string | null | undefined): string {
   const map: Record<string, string> = {
-    ALWAYS: 'Voice required',
+    ALWAYS: 'Voice chat',
     SOMETIMES: 'Voice optional',
     NEVER: 'No voice',
   };
-  return map[String(value || '')] || 'Flexible comms';
+  return map[String(value || '')] || 'Flexible';
 }
 
 function formatRank(account: any): string {
@@ -56,22 +56,36 @@ function getId(req: NextRequest): string {
   return parsed.searchParams.get('id') || req.url.split('/api/og/post/')[1]?.split('?')[0] || '';
 }
 
+function cleanMessage(value: unknown): string {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 260);
+}
+
 async function loadPost(req: NextRequest) {
   const parsed = new URL(req.url);
   const params = parsed.searchParams;
   const gameName = params.get('gn');
+  const hasInlineData = Boolean(
+    gameName
+    || params.get('user')
+    || params.get('msg')
+    || params.get('role')
+    || params.get('rank')
+  );
 
-  if (gameName) {
+  if (hasInlineData) {
     return {
-      username: params.get('user') || gameName,
+      username: params.get('user') || gameName || 'Duo Player',
       role: params.get('role') || '',
       secondRole: params.get('role2') || null,
       region: params.get('region') || '',
       vcPreference: params.get('vc') || '',
-      message: params.get('msg') || '',
+      message: cleanMessage(params.get('msg')),
       languages: (params.get('langs') || '').split(',').filter(Boolean),
       postingRiotAccount: {
-        gameName,
+        gameName: gameName || params.get('user') || 'Duo Player',
         tagLine: params.get('tag') || '',
         rank: params.get('rank') || 'UNRANKED',
         division: params.get('div') || null,
@@ -101,11 +115,13 @@ export default async function handler(req: NextRequest) {
     const winrateColor = getWinrateColor(account?.winrate);
     const gameName = account?.gameName || post?.username || 'Duo Player';
     const tagLine = account?.tagLine ? `#${account.tagLine}` : '';
-    const message = String(post?.message || 'Ready to queue with someone who fits the same climb.').slice(0, 190);
+    const roleText = post?.secondRole ? `${post.role} / ${post.secondRole}` : post?.role || 'Flexible';
+    const rankText = formatRank(account);
+    const message = cleanMessage(post?.message) || `Looking for a ${roleText.toLowerCase()} duo who fits the same climb.`;
     const languages = Array.isArray(post?.languages) ? post.languages.slice(0, 4) : [];
     const valueCards = [
-      ['Role', post?.secondRole ? `${post.role} / ${post.secondRole}` : post?.role || 'Flexible'],
-      ['Region', post?.region || 'Any'],
+      ['Queue role', roleText],
+      ['Account level', rankText],
       ['Comms', formatVc(post?.vcPreference)],
     ];
 
@@ -123,66 +139,75 @@ export default async function handler(req: NextRequest) {
           }}
         >
           <div style={{ display: 'flex', width: '100%', height: '100%', borderRadius: '20px', overflow: 'hidden', border: '2px solid #23364F' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', width: '760px', padding: '46px', backgroundColor: '#08172A' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', width: '790px', padding: '44px', backgroundColor: '#08172A' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <div style={{ display: 'flex', width: '12px', height: '46px', borderRadius: '6px', backgroundColor: rankColor }} />
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', color: rankColor, fontSize: '22px', fontWeight: 900 }}>LOOKING FOR DUO</div>
-                  <div style={{ display: 'flex', color: '#8EA6C4', fontSize: '16px', marginTop: '4px' }}>RiftEssence verified player card</div>
+                  <div style={{ display: 'flex', color: '#8EA6C4', fontSize: '16px', marginTop: '4px' }}>Their message, account context, and quick fit signals</div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'flex-end', marginTop: '38px' }}>
-                <div style={{ display: 'flex', fontSize: gameName.length > 14 ? '62px' : '76px', fontWeight: 950, lineHeight: 1, maxWidth: '620px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', marginTop: '32px' }}>
+                <div style={{ display: 'flex', fontSize: gameName.length > 14 ? '58px' : '70px', fontWeight: 950, lineHeight: 1, maxWidth: '620px' }}>
                   {gameName}
                 </div>
                 {tagLine ? (
-                  <div style={{ display: 'flex', marginLeft: '12px', marginBottom: '8px', color: rankColor, fontSize: '34px', fontWeight: 800 }}>
+                  <div style={{ display: 'flex', marginLeft: '12px', marginBottom: '8px', color: rankColor, fontSize: '32px', fontWeight: 800 }}>
                     {tagLine}
                   </div>
                 ) : null}
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', marginTop: '24px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', padding: '12px 18px', borderRadius: '8px', backgroundColor: rankColor, color: '#06101F', fontSize: '22px', fontWeight: 900 }}>
-                  {formatRank(account)}
+              <div style={{ display: 'flex', gap: '12px', marginTop: '22px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', padding: '11px 17px', borderRadius: '8px', backgroundColor: rankColor, color: '#06101F', fontSize: '21px', fontWeight: 900 }}>
+                  {rankText}
                 </div>
                 {account?.winrate != null ? (
-                  <div style={{ display: 'flex', padding: '12px 18px', borderRadius: '8px', backgroundColor: '#0D1B2E', color: winrateColor, border: `1px solid ${winrateColor}`, fontSize: '22px', fontWeight: 900 }}>
+                  <div style={{ display: 'flex', padding: '11px 17px', borderRadius: '8px', backgroundColor: '#0D1B2E', color: winrateColor, border: `1px solid ${winrateColor}`, fontSize: '21px', fontWeight: 900 }}>
                     {Number(account.winrate).toFixed(1)}% WR
                   </div>
                 ) : null}
                 {languages.map((lang: string) => (
-                  <div key={lang} style={{ display: 'flex', padding: '12px 16px', borderRadius: '8px', backgroundColor: '#0D1B2E', color: '#C8AA6D', border: '1px solid #2F4662', fontSize: '18px', fontWeight: 800 }}>
+                  <div key={lang} style={{ display: 'flex', padding: '11px 15px', borderRadius: '8px', backgroundColor: '#0D1B2E', color: '#C8AA6D', border: '1px solid #2F4662', fontSize: '18px', fontWeight: 800 }}>
                     {lang.toUpperCase()}
                   </div>
                 ))}
               </div>
 
-              <div style={{ display: 'flex', marginTop: '34px', padding: '24px', borderRadius: '14px', backgroundColor: '#06101F', border: `1px solid ${rankColor}` }}>
-                <div style={{ display: 'flex', width: '5px', borderRadius: '4px', backgroundColor: rankColor, marginRight: '20px' }} />
-                <div style={{ display: 'flex', color: '#B9C8DB', fontSize: '27px', lineHeight: 1.35 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', marginTop: '34px', padding: '28px', borderRadius: '16px', backgroundColor: '#06101F', border: `1px solid ${rankColor}` }}>
+                <div style={{ display: 'flex', color: rankColor, fontSize: '18px', fontWeight: 900, marginBottom: '14px' }}>
+                  MESSAGE FROM THE PLAYER
+                </div>
+                <div style={{ display: 'flex', color: '#E2EAF5', fontSize: message.length > 175 ? '27px' : '31px', lineHeight: 1.32, fontWeight: 650 }}>
                   {message}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', marginTop: 'auto', color: '#526A88', fontSize: '18px', fontWeight: 700 }}>
-                riftessence.app
+              <div style={{ display: 'flex', marginTop: 'auto', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', color: '#526A88', fontSize: '18px', fontWeight: 700 }}>
+                  riftessence.app
+                </div>
+                {post?.region ? (
+                  <div style={{ display: 'flex', color: '#7F93AF', fontSize: '17px', fontWeight: 700 }}>
+                    {post.region}
+                  </div>
+                ) : null}
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '44px', backgroundColor: '#0B223A' }}>
-              <div style={{ display: 'flex', color: '#C8AA6D', fontSize: '24px', fontWeight: 900 }}>Queue Snapshot</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginTop: '30px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '40px', backgroundColor: '#0B223A' }}>
+              <div style={{ display: 'flex', color: '#C8AA6D', fontSize: '24px', fontWeight: 900 }}>Fit Check</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '28px' }}>
                 {valueCards.map(([label, value]) => (
-                  <div key={label} style={{ display: 'flex', flexDirection: 'column', padding: '22px', borderRadius: '12px', backgroundColor: '#071427', border: '1px solid #24364D' }}>
-                    <div style={{ display: 'flex', color: '#8EA6C4', fontSize: '17px', fontWeight: 700 }}>{label}</div>
-                    <div style={{ display: 'flex', marginTop: '8px', color: '#F0E6D2', fontSize: '30px', fontWeight: 900 }}>{value}</div>
+                  <div key={label} style={{ display: 'flex', flexDirection: 'column', padding: '21px', borderRadius: '12px', backgroundColor: '#071427', border: '1px solid #24364D' }}>
+                    <div style={{ display: 'flex', color: '#8EA6C4', fontSize: '17px', fontWeight: 750 }}>{label}</div>
+                    <div style={{ display: 'flex', marginTop: '8px', color: '#F0E6D2', fontSize: String(value).length > 15 ? '25px' : '29px', fontWeight: 950 }}>{value}</div>
                   </div>
                 ))}
               </div>
-              <div style={{ display: 'flex', marginTop: 'auto', padding: '22px', borderRadius: '12px', backgroundColor: '#102C49', color: '#D9C98C', fontSize: '22px', fontWeight: 800, lineHeight: 1.25 }}>
-                Open the post to check profile, ratings, account context and message them in app.
+              <div style={{ display: 'flex', marginTop: 'auto', padding: '22px', borderRadius: '12px', backgroundColor: '#102C49', color: '#D9C98C', fontSize: '21px', fontWeight: 850, lineHeight: 1.25 }}>
+                Open the post to inspect ratings, account context, and start the conversation.
               </div>
             </div>
           </div>

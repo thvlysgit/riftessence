@@ -61,7 +61,7 @@ function buildPostOgImageUrl(post: SharePost | null, fallbackId: string, origin 
   if (post.secondRole) params.set('role2', compact(post.secondRole));
   params.set('region', compact(post.region));
   if (post.vcPreference) params.set('vc', compact(post.vcPreference));
-  if (post.message) params.set('msg', compact(post.message).slice(0, 220));
+  if (post.message) params.set('msg', compact(post.message).slice(0, 300));
   if (account?.gameName) params.set('gn', compact(account.gameName));
   if (account?.tagLine) params.set('tag', compact(account.tagLine));
   if (account?.rank) params.set('rank', compact(account.rank));
@@ -204,7 +204,16 @@ export default function SharePostPage({ initialPost, initialError, shareUrl, ogI
               {displayName}
             </h1>
             {post && (
-              <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+              <div className="mt-4 space-y-3 text-sm">
+                {post.message && (
+                  <div className="rounded-md px-3 py-3" style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
+                    <span style={{ color: 'var(--color-text-muted)' }}>Message</span>
+                    <p className="mt-1 text-sm leading-relaxed" style={{ color: 'var(--color-text-primary)' }}>
+                      {post.message}
+                    </p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-md px-3 py-2" style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
                   <span style={{ color: 'var(--color-text-muted)' }}>Role</span>
                   <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{post.role || 'Any'}</div>
@@ -216,6 +225,7 @@ export default function SharePostPage({ initialPost, initialError, shareUrl, ogI
                 <div className="col-span-2 rounded-md px-3 py-2" style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
                   <span style={{ color: 'var(--color-text-muted)' }}>Rank</span>
                   <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{formatRank(post.postingRiotAccount)}</div>
+                </div>
                 </div>
               </div>
             )}
