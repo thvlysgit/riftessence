@@ -329,7 +329,7 @@ The matchups system allows users to create, manage, and share detailed champion-
 
 #### Create/Edit Form (`/matchups/create`)
 
-**Purpose**: Form for creating new or editing existing matchup sheets.
+**Purpose**: Workspace-style form for creating new or editing existing matchup sheets.
 
 **Key Features**:
 - **Edit Mode Detection**: Query param `?id=xxx` triggers edit mode
@@ -339,14 +339,23 @@ The matchups system allows users to create, manage, and share detailed champion-
   2. My Champion (ChampionAutocomplete component)
   3. Enemy Champion (ChampionAutocomplete component)
   4. Difficulty Slider (7 levels, default: SKILL_MATCHUP)
-  5. Laning Phase Notes (textarea, max 2000 chars with live counter)
-  6. Team Fight Notes (textarea, max 2000 chars with live counter)
-  7. Items & Builds Notes (textarea, max 2000 chars with live counter)
-  8. Power Spikes Notes (textarea, max 2000 chars with live counter)
+  5. Laning Phase Notes (`MatchupSmartTextarea`, max 2000 chars with live counter and Data Dragon autocomplete)
+  6. Team Fight Notes (`MatchupSmartTextarea`, max 2000 chars with live counter and Data Dragon autocomplete)
+  7. Items & Builds Notes (`MatchupSmartTextarea`, max 2000 chars with live counter and Data Dragon autocomplete)
+  8. Power Spikes Notes (`MatchupSmartTextarea`, max 2000 chars with live counter and Data Dragon autocomplete)
   9. **Public Sharing Toggle** (checkbox: "Make this matchup public")
   10. **If Public** (conditional):
       - Title (max 100 chars, **required** if public)
       - Description (max 500 chars)
+- **Editor Layout**:
+  - Two-column desktop layout with setup/notes on the left and sticky preview/sharing controls on the right
+  - Shared Matchups workspace tabs are visible at the top
+  - Champion preview updates as selected champions change
+- **Autocomplete Behavior**:
+  - Typing Q/W/E/R suggests the selected champion's spells with icons and inserts `Q - Spell Name`
+  - Typing item names suggests current Data Dragon items with icons and inserts `**Item Name**`
+  - Typing rune names suggests current Data Dragon runes with icons and inserts `**Rune Name**`
+  - Data is cached in localStorage for 24 hours and uses the latest Data Dragon version endpoint
 - **Action Buttons**:
   - "Save" / "Update" (depending on create vs edit mode)
   - "Cancel" (returns to `/matchups`)
@@ -365,11 +374,12 @@ The matchups system allows users to create, manage, and share detailed champion-
 - Uses `championData.ts` utility to fetch champions from Riot Data Dragon API
 - Champions cached in localStorage for 24 hours
 - ChampionAutocomplete component provides searchable dropdown with icons
+- Uses `matchupKnowledgeData.ts` to fetch latest Data Dragon items, runes, and selected champion spells for smart notes
 
 **User Flow**:
 1. User clicks "Create New Matchup" from library page
 2. Selects role, both champions, difficulty level
-3. Writes detailed notes in all 4 sections
+3. Writes detailed notes in all 4 sections with spell/item/rune autocomplete
 4. Optionally enables public sharing with title/description
 5. Saves → Redirected to library page with success toast
 

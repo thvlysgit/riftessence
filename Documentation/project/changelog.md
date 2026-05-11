@@ -4,6 +4,35 @@
 
 ---
 
+## 2026-05-11 - Matchup Creator Smart Notes and Visual Refresh
+
+### Objective: Make matchup card creation feel modern and add real Data Dragon autocomplete
+
+Overview: Reworked the matchup create/edit page into a richer workspace-style editor and added smart note textareas that suggest selected-champion spells, items, and runes with Data Dragon icons while typing.
+
+Changes:
+
+- Added [apps/web/utils/matchupKnowledgeData.ts](apps/web/utils/matchupKnowledgeData.ts):
+  - Fetches the latest Data Dragon version through `versions.json`.
+  - Loads and caches items, runes, and selected champion spell data for 24 hours.
+  - Builds icon-backed autocomplete suggestions for matchups notes.
+- Added [apps/web/components/MatchupSmartTextarea.tsx](apps/web/components/MatchupSmartTextarea.tsx):
+  - Suggests Q/W/E/R spells for the selected champion and inserts `Q - Spell Name`.
+  - Suggests items and runes while typing and inserts bold markdown-style names.
+  - Shows Data Dragon icons, type labels, and short descriptions in the suggestion menu.
+- Updated [apps/web/pages/matchups/create.tsx](apps/web/pages/matchups/create.tsx):
+  - Replaced plain notes textareas with smart note editors.
+  - Added a two-column desktop layout with setup/notes on the left and sticky preview/sharing controls on the right.
+  - Improved role buttons, primary/cancel actions, page header, workspace tabs, and champion preview.
+- Updated [Documentation/frontend/components.md](Documentation/frontend/components.md) and [Documentation/frontend/pages.md](Documentation/frontend/pages.md) with the new editor behavior.
+
+Verification:
+- `pnpm --filter @lfd/api build`
+- `pnpm --filter @lfd/web build`
+- Browser route check confirmed unauthenticated access still shows the expected auth-required state; authenticated editor interaction was not visually tested in this browser session.
+
+---
+
 ## 2026-05-11 - Matchups Discover and Collections Foundation
 
 ### Objective: Make matchup navigation clearer and introduce champion-level collections

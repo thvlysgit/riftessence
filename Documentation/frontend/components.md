@@ -23,6 +23,9 @@
 | `ProfileSkeleton` | Profile loading skeleton |
 | `CreatePlayerLftModal` | Create LFT player post modal |
 | `CreateTeamLftModal` | Create LFT team post modal |
+| `MatchupCard` | Displays matchup guide cards with champion icons, difficulty, visibility, stats, and library/collection actions |
+| `MatchupWorkspaceTabs` | Shared Matchups workspace tab navigation between Library, Collections, and Discover |
+| `MatchupSmartTextarea` | Data Dragon-backed matchup notes editor with spell, item, and rune autocomplete suggestions |
 
 ### LoadingSpinner — Theme-Specific Animations
 

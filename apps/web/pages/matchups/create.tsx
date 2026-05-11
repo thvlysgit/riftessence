@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useGlobalUI } from '@components/GlobalUI';
 import { LoadingSpinner } from '@components/LoadingSpinner';
 import { ChampionAutocomplete } from '@components/ChampionAutocomplete';
 import { DifficultySlider } from '@components/DifficultySlider';
+import { MatchupSmartTextarea } from '@components/MatchupSmartTextarea';
+import { MatchupWorkspaceTabs } from '@components/MatchupWorkspaceTabs';
 import { getAuthHeader } from '../../utils/auth';
+import { getChampionIconUrl } from '../../utils/championData';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -232,318 +236,309 @@ const CreateMatchupPage: React.FC = () => {
   }
   
   return (
-    <div 
-      className="min-h-screen py-8 px-4"
-      style={{ backgroundColor: 'var(--color-bg-primary)' }}
+    <div
+      className="min-h-screen px-4 py-8"
+      style={{
+        background:
+          'linear-gradient(180deg, rgba(200,170,110,0.08) 0%, transparent 280px), var(--color-bg-primary)',
+      }}
     >
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 
-            className="text-3xl font-bold mb-2"
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            {isEditMode ? t('matchups.editMatchup') : t('matchups.create')}
-          </h1>
-          <p style={{ color: 'var(--color-text-secondary)' }}>
-            {isEditMode ? 'Update your matchup guide' : 'Create a new matchup guide'}
-          </p>
-        </div>
-        
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div 
-            className="rounded-lg p-6 space-y-6"
-            style={{
-              backgroundColor: 'var(--color-bg-secondary)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            {/* Role Selector */}
-            <div>
-              <label 
-                className="block text-sm font-medium mb-3"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {t('matchups.role')} *
-              </label>
-              <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-                {ROLES.map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRole(r)}
-                    className={`p-3 rounded-lg flex flex-col items-center justify-center gap-2 transition-all ${
-                      role === r ? 'ring-2' : ''
-                    }`}
-                    style={{
-                      backgroundColor: role === r 
-                        ? 'var(--color-accent-primary-bg)' 
-                        : 'var(--color-bg-tertiary)',
-                      color: role === r 
-                        ? 'var(--color-accent-1)' 
-                        : 'var(--color-text-secondary)',
-                      borderColor: role === r 
-                        ? 'var(--color-accent-1)' 
-                        : 'transparent',
-                    }}
-                  >
-                    {getRoleIcon(r)}
-                    <span className="text-xs font-medium">{r}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Champion Selectors */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <ChampionAutocomplete
-                value={myChampion}
-                onChange={setMyChampion}
-                label={`${t('matchups.myChampion')} *`}
-                placeholder={t('matchups.searchPlaceholder')}
-              />
-              
-              <ChampionAutocomplete
-                value={enemyChampion}
-                onChange={setEnemyChampion}
-                label={`${t('matchups.enemyChampion')} *`}
-                placeholder={t('matchups.searchPlaceholder')}
-              />
-            </div>
-            
-            {/* Difficulty Slider */}
-            <DifficultySlider
-              value={difficulty}
-              onChange={setDifficulty}
-              label={t('matchups.difficulty')}
-            />
-            
-            {/* Notes Sections */}
-            <div>
-              <label 
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {t('matchups.laningPhase')}
-              </label>
-              <textarea
-                value={laningNotes}
-                onChange={(e) => setLaningNotes(e.target.value.slice(0, 2000))}
-                placeholder={t('matchups.laningNotesPlaceholder')}
-                rows={4}
-                className="w-full px-4 py-3 rounded-lg resize-none"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
-              />
-              <div 
-                className="text-xs text-right mt-1"
-                style={{ color: 'var(--color-text-muted)' }}
-              >
-                {2000 - laningNotes.length} {t('matchups.charactersRemaining')}
-              </div>
-            </div>
-            
-            <div>
-              <label 
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {t('matchups.teamFights')}
-              </label>
-              <textarea
-                value={teamfightNotes}
-                onChange={(e) => setTeamfightNotes(e.target.value.slice(0, 2000))}
-                placeholder={t('matchups.teamfightNotesPlaceholder')}
-                rows={4}
-                className="w-full px-4 py-3 rounded-lg resize-none"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
-              />
-              <div 
-                className="text-xs text-right mt-1"
-                style={{ color: 'var(--color-text-muted)' }}
-              >
-                {2000 - teamfightNotes.length} {t('matchups.charactersRemaining')}
-              </div>
-            </div>
-            
-            <div>
-              <label 
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {t('matchups.items')}
-              </label>
-              <textarea
-                value={itemBuild}
-                onChange={(e) => setItemBuild(e.target.value.slice(0, 2000))}
-                placeholder={t('matchups.itemNotesPlaceholder')}
-                rows={4}
-                className="w-full px-4 py-3 rounded-lg resize-none"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
-              />
-              <div 
-                className="text-xs text-right mt-1"
-                style={{ color: 'var(--color-text-muted)' }}
-              >
-                {2000 - itemBuild.length} {t('matchups.charactersRemaining')}
-              </div>
-            </div>
-            
-            <div>
-              <label 
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {t('matchups.powerSpikes')}
-              </label>
-              <textarea
-                value={powerSpikes}
-                onChange={(e) => setPowerSpikes(e.target.value.slice(0, 2000))}
-                placeholder={t('matchups.spikeNotesPlaceholder')}
-                rows={4}
-                className="w-full px-4 py-3 rounded-lg resize-none"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
-              />
-              <div 
-                className="text-xs text-right mt-1"
-                style={{ color: 'var(--color-text-muted)' }}
-              >
-                {2000 - powerSpikes.length} {t('matchups.charactersRemaining')}
-              </div>
-            </div>
-            
-            {/* Public Sharing Toggle */}
-            <div 
-              className="pt-4 border-t"
-              style={{ borderColor: 'var(--color-border)' }}
-            >
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isPublic}
-                  onChange={(e) => setIsPublic(e.target.checked)}
-                  className="w-5 h-5 rounded cursor-pointer"
-                  style={{
-                    accentColor: 'var(--color-accent-1)',
-                  }}
-                />
-                <span 
-                  className="text-sm font-medium"
-                  style={{ color: 'var(--color-text-primary)' }}
-                >
-                  {t('matchups.makePublic')}
-                </span>
-              </label>
-            </div>
-            
-            {/* Public Fields */}
-            {isPublic && (
-              <div className="space-y-4 pt-4">
-                <div>
-                  <label 
-                    className="block text-sm font-medium mb-2"
-                    style={{ color: 'var(--color-text-primary)' }}
-                  >
-                    {t('matchups.titleLabel')} *
-                  </label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value.slice(0, 100))}
-                    placeholder={t('matchups.titlePlaceholder')}
-                    className="w-full px-4 py-3 rounded-lg"
-                    style={{
-                      backgroundColor: 'var(--color-bg-tertiary)',
-                      border: '1px solid var(--color-border)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                  />
-                  <div 
-                    className="text-xs text-right mt-1"
-                    style={{ color: 'var(--color-text-muted)' }}
-                  >
-                    {100 - title.length} {t('matchups.charactersRemaining')}
-                  </div>
-                </div>
-                
-                <div>
-                  <label 
-                    className="block text-sm font-medium mb-2"
-                    style={{ color: 'var(--color-text-primary)' }}
-                  >
-                    {t('matchups.descriptionLabel')}
-                  </label>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value.slice(0, 500))}
-                    placeholder={t('matchups.descriptionPlaceholder')}
-                    rows={3}
-                    className="w-full px-4 py-3 rounded-lg resize-none"
-                    style={{
-                      backgroundColor: 'var(--color-bg-tertiary)',
-                      border: '1px solid var(--color-border)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                  />
-                  <div 
-                    className="text-xs text-right mt-1"
-                    style={{ color: 'var(--color-text-muted)' }}
-                  >
-                    {500 - description.length} {t('matchups.charactersRemaining')}
-                  </div>
-                </div>
-              </div>
-            )}
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-6 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <div>
+            <Link href="/matchups" className="mb-3 inline-flex text-sm font-semibold hover:opacity-80" style={{ color: 'var(--color-accent-1)' }}>
+              Back to Matchups
+            </Link>
+            <h1 className="text-3xl font-bold md:text-4xl" style={{ color: 'var(--color-text-primary)' }}>
+              {isEditMode ? t('matchups.editMatchup') : t('matchups.create')}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm md:text-base" style={{ color: 'var(--color-text-secondary)' }}>
+              Build a matchup card with champion-aware notes, Data Dragon items, runes, and spell suggestions.
+            </p>
           </div>
-          
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-4 mt-6">
+
+          <div className="flex gap-3">
             <button
               type="button"
               onClick={handleCancel}
-              className="px-6 py-3 rounded-lg font-semibold transition-all"
+              className="rounded-lg px-5 py-3 text-sm font-semibold transition-all hover:opacity-85"
               style={{
-                backgroundColor: 'var(--color-bg-tertiary)',
+                backgroundColor: 'var(--color-bg-secondary)',
                 color: 'var(--color-text-secondary)',
                 border: '1px solid var(--color-border)',
               }}
             >
               {t('matchups.cancel')}
             </button>
-            
             <button
               type="submit"
+              form="matchup-create-form"
               disabled={isLoading}
-              className="px-6 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+              className="rounded-lg px-5 py-3 text-sm font-bold shadow-lg transition-all hover:translate-y-[-1px] disabled:translate-y-0 disabled:opacity-50"
               style={{
                 background: 'var(--btn-gradient)',
                 color: 'var(--btn-gradient-text)',
               }}
             >
-              {isLoading 
-                ? t('common.saving') 
-                : isEditMode 
-                  ? t('matchups.update') 
-                  : t('matchups.save')
-              }
+              {isLoading ? t('common.saving') : isEditMode ? t('matchups.update') : t('matchups.save')}
             </button>
           </div>
+        </div>
+
+        <MatchupWorkspaceTabs activeTab="library" />
+
+        <form id="matchup-create-form" onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="space-y-6">
+            <section
+              className="rounded-lg p-5 md:p-6"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                border: '1px solid var(--color-border)',
+                boxShadow: 'var(--shadow-lg)',
+              }}
+            >
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                    Matchup Setup
+                  </h2>
+                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                    Pick the lane, your champion, the opponent, and the difficulty baseline.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="mb-3 block text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                    {t('matchups.role')} *
+                  </label>
+                  <div className="grid grid-cols-3 gap-3 md:grid-cols-6">
+                    {ROLES.map((r) => {
+                      const selected = role === r;
+
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setRole(r)}
+                          className="flex min-h-[76px] flex-col items-center justify-center gap-2 rounded-lg text-xs font-bold transition-all hover:translate-y-[-1px]"
+                          style={{
+                            backgroundColor: selected ? 'var(--color-accent-primary-bg)' : 'var(--color-bg-tertiary)',
+                            color: selected ? 'var(--color-accent-1)' : 'var(--color-text-secondary)',
+                            border: selected ? '1px solid var(--color-accent-1)' : '1px solid var(--color-border)',
+                            boxShadow: selected ? '0 0 0 3px rgba(200,170,110,0.14)' : 'none',
+                          }}
+                        >
+                          {getRoleIcon(r)}
+                          <span>{r}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <ChampionAutocomplete
+                    value={myChampion}
+                    onChange={setMyChampion}
+                    label={`${t('matchups.myChampion')} *`}
+                    placeholder={t('matchups.searchPlaceholder')}
+                  />
+
+                  <ChampionAutocomplete
+                    value={enemyChampion}
+                    onChange={setEnemyChampion}
+                    label={`${t('matchups.enemyChampion')} *`}
+                    placeholder={t('matchups.searchPlaceholder')}
+                  />
+                </div>
+
+                <DifficultySlider
+                  value={difficulty}
+                  onChange={setDifficulty}
+                  label={t('matchups.difficulty')}
+                />
+              </div>
+            </section>
+
+            <section
+              className="rounded-lg p-5 md:p-6"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                border: '1px solid var(--color-border)',
+                boxShadow: 'var(--shadow-lg)',
+              }}
+            >
+              <div className="mb-5">
+                <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                  Smart Notes
+                </h2>
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  Type champion spells, item names, or rune names to get icon-backed suggestions.
+                </p>
+              </div>
+
+              <div className="space-y-7">
+                <MatchupSmartTextarea
+                  label={t('matchups.laningPhase')}
+                  value={laningNotes}
+                  onChange={setLaningNotes}
+                  placeholder={t('matchups.laningNotesPlaceholder')}
+                  champion={myChampion}
+                  helperText="Good for wave plans, trading windows, cooldown tracking, and level spikes."
+                />
+
+                <MatchupSmartTextarea
+                  label={t('matchups.teamFights')}
+                  value={teamfightNotes}
+                  onChange={setTeamfightNotes}
+                  placeholder={t('matchups.teamfightNotesPlaceholder')}
+                  champion={myChampion}
+                  helperText="Capture engage angles, peel rules, target priority, and combo notes."
+                />
+
+                <MatchupSmartTextarea
+                  label={t('matchups.items')}
+                  value={itemBuild}
+                  onChange={setItemBuild}
+                  placeholder={t('matchups.itemNotesPlaceholder')}
+                  champion={myChampion}
+                  helperText="Try Doran, Plated, Revitalize, Conqueror, or any current item/rune name."
+                />
+
+                <MatchupSmartTextarea
+                  label={t('matchups.powerSpikes')}
+                  value={powerSpikes}
+                  onChange={setPowerSpikes}
+                  placeholder={t('matchups.spikeNotesPlaceholder')}
+                  champion={myChampion}
+                  helperText="Track levels, recalls, first item, and enemy breakpoint warnings."
+                />
+              </div>
+            </section>
+          </div>
+
+          <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+            <section
+              className="rounded-lg p-5"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                border: '1px solid var(--color-border)',
+                boxShadow: 'var(--shadow-lg)',
+              }}
+            >
+              <h2 className="mb-4 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                Card Preview
+              </h2>
+              <div className="flex items-center justify-center gap-4">
+                <div className="flex flex-col items-center gap-2">
+                  {myChampion ? (
+                    <Image src={getChampionIconUrl(myChampion)} alt={myChampion} width={64} height={64} className="rounded-lg" />
+                  ) : (
+                    <div className="h-16 w-16 rounded-lg" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }} />
+                  )}
+                  <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                    {myChampion || t('matchups.myChampion')}
+                  </span>
+                </div>
+                <span className="text-sm font-black" style={{ color: 'var(--color-text-muted)' }}>
+                  VS
+                </span>
+                <div className="flex flex-col items-center gap-2">
+                  {enemyChampion ? (
+                    <Image src={getChampionIconUrl(enemyChampion)} alt={enemyChampion} width={64} height={64} className="rounded-lg" />
+                  ) : (
+                    <div className="h-16 w-16 rounded-lg" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }} />
+                  )}
+                  <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                    {enemyChampion || t('matchups.enemyChampion')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-3 text-xs">
+                <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Role</span>
+                  <p className="mt-1 font-bold" style={{ color: 'var(--color-text-primary)' }}>{role || '-'}</p>
+                </div>
+                <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Visibility</span>
+                  <p className="mt-1 font-bold" style={{ color: 'var(--color-text-primary)' }}>{isPublic ? t('matchups.public') : t('matchups.private')}</p>
+                </div>
+              </div>
+            </section>
+
+            <section
+              className="rounded-lg p-5"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                border: '1px solid var(--color-border)',
+                boxShadow: 'var(--shadow-lg)',
+              }}
+            >
+              <label className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={isPublic}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                  className="mt-1 h-5 w-5 rounded"
+                  style={{ accentColor: 'var(--color-accent-1)' }}
+                />
+                <span>
+                  <span className="block text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                    {t('matchups.makePublic')}
+                  </span>
+                  <span className="mt-1 block text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                    Public cards appear in Discover and can be saved into collections.
+                  </span>
+                </span>
+              </label>
+
+              {isPublic && (
+                <div className="mt-5 space-y-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                      {t('matchups.titleLabel')} *
+                    </label>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value.slice(0, 100))}
+                      placeholder={t('matchups.titlePlaceholder')}
+                      className="w-full rounded-lg px-4 py-3 text-sm outline-none focus:ring-2"
+                      style={{
+                        backgroundColor: 'var(--color-bg-tertiary)',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                      {t('matchups.descriptionLabel')}
+                    </label>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value.slice(0, 500))}
+                      placeholder={t('matchups.descriptionPlaceholder')}
+                      rows={4}
+                      className="w-full resize-none rounded-lg px-4 py-3 text-sm outline-none focus:ring-2"
+                      style={{
+                        backgroundColor: 'var(--color-bg-tertiary)',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
+                    />
+                    <div className="mt-1 text-right text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                      {500 - description.length} {t('matchups.charactersRemaining')}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+          </aside>
         </form>
       </div>
     </div>
