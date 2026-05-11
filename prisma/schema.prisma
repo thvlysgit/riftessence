@@ -1266,7 +1266,7 @@ model Team {
   fillAvailabilitiesReminderEnabled Boolean @default(true) // Weekly reminder to fill planning availabilities
   fillAvailabilitiesReminderDayOfWeek Int @default(0) // 0=Sunday, 1=Monday, ... 6=Saturday
   fillAvailabilitiesReminderTimeMinutes Int @default(60) // Minutes after midnight, defaults to 01:00
-  fillAvailabilitiesReminderLastSentAt DateTime?
+  fillAvailabilitiesReminderLastSentAt DateTime? @default(now())
   
   // Owner (team creator)
   owner       User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)

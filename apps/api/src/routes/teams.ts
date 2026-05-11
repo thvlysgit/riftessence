@@ -264,7 +264,8 @@ export default async function teamsRoutes(fastify: any) {
       .toLowerCase()
       .replace(/\s+/g, '')
       .replace(/[.]/g, '')
-      .replace(/(\d)h(?=\d|$)/g, '$1:');
+      .replace(/^(\d{1,2})h$/, '$1')
+      .replace(/^(\d{1,2})h(\d{1,2})$/, '$1:$2');
 
     const match = compact.match(/^(\d{1,2})(?::(\d{1,2}))?(am|pm)?$/);
     if (!match) return { minutes: null, hasMeridiem: false };
@@ -358,6 +359,41 @@ export default async function teamsRoutes(fastify: any) {
     return { rawText, intervals, error: null };
   };
 
+  const normalizeAvailabilityIntervals = (raw: any): {
+    intervals: Array<{ startMinutes: number; endMinutes: number; label: string }> | null;
+    error: string | null;
+  } => {
+    if (!Array.isArray(raw)) {
+      return { intervals: null, error: null };
+    }
+
+    const intervals: Array<{ startMinutes: number; endMinutes: number; label: string }> = [];
+    for (const entry of raw) {
+      const startMinutes = Number(entry?.startMinutes);
+      const endMinutes = Number(entry?.endMinutes);
+      if (
+        !Number.isInteger(startMinutes)
+        || !Number.isInteger(endMinutes)
+        || startMinutes < 0
+        || endMinutes > 24 * 60
+        || startMinutes % 30 !== 0
+        || endMinutes % 30 !== 0
+        || endMinutes <= startMinutes
+      ) {
+        return { intervals: null, error: 'Availability intervals must be valid 30-minute ranges' };
+      }
+
+      intervals.push({
+        startMinutes,
+        endMinutes,
+        label: `${formatAvailabilityMinute(startMinutes)} - ${formatAvailabilityMinute(endMinutes)}`,
+      });
+    }
+
+    intervals.sort((a, b) => a.startMinutes - b.startMinutes || a.endMinutes - b.endMinutes);
+    return { intervals, error: null };
+  };
+
   const normalizeAvailabilityDaysPayload = (raw: any): {
     value: Array<{ dayOfWeek: number; rawText: string; intervals: Array<{ startMinutes: number; endMinutes: number; label: string }> }> | null;
     error: string | null;
@@ -380,15 +416,29 @@ export default async function teamsRoutes(fastify: any) {
       }
       seen.add(dayOfWeek);
 
-      const parsed = parseAvailabilityText(entry?.rawText);
-      if (parsed.error) {
-        return { value: null, error: parsed.error };
+      const normalizedIntervals = normalizeAvailabilityIntervals(entry?.intervals);
+      if (normalizedIntervals.error) {
+        return { value: null, error: normalizedIntervals.error };
+      }
+
+      let rawText = typeof entry?.rawText === 'string' ? entry.rawText.trim().slice(0, 240) : '';
+      let intervals = normalizedIntervals.intervals;
+
+      if (!intervals) {
+        const parsed = parseAvailabilityText(entry?.rawText);
+        if (parsed.error) {
+          return { value: null, error: parsed.error };
+        }
+        rawText = parsed.rawText;
+        intervals = parsed.intervals;
+      } else if (!rawText) {
+        rawText = intervals.map((interval) => interval.label).join(', ');
       }
 
       normalized.push({
         dayOfWeek,
-        rawText: parsed.rawText,
-        intervals: parsed.intervals,
+        rawText,
+        intervals,
       });
     }
 
@@ -2443,6 +2493,7 @@ export default async function teamsRoutes(fastify: any) {
             : null;
 
           if (lastSentAt && lastSentAt.getTime() >= occurrence.getTime()) return null;
+          if (!lastSentAt) return null;
 
           const hasChannel = Boolean(team.discordWebhookUrl);
           const hasDmTarget = team.members.some((member: any) => Boolean(
@@ -2795,6 +2846,13 @@ export default async function teamsRoutes(fastify: any) {
       }
       if (availabilityReminderSettings.value.timeMinutes !== undefined) {
         updateData.fillAvailabilitiesReminderTimeMinutes = availabilityReminderSettings.value.timeMinutes;
+      }
+      if (
+        availabilityReminderSettings.value.enabled !== undefined
+        || availabilityReminderSettings.value.dayOfWeek !== undefined
+        || availabilityReminderSettings.value.timeMinutes !== undefined
+      ) {
+        updateData.fillAvailabilitiesReminderLastSentAt = new Date();
       }
 
       if (mentionMode !== undefined) {

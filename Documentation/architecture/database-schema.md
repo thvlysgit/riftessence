@@ -64,7 +64,7 @@ Team model schedule-permission fields include:
 Team planning availability model:
 - `TeamScheduleAvailability` stores one row per team, member, week, and weekday.
 - `weekStart` is the Monday of the planning week; `dayOfWeek` is 0=Monday through 6=Sunday.
-- `rawText` preserves the user-entered availability, while `intervals` stores parsed minute ranges for scanning.
+- `rawText` preserves Discord modal text input when used, while `intervals` stores parsed or web-selected minute ranges for scanning.
 
 TeamEvent schema addition used by accepted scrims:
 - `enemyMultigg String?` (opponent multisearch URL persisted on SCRIM events)

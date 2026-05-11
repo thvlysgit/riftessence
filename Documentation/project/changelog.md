@@ -19,12 +19,14 @@ Changes:
   - Extended schedule edit authorization and Discord bot event creation options to honor the new team setting.
   - Exposed the setting through `GET/POST /api/teams/:id/discord`.
   - Added team availability read/save endpoints and Discord bot-only reminder/modal submission endpoints.
+  - Improved Discord availability text parsing for round-hour inputs like `18h`.
+  - Availability reminder setting saves now update only the selected team and avoid immediate backfill sends.
 - Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
   - Added weekly availability reminder delivery to team channels and DMs with week/weekend modal buttons.
 - Updated [apps/web/pages/teams/discord.tsx](apps/web/pages/teams/discord.tsx):
   - Added the "Players can set schedule events" toggle and weekly fill-availability reminder settings.
 - Updated [apps/web/pages/teams/schedule.tsx](apps/web/pages/teams/schedule.tsx):
-  - Added an Availability view where members can fill day-by-day weekly availability and staff can scan team availability by day.
+  - Added an Availability view where members can click or drag 30-minute slots and staff can scan team availability by day.
 
 ---
 

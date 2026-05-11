@@ -66,6 +66,12 @@ interface MemberAvailability {
   days: MemberAvailabilityDay[];
 }
 
+interface AvailabilityDragState {
+  active: boolean;
+  dayOfWeek: number | null;
+  value: boolean;
+}
+
 const EVENT_COLORS: Record<string, string> = {
   SCRIM: '#22C55E',
   PRACTICE: '#3B82F6',
@@ -118,6 +124,53 @@ const ATTENDANCE_ICONS: Record<string, string> = {
 // Time slots for timeline view (full day: 00:00 -> 23:00)
 const TIME_SLOTS = Array.from({ length: 24 }, (_, i) => i);
 const HOUR_ROW_HEIGHT_PX = 64;
+const AVAILABILITY_SLOT_MINUTES = 30;
+const AVAILABILITY_SLOT_COUNT = 48;
+const AVAILABILITY_SLOTS = Array.from({ length: AVAILABILITY_SLOT_COUNT }, (_, index) => index);
+const EMPTY_AVAILABILITY_DAY = () => Array.from({ length: AVAILABILITY_SLOT_COUNT }, () => false);
+
+const formatAvailabilitySlotTime = (slotIndex: number): string => {
+  const minutes = slotIndex * AVAILABILITY_SLOT_MINUTES;
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+};
+
+const intervalsToSlots = (intervals: AvailabilityInterval[] = []): boolean[] => {
+  const slots = EMPTY_AVAILABILITY_DAY();
+  for (const interval of intervals) {
+    const start = Math.max(0, Math.floor(interval.startMinutes / AVAILABILITY_SLOT_MINUTES));
+    const end = Math.min(AVAILABILITY_SLOT_COUNT, Math.ceil(interval.endMinutes / AVAILABILITY_SLOT_MINUTES));
+    for (let slot = start; slot < end; slot += 1) {
+      slots[slot] = true;
+    }
+  }
+  return slots;
+};
+
+const slotsToIntervals = (slots: boolean[]): AvailabilityInterval[] => {
+  const intervals: AvailabilityInterval[] = [];
+  let start: number | null = null;
+
+  for (let slot = 0; slot <= AVAILABILITY_SLOT_COUNT; slot += 1) {
+    const selected = Boolean(slots[slot]);
+    if (selected && start === null) {
+      start = slot;
+    }
+    if ((!selected || slot === AVAILABILITY_SLOT_COUNT) && start !== null) {
+      const startMinutes = start * AVAILABILITY_SLOT_MINUTES;
+      const endMinutes = slot * AVAILABILITY_SLOT_MINUTES;
+      intervals.push({
+        startMinutes,
+        endMinutes,
+        label: `${formatAvailabilitySlotTime(start)} - ${formatAvailabilitySlotTime(slot)}`,
+      });
+      start = null;
+    }
+  }
+
+  return intervals;
+};
 
 const toLocalDateTimeInputValue = (value: string | Date): string => {
   const date = value instanceof Date ? value : new Date(value);
@@ -150,7 +203,8 @@ const TeamSchedulePage: React.FC = () => {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [events, setEvents] = useState<TeamEvent[]>([]);
   const [availabilityMembers, setAvailabilityMembers] = useState<MemberAvailability[]>([]);
-  const [availabilityForm, setAvailabilityForm] = useState<Record<number, string>>({});
+  const [availabilitySlots, setAvailabilitySlots] = useState<Record<number, boolean[]>>({});
+  const [availabilityDrag, setAvailabilityDrag] = useState<AvailabilityDragState>({ active: false, dayOfWeek: null, value: false });
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [availabilitySuccess, setAvailabilitySuccess] = useState<string | null>(null);
@@ -390,13 +444,13 @@ const TeamSchedulePage: React.FC = () => {
         setAvailabilityMembers(members);
         const mine = members.find((member) => member.userId === user?.id);
         if (mine) {
-          const nextForm: Record<number, string> = {};
+          const nextSlots: Record<number, boolean[]> = {};
           for (const day of mine.days) {
-            nextForm[day.dayOfWeek] = day.rawText || '';
+            nextSlots[day.dayOfWeek] = intervalsToSlots(day.intervals);
           }
-          setAvailabilityForm(nextForm);
+          setAvailabilitySlots(nextSlots);
         } else {
-          setAvailabilityForm({});
+          setAvailabilitySlots({});
         }
       }
     } catch (err) {
@@ -637,7 +691,7 @@ const TeamSchedulePage: React.FC = () => {
           weekStart: weekStart.toISOString(),
           days: Array.from({ length: 7 }, (_, dayOfWeek) => ({
             dayOfWeek,
-            rawText: availabilityForm[dayOfWeek] || ''
+            intervals: slotsToIntervals(availabilitySlots[dayOfWeek] || EMPTY_AVAILABILITY_DAY())
           }))
         })
       });
@@ -665,6 +719,32 @@ const TeamSchedulePage: React.FC = () => {
         day: member.days.find((day) => day.dayOfWeek === dayOfWeek)
       }))
       .filter((entry) => entry.day && entry.day.intervals.length > 0);
+  };
+
+  const applyAvailabilitySlot = (dayOfWeek: number, slotIndex: number, value: boolean) => {
+    setAvailabilitySlots((prev) => {
+      const current = prev[dayOfWeek] || EMPTY_AVAILABILITY_DAY();
+      if (current[slotIndex] === value) return prev;
+      const nextDay = [...current];
+      nextDay[slotIndex] = value;
+      return { ...prev, [dayOfWeek]: nextDay };
+    });
+  };
+
+  const handleAvailabilityPointerDown = (dayOfWeek: number, slotIndex: number) => {
+    const current = availabilitySlots[dayOfWeek] || EMPTY_AVAILABILITY_DAY();
+    const nextValue = !current[slotIndex];
+    setAvailabilityDrag({ active: true, dayOfWeek, value: nextValue });
+    applyAvailabilitySlot(dayOfWeek, slotIndex, nextValue);
+  };
+
+  const handleAvailabilityPointerEnter = (dayOfWeek: number, slotIndex: number) => {
+    if (!availabilityDrag.active || availabilityDrag.dayOfWeek !== dayOfWeek) return;
+    applyAvailabilitySlot(dayOfWeek, slotIndex, availabilityDrag.value);
+  };
+
+  const stopAvailabilityDrag = () => {
+    setAvailabilityDrag({ active: false, dayOfWeek: null, value: false });
   };
 
   if (!user) {
@@ -1214,31 +1294,58 @@ const TeamSchedulePage: React.FC = () => {
                         <h3 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--color-text-muted)' }}>
                           My availability
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-                          {fullDayNames.map((day, dayOfWeek) => (
-                            <div
-                              key={day}
-                              className="rounded-xl border p-3"
-                              style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
-                            >
-                              <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                                {day}
-                              </label>
-                              <textarea
-                                value={availabilityForm[dayOfWeek] || ''}
-                                onChange={(event) => setAvailabilityForm((prev) => ({ ...prev, [dayOfWeek]: event.target.value }))}
-                                placeholder={dayOfWeek < 5 ? '18h30 - 23h' : '11AM - 5PM, 20h - 23h'}
-                                rows={3}
-                                className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
-                                style={{
-                                  backgroundColor: 'var(--color-bg-secondary)',
-                                  borderColor: 'var(--color-border)',
-                                  color: 'var(--color-text-primary)'
-                                }}
-                              />
+                        <div
+                          className="rounded-xl border overflow-auto select-none"
+                          style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
+                          onMouseLeave={stopAvailabilityDrag}
+                          onMouseUp={stopAvailabilityDrag}
+                          onPointerCancel={stopAvailabilityDrag}
+                        >
+                          <div className="grid min-w-[820px]" style={{ gridTemplateColumns: '72px repeat(7, minmax(96px, 1fr))' }}>
+                            <div className="sticky left-0 z-10 p-2 text-xs font-semibold border-b border-r" style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+                              Time
                             </div>
-                          ))}
+                            {dayNames.map((day) => (
+                              <div key={day} className="p-2 text-center text-xs font-bold uppercase border-b border-r last:border-r-0" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                                {day}
+                              </div>
+                            ))}
+                            {AVAILABILITY_SLOTS.map((slot) => (
+                              <React.Fragment key={slot}>
+                                <div className="sticky left-0 z-10 h-7 px-2 text-[11px] border-r flex items-start" style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)', color: slot % 2 === 0 ? 'var(--color-text-muted)' : 'transparent' }}>
+                                  {slot % 2 === 0 ? formatAvailabilitySlotTime(slot) : ''}
+                                </div>
+                                {fullDayNames.map((_day, dayOfWeek) => {
+                                  const selected = Boolean((availabilitySlots[dayOfWeek] || EMPTY_AVAILABILITY_DAY())[slot]);
+                                  return (
+                                    <button
+                                      key={`${dayOfWeek}-${slot}`}
+                                      type="button"
+                                      aria-label={`${fullDayNames[dayOfWeek]} ${formatAvailabilitySlotTime(slot)}`}
+                                      onMouseDown={(event) => {
+                                        event.preventDefault();
+                                        handleAvailabilityPointerDown(dayOfWeek, slot);
+                                      }}
+                                      onMouseEnter={() => handleAvailabilityPointerEnter(dayOfWeek, slot)}
+                                      className="h-7 border-r border-b transition-colors"
+                                      style={{
+                                        borderColor: 'var(--color-border)',
+                                        backgroundColor: selected
+                                          ? 'rgba(34, 197, 94, 0.42)'
+                                          : slot % 2 === 0
+                                            ? 'rgba(255,255,255,0.025)'
+                                            : 'transparent',
+                                      }}
+                                    />
+                                  );
+                                })}
+                              </React.Fragment>
+                            ))}
+                          </div>
                         </div>
+                        <p className="mt-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                          Click a 30-minute cell to toggle it. Hold and slide across a day to fill or clear multiple cells.
+                        </p>
                       </section>
 
                       <section>
