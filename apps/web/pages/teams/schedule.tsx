@@ -128,6 +128,7 @@ const AVAILABILITY_SLOT_MINUTES = 30;
 const AVAILABILITY_SLOT_COUNT = 48;
 const AVAILABILITY_SLOTS = Array.from({ length: AVAILABILITY_SLOT_COUNT }, (_, index) => index);
 const EMPTY_AVAILABILITY_DAY = () => Array.from({ length: AVAILABILITY_SLOT_COUNT }, () => false);
+const PLAYER_TEAM_ROLES = new Set(['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS']);
 
 const formatAvailabilitySlotTime = (slotIndex: number): string => {
   const minutes = slotIndex * AVAILABILITY_SLOT_MINUTES;
@@ -721,6 +722,28 @@ const TeamSchedulePage: React.FC = () => {
       .filter((entry) => entry.day && entry.day.intervals.length > 0);
   };
 
+  const getPlayerAvailabilityMembers = () => {
+    return availabilityMembers.filter((member) => PLAYER_TEAM_ROLES.has(member.role));
+  };
+
+  const getAllPlayersAvailabilityForDay = (dayOfWeek: number): AvailabilityInterval[] => {
+    const players = getPlayerAvailabilityMembers();
+    if (players.length === 0) return [];
+
+    const sharedSlots = Array.from({ length: AVAILABILITY_SLOT_COUNT }, () => true);
+
+    for (const player of players) {
+      const day = player.days.find((entry) => entry.dayOfWeek === dayOfWeek);
+      const playerSlots = day ? intervalsToSlots(day.intervals) : EMPTY_AVAILABILITY_DAY();
+
+      for (let slot = 0; slot < AVAILABILITY_SLOT_COUNT; slot += 1) {
+        sharedSlots[slot] = sharedSlots[slot] && playerSlots[slot];
+      }
+    }
+
+    return slotsToIntervals(sharedSlots);
+  };
+
   const applyAvailabilitySlot = (dayOfWeek: number, slotIndex: number, value: boolean) => {
     setAvailabilitySlots((prev) => {
       const current = prev[dayOfWeek] || EMPTY_AVAILABILITY_DAY();
@@ -787,6 +810,7 @@ const TeamSchedulePage: React.FC = () => {
 
   const upcomingEvents = getUpcomingEvents();
   const eventStats = getEventStats();
+  const playerAvailabilityMemberCount = getPlayerAvailabilityMembers().length;
 
   return (
     <>
@@ -1349,12 +1373,58 @@ const TeamSchedulePage: React.FC = () => {
                       </section>
 
                       <section>
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                          <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
+                            All players available
+                          </h3>
+                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#22C55E' }}>
+                            {playerAvailabilityMemberCount} player{playerAvailabilityMemberCount === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-3">
+                          {fullDayNames.map((day, dayOfWeek) => {
+                            const sharedPlayerWindows = getAllPlayersAvailabilityForDay(dayOfWeek);
+                            return (
+                              <div
+                                key={day}
+                                className="rounded-xl border p-3"
+                                style={{
+                                  backgroundColor: sharedPlayerWindows.length > 0 ? 'rgba(34, 197, 94, 0.08)' : 'var(--color-bg-tertiary)',
+                                  borderColor: sharedPlayerWindows.length > 0 ? 'rgba(34, 197, 94, 0.35)' : 'var(--color-border)'
+                                }}
+                              >
+                                <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>{dayNames[dayOfWeek]}</h4>
+                                {playerAvailabilityMemberCount === 0 ? (
+                                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No players on roster</p>
+                                ) : sharedPlayerWindows.length === 0 ? (
+                                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No shared window</p>
+                                ) : (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {sharedPlayerWindows.map((interval) => (
+                                      <span
+                                        key={`${dayOfWeek}-${interval.startMinutes}-${interval.endMinutes}`}
+                                        className="text-[11px] font-semibold px-2 py-1 rounded"
+                                        style={{ backgroundColor: 'rgba(34, 197, 94, 0.18)', color: '#86EFAC' }}
+                                      >
+                                        {interval.label}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+
+                      <section>
                         <h3 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--color-text-muted)' }}>
                           Team view
                         </h3>
                         <div className="grid grid-cols-1 lg:grid-cols-7 gap-3">
                           {fullDayNames.map((day, dayOfWeek) => {
                             const available = getAvailabilityForDay(dayOfWeek);
+                            const sharedPlayerWindows = getAllPlayersAvailabilityForDay(dayOfWeek);
                             return (
                               <div
                                 key={day}
@@ -1367,6 +1437,27 @@ const TeamSchedulePage: React.FC = () => {
                                     {available.length}
                                   </span>
                                 </div>
+                                {sharedPlayerWindows.length > 0 && (
+                                  <div
+                                    className="mb-3 rounded-lg border p-2"
+                                    style={{ backgroundColor: 'rgba(34, 197, 94, 0.08)', borderColor: 'rgba(34, 197, 94, 0.28)' }}
+                                  >
+                                    <div className="text-[10px] font-semibold uppercase mb-1" style={{ color: '#86EFAC' }}>
+                                      Every player
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {sharedPlayerWindows.map((interval) => (
+                                        <span
+                                          key={`${dayOfWeek}-shared-${interval.startMinutes}-${interval.endMinutes}`}
+                                          className="text-[11px] px-1.5 py-0.5 rounded"
+                                          style={{ backgroundColor: 'rgba(34, 197, 94, 0.18)', color: '#86EFAC' }}
+                                        >
+                                          {interval.label}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                                 {available.length === 0 ? (
                                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No availability yet</p>
                                 ) : (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import type { GetServerSideProps, GetServerSidePropsContext } from 'next';
 import Link from 'next/link';
@@ -219,6 +219,9 @@ const TeamDetailPage: React.FC<TeamSharePageProps> = ({ ssrOgImage }) => {
   const [editForm, setEditForm] = useState({ name: '', tag: '', description: '', region: '', iconUrl: '' });
   const [editing, setEditing] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [iconDragActive, setIconDragActive] = useState(false);
+  const [iconFileError, setIconFileError] = useState<string | null>(null);
+  const iconFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Transfer ownership modal
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -249,6 +252,8 @@ const TeamDetailPage: React.FC<TeamSharePageProps> = ({ ssrOgImage }) => {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
   const REGIONS = ['EUW', 'EUNE', 'NA', 'KR', 'JP', 'BR', 'LAN', 'LAS', 'OCE', 'TR', 'RU', 'PH', 'SG', 'TH', 'TW', 'VN', 'ME'];
+  const MAX_ICON_UPLOAD_BYTES = 700 * 1024;
+  const ALLOWED_ICON_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 
   const fetchTeam = async () => {
     const token = getAuthToken();
@@ -303,8 +308,37 @@ const TeamDetailPage: React.FC<TeamSharePageProps> = ({ ssrOgImage }) => {
         iconUrl: team.iconUrl || '',
       });
       setEditError(null);
+      setIconFileError(null);
+      setIconDragActive(false);
       setShowEditModal(true);
     }
+  };
+
+  const handleIconFile = (file: File | null | undefined) => {
+    if (!file) return;
+    setIconFileError(null);
+
+    if (!ALLOWED_ICON_TYPES.has(file.type)) {
+      setIconFileError('Use a PNG, JPG, WebP, or GIF image.');
+      return;
+    }
+
+    if (file.size > MAX_ICON_UPLOAD_BYTES) {
+      setIconFileError('Team icon uploads must be 700KB or smaller.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      if (!result.startsWith('data:image/')) {
+        setIconFileError('Could not read this image file.');
+        return;
+      }
+      setEditForm((prev) => ({ ...prev, iconUrl: result }));
+    };
+    reader.onerror = () => setIconFileError('Could not read this image file.');
+    reader.readAsDataURL(file);
   };
 
   const handleEditTeam = async (e: React.FormEvent) => {
@@ -555,6 +589,8 @@ const TeamDetailPage: React.FC<TeamSharePageProps> = ({ ssrOgImage }) => {
       </div>
     );
   }
+
+  const editIconIsUploadedFile = editForm.iconUrl.startsWith('data:image/');
 
   return (
     <>
@@ -1660,25 +1696,91 @@ const TeamDetailPage: React.FC<TeamSharePageProps> = ({ ssrOgImage }) => {
 
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                  Team Icon URL
+                  Team Icon
                 </label>
                 <div className="flex gap-3 items-start">
                   <div className="flex-1">
+                    <button
+                      type="button"
+                      onClick={() => iconFileInputRef.current?.click()}
+                      onDragEnter={(e) => {
+                        e.preventDefault();
+                        setIconDragActive(true);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'copy';
+                        setIconDragActive(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        setIconDragActive(false);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIconDragActive(false);
+                        handleIconFile(e.dataTransfer.files?.[0]);
+                      }}
+                      className="w-full px-4 py-4 rounded-lg border border-dashed text-sm transition-all text-left focus:outline-none"
+                      style={{
+                        backgroundColor: iconDragActive ? 'rgba(96, 165, 250, 0.12)' : 'var(--color-bg-tertiary)',
+                        borderColor: iconDragActive ? '#60A5FA' : 'var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
+                    >
+                      <span className="block font-semibold">Drop an image here or click to choose one</span>
+                      <span className="block text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                        PNG, JPG, WebP, or GIF. Max 700KB.
+                      </span>
+                    </button>
                     <input
-                      type="url"
-                      value={editForm.iconUrl}
-                      onChange={(e) => setEditForm({ ...editForm, iconUrl: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg border text-sm transition-all focus:outline-none"
+                      ref={iconFileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="hidden"
+                      onChange={(e) => {
+                        handleIconFile(e.target.files?.[0]);
+                        e.target.value = '';
+                      }}
+                    />
+                    {iconFileError && (
+                      <p className="text-xs mt-2" style={{ color: '#EF4444' }}>
+                        {iconFileError}
+                      </p>
+                    )}
+                    <input
+                      type="text"
+                      value={editIconIsUploadedFile ? '' : editForm.iconUrl}
+                      onChange={(e) => {
+                        setIconFileError(null);
+                        setEditForm({ ...editForm, iconUrl: e.target.value });
+                      }}
+                      className="w-full mt-3 px-4 py-3 rounded-lg border text-sm transition-all focus:outline-none"
                       style={{
                         backgroundColor: 'var(--color-bg-tertiary)',
                         borderColor: 'var(--color-border)',
                         color: 'var(--color-text-primary)',
                       }}
-                      placeholder="https://example.com/team-icon.png"
+                      placeholder={editIconIsUploadedFile ? 'Uploaded image selected' : 'https://example.com/team-icon.png'}
                     />
-                    <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                      Paste a URL to an image (e.g., from Imgur, Discord CDN, etc.)
-                    </p>
+                    <div className="mt-1 flex items-center justify-between gap-3">
+                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                        You can also paste an image URL.
+                      </p>
+                      {editForm.iconUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIconFileError(null);
+                            setEditForm({ ...editForm, iconUrl: '' });
+                          }}
+                          className="text-xs font-semibold hover:opacity-80"
+                          style={{ color: '#FCA5A5' }}
+                        >
+                          Clear icon
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {editForm.iconUrl && (
                     <div 

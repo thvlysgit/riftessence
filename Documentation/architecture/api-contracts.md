@@ -369,6 +369,15 @@ Scrim-related response additions:
   - `reviewCount`
   - `recentReviews[]` including reviewer team, three score axes, average, comment, and series metadata
 
+### PUT `/api/teams/:id`
+Update team profile metadata.
+
+Auth: Required (team owner)
+
+Body highlights:
+- optional `name`, `tag`, `description`, `region`
+- optional `iconUrl`, either an HTTP/HTTPS image URL or a dropped inline `data:image/png|jpeg|webp|gif;base64,...` image up to 700KB
+
 ### GET `/api/teams/:id/discord`
 Read team Discord delivery settings.
 

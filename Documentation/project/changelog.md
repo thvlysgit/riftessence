@@ -27,6 +27,9 @@ Changes:
   - Added the "Players can set schedule events" toggle and weekly fill-availability reminder settings.
 - Updated [apps/web/pages/teams/schedule.tsx](apps/web/pages/teams/schedule.tsx):
   - Added an Availability view where members can click or drag 30-minute slots and staff can scan team availability by day.
+  - Highlighted weekly windows where every player-role team member is available.
+- Updated [apps/api/src/routes/teams.ts](apps/api/src/routes/teams.ts), [apps/web/pages/teams/[id].tsx](apps/web/pages/teams/[id].tsx), and [Documentation/architecture/api-contracts.md](Documentation/architecture/api-contracts.md):
+  - Added drag-and-drop team icon uploads in the team edit modal using validated small inline image data URLs.
 
 ---
 

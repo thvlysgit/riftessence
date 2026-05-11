@@ -23,6 +23,8 @@ const DRAFT_ALLOWED_SIDES = ['BLUE', 'RED'] as const;
 const DRAFT_ALLOWED_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP'] as const;
 const DRAFT_BAN_COUNT = 5;
 const DRAFT_PICK_COUNT = 10;
+const TEAM_ICON_DATA_URL_MAX_BYTES = 700 * 1024;
+const TEAM_ICON_DATA_URL_PATTERN = /^data:image\/(png|jpe?g|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/;
 
 function isRealRiotPuuid(puuid: any): puuid is string {
   return typeof puuid === 'string' && puuid.length > 0 && !puuid.startsWith('discord_');
@@ -48,6 +50,27 @@ function pickTeamRosterAccount(accounts: any[], teamRegion: string | null | unde
     || list.find((account) => account?.isMain)
     || list.find(visible)
     || list[0];
+}
+
+function validateTeamIconUrl(iconUrl: any): string | null {
+  if (!iconUrl) return null;
+  if (typeof iconUrl !== 'string') return 'Icon URL must be a string';
+
+  const trimmed = iconUrl.trim();
+  if (/^https?:\/\/.+/i.test(trimmed)) return null;
+
+  const match = trimmed.match(TEAM_ICON_DATA_URL_PATTERN);
+  if (!match) {
+    return 'Icon must be a valid HTTP/HTTPS image URL or a PNG, JPG, WebP, or GIF upload';
+  }
+
+  const base64 = match[2];
+  const byteLength = Math.floor((base64.length * 3) / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
+  if (byteLength > TEAM_ICON_DATA_URL_MAX_BYTES) {
+    return 'Team icon upload must be 700KB or smaller';
+  }
+
+  return null;
 }
 
 export default async function teamsRoutes(fastify: any) {
@@ -1252,9 +1275,9 @@ export default async function teamsRoutes(fastify: any) {
         return reply.status(400).send({ error: 'Team tag must be 2-5 characters' });
       }
 
-      // Validate iconUrl if provided
-      if (iconUrl && !iconUrl.match(/^https?:\/\/.+/)) {
-        return reply.status(400).send({ error: 'Icon URL must be a valid HTTP/HTTPS URL' });
+      const iconUrlError = validateTeamIconUrl(iconUrl);
+      if (iconUrlError) {
+        return reply.status(400).send({ error: iconUrlError });
       }
 
       const updated = await prisma.team.update({
@@ -1264,7 +1287,7 @@ export default async function teamsRoutes(fastify: any) {
           ...(tag !== undefined && { tag: tag || null }),
           ...(description !== undefined && { description: description || null }),
           ...(region && { region }),
-          ...(iconUrl !== undefined && { iconUrl: iconUrl || null })
+          ...(iconUrl !== undefined && { iconUrl: typeof iconUrl === 'string' ? iconUrl.trim() || null : null })
         }
       });
 
