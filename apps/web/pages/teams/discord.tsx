@@ -15,6 +15,15 @@ const DISCORD_BOT_INVITE_URL = 'https://discord.com/oauth2/authorize?client_id=1
 const TEAM_ROLE_OPTIONS = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS', 'MANAGER', 'COACH'] as const;
 const REMINDER_DELAY_OPTIONS = [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440] as const;
 const MAX_REMINDER_DELAY_SELECTIONS = 8;
+const FILL_AVAILABILITY_REMINDER_DAYS = [
+  { value: 0, label: 'Sunday' },
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+] as const;
 const TEAM_ROLE_LABELS: Record<(typeof TEAM_ROLE_OPTIONS)[number], string> = {
   TOP: 'Top Lane',
   JGL: 'Jungle',
@@ -67,6 +76,24 @@ const formatReminderDelayLabel = (minutes: number): string => {
   return `${hours}h ${remainingMinutes}m`;
 };
 
+const minutesToTimeInput = (minutes: number): string => {
+  const safe = Number.isInteger(minutes) ? Math.max(0, Math.min(1439, minutes)) : 60;
+  const hours = Math.floor(safe / 60);
+  const mins = safe % 60;
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+};
+
+const timeInputToMinutes = (value: string): number | null => {
+  const match = value.match(/^(\d{2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return null;
+  }
+  return hours * 60 + minutes;
+};
+
 interface Team {
   id: string;
   name: string;
@@ -87,6 +114,9 @@ interface DiscordSettings {
   remindersEnabled: boolean;
   reminderDelaysMinutes: number[];
   playersCanSetScheduleEvents: boolean;
+  fillAvailabilitiesReminderEnabled: boolean;
+  fillAvailabilitiesReminderDayOfWeek: number;
+  fillAvailabilitiesReminderTimeMinutes: number;
   webhookValid?: boolean;
   channelName?: string;
   guildName?: string;
@@ -120,6 +150,9 @@ const DiscordSettingsPage: React.FC = () => {
   const [remindersEnabled, setRemindersEnabled] = useState(false);
   const [reminderDelaysMinutes, setReminderDelaysMinutes] = useState<number[]>([]);
   const [playersCanSetScheduleEvents, setPlayersCanSetScheduleEvents] = useState(false);
+  const [fillAvailabilitiesReminderEnabled, setFillAvailabilitiesReminderEnabled] = useState(true);
+  const [fillAvailabilitiesReminderDayOfWeek, setFillAvailabilitiesReminderDayOfWeek] = useState(0);
+  const [fillAvailabilitiesReminderTime, setFillAvailabilitiesReminderTime] = useState('01:00');
   const [discordDmEnabled, setDiscordDmEnabled] = useState(false);
   const [discordUsername, setDiscordUsername] = useState<string | null>(null);
 
@@ -232,6 +265,9 @@ const DiscordSettingsPage: React.FC = () => {
           setRemindersEnabled(data.remindersEnabled ?? false);
           setReminderDelaysMinutes(fetchedReminderDelays);
           setPlayersCanSetScheduleEvents(data.playersCanSetScheduleEvents ?? false);
+          setFillAvailabilitiesReminderEnabled(data.fillAvailabilitiesReminderEnabled ?? true);
+          setFillAvailabilitiesReminderDayOfWeek(data.fillAvailabilitiesReminderDayOfWeek ?? 0);
+          setFillAvailabilitiesReminderTime(minutesToTimeInput(data.fillAvailabilitiesReminderTimeMinutes ?? 60));
         }
       } catch (err) {
         console.error('Failed to fetch Discord settings:', err);
@@ -286,6 +322,13 @@ const DiscordSettingsPage: React.FC = () => {
       setSaving(false);
       return;
     }
+
+    const fillAvailabilityReminderTimeMinutes = timeInputToMinutes(fillAvailabilitiesReminderTime);
+    if (fillAvailabilityReminderTimeMinutes === null) {
+      setError('Choose a valid fill availabilities reminder time.');
+      setSaving(false);
+      return;
+    }
     
     try {
       const res = await fetch(`${apiUrl}/api/teams/${selectedTeamId}/discord`, {
@@ -306,6 +349,9 @@ const DiscordSettingsPage: React.FC = () => {
           remindersEnabled,
           reminderDelaysMinutes: sanitizedReminderDelays,
           playersCanSetScheduleEvents,
+          fillAvailabilitiesReminderEnabled,
+          fillAvailabilitiesReminderDayOfWeek,
+          fillAvailabilitiesReminderTimeMinutes: fillAvailabilityReminderTimeMinutes,
         })
       });
       
@@ -330,6 +376,9 @@ const DiscordSettingsPage: React.FC = () => {
       setRemindersEnabled(data.remindersEnabled ?? false);
       setReminderDelaysMinutes(sanitizeReminderDelays(data.reminderDelaysMinutes));
       setPlayersCanSetScheduleEvents(data.playersCanSetScheduleEvents ?? false);
+      setFillAvailabilitiesReminderEnabled(data.fillAvailabilitiesReminderEnabled ?? true);
+      setFillAvailabilitiesReminderDayOfWeek(data.fillAvailabilitiesReminderDayOfWeek ?? 0);
+      setFillAvailabilitiesReminderTime(minutesToTimeInput(data.fillAvailabilitiesReminderTimeMinutes ?? 60));
       setSuccess('Discord settings saved successfully!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -1026,6 +1075,74 @@ const DiscordSettingsPage: React.FC = () => {
                             ? `Selected: ${selectedReminderLabels.join(', ')}`
                             : 'Select at least one delay to enable reminders.'}
                         </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Fill availabilities reminders */}
+                  <div className="pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                    <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--color-text-primary)' }}>
+                      Fill Availabilities Reminder
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setFillAvailabilitiesReminderEnabled(!fillAvailabilitiesReminderEnabled)}
+                      className="flex items-center gap-3 w-full text-left"
+                    >
+                      <div
+                        className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${fillAvailabilitiesReminderEnabled ? 'bg-[#5865F2]' : 'bg-gray-600'}`}
+                      >
+                        <div
+                          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all duration-200 ${fillAvailabilitiesReminderEnabled ? 'left-[22px]' : 'left-0.5'}`}
+                        />
+                      </div>
+                      <div>
+                        <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                          {fillAvailabilitiesReminderEnabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                          Sends a weekly Discord DM and channel prompt so members can fill next week's planning availability.
+                        </p>
+                      </div>
+                    </button>
+
+                    {fillAvailabilitiesReminderEnabled && (
+                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#5865F2' }}>
+                            Reminder Day
+                          </label>
+                          <select
+                            value={fillAvailabilitiesReminderDayOfWeek}
+                            onChange={(event) => setFillAvailabilitiesReminderDayOfWeek(Number(event.target.value))}
+                            className="w-full px-3 py-2 rounded-lg border text-sm"
+                            style={{
+                              backgroundColor: 'var(--color-bg-tertiary)',
+                              borderColor: 'var(--color-border)',
+                              color: 'var(--color-text-primary)',
+                            }}
+                          >
+                            {FILL_AVAILABILITY_REMINDER_DAYS.map((day) => (
+                              <option key={day.value} value={day.value}>{day.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#5865F2' }}>
+                            Reminder Time
+                          </label>
+                          <input
+                            type="time"
+                            value={fillAvailabilitiesReminderTime}
+                            onChange={(event) => setFillAvailabilitiesReminderTime(event.target.value)}
+                            className="w-full px-3 py-2 rounded-lg border text-sm"
+                            style={{
+                              backgroundColor: 'var(--color-bg-tertiary)',
+                              borderColor: 'var(--color-border)',
+                              color: 'var(--color-text-primary)',
+                            }}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>

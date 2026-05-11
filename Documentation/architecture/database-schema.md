@@ -57,6 +57,14 @@ Team model scrim-delivery fields include:
 
 Team model schedule-permission fields include:
 - `playersCanSetScheduleEvents` (default `false`; when enabled, any team member can create, update, and delete Team Schedule events)
+- `fillAvailabilitiesReminderEnabled` (default `true`; controls weekly Discord prompts for members to fill planning availability)
+- `fillAvailabilitiesReminderDayOfWeek` and `fillAvailabilitiesReminderTimeMinutes` (default Sunday at 01:00)
+- `fillAvailabilitiesReminderLastSentAt` (deduplicates weekly reminder sends)
+
+Team planning availability model:
+- `TeamScheduleAvailability` stores one row per team, member, week, and weekday.
+- `weekStart` is the Monday of the planning week; `dayOfWeek` is 0=Monday through 6=Sunday.
+- `rawText` preserves the user-entered availability, while `intervals` stores parsed minute ranges for scanning.
 
 TeamEvent schema addition used by accepted scrims:
 - `enemyMultigg String?` (opponent multisearch URL persisted on SCRIM events)

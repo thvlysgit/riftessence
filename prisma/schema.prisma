@@ -176,6 +176,7 @@ model User {
   teamsOwned             Team[]                 @relation("TeamOwner")
   teamMemberships        TeamMember[]           @relation("TeamMemberships")
   teamDraftsCreated      TeamDraft[]            @relation("TeamDraftAuthor")
+  teamScheduleAvailabilities TeamScheduleAvailability[] @relation("TeamScheduleAvailabilities")
   teamEventAttendances   TeamEventAttendance[]  @relation("TeamEventAttendances")
   assignedCoachEvents    TeamEventCoach[]       @relation("AssignedCoachEvents")
   createdScrimPosts      ScrimPost[]            @relation("ScrimPostAuthor")
@@ -1262,6 +1263,10 @@ model Team {
   discordRemindersEnabled Boolean @default(false) // Enable pre-event reminder notifications
   discordReminderDelaysMinutes Int[] @default([]) // Reminder delays before event start
   playersCanSetScheduleEvents Boolean @default(false) // Allow any team member to create/update/delete schedule events
+  fillAvailabilitiesReminderEnabled Boolean @default(true) // Weekly reminder to fill planning availabilities
+  fillAvailabilitiesReminderDayOfWeek Int @default(0) // 0=Sunday, 1=Monday, ... 6=Saturday
+  fillAvailabilitiesReminderTimeMinutes Int @default(60) // Minutes after midnight, defaults to 01:00
+  fillAvailabilitiesReminderLastSentAt DateTime?
   
   // Owner (team creator)
   owner       User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
@@ -1281,6 +1286,7 @@ model Team {
   notifications TeamEventNotification[]
   eventReminders TeamEventReminder[]
   drafts      TeamDraft[]
+  scheduleAvailabilities TeamScheduleAvailability[]
   
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -1376,6 +1382,25 @@ model TeamEvent {
   @@index([teamId, scheduledAt])
   @@index([createdBy])
   @@index([teamId, discordMirrored])
+}
+
+model TeamScheduleAvailability {
+  id          String   @id @default(cuid())
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId      String
+  user        User     @relation("TeamScheduleAvailabilities", fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  weekStart   DateTime
+  dayOfWeek   Int      // 0=Monday, 1=Tuesday, ... 6=Sunday
+  rawText     String?
+  intervals   Json     @default("[]") // Array of { startMinutes, endMinutes, label }
+  source      String   @default("app") // app or discord
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([teamId, userId, weekStart, dayOfWeek])
+  @@index([teamId, weekStart])
+  @@index([userId, weekStart])
 }
 
 // Junction table for assigning coaches to VOD Review events

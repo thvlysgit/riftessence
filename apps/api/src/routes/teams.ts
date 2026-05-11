@@ -15,6 +15,10 @@ const DISCORD_MENTION_MODES = ['EVERYONE', 'ROLE', 'TEAM_ROLE_MAP'] as const;
 const MIN_TEAM_REMINDER_MINUTES = 5;
 const MAX_TEAM_REMINDER_MINUTES = 7 * 24 * 60;
 const MAX_TEAM_REMINDER_OPTIONS = 8;
+const FILL_AVAILABILITY_DAY_MIN = 0;
+const FILL_AVAILABILITY_DAY_MAX = 6;
+const FILL_AVAILABILITY_TIME_MIN = 0;
+const FILL_AVAILABILITY_TIME_MAX = 23 * 60 + 59;
 const DRAFT_ALLOWED_SIDES = ['BLUE', 'RED'] as const;
 const DRAFT_ALLOWED_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP'] as const;
 const DRAFT_BAN_COUNT = 5;
@@ -240,6 +244,203 @@ export default async function teamsRoutes(fastify: any) {
       data: rows,
       skipDuplicates: true,
     });
+  };
+
+  const startOfLocalWeekAsUtc = (raw: any): Date | null => {
+    const input = typeof raw === 'string' && raw.trim() ? new Date(raw) : new Date();
+    if (Number.isNaN(input.getTime())) return null;
+
+    const date = new Date(input);
+    date.setHours(0, 0, 0, 0);
+    const day = date.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    date.setDate(date.getDate() + diff);
+    return date;
+  };
+
+  const parseAvailabilityTime = (raw: string): { minutes: number | null; hasMeridiem: boolean } => {
+    const compact = raw
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '')
+      .replace(/[.]/g, '')
+      .replace(/(\d)h(?=\d|$)/g, '$1:');
+
+    const match = compact.match(/^(\d{1,2})(?::(\d{1,2}))?(am|pm)?$/);
+    if (!match) return { minutes: null, hasMeridiem: false };
+
+    let hour = parseInt(match[1], 10);
+    const minute = match[2] !== undefined ? parseInt(match[2], 10) : 0;
+    const meridiem = match[3] as 'am' | 'pm' | undefined;
+
+    if (!Number.isInteger(hour) || !Number.isInteger(minute) || minute < 0 || minute > 59) {
+      return { minutes: null, hasMeridiem: Boolean(meridiem) };
+    }
+
+    if (meridiem) {
+      if (hour < 1 || hour > 12) return { minutes: null, hasMeridiem: true };
+      if (meridiem === 'am') {
+        hour = hour === 12 ? 0 : hour;
+      } else {
+        hour = hour === 12 ? 12 : hour + 12;
+      }
+    } else if (hour < 0 || hour > 23) {
+      return { minutes: null, hasMeridiem: false };
+    }
+
+    return { minutes: hour * 60 + minute, hasMeridiem: Boolean(meridiem) };
+  };
+
+  const formatAvailabilityMinute = (minutes: number): string => {
+    const safe = Math.max(0, Math.min(24 * 60, minutes));
+    const hour = Math.floor(safe / 60);
+    const minute = safe % 60;
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  };
+
+  const parseAvailabilityText = (raw: any): {
+    rawText: string;
+    intervals: Array<{ startMinutes: number; endMinutes: number; label: string }>;
+    error: string | null;
+  } => {
+    const rawText = typeof raw === 'string' ? raw.trim().slice(0, 240) : '';
+    if (!rawText || /^(none|no|not available|unavailable|off|n\/a|na)$/i.test(rawText)) {
+      return { rawText, intervals: [], error: null };
+    }
+
+    const entries = rawText
+      .split(/[,;\n]+/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+
+    const intervals: Array<{ startMinutes: number; endMinutes: number; label: string }> = [];
+    for (const entry of entries) {
+      const parts = entry.split(/\s*(?:-|–|—|to|à)\s*/i).map((part) => part.trim()).filter(Boolean);
+      if (parts.length !== 2) {
+        return {
+          rawText,
+          intervals: [],
+          error: `Could not parse "${entry}". Use a range like 18h30 - 23h or 6PM to 10PM.`,
+        };
+      }
+
+      const start = parseAvailabilityTime(parts[0]);
+      const end = parseAvailabilityTime(parts[1]);
+      if (start.minutes === null || end.minutes === null) {
+        return {
+          rawText,
+          intervals: [],
+          error: `Could not parse the time in "${entry}". Try 18h30 - 23h or 6PM - 10PM.`,
+        };
+      }
+
+      let endMinutes = end.minutes;
+      if (endMinutes <= start.minutes && !end.hasMeridiem && !start.hasMeridiem && start.minutes < 12 * 60 && endMinutes <= 12 * 60) {
+        endMinutes += 12 * 60;
+      }
+
+      if (endMinutes <= start.minutes || endMinutes > 24 * 60) {
+        return {
+          rawText,
+          intervals: [],
+          error: `The end time must be after the start time in "${entry}".`,
+        };
+      }
+
+      intervals.push({
+        startMinutes: start.minutes,
+        endMinutes,
+        label: `${formatAvailabilityMinute(start.minutes)} - ${formatAvailabilityMinute(endMinutes)}`,
+      });
+    }
+
+    intervals.sort((a, b) => a.startMinutes - b.startMinutes || a.endMinutes - b.endMinutes);
+    return { rawText, intervals, error: null };
+  };
+
+  const normalizeAvailabilityDaysPayload = (raw: any): {
+    value: Array<{ dayOfWeek: number; rawText: string; intervals: Array<{ startMinutes: number; endMinutes: number; label: string }> }> | null;
+    error: string | null;
+  } => {
+    const days = Array.isArray(raw?.days) ? raw.days : [];
+    if (days.length === 0) {
+      return { value: null, error: 'Provide at least one day of availability' };
+    }
+
+    const seen = new Set<number>();
+    const normalized: Array<{ dayOfWeek: number; rawText: string; intervals: Array<{ startMinutes: number; endMinutes: number; label: string }> }> = [];
+
+    for (const entry of days) {
+      const dayOfWeek = Number(entry?.dayOfWeek);
+      if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
+        return { value: null, error: 'dayOfWeek must be between 0 (Monday) and 6 (Sunday)' };
+      }
+      if (seen.has(dayOfWeek)) {
+        return { value: null, error: 'Each day can only be provided once' };
+      }
+      seen.add(dayOfWeek);
+
+      const parsed = parseAvailabilityText(entry?.rawText);
+      if (parsed.error) {
+        return { value: null, error: parsed.error };
+      }
+
+      normalized.push({
+        dayOfWeek,
+        rawText: parsed.rawText,
+        intervals: parsed.intervals,
+      });
+    }
+
+    return { value: normalized, error: null };
+  };
+
+  const sanitizeFillAvailabilityReminderSettings = (params: {
+    enabled: any;
+    dayOfWeek: any;
+    timeMinutes: any;
+  }): { value: { enabled?: boolean; dayOfWeek?: number; timeMinutes?: number }; error: string | null } => {
+    const value: { enabled?: boolean; dayOfWeek?: number; timeMinutes?: number } = {};
+
+    if (typeof params.enabled === 'boolean') {
+      value.enabled = params.enabled;
+    }
+
+    if (params.dayOfWeek !== undefined) {
+      const dayOfWeek = Number(params.dayOfWeek);
+      if (!Number.isInteger(dayOfWeek) || dayOfWeek < FILL_AVAILABILITY_DAY_MIN || dayOfWeek > FILL_AVAILABILITY_DAY_MAX) {
+        return { value: {}, error: 'Fill availabilities reminder day must be between Sunday and Saturday' };
+      }
+      value.dayOfWeek = dayOfWeek;
+    }
+
+    if (params.timeMinutes !== undefined) {
+      const timeMinutes = Number(params.timeMinutes);
+      if (!Number.isInteger(timeMinutes) || timeMinutes < FILL_AVAILABILITY_TIME_MIN || timeMinutes > FILL_AVAILABILITY_TIME_MAX) {
+        return { value: {}, error: 'Fill availabilities reminder time must be a valid time of day' };
+      }
+      value.timeMinutes = timeMinutes;
+    }
+
+    return { value, error: null };
+  };
+
+  const getPreviousReminderOccurrence = (now: Date, dayOfWeek: number, timeMinutes: number): Date => {
+    const occurrence = new Date(now);
+    occurrence.setHours(0, 0, 0, 0);
+    const diff = occurrence.getDay() - dayOfWeek;
+    occurrence.setDate(occurrence.getDate() - (diff >= 0 ? diff : diff + 7));
+    occurrence.setMinutes(timeMinutes, 0, 0);
+    if (occurrence.getTime() > now.getTime()) {
+      occurrence.setDate(occurrence.getDate() - 7);
+    }
+    return occurrence;
+  };
+
+  const getNextPlanningWeekStart = (from: Date): Date => {
+    const next = new Date(from);
+    next.setDate(next.getDate() + 1);
+    return startOfLocalWeekAsUtc(next) || startOfLocalWeekAsUtc(from) || new Date(from);
   };
 
   const normalizeConcernedMemberIds = async (teamId: string, raw: any): Promise<{ value: string[]; error: string | null }> => {
@@ -2068,6 +2269,289 @@ export default async function teamsRoutes(fastify: any) {
     }
   });
 
+  // ==================== TEAM SCHEDULE AVAILABILITIES ====================
+
+  // GET /api/teams/:id/availability?weekStart=...
+  fastify.get('/teams/:id/availability', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id } = request.params as { id: string };
+      const { weekStart } = request.query as { weekStart?: string };
+
+      if (!await isTeamMember(userId, id)) {
+        return reply.status(403).send({ error: 'You are not a member of this team' });
+      }
+
+      const normalizedWeekStart = startOfLocalWeekAsUtc(weekStart);
+      if (!normalizedWeekStart) {
+        return reply.status(400).send({ error: 'Invalid weekStart date' });
+      }
+
+      const team = await prisma.team.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          name: true,
+          tag: true,
+          members: {
+            orderBy: { joinedAt: 'asc' },
+            include: { user: { select: { id: true, username: true } } },
+          },
+        },
+      });
+
+      if (!team) {
+        return reply.status(404).send({ error: 'Team not found' });
+      }
+
+      const availabilityRows = await prisma.teamScheduleAvailability.findMany({
+        where: { teamId: id, weekStart: normalizedWeekStart },
+        orderBy: [{ dayOfWeek: 'asc' }, { updatedAt: 'desc' }],
+      });
+
+      const rowsByUser = new Map<string, any[]>();
+      for (const row of availabilityRows) {
+        const list = rowsByUser.get(row.userId) || [];
+        list.push(row);
+        rowsByUser.set(row.userId, list);
+      }
+
+      return reply.send({
+        weekStart: normalizedWeekStart,
+        team: { id: team.id, name: team.name, tag: team.tag },
+        members: team.members.map((member: any) => {
+          const rows = rowsByUser.get(member.userId) || [];
+          const byDay = new Map<number, any>(rows.map((row: any) => [row.dayOfWeek, row]));
+          return {
+            userId: member.userId,
+            username: member.user.username,
+            role: member.role,
+            days: Array.from({ length: 7 }, (_, dayOfWeek) => {
+              const row = byDay.get(dayOfWeek);
+              return {
+                dayOfWeek,
+                rawText: row?.rawText || '',
+                intervals: Array.isArray(row?.intervals) ? row.intervals : [],
+                source: row?.source || null,
+                updatedAt: row?.updatedAt || null,
+              };
+            }),
+          };
+        }),
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch team availabilities' });
+    }
+  });
+
+  // POST /api/teams/:id/availability - Save current member's planning availability
+  fastify.post('/teams/:id/availability', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { id } = request.params as { id: string };
+      const body = request.body && typeof request.body === 'object' ? request.body : {};
+      const normalizedWeekStart = startOfLocalWeekAsUtc((body as any).weekStart);
+
+      if (!normalizedWeekStart) {
+        return reply.status(400).send({ error: 'Invalid weekStart date' });
+      }
+
+      if (!await isTeamMember(userId, id)) {
+        return reply.status(403).send({ error: 'You are not a member of this team' });
+      }
+
+      const parsed = normalizeAvailabilityDaysPayload(body);
+      if (parsed.error || !parsed.value) {
+        return reply.status(400).send({ error: parsed.error || 'Invalid availability payload' });
+      }
+
+      await prisma.$transaction(parsed.value.map((day) => prisma.teamScheduleAvailability.upsert({
+        where: {
+          teamId_userId_weekStart_dayOfWeek: {
+            teamId: id,
+            userId,
+            weekStart: normalizedWeekStart,
+            dayOfWeek: day.dayOfWeek,
+          },
+        },
+        update: { rawText: day.rawText || null, intervals: day.intervals, source: 'app' },
+        create: {
+          teamId: id,
+          userId,
+          weekStart: normalizedWeekStart,
+          dayOfWeek: day.dayOfWeek,
+          rawText: day.rawText || null,
+          intervals: day.intervals,
+          source: 'app',
+        },
+      })));
+
+      return reply.send({ success: true, weekStart: normalizedWeekStart });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to save team availability' });
+    }
+  });
+
+  // GET /api/teams/discord-availability-reminders - Bot-only due weekly availability reminders
+  fastify.get('/teams/discord-availability-reminders', async (request: any, reply: any) => {
+    if (!getDiscordBotAuthorized(request, reply)) return;
+
+    try {
+      const now = new Date();
+      const teams = await prisma.team.findMany({
+        where: { fillAvailabilitiesReminderEnabled: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 200,
+        select: {
+          id: true,
+          name: true,
+          tag: true,
+          discordWebhookUrl: true,
+          fillAvailabilitiesReminderDayOfWeek: true,
+          fillAvailabilitiesReminderTimeMinutes: true,
+          fillAvailabilitiesReminderLastSentAt: true,
+          members: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  discordDmNotifications: true,
+                  discordAccount: { select: { discordId: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const reminders = teams
+        .map((team: any) => {
+          const occurrence = getPreviousReminderOccurrence(
+            now,
+            team.fillAvailabilitiesReminderDayOfWeek,
+            team.fillAvailabilitiesReminderTimeMinutes
+          );
+          const lastSentAt = team.fillAvailabilitiesReminderLastSentAt
+            ? new Date(team.fillAvailabilitiesReminderLastSentAt)
+            : null;
+
+          if (lastSentAt && lastSentAt.getTime() >= occurrence.getTime()) return null;
+
+          const hasChannel = Boolean(team.discordWebhookUrl);
+          const hasDmTarget = team.members.some((member: any) => Boolean(
+            member.user.discordDmNotifications && member.user.discordAccount?.discordId
+          ));
+          if (!hasChannel && !hasDmTarget) return null;
+
+          return {
+            teamId: team.id,
+            teamName: team.name,
+            teamTag: team.tag,
+            webhookUrl: team.discordWebhookUrl,
+            weekStart: getNextPlanningWeekStart(occurrence),
+            reminderFor: occurrence,
+            members: team.members.map((member: any) => ({
+              id: member.user.id,
+              username: member.user.username,
+              role: member.role,
+              discordId: member.user.discordAccount?.discordId || null,
+              dmEnabled: Boolean(member.user.discordDmNotifications && member.user.discordAccount?.discordId),
+            })),
+          };
+        })
+        .filter(Boolean)
+        .slice(0, 50);
+
+      return reply.send({ reminders });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch availability reminders' });
+    }
+  });
+
+  // PATCH /api/teams/discord-availability-reminders/:teamId/processed
+  fastify.patch('/teams/discord-availability-reminders/:teamId/processed', async (request: any, reply: any) => {
+    if (!getDiscordBotAuthorized(request, reply)) return;
+
+    try {
+      const { teamId } = request.params as { teamId: string };
+      await prisma.team.update({
+        where: { id: teamId },
+        data: { fillAvailabilitiesReminderLastSentAt: new Date() },
+      });
+      return reply.send({ success: true });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to mark availability reminder processed' });
+    }
+  });
+
+  // POST /api/teams/discord-availability - Save availability submitted from Discord modal
+  fastify.post('/teams/discord-availability', async (request: any, reply: any) => {
+    if (!getDiscordBotAuthorized(request, reply)) return;
+
+    try {
+      const body = request.body && typeof request.body === 'object' ? request.body : {};
+      const { discordId, teamId } = body as any;
+      const normalizedWeekStart = startOfLocalWeekAsUtc((body as any).weekStart);
+
+      if (!discordId || !teamId || !normalizedWeekStart) {
+        return reply.status(400).send({ error: 'discordId, teamId, and weekStart are required' });
+      }
+
+      const discordAccount = await prisma.discordAccount.findUnique({
+        where: { discordId },
+        select: { userId: true },
+      });
+
+      if (!discordAccount?.userId) {
+        return reply.status(404).send({ error: 'Your Discord account is not linked to RiftEssence' });
+      }
+
+      if (!await isTeamMember(discordAccount.userId, teamId)) {
+        return reply.status(403).send({ error: 'You are not a member of this team' });
+      }
+
+      const parsed = normalizeAvailabilityDaysPayload(body);
+      if (parsed.error || !parsed.value) {
+        return reply.status(400).send({ error: parsed.error || 'Invalid availability payload' });
+      }
+
+      await prisma.$transaction(parsed.value.map((day) => prisma.teamScheduleAvailability.upsert({
+        where: {
+          teamId_userId_weekStart_dayOfWeek: {
+            teamId,
+            userId: discordAccount.userId,
+            weekStart: normalizedWeekStart,
+            dayOfWeek: day.dayOfWeek,
+          },
+        },
+        update: { rawText: day.rawText || null, intervals: day.intervals, source: 'discord' },
+        create: {
+          teamId,
+          userId: discordAccount.userId,
+          weekStart: normalizedWeekStart,
+          dayOfWeek: day.dayOfWeek,
+          rawText: day.rawText || null,
+          intervals: day.intervals,
+          source: 'discord',
+        },
+      })));
+
+      return reply.send({ success: true, weekStart: normalizedWeekStart });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to save Discord availability' });
+    }
+  });
+
   // ==================== DISCORD INTEGRATION ====================
 
   // GET /api/teams/:id/discord - Get Discord settings
@@ -2097,6 +2581,9 @@ export default async function teamsRoutes(fastify: any) {
           discordRemindersEnabled: true,
           discordReminderDelaysMinutes: true,
           playersCanSetScheduleEvents: true,
+          fillAvailabilitiesReminderEnabled: true,
+          fillAvailabilitiesReminderDayOfWeek: true,
+          fillAvailabilitiesReminderTimeMinutes: true,
         }
       });
 
@@ -2148,6 +2635,9 @@ export default async function teamsRoutes(fastify: any) {
         remindersEnabled: Boolean(team.discordRemindersEnabled),
         reminderDelaysMinutes: normalizeStoredReminderDelays(team.discordReminderDelaysMinutes),
         playersCanSetScheduleEvents: Boolean(team.playersCanSetScheduleEvents),
+        fillAvailabilitiesReminderEnabled: Boolean(team.fillAvailabilitiesReminderEnabled),
+        fillAvailabilitiesReminderDayOfWeek: team.fillAvailabilitiesReminderDayOfWeek,
+        fillAvailabilitiesReminderTimeMinutes: team.fillAvailabilitiesReminderTimeMinutes,
         webhookValid,
         channelName,
         guildName,
@@ -2180,6 +2670,9 @@ export default async function teamsRoutes(fastify: any) {
         remindersEnabled,
         reminderDelaysMinutes,
         playersCanSetScheduleEvents,
+        fillAvailabilitiesReminderEnabled,
+        fillAvailabilitiesReminderDayOfWeek,
+        fillAvailabilitiesReminderTimeMinutes,
       } = request.body as any;
 
       // Only team owner can configure Discord
@@ -2201,6 +2694,9 @@ export default async function teamsRoutes(fastify: any) {
           discordRemindersEnabled: true,
           discordReminderDelaysMinutes: true,
           playersCanSetScheduleEvents: true,
+          fillAvailabilitiesReminderEnabled: true,
+          fillAvailabilitiesReminderDayOfWeek: true,
+          fillAvailabilitiesReminderTimeMinutes: true,
         },
       });
 
@@ -2283,6 +2779,24 @@ export default async function teamsRoutes(fastify: any) {
       if (typeof notifyMembers === 'boolean') updateData.discordNotifyMembers = notifyMembers;
       if (typeof playersCanSetScheduleEvents === 'boolean') updateData.playersCanSetScheduleEvents = playersCanSetScheduleEvents;
 
+      const availabilityReminderSettings = sanitizeFillAvailabilityReminderSettings({
+        enabled: fillAvailabilitiesReminderEnabled,
+        dayOfWeek: fillAvailabilitiesReminderDayOfWeek,
+        timeMinutes: fillAvailabilitiesReminderTimeMinutes,
+      });
+      if (availabilityReminderSettings.error) {
+        return reply.status(400).send({ error: availabilityReminderSettings.error });
+      }
+      if (availabilityReminderSettings.value.enabled !== undefined) {
+        updateData.fillAvailabilitiesReminderEnabled = availabilityReminderSettings.value.enabled;
+      }
+      if (availabilityReminderSettings.value.dayOfWeek !== undefined) {
+        updateData.fillAvailabilitiesReminderDayOfWeek = availabilityReminderSettings.value.dayOfWeek;
+      }
+      if (availabilityReminderSettings.value.timeMinutes !== undefined) {
+        updateData.fillAvailabilitiesReminderTimeMinutes = availabilityReminderSettings.value.timeMinutes;
+      }
+
       if (mentionMode !== undefined) {
         if (!DISCORD_MENTION_MODES.includes(mentionMode)) {
           return reply.status(400).send({ error: `mentionMode must be one of: ${DISCORD_MENTION_MODES.join(', ')}` });
@@ -2326,6 +2840,9 @@ export default async function teamsRoutes(fastify: any) {
           discordRemindersEnabled: true,
           discordReminderDelaysMinutes: true,
           playersCanSetScheduleEvents: true,
+          fillAvailabilitiesReminderEnabled: true,
+          fillAvailabilitiesReminderDayOfWeek: true,
+          fillAvailabilitiesReminderTimeMinutes: true,
         }
       });
 
@@ -2352,6 +2869,9 @@ export default async function teamsRoutes(fastify: any) {
         remindersEnabled: Boolean(team.discordRemindersEnabled),
         reminderDelaysMinutes: normalizeStoredReminderDelays(team.discordReminderDelaysMinutes),
         playersCanSetScheduleEvents: Boolean(team.playersCanSetScheduleEvents),
+        fillAvailabilitiesReminderEnabled: Boolean(team.fillAvailabilitiesReminderEnabled),
+        fillAvailabilitiesReminderDayOfWeek: team.fillAvailabilitiesReminderDayOfWeek,
+        fillAvailabilitiesReminderTimeMinutes: team.fillAvailabilitiesReminderTimeMinutes,
         webhookValid: team.discordWebhookUrl ? webhookValid : undefined,
         channelName,
         guildName,

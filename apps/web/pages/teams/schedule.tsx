@@ -46,6 +46,26 @@ interface TeamEvent {
   assignedCoaches: AssignedCoach[];
 }
 
+interface AvailabilityInterval {
+  startMinutes: number;
+  endMinutes: number;
+  label: string;
+}
+
+interface MemberAvailabilityDay {
+  dayOfWeek: number;
+  rawText: string;
+  intervals: AvailabilityInterval[];
+  updatedAt: string | null;
+}
+
+interface MemberAvailability {
+  userId: string;
+  username: string;
+  role: string;
+  days: MemberAvailabilityDay[];
+}
+
 const EVENT_COLORS: Record<string, string> = {
   SCRIM: '#22C55E',
   PRACTICE: '#3B82F6',
@@ -124,11 +144,16 @@ const TeamSchedulePage: React.FC = () => {
   const router = useRouter();
   const { user } = useAuth();
   const { currentLanguage } = useLanguage();
-  const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
+  const [viewMode, setViewMode] = useState<'week' | 'month' | 'availability'>('week');
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useRememberedTeamSelection(teams.map((team) => team.id));
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [events, setEvents] = useState<TeamEvent[]>([]);
+  const [availabilityMembers, setAvailabilityMembers] = useState<MemberAvailability[]>([]);
+  const [availabilityForm, setAvailabilityForm] = useState<Record<number, string>>({});
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
+  const [availabilitySuccess, setAvailabilitySuccess] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const today = new Date();
@@ -164,6 +189,7 @@ const TeamSchedulePage: React.FC = () => {
         subtitle: 'Voir et gérer le planning de votre équipe.',
         week: 'Semaine',
         month: 'Mois',
+        availability: 'Disponibilités',
         newEvent: 'Nouvel événement',
         missingEnemy: 'Infos adverses manquantes',
         time: 'Heure',
@@ -177,6 +203,7 @@ const TeamSchedulePage: React.FC = () => {
         subtitle: "View and manage your team's schedule.",
         week: 'Week',
         month: 'Month',
+        availability: 'Availability',
         newEvent: 'New Event',
         missingEnemy: 'Missing enemy info',
         time: 'TIME',
@@ -345,6 +372,38 @@ const TeamSchedulePage: React.FC = () => {
     }
   };
 
+  const fetchAvailabilities = async () => {
+    const token = getAuthToken();
+    if (!token || !selectedTeamId) return;
+
+    const weekStart = new Date(currentWeekStart);
+    weekStart.setHours(0, 0, 0, 0);
+
+    try {
+      const query = new URLSearchParams({ weekStart: weekStart.toISOString() });
+      const res = await fetch(`${apiUrl}/api/teams/${selectedTeamId}/availability?${query.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const members: MemberAvailability[] = Array.isArray(data.members) ? data.members : [];
+        setAvailabilityMembers(members);
+        const mine = members.find((member) => member.userId === user?.id);
+        if (mine) {
+          const nextForm: Record<number, string> = {};
+          for (const day of mine.days) {
+            nextForm[day.dayOfWeek] = day.rawText || '';
+          }
+          setAvailabilityForm(nextForm);
+        } else {
+          setAvailabilityForm({});
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch availabilities:', err);
+    }
+  };
+
   const handleToggleAttendance = async (eventId: string) => {
     const token = getAuthToken();
     if (!token || !selectedTeamId) return;
@@ -422,6 +481,11 @@ const TeamSchedulePage: React.FC = () => {
     if (!selectedTeamId) return;
     fetchEvents();
   }, [selectedTeamId, viewMode, currentWeekStart, currentMonth]);
+
+  useEffect(() => {
+    if (!selectedTeamId) return;
+    fetchAvailabilities();
+  }, [selectedTeamId, currentWeekStart, user?.id]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -549,6 +613,58 @@ const TeamSchedulePage: React.FC = () => {
     } catch (err) {
       console.error('Failed to delete event:', err);
     }
+  };
+
+  const handleSaveAvailability = async () => {
+    const token = getAuthToken();
+    if (!token || !selectedTeamId) return;
+
+    const weekStart = new Date(currentWeekStart);
+    weekStart.setHours(0, 0, 0, 0);
+
+    setAvailabilitySaving(true);
+    setAvailabilityError(null);
+    setAvailabilitySuccess(null);
+
+    try {
+      const res = await fetch(`${apiUrl}/api/teams/${selectedTeamId}/availability`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          weekStart: weekStart.toISOString(),
+          days: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+            dayOfWeek,
+            rawText: availabilityForm[dayOfWeek] || ''
+          }))
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAvailabilityError(data.error || 'Failed to save availability');
+        return;
+      }
+
+      setAvailabilitySuccess('Availability saved');
+      await fetchAvailabilities();
+      setTimeout(() => setAvailabilitySuccess(null), 3000);
+    } catch (err) {
+      setAvailabilityError('Failed to save availability');
+    } finally {
+      setAvailabilitySaving(false);
+    }
+  };
+
+  const getAvailabilityForDay = (dayOfWeek: number) => {
+    return availabilityMembers
+      .map((member) => ({
+        ...member,
+        day: member.days.find((day) => day.dayOfWeek === dayOfWeek)
+      }))
+      .filter((entry) => entry.day && entry.day.intervals.length > 0);
   };
 
   if (!user) {
@@ -710,12 +826,22 @@ const TeamSchedulePage: React.FC = () => {
                   >
                     {text.month}
                   </button>
+                  <button
+                    onClick={() => setViewMode('availability')}
+                    className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
+                    style={{
+                      backgroundColor: viewMode === 'availability' ? 'var(--color-accent-1)' : 'transparent',
+                      color: viewMode === 'availability' ? 'var(--color-bg-primary)' : 'var(--color-text-secondary)',
+                    }}
+                  >
+                    {text.availability}
+                  </button>
                 </div>
 
                 {/* Date Navigation */}
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => viewMode === 'week' ? navigateWeek('prev') : navigateMonth('prev')}
+                    onClick={() => viewMode === 'month' ? navigateMonth('prev') : navigateWeek('prev')}
                     className="p-2 rounded-lg transition-all hover:scale-105"
                     style={{ 
                       backgroundColor: 'var(--color-bg-tertiary)',
@@ -736,11 +862,11 @@ const TeamSchedulePage: React.FC = () => {
                       minWidth: '140px'
                     }}
                   >
-                    {viewMode === 'week' ? getWeekRangeString() : currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                    {viewMode === 'month' ? currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : getWeekRangeString()}
                   </button>
                   
                   <button
-                    onClick={() => viewMode === 'week' ? navigateWeek('next') : navigateMonth('next')}
+                    onClick={() => viewMode === 'month' ? navigateMonth('next') : navigateWeek('next')}
                     className="p-2 rounded-lg transition-all hover:scale-105"
                     style={{ 
                       backgroundColor: 'var(--color-bg-tertiary)',
@@ -1035,6 +1161,135 @@ const TeamSchedulePage: React.FC = () => {
                         );
                       })}
                     </div>
+                    </div>
+                  </div>
+                ) : viewMode === 'availability' ? (
+                  <div
+                    className="h-full rounded-2xl border overflow-hidden flex flex-col"
+                    style={{
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      borderColor: 'var(--color-border)',
+                      boxShadow: '0 4px 30px rgba(0, 0, 0, 0.3)'
+                    }}
+                  >
+                    <div className="p-5 border-b flex flex-wrap items-start justify-between gap-4" style={{ borderColor: 'var(--color-border)' }}>
+                      <div>
+                        <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                          Weekly Availability
+                        </h2>
+                        <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                          Fill when you can play this week. Suggested format: 18h30 - 23h or 6PM - 10PM. Multiple ranges are supported with commas.
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleSaveAvailability}
+                        disabled={availabilitySaving}
+                        className="px-4 py-2 rounded-lg font-semibold transition-all disabled:opacity-50"
+                        style={{
+                          background: 'linear-gradient(135deg, var(--color-accent-1) 0%, var(--color-accent-2) 100%)',
+                          color: 'var(--color-bg-primary)'
+                        }}
+                      >
+                        {availabilitySaving ? 'Saving...' : 'Save availability'}
+                      </button>
+                    </div>
+
+                    {(availabilityError || availabilitySuccess) && (
+                      <div className="px-5 pt-4">
+                        <div
+                          className="rounded-lg border px-4 py-3 text-sm"
+                          style={{
+                            backgroundColor: availabilityError ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+                            borderColor: availabilityError ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)',
+                            color: availabilityError ? '#EF4444' : '#22C55E'
+                          }}
+                        >
+                          {availabilityError || availabilitySuccess}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex-1 overflow-auto p-5 space-y-6">
+                      <section>
+                        <h3 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--color-text-muted)' }}>
+                          My availability
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                          {fullDayNames.map((day, dayOfWeek) => (
+                            <div
+                              key={day}
+                              className="rounded-xl border p-3"
+                              style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
+                            >
+                              <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                                {day}
+                              </label>
+                              <textarea
+                                value={availabilityForm[dayOfWeek] || ''}
+                                onChange={(event) => setAvailabilityForm((prev) => ({ ...prev, [dayOfWeek]: event.target.value }))}
+                                placeholder={dayOfWeek < 5 ? '18h30 - 23h' : '11AM - 5PM, 20h - 23h'}
+                                rows={3}
+                                className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
+                                style={{
+                                  backgroundColor: 'var(--color-bg-secondary)',
+                                  borderColor: 'var(--color-border)',
+                                  color: 'var(--color-text-primary)'
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+
+                      <section>
+                        <h3 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--color-text-muted)' }}>
+                          Team view
+                        </h3>
+                        <div className="grid grid-cols-1 lg:grid-cols-7 gap-3">
+                          {fullDayNames.map((day, dayOfWeek) => {
+                            const available = getAvailabilityForDay(dayOfWeek);
+                            return (
+                              <div
+                                key={day}
+                                className="rounded-xl border p-3 min-h-[180px]"
+                                style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}
+                              >
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>{dayNames[dayOfWeek]}</h4>
+                                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#22C55E' }}>
+                                    {available.length}
+                                  </span>
+                                </div>
+                                {available.length === 0 ? (
+                                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No availability yet</p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {available.map((entry) => (
+                                      <div key={entry.userId} className="rounded-lg p-2" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
+                                        <div className="flex items-center justify-between gap-2">
+                                          <span className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>{entry.username}</span>
+                                          <span className="text-[10px] uppercase" style={{ color: 'var(--color-text-muted)' }}>{entry.role}</span>
+                                        </div>
+                                        <div className="mt-1 flex flex-wrap gap-1">
+                                          {entry.day!.intervals.map((interval) => (
+                                            <span
+                                              key={`${entry.userId}-${interval.startMinutes}-${interval.endMinutes}`}
+                                              className="text-[11px] px-1.5 py-0.5 rounded"
+                                              style={{ backgroundColor: 'rgba(59, 130, 246, 0.14)', color: '#93C5FD' }}
+                                            >
+                                              {interval.label}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
                     </div>
                   </div>
                 ) : (

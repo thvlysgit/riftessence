@@ -8,17 +8,23 @@
 
 ### Objective: Let owners allow players to manage team schedule events
 
-Overview: Added a team-level setting in Discord notification settings that lets owners allow every team member to create, update, and delete Team Schedule events. The default remains restricted to owners, managers, and coaches.
+Overview: Added team schedule planning availability so members can publish weekly free-time windows, and added a team-level setting in Discord notification settings that lets owners allow every team member to create, update, and delete Team Schedule events. The default event-management permission remains restricted to owners, managers, and coaches.
 
 Changes:
 
 - Updated [prisma/schema.prisma](prisma/schema.prisma):
   - Added `Team.playersCanSetScheduleEvents` with a default of `false`.
+  - Added `TeamScheduleAvailability` and weekly fill-availability reminder settings on `Team`.
 - Updated [apps/api/src/routes/teams.ts](apps/api/src/routes/teams.ts):
   - Extended schedule edit authorization and Discord bot event creation options to honor the new team setting.
   - Exposed the setting through `GET/POST /api/teams/:id/discord`.
+  - Added team availability read/save endpoints and Discord bot-only reminder/modal submission endpoints.
+- Updated [discord-bot/src/index.ts](discord-bot/src/index.ts):
+  - Added weekly availability reminder delivery to team channels and DMs with week/weekend modal buttons.
 - Updated [apps/web/pages/teams/discord.tsx](apps/web/pages/teams/discord.tsx):
-  - Added the "Players can set schedule events" toggle to team Discord settings.
+  - Added the "Players can set schedule events" toggle and weekly fill-availability reminder settings.
+- Updated [apps/web/pages/teams/schedule.tsx](apps/web/pages/teams/schedule.tsx):
+  - Added an Availability view where members can fill day-by-day weekly availability and staff can scan team availability by day.
 
 ---
 

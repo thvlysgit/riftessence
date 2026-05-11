@@ -74,6 +74,10 @@ const TEAM_EVENT_DURATION_INPUT = 'team_event_duration';
 const TEAM_EVENT_OPPONENT_INPUT = 'team_event_opponent';
 const TEAM_EVENT_DESCRIPTION_INPUT = 'team_event_description';
 const TEAM_EVENT_TYPES = ['SCRIM', 'PRACTICE', 'VOD_REVIEW', 'TOURNAMENT', 'TEAM_MEETING'] as const;
+const TEAM_AVAILABILITY_BUTTON_PREFIX = 'team_avail_open_';
+const TEAM_AVAILABILITY_MODAL_PREFIX = 'team_avail_modal_';
+const TEAM_AVAILABILITY_DAY_INPUT_PREFIX = 'team_avail_day_';
+const TEAM_AVAILABILITY_SCOPES = ['week', 'weekend'] as const;
 const DUO_POST_MODAL = 'duo_post_modal';
 const DUO_POST_MODAL_BUTTON = 'duo_post_modal_open';
 const DUO_RIOT_ID_INPUT = 'duo_riot_id';
@@ -85,6 +89,7 @@ const CHAMPION_EMOJI_BATCH_COUNT = 4;
 const CHAMPION_POOL_TIER_ORDER = ['S', 'A', 'B', 'C'] as const;
 
 const ROLE_FORWARDING_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_ROLE_FORWARDING_POLL_INTERVAL_MS || '300000', 10);
+const TEAM_AVAILABILITY_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_TEAM_AVAILABILITY_POLL_INTERVAL_MS || '300000', 10);
 const MIRROR_DELETION_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_MIRROR_DELETION_POLL_INTERVAL_MS || '20000', 10);
 const MIRROR_DELETION_BATCH_SIZE = parseInt(process.env.DISCORD_MIRROR_DELETION_BATCH_SIZE || '20', 10);
 const MIRRORED_MESSAGE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -3700,6 +3705,15 @@ type TeamEventReminder = TeamEventDeliveryPayload & {
   attendances?: TeamEventAttendance[];
 };
 
+type TeamAvailabilityReminder = {
+  teamId: string;
+  teamName: string;
+  teamTag: string | null;
+  webhookUrl: string | null;
+  weekStart: string;
+  members: TeamEventMember[];
+};
+
 type ReminderAvailabilityBuckets = {
   present: TeamEventMember[];
   absent: TeamEventMember[];
@@ -4432,6 +4446,173 @@ async function sendTeamEventReminder(reminder: TeamEventReminder) {
   );
 }
 
+function formatAvailabilityWeekLabel(weekStart: string): string {
+  const start = new Date(weekStart);
+  if (Number.isNaN(start.getTime())) return 'next week';
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+}
+
+function buildTeamAvailabilityCustomId(scope: 'week' | 'weekend', teamId: string, weekStart: string) {
+  const datePart = new Date(weekStart).toISOString().slice(0, 10);
+  return `${TEAM_AVAILABILITY_BUTTON_PREFIX}${scope}_${teamId}_${datePart}`;
+}
+
+function parseTeamAvailabilityCustomId(customId: string, prefix: string): { scope: 'week' | 'weekend'; teamId: string; weekStart: string } | null {
+  if (!customId.startsWith(prefix)) return null;
+  const parts = customId.slice(prefix.length).split('_');
+  if (parts.length < 3) return null;
+  const scope = parts[0] as 'week' | 'weekend';
+  if (!TEAM_AVAILABILITY_SCOPES.includes(scope)) return null;
+  return { scope, teamId: parts[1], weekStart: parts.slice(2).join('_') };
+}
+
+function buildTeamAvailabilityComponents(reminder: TeamAvailabilityReminder): ActionRowBuilder<ButtonBuilder>[] {
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId(buildTeamAvailabilityCustomId('week', reminder.teamId, reminder.weekStart)).setLabel('Set week availability').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(buildTeamAvailabilityCustomId('weekend', reminder.teamId, reminder.weekStart)).setLabel('Set weekend availability').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setLabel('Open full planner').setStyle(ButtonStyle.Link).setURL(`${APP_URL}/teams/schedule`)
+  );
+  return [row];
+}
+
+function buildTeamAvailabilityEmbed(reminder: TeamAvailabilityReminder) {
+  const teamDisplay = reminder.teamTag ? `[${reminder.teamTag}] ${reminder.teamName}` : reminder.teamName;
+  return new EmbedBuilder()
+    .setTitle('Fill your team availability')
+    .setDescription(`Help **${teamDisplay}** choose better event times for **${formatAvailabilityWeekLabel(reminder.weekStart)}**.`)
+    .setColor(0x5865F2)
+    .addFields(
+      { name: 'Discord shortcut', value: 'Use the buttons below to fill weekdays or weekend without leaving Discord.', inline: false },
+      { name: 'Recommended format', value: '`18h30 - 23h`, `11AM - 5PM`, or `13h20 - 14h30, 18h30 - 23h`', inline: false },
+      { name: 'Full interface', value: `[Open the weekly planner](${APP_URL}/teams/schedule) for the easier visual view.`, inline: false }
+    )
+    .setTimestamp()
+    .setFooter({ text: 'RiftEssence Team Availability' });
+}
+
+function buildTeamAvailabilityModal(scope: 'week' | 'weekend', teamId: string, weekStart: string) {
+  const days = scope === 'week'
+    ? [{ index: 0, label: 'Monday' }, { index: 1, label: 'Tuesday' }, { index: 2, label: 'Wednesday' }, { index: 3, label: 'Thursday' }, { index: 4, label: 'Friday' }]
+    : [{ index: 5, label: 'Saturday' }, { index: 6, label: 'Sunday' }];
+
+  const modal = new ModalBuilder()
+    .setCustomId(`${TEAM_AVAILABILITY_MODAL_PREFIX}${scope}_${teamId}_${weekStart}`)
+    .setTitle(scope === 'week' ? 'Week availability' : 'Weekend availability');
+
+  modal.addComponents(...days.map((day) => new ActionRowBuilder<TextInputBuilder>().addComponents(
+    new TextInputBuilder()
+      .setCustomId(`${TEAM_AVAILABILITY_DAY_INPUT_PREFIX}${day.index}`)
+      .setLabel(day.label)
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false)
+      .setMaxLength(240)
+      .setPlaceholder(day.index < 5 ? '18h30 - 23h' : '11AM - 5PM, 20h - 23h')
+  )));
+
+  return modal;
+}
+
+async function sendTeamAvailabilityReminder(reminder: TeamAvailabilityReminder) {
+  const embed = buildTeamAvailabilityEmbed(reminder);
+  const components = buildTeamAvailabilityComponents(reminder);
+  let channelSent = false;
+  let dmSentCount = 0;
+
+  if (reminder.webhookUrl) {
+    const result = await sendTeamEventChannelNotification({
+      ...reminder,
+      eventId: `availability-${reminder.teamId}`,
+      eventTitle: 'Fill team availability',
+      eventType: 'TEAM_MEETING',
+      scheduledAt: reminder.weekStart,
+      duration: null,
+      description: null,
+      enemyLink: null,
+      concernedMemberIds: [],
+      mentionMode: 'EVERYONE',
+      mentionRoleId: null,
+      roleMentions: {},
+      pingRecurrenceEnabled: false,
+      lastChannelPingAt: null,
+    }, '', embed, components);
+    channelSent = result.sent;
+  }
+
+  const dmTargets = reminder.members.filter((member) => Boolean(member.discordId && member.dmEnabled));
+  for (const member of dmTargets) {
+    const sent = await sendTeamEventDmNotification(
+      member,
+      { eventTitle: 'Fill team availability' },
+      embed,
+      components,
+      'This Discord modal is a quick shortcut. The full weekly planner is easier to use on RiftEssence.'
+    );
+    if (sent) dmSentCount += 1;
+  }
+
+  const markResult = await apiRequest(`/api/teams/discord-availability-reminders/${reminder.teamId}/processed`, 'PATCH');
+  if (!markResult.ok) {
+    console.error(`Failed to mark availability reminder for team ${reminder.teamName} as processed`);
+    return;
+  }
+
+  console.log(`Processed availability reminder for ${reminder.teamName} (channelSent=${channelSent}, dmSent=${dmSentCount}/${dmTargets.length})`);
+}
+
+async function pollTeamAvailabilityReminders() {
+  try {
+    const result = await apiRequest('/api/teams/discord-availability-reminders');
+    if (!result.ok) {
+      console.error('Failed to poll team availability reminders:', result.data.error);
+      return;
+    }
+
+    const reminders = Array.isArray(result.data?.reminders) ? result.data.reminders : [];
+    if (reminders.length === 0) return;
+
+    console.log(`Found ${reminders.length} due team availability reminders`);
+    for (const reminder of reminders) {
+      await sendTeamAvailabilityReminder(reminder);
+    }
+  } catch (error: any) {
+    console.error('Error polling team availability reminders:', error.message);
+  }
+}
+
+async function handleTeamAvailabilityButton(interaction: ButtonInteraction) {
+  const parsed = parseTeamAvailabilityCustomId(interaction.customId, TEAM_AVAILABILITY_BUTTON_PREFIX);
+  if (!parsed) return false;
+  return interaction.showModal(buildTeamAvailabilityModal(parsed.scope, parsed.teamId, parsed.weekStart));
+}
+
+async function handleTeamAvailabilityModalSubmit(interaction: ModalSubmitInteraction) {
+  const parsed = parseTeamAvailabilityCustomId(interaction.customId, TEAM_AVAILABILITY_MODAL_PREFIX);
+  if (!parsed) return false;
+
+  await interaction.deferReply({ ephemeral: interaction.inGuild() });
+
+  const dayIndexes = parsed.scope === 'week' ? [0, 1, 2, 3, 4] : [5, 6];
+  const days = dayIndexes.map((dayOfWeek) => ({
+    dayOfWeek,
+    rawText: interaction.fields.getTextInputValue(`${TEAM_AVAILABILITY_DAY_INPUT_PREFIX}${dayOfWeek}`) || '',
+  }));
+
+  const result = await apiRequest('/api/teams/discord-availability', 'POST', {
+    discordId: interaction.user.id,
+    teamId: parsed.teamId,
+    weekStart: parsed.weekStart,
+    days,
+  });
+
+  if (!result.ok) {
+    return interaction.editReply({ content: `Error: ${result.data?.error || 'Failed to save availability. Try the full planner on RiftEssence.'}` });
+  }
+
+  return interaction.editReply({ content: `Availability saved for ${formatAvailabilityWeekLabel(parsed.weekStart)}. You can refine it anytime here: ${APP_URL}/teams/schedule` });
+}
+
 // Handle team event attendance button clicks
 async function handleTeamEventButton(interaction: ButtonInteraction) {
   const customId = interaction.customId;
@@ -4564,6 +4745,8 @@ client.once(Events.ClientReady, async (c) => {
   // Start polling for team event reminders
   console.log(`⏰ Starting team reminder poll (interval: ${TEAM_REMINDER_POLL_INTERVAL_MS}ms)`);
   startGuardedPollLoop('team reminder', pollTeamEventReminders, TEAM_REMINDER_POLL_INTERVAL_MS, 21000);
+  console.log(`Starting team availability reminder poll (interval: ${TEAM_AVAILABILITY_POLL_INTERVAL_MS}ms)`);
+  startGuardedPollLoop('team availability reminder', pollTeamAvailabilityReminders, TEAM_AVAILABILITY_POLL_INTERVAL_MS, 22500);
 
   // Start polling for Discord role forwarding sync
   console.log(`🏷️ Starting role forwarding sync poll (interval: ${ROLE_FORWARDING_POLL_INTERVAL_MS}ms)`);
@@ -4594,6 +4777,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   // Button interactions (setup flow + team events)
   if (interaction.isButton()) {
+    if (interaction.customId.startsWith(TEAM_AVAILABILITY_BUTTON_PREFIX)) {
+      await handleTeamAvailabilityButton(interaction as ButtonInteraction);
+      return;
+    }
+
     // Team event attendance buttons are public (anyone can respond)
     if (interaction.customId.startsWith('team_event_')) {
       await handleTeamEventButton(interaction as ButtonInteraction);
@@ -4660,6 +4848,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleDuoPostModalSubmit(interaction as ModalSubmitInteraction);
     } else if (interaction.customId === TEAM_EVENT_MODAL) {
       await handleTeamEventModalSubmit(interaction as ModalSubmitInteraction);
+    } else if (interaction.customId.startsWith(TEAM_AVAILABILITY_MODAL_PREFIX)) {
+      await handleTeamAvailabilityModalSubmit(interaction as ModalSubmitInteraction);
     }
     return;
   }
