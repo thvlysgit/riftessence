@@ -1261,6 +1261,7 @@ model Team {
   discordLastChannelPingAt DateTime? // Last time a mention ping was included in channel notification
   discordRemindersEnabled Boolean @default(false) // Enable pre-event reminder notifications
   discordReminderDelaysMinutes Int[] @default([]) // Reminder delays before event start
+  playersCanSetScheduleEvents Boolean @default(false) // Allow any team member to create/update/delete schedule events
   
   // Owner (team creator)
   owner       User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)

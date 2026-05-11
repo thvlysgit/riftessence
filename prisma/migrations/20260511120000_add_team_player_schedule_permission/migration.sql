@@ -1,0 +1,2 @@
+ALTER TABLE "Team"
+  ADD COLUMN IF NOT EXISTS "playersCanSetScheduleEvents" BOOLEAN NOT NULL DEFAULT false;

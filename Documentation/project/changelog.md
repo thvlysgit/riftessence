@@ -1,6 +1,24 @@
 # Changelog
 
-> Last updated: 2026-05-07
+> Last updated: 2026-05-11
+
+---
+
+## 2026-05-11 - Team Schedule Player Permission
+
+### Objective: Let owners allow players to manage team schedule events
+
+Overview: Added a team-level setting in Discord notification settings that lets owners allow every team member to create, update, and delete Team Schedule events. The default remains restricted to owners, managers, and coaches.
+
+Changes:
+
+- Updated [prisma/schema.prisma](prisma/schema.prisma):
+  - Added `Team.playersCanSetScheduleEvents` with a default of `false`.
+- Updated [apps/api/src/routes/teams.ts](apps/api/src/routes/teams.ts):
+  - Extended schedule edit authorization and Discord bot event creation options to honor the new team setting.
+  - Exposed the setting through `GET/POST /api/teams/:id/discord`.
+- Updated [apps/web/pages/teams/discord.tsx](apps/web/pages/teams/discord.tsx):
+  - Added the "Players can set schedule events" toggle to team Discord settings.
 
 ---
 

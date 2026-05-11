@@ -1,6 +1,6 @@
 # Database Schema
 
-> Last updated: 2026-05-07
+> Last updated: 2026-05-11
 > Source: `prisma/schema.prisma` (~1330 lines)
 
 ## Models (48 total, core highlights below)
@@ -54,6 +54,9 @@ Team model relations include:
 Team model scrim-delivery fields include:
 - `discordWebhookUrl` (default schedule/event channel)
 - `discordScrimCodeWebhookUrl` (optional override for `SCRIM_*` lifecycle forwarding)
+
+Team model schedule-permission fields include:
+- `playersCanSetScheduleEvents` (default `false`; when enabled, any team member can create, update, and delete Team Schedule events)
 
 TeamEvent schema addition used by accepted scrims:
 - `enemyMultigg String?` (opponent multisearch URL persisted on SCRIM events)

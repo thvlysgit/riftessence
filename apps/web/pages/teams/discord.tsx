@@ -86,6 +86,7 @@ interface DiscordSettings {
   pingRecurrence: boolean;
   remindersEnabled: boolean;
   reminderDelaysMinutes: number[];
+  playersCanSetScheduleEvents: boolean;
   webhookValid?: boolean;
   channelName?: string;
   guildName?: string;
@@ -118,6 +119,7 @@ const DiscordSettingsPage: React.FC = () => {
   const [pingRecurrence, setPingRecurrence] = useState(true);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
   const [reminderDelaysMinutes, setReminderDelaysMinutes] = useState<number[]>([]);
+  const [playersCanSetScheduleEvents, setPlayersCanSetScheduleEvents] = useState(false);
   const [discordDmEnabled, setDiscordDmEnabled] = useState(false);
   const [discordUsername, setDiscordUsername] = useState<string | null>(null);
 
@@ -229,6 +231,7 @@ const DiscordSettingsPage: React.FC = () => {
           setPingRecurrence(data.pingRecurrence ?? true);
           setRemindersEnabled(data.remindersEnabled ?? false);
           setReminderDelaysMinutes(fetchedReminderDelays);
+          setPlayersCanSetScheduleEvents(data.playersCanSetScheduleEvents ?? false);
         }
       } catch (err) {
         console.error('Failed to fetch Discord settings:', err);
@@ -302,6 +305,7 @@ const DiscordSettingsPage: React.FC = () => {
           pingRecurrence,
           remindersEnabled,
           reminderDelaysMinutes: sanitizedReminderDelays,
+          playersCanSetScheduleEvents,
         })
       });
       
@@ -325,6 +329,7 @@ const DiscordSettingsPage: React.FC = () => {
       setPingRecurrence(data.pingRecurrence ?? true);
       setRemindersEnabled(data.remindersEnabled ?? false);
       setReminderDelaysMinutes(sanitizeReminderDelays(data.reminderDelaysMinutes));
+      setPlayersCanSetScheduleEvents(data.playersCanSetScheduleEvents ?? false);
       setSuccess('Discord settings saved successfully!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -766,6 +771,34 @@ const DiscordSettingsPage: React.FC = () => {
                         </div>
                       </button>
                     </div>
+                  </div>
+
+                  {/* Schedule permissions */}
+                  <div className="pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                    <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--color-text-primary)' }}>
+                      Schedule Permissions
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setPlayersCanSetScheduleEvents(!playersCanSetScheduleEvents)}
+                      className="flex items-center gap-3 w-full text-left"
+                    >
+                      <div
+                        className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${playersCanSetScheduleEvents ? 'bg-[#5865F2]' : 'bg-gray-600'}`}
+                      >
+                        <div
+                          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all duration-200 ${playersCanSetScheduleEvents ? 'left-[22px]' : 'left-0.5'}`}
+                        />
+                      </div>
+                      <div>
+                        <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                          Players can set schedule events
+                        </span>
+                        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                          Allow every team member to create, edit, and delete Team Schedule events. When disabled, only the owner, managers, and coaches can manage events.
+                        </p>
+                      </div>
+                    </button>
                   </div>
 
                   {/* Mention strategy */}

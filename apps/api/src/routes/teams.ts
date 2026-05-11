@@ -425,7 +425,7 @@ export default async function teamsRoutes(fastify: any) {
     return member?.role === 'MANAGER';
   };
 
-  // Helper to check if user can edit schedule (OWNER, MANAGER, COACH)
+  // Helper to check if user can edit schedule (OWNER, MANAGER, COACH, or any member when enabled)
   const canEditSchedule = async (userId: string, teamId: string): Promise<boolean> => {
     const team = await prisma.team.findUnique({ where: { id: teamId } });
     if (!team) return false;
@@ -434,18 +434,12 @@ export default async function teamsRoutes(fastify: any) {
     const member = await prisma.teamMember.findUnique({
       where: { teamId_userId: { teamId, userId } }
     });
-    return member?.role === 'MANAGER' || member?.role === 'COACH';
+    if (!member) return false;
+    return member.role === 'MANAGER' || member.role === 'COACH' || Boolean(team.playersCanSetScheduleEvents);
   };
 
   const canManageDiscordTeamEvents = async (userId: string, teamId: string): Promise<boolean> => {
-    const team = await prisma.team.findUnique({ where: { id: teamId } });
-    if (!team) return false;
-    if (team.ownerId === userId) return true;
-
-    const member = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId, userId } }
-    });
-    return member?.role === 'MANAGER';
+    return canEditSchedule(userId, teamId);
   };
 
   // Helper to check if user is team member
@@ -527,7 +521,7 @@ export default async function teamsRoutes(fastify: any) {
         ownerUsername: m.team.owner.username,
         isOwner: m.team.ownerId === userId,
         myRole: m.role,
-        canEditSchedule: m.team.ownerId === userId || m.role === 'MANAGER' || m.role === 'COACH',
+        canEditSchedule: m.team.ownerId === userId || m.role === 'MANAGER' || m.role === 'COACH' || Boolean(m.team.playersCanSetScheduleEvents),
         memberCount: m.team._count.members,
         eventCount: m.team._count.events,
         upcomingEventCount: m.team.events.length,
@@ -1548,7 +1542,7 @@ export default async function teamsRoutes(fastify: any) {
     }
   });
 
-  // POST /api/teams/:id/events - Create team event (OWNER/MANAGER/COACH only)
+  // POST /api/teams/:id/events - Create team event (OWNER/MANAGER/COACH, or any member when enabled)
   fastify.post('/teams/:id/events', async (request: any, reply: any) => {
     try {
       const userId = await getUserIdFromRequest(request, reply);
@@ -1558,7 +1552,7 @@ export default async function teamsRoutes(fastify: any) {
       const { title, type, description, scheduledAt, duration, enemyMultigg, assignedCoachIds, concernedMemberIds } = request.body as any;
 
       if (!await canEditSchedule(userId, id)) {
-        return reply.status(403).send({ error: 'Only owner, manager, or coach can create events' });
+        return reply.status(403).send({ error: 'Only owner, manager, coach, or an allowed team member can create events' });
       }
 
       if (!title || !type || !scheduledAt) {
@@ -1685,7 +1679,8 @@ export default async function teamsRoutes(fastify: any) {
           discordWebhookUrl: { not: null },
           OR: [
             { ownerId: user.userId },
-            { members: { some: { userId: user.userId, role: 'MANAGER' } } },
+            { members: { some: { userId: user.userId, role: { in: ['MANAGER', 'COACH'] } } } },
+            { playersCanSetScheduleEvents: true, members: { some: { userId: user.userId } } },
           ],
         },
         select: {
@@ -1749,7 +1744,7 @@ export default async function teamsRoutes(fastify: any) {
 
       if (!await canManageDiscordTeamEvents(user.userId, teamId)) {
         fastify.log.warn({ discordId, teamId, userId: user.userId }, 'Discord event creation rejected: insufficient team access');
-        return reply.status(403).send({ error: 'Only team owners and managers can create Discord events' });
+        return reply.status(403).send({ error: 'Only team owners, managers, coaches, or allowed team members can create Discord events' });
       }
 
       if (!TEAM_EVENT_TYPES.includes(type)) {
@@ -1847,7 +1842,7 @@ export default async function teamsRoutes(fastify: any) {
     }
   });
 
-  // PUT /api/teams/:id/events/:eventId - Update event (OWNER/MANAGER/COACH only)
+  // PUT /api/teams/:id/events/:eventId - Update event (OWNER/MANAGER/COACH, or any member when enabled)
   fastify.put('/teams/:id/events/:eventId', async (request: any, reply: any) => {
     try {
       const userId = await getUserIdFromRequest(request, reply);
@@ -1857,7 +1852,7 @@ export default async function teamsRoutes(fastify: any) {
       const { title, type, description, scheduledAt, duration, enemyMultigg, assignedCoachIds, concernedMemberIds } = request.body as any;
 
       if (!await canEditSchedule(userId, id)) {
-        return reply.status(403).send({ error: 'Only owner, manager, or coach can update events' });
+        return reply.status(403).send({ error: 'Only owner, manager, coach, or an allowed team member can update events' });
       }
 
       const event = await prisma.teamEvent.findUnique({ where: { id: eventId } });
@@ -1972,7 +1967,7 @@ export default async function teamsRoutes(fastify: any) {
     }
   });
 
-  // DELETE /api/teams/:id/events/:eventId - Delete event (OWNER/MANAGER/COACH only)
+  // DELETE /api/teams/:id/events/:eventId - Delete event (OWNER/MANAGER/COACH, or any member when enabled)
   fastify.delete('/teams/:id/events/:eventId', async (request: any, reply: any) => {
     try {
       const userId = await getUserIdFromRequest(request, reply);
@@ -1981,7 +1976,7 @@ export default async function teamsRoutes(fastify: any) {
       const { id, eventId } = request.params as any;
 
       if (!await canEditSchedule(userId, id)) {
-        return reply.status(403).send({ error: 'Only owner, manager, or coach can delete events' });
+        return reply.status(403).send({ error: 'Only owner, manager, coach, or an allowed team member can delete events' });
       }
 
       const event = await prisma.teamEvent.findUnique({ where: { id: eventId } });
@@ -2101,6 +2096,7 @@ export default async function teamsRoutes(fastify: any) {
           discordPingRecurrence: true,
           discordRemindersEnabled: true,
           discordReminderDelaysMinutes: true,
+          playersCanSetScheduleEvents: true,
         }
       });
 
@@ -2151,6 +2147,7 @@ export default async function teamsRoutes(fastify: any) {
         pingRecurrence: Boolean(team.discordPingRecurrence),
         remindersEnabled: Boolean(team.discordRemindersEnabled),
         reminderDelaysMinutes: normalizeStoredReminderDelays(team.discordReminderDelaysMinutes),
+        playersCanSetScheduleEvents: Boolean(team.playersCanSetScheduleEvents),
         webhookValid,
         channelName,
         guildName,
@@ -2182,6 +2179,7 @@ export default async function teamsRoutes(fastify: any) {
         pingRecurrence,
         remindersEnabled,
         reminderDelaysMinutes,
+        playersCanSetScheduleEvents,
       } = request.body as any;
 
       // Only team owner can configure Discord
@@ -2202,6 +2200,7 @@ export default async function teamsRoutes(fastify: any) {
           discordPingRecurrence: true,
           discordRemindersEnabled: true,
           discordReminderDelaysMinutes: true,
+          playersCanSetScheduleEvents: true,
         },
       });
 
@@ -2282,6 +2281,7 @@ export default async function teamsRoutes(fastify: any) {
       // Update notification settings
       if (typeof notifyEvents === 'boolean') updateData.discordNotifyEvents = notifyEvents;
       if (typeof notifyMembers === 'boolean') updateData.discordNotifyMembers = notifyMembers;
+      if (typeof playersCanSetScheduleEvents === 'boolean') updateData.playersCanSetScheduleEvents = playersCanSetScheduleEvents;
 
       if (mentionMode !== undefined) {
         if (!DISCORD_MENTION_MODES.includes(mentionMode)) {
@@ -2325,6 +2325,7 @@ export default async function teamsRoutes(fastify: any) {
           discordPingRecurrence: true,
           discordRemindersEnabled: true,
           discordReminderDelaysMinutes: true,
+          playersCanSetScheduleEvents: true,
         }
       });
 
@@ -2350,6 +2351,7 @@ export default async function teamsRoutes(fastify: any) {
         pingRecurrence: Boolean(team.discordPingRecurrence),
         remindersEnabled: Boolean(team.discordRemindersEnabled),
         reminderDelaysMinutes: normalizeStoredReminderDelays(team.discordReminderDelaysMinutes),
+        playersCanSetScheduleEvents: Boolean(team.playersCanSetScheduleEvents),
         webhookValid: team.discordWebhookUrl ? webhookValid : undefined,
         channelName,
         guildName,
