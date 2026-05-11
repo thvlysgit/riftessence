@@ -76,6 +76,22 @@ ScrimSeries lifecycle fields include:
 - manual conflict/escalation: `manualConflictCount`, `escalatedAt`
 - index: `@@index([autoResultStatus, autoResultReadyAt])`
 
+## Matchup Knowledge Domain (2026-05-11)
+
+The matchup system now separates individual matchup cards from champion-level collections.
+
+| Model | Purpose | Key Relations |
+|-------|---------|---------------|
+| **Matchup** | One matchup guide/card owned by a user. Currently stores one `myChampion` and one `enemyChampion`, notes, visibility, votes, and save/download analytics. | -> User, MatchupLike[], MatchupDownload[], SavedMatchup[], MatchupCollectionItem[] |
+| **MatchupCollection** | User-owned champion folder for grouping matchup cards under one `champion` and optional role. Can be private or public/shared. | -> User, MatchupCollectionItem[], SavedMatchupCollection[] |
+| **MatchupCollectionItem** | Ordered collection membership row linking a collection to a matchup card. API enforces that `matchup.myChampion` matches `collection.champion`. | -> MatchupCollection, Matchup |
+| **SavedMatchupCollection** | Bookmark/save row for public collections saved by another user. | -> User, MatchupCollection |
+
+Collection rules:
+- Users can add their own private matchups or any public matchup to one of their owned collections.
+- A collection only accepts matchups whose `myChampion` exactly matches the collection champion.
+- Shared collections are saved by reference, not copied, matching the saved-matchup bookmark pattern.
+
 ## Enums
 
 - **Region**: NA, EUW, EUNE, KR, JP, OCE, LAN, LAS, BR, RU

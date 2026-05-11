@@ -7,6 +7,8 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useGlobalUI } from '@components/GlobalUI';
 import { LoadingSpinner } from '@components/LoadingSpinner';
 import { MatchupCard, Matchup } from '@components/MatchupCard';
+import { MatchupWorkspaceTabs } from '@components/MatchupWorkspaceTabs';
+import { ChampionAutocomplete } from '@components/ChampionAutocomplete';
 import { getAuthHeader } from '../../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -24,6 +26,20 @@ const DIFFICULTIES = [
   'FREE_LOSE',
 ];
 
+interface MatchupCollection {
+  id: string;
+  champion: string;
+  role?: string | null;
+  title: string;
+  description?: string | null;
+  isPublic: boolean;
+  authorUsername?: string;
+  itemCount: number;
+  isOwned: boolean;
+  isSaved: boolean;
+  updatedAt: string;
+}
+
 const MatchupsPage: React.FC = () => {
   const router = useRouter();
   const { user } = useAuth();
@@ -31,9 +47,21 @@ const MatchupsPage: React.FC = () => {
   const { showToast, confirm } = useGlobalUI();
   
   const [matchups, setMatchups] = useState<Matchup[]>([]);
+  const [collections, setCollections] = useState<MatchupCollection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingCollections, setIsLoadingCollections] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [showCollectionForm, setShowCollectionForm] = useState(false);
+  const [collectionChampion, setCollectionChampion] = useState('');
+  const [collectionRole, setCollectionRole] = useState('');
+  const [collectionTitle, setCollectionTitle] = useState('');
+  const [collectionDescription, setCollectionDescription] = useState('');
+  const [collectionIsPublic, setCollectionIsPublic] = useState(false);
+  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
+  const [matchupForCollection, setMatchupForCollection] = useState<Matchup | null>(null);
+  const [selectedCollectionId, setSelectedCollectionId] = useState('');
+  const [isAddingToCollection, setIsAddingToCollection] = useState(false);
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,6 +70,8 @@ const MatchupsPage: React.FC = () => {
   
   const limit = 12;
   const [offset, setOffset] = useState(0);
+
+  const activeTab = router.query.tab === 'collections' ? 'collections' : 'library';
 
   // Fetch matchups
   const fetchMatchups = async (reset: boolean = false) => {
@@ -99,10 +129,34 @@ const MatchupsPage: React.FC = () => {
       setIsLoadingMore(false);
     }
   };
+
+  const fetchCollections = async () => {
+    if (!user) return;
+
+    setIsLoadingCollections(true);
+    try {
+      const response = await fetch(`${API_URL}/api/matchup-collections?limit=100`, {
+        headers: getAuthHeader() as Record<string, string>,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch collections');
+      }
+
+      const data = await response.json();
+      setCollections(data.collections || []);
+    } catch (error) {
+      console.error('Error fetching matchup collections:', error);
+      showToast(t('common.error'), 'error');
+    } finally {
+      setIsLoadingCollections(false);
+    }
+  };
   
   // Initial fetch
   useEffect(() => {
     fetchMatchups(true);
+    fetchCollections();
   }, [user]);
   
   // Refetch when filters change
@@ -167,6 +221,108 @@ const MatchupsPage: React.FC = () => {
   const handleEdit = (matchupId: string) => {
     router.push(`/matchups/create?id=${matchupId}`);
   };
+
+  const handleCreateCollection = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!collectionChampion || !collectionTitle.trim()) {
+      showToast(t('matchups.fieldsRequired'), 'error');
+      return;
+    }
+
+    setIsCreatingCollection(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/matchup-collections`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        } as Record<string, string>,
+        body: JSON.stringify({
+          champion: collectionChampion,
+          role: collectionRole || undefined,
+          title: collectionTitle.trim(),
+          description: collectionDescription.trim() || undefined,
+          isPublic: collectionIsPublic,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create collection');
+      }
+
+      const data = await response.json();
+      setCollections(prev => [data.collection, ...prev]);
+      setCollectionChampion('');
+      setCollectionRole('');
+      setCollectionTitle('');
+      setCollectionDescription('');
+      setCollectionIsPublic(false);
+      setShowCollectionForm(false);
+      showToast(t('matchups.collectionCreated'), 'success');
+    } catch (error: any) {
+      console.error('Error creating matchup collection:', error);
+      showToast(error.message || t('common.error'), 'error');
+    } finally {
+      setIsCreatingCollection(false);
+    }
+  };
+
+  const compatibleCollections = matchupForCollection
+    ? collections.filter(collection => collection.isOwned && collection.champion === matchupForCollection.myChampion)
+    : [];
+
+  const handleOpenAddToCollection = (matchup: Matchup) => {
+    const firstCompatibleCollection = collections.find(collection => (
+      collection.isOwned && collection.champion === matchup.myChampion
+    ));
+
+    setMatchupForCollection(matchup);
+    setSelectedCollectionId(firstCompatibleCollection?.id || '');
+  };
+
+  const handleAddToCollection = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!matchupForCollection || !selectedCollectionId) {
+      showToast(t('matchups.noCompatibleCollections'), 'error');
+      return;
+    }
+
+    setIsAddingToCollection(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/matchup-collections/${selectedCollectionId}/items`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        } as Record<string, string>,
+        body: JSON.stringify({ matchupId: matchupForCollection.id }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add matchup to collection');
+      }
+
+      setCollections(prev => prev.map(collection => (
+        collection.id === selectedCollectionId
+          ? { ...collection, itemCount: collection.itemCount + 1 }
+          : collection
+      )));
+      setMatchupForCollection(null);
+      setSelectedCollectionId('');
+      showToast(t('matchups.addedToCollection'), 'success');
+    } catch (error: any) {
+      console.error('Error adding matchup to collection:', error);
+      showToast(error.message || t('common.error'), 'error');
+    } finally {
+      setIsAddingToCollection(false);
+    }
+  };
   
   if (!user) {
     return null;
@@ -192,7 +348,7 @@ const MatchupsPage: React.FC = () => {
               className="text-3xl font-bold mb-2"
               style={{ color: 'var(--color-text-primary)' }}
             >
-              {t('matchups.myLibrary')}
+              {activeTab === 'collections' ? t('matchups.collections') : t('matchups.myLibrary')}
             </h1>
             <p style={{ color: 'var(--color-text-secondary)' }}>
               {t('matchups.title')}
@@ -200,32 +356,101 @@ const MatchupsPage: React.FC = () => {
           </div>
           
           <div className="flex gap-3">
-            <Link href="/matchups/marketplace">
-              <button 
-                className="px-6 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"
-                style={{
-                  backgroundColor: 'var(--color-bg-secondary)',
-                  border: '2px solid var(--color-primary)',
-                  color: 'var(--color-primary)',
-                }}
-              >
-                {t('matchups.browsePublic')}
-              </button>
-            </Link>
-            
-            <Link href="/matchups/create">
-              <button 
+            {activeTab === 'collections' ? (
+              <button
+                onClick={() => setShowCollectionForm(prev => !prev)}
                 className="px-6 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"
                 style={{
                   background: 'var(--btn-gradient)',
                   color: 'var(--btn-gradient-text)',
                 }}
               >
-                + {t('matchups.createNew')}
+                + {t('matchups.createCollection')}
               </button>
-            </Link>
+            ) : (
+              <Link href="/matchups/create">
+                <button 
+                  className="px-6 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"
+                  style={{
+                    background: 'var(--btn-gradient)',
+                    color: 'var(--btn-gradient-text)',
+                  }}
+                >
+                  + {t('matchups.createNew')}
+                </button>
+              </Link>
+            )}
           </div>
         </div>
+
+        <MatchupWorkspaceTabs activeTab={activeTab} />
+
+        {activeTab === 'library' ? (
+          <>
+        {matchupForCollection && (
+          <form
+            onSubmit={handleAddToCollection}
+            className="rounded-lg p-5 mb-6 flex flex-col md:flex-row md:items-end gap-4"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            <div className="flex-1">
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                {t('matchups.addToCollection')}
+              </label>
+              {compatibleCollections.length > 0 ? (
+                <select
+                  value={selectedCollectionId}
+                  onChange={(e) => setSelectedCollectionId(e.target.value)}
+                  className="w-full p-3 rounded-lg transition-colors"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  {compatibleCollections.map(collection => (
+                    <option key={collection.id} value={collection.id}>
+                      {collection.title}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  {t('matchups.noCompatibleCollections')}
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setMatchupForCollection(null)}
+                className="px-5 py-3 rounded-lg font-semibold"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  color: 'var(--color-text-secondary)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="submit"
+                disabled={isAddingToCollection || compatibleCollections.length === 0}
+                className="px-5 py-3 rounded-lg font-semibold disabled:opacity-50"
+                style={{
+                  background: 'var(--btn-gradient)',
+                  color: 'var(--btn-gradient-text)',
+                }}
+              >
+                {isAddingToCollection ? t('common.saving') : t('matchups.addToCollection')}
+              </button>
+            </div>
+          </form>
+        )}
         
         {/* Filters */}
         <div 
@@ -355,6 +580,7 @@ const MatchupsPage: React.FC = () => {
                   onEdit={() => handleEdit(matchup.id)}
                   onDelete={() => handleDelete(matchup.id)}
                   onRemove={() => handleRemove(matchup.id)}
+                  onAddToCollection={() => handleOpenAddToCollection(matchup)}
                 />
               ))}
             </div>
@@ -374,6 +600,205 @@ const MatchupsPage: React.FC = () => {
                 >
                   {isLoadingMore ? <LoadingSpinner compact /> : t('common.loadMore')}
                 </button>
+              </div>
+            )}
+          </>
+        )}
+          </>
+        ) : (
+          <>
+            {showCollectionForm && (
+              <form
+                onSubmit={handleCreateCollection}
+                className="rounded-lg p-6 mb-6 space-y-5"
+                style={{
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  {t('matchups.createCollectionDesc')}
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <ChampionAutocomplete
+                    value={collectionChampion}
+                    onChange={setCollectionChampion}
+                    label={`${t('matchups.collectionChampion')} *`}
+                    placeholder={t('matchups.searchPlaceholder')}
+                  />
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                      {t('matchups.role')}
+                    </label>
+                    <select
+                      value={collectionRole}
+                      onChange={(e) => setCollectionRole(e.target.value)}
+                      className="w-full p-3 rounded-lg transition-colors"
+                      style={{
+                        backgroundColor: 'var(--color-bg-tertiary)',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
+                    >
+                      <option value="">ALL</option>
+                      {ROLES.filter(role => role !== 'ALL').map(role => (
+                        <option key={role} value={role}>
+                          {role}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                    {t('matchups.collectionTitle')} *
+                  </label>
+                  <input
+                    value={collectionTitle}
+                    onChange={(e) => setCollectionTitle(e.target.value.slice(0, 100))}
+                    className="w-full p-3 rounded-lg transition-colors"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      border: '1px solid var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                    {t('matchups.collectionDescription')}
+                  </label>
+                  <textarea
+                    value={collectionDescription}
+                    onChange={(e) => setCollectionDescription(e.target.value.slice(0, 500))}
+                    rows={3}
+                    className="w-full p-3 rounded-lg resize-none transition-colors"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      border: '1px solid var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  />
+                </div>
+
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={collectionIsPublic}
+                    onChange={(e) => setCollectionIsPublic(e.target.checked)}
+                    className="w-5 h-5 rounded cursor-pointer"
+                    style={{ accentColor: 'var(--color-accent-1)' }}
+                  />
+                  <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    {t('matchups.collectionPublic')}
+                  </span>
+                </label>
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowCollectionForm(false)}
+                    className="px-5 py-2 rounded-lg font-semibold"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      color: 'var(--color-text-secondary)',
+                      border: '1px solid var(--color-border)',
+                    }}
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreatingCollection}
+                    className="px-5 py-2 rounded-lg font-semibold disabled:opacity-50"
+                    style={{
+                      background: 'var(--btn-gradient)',
+                      color: 'var(--btn-gradient-text)',
+                    }}
+                  >
+                    {isCreatingCollection ? t('common.saving') : t('matchups.createCollection')}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {isLoadingCollections ? (
+              <div className="flex justify-center py-12">
+                <LoadingSpinner />
+              </div>
+            ) : collections.length === 0 ? (
+              <div
+                className="text-center py-16 rounded-lg"
+                style={{
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <p className="text-xl mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+                  {t('matchups.noCollections')}
+                </p>
+                <button
+                  onClick={() => setShowCollectionForm(true)}
+                  className="px-6 py-3 rounded-lg font-semibold transition-all"
+                  style={{
+                    background: 'var(--btn-gradient)',
+                    color: 'var(--btn-gradient-text)',
+                  }}
+                >
+                  {t('matchups.createCollection')}
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {collections.map(collection => (
+                  <div
+                    key={collection.id}
+                    className="rounded-lg p-5 transition-all hover:shadow-lg"
+                    style={{
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      border: '1px solid var(--color-border)',
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                      <div>
+                        <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                          {collection.title}
+                        </h2>
+                        <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                          {collection.champion}{collection.role ? ` - ${collection.role}` : ''}
+                        </p>
+                      </div>
+                      <span
+                        className="text-xs px-2 py-1 rounded"
+                        style={{
+                          backgroundColor: collection.isPublic ? 'var(--color-accent-success-bg)' : 'var(--color-bg-tertiary)',
+                          color: collection.isPublic ? 'var(--color-success)' : 'var(--color-text-muted)',
+                        }}
+                      >
+                        {collection.isPublic ? t('matchups.public') : t('matchups.private')}
+                      </span>
+                    </div>
+
+                    {collection.description && (
+                      <p className="text-sm mb-4 line-clamp-3" style={{ color: 'var(--color-text-secondary)' }}>
+                        {collection.description}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                        {t('matchups.collectionItemCount').replace('{count}', String(collection.itemCount))}
+                      </span>
+                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                        {collection.isOwned ? t('common.you') : collection.authorUsername}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </>

@@ -4,6 +4,39 @@
 
 ---
 
+## 2026-05-11 - Matchups Discover and Collections Foundation
+
+### Objective: Make matchup navigation clearer and introduce champion-level collections
+
+Overview: Reframed the public matchup browse surface from Marketplace to Discover, added workspace tabs between Library, Collections, and Discover, fixed public browse search/sort/pagination mismatches, and introduced the first collection workflow for grouping guides by champion.
+
+Changes:
+
+- Updated [prisma/schema.prisma](prisma/schema.prisma):
+  - Added `MatchupCollection`, `MatchupCollectionItem`, and `SavedMatchupCollection`.
+  - Linked matchup cards to collections through ordered membership rows.
+- Added [prisma/migrations/20260511152000_add_matchup_collections/migration.sql](prisma/migrations/20260511152000_add_matchup_collections/migration.sql).
+- Updated [apps/api/src/validation.ts](apps/api/src/validation.ts) and [apps/api/src/routes/matchups.ts](apps/api/src/routes/matchups.ts):
+  - Added collection create/update/query validation.
+  - Added collection list/create/public/detail/update/delete/save endpoints.
+  - Added add/remove collection item endpoints with champion-match enforcement.
+  - Fixed matchup library `difficulty` filtering and `hasMore` pagination metadata.
+  - Fixed public Discover `search`, `mostLiked`, and `mostDownloaded` query handling.
+- Updated [apps/web/components/MatchupWorkspaceTabs.tsx](apps/web/components/MatchupWorkspaceTabs.tsx):
+  - Added shared Matchups workspace tabs for Library, Collections, and Discover.
+- Updated [apps/web/pages/matchups/index.tsx](apps/web/pages/matchups/index.tsx):
+  - Added the Collections tab, collection creation form, collection cards, and "Add to Collection" flow from library cards.
+- Updated [apps/web/pages/matchups/marketplace.tsx](apps/web/pages/matchups/marketplace.tsx), [apps/web/translations/index.ts](apps/web/translations/index.ts), and onboarding copy:
+  - Renamed user-facing Marketplace copy to Discover/Discover Guides.
+  - Changed download wording to save wording while keeping backend analytics endpoint names for compatibility.
+
+Verification:
+- `pnpm prisma generate`
+- `pnpm --filter @lfd/api build`
+- `pnpm --filter @lfd/web build`
+
+---
+
 ## 2026-05-11 - Team Schedule Player Permission
 
 ### Objective: Let owners allow players to manage team schedule events

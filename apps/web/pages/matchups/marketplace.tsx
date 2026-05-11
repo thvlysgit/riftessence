@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useGlobalUI } from '@components/GlobalUI';
 import { LoadingSpinner } from '@components/LoadingSpinner';
+import { MatchupWorkspaceTabs } from '@components/MatchupWorkspaceTabs';
 import { getChampionIconUrl } from '../../utils/championData';
 import { getAuthHeader } from '../../utils/auth';
 
@@ -316,8 +317,8 @@ const MarketplacePage: React.FC = () => {
   return (
     <>
       <SEOHead
-        title="Matchup Marketplace"
-        description="Browse and discover League of Legends matchup guides created by the community. Find detailed strategies, tips, and counters for champion matchups across all roles."
+        title="Discover Matchup Guides"
+        description="Discover League of Legends matchup guides created by the community. Find detailed strategies, tips, and counters for champion matchups across all roles."
         path="/matchups/marketplace"
         keywords="LoL matchup guides, League of Legends matchups, champion counters, LoL strategy guides, matchup tips"
       />
@@ -340,19 +341,20 @@ const MarketplacePage: React.FC = () => {
             </p>
           </div>
           
-          <Link href="/matchups">
-            <button 
-              className="px-6 py-3 rounded-lg font-semibold transition-all"
+          <Link href="/matchups/create">
+            <button
+              className="px-6 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"
               style={{
-                backgroundColor: 'var(--color-bg-secondary)',
-                color: 'var(--color-text-primary)',
-                border: '1px solid var(--color-border)',
+                background: 'var(--btn-gradient)',
+                color: 'var(--btn-gradient-text)',
               }}
             >
-              {t('matchups.myLibrary')}
+              + {t('matchups.createNew')}
             </button>
           </Link>
         </div>
+
+        <MatchupWorkspaceTabs activeTab="discover" />
         
         {/* Create Your Own Banner - for users with < 5 guides */}
         {showCreateBanner && (
@@ -497,8 +499,8 @@ const MarketplacePage: React.FC = () => {
                 }}
               >
                 <option value="newest">{t('matchups.newest')}</option>
-                <option value="likes">{t('matchups.mostLiked')}</option>
-                <option value="downloads">{t('matchups.mostDownloaded')}</option>
+                <option value="mostLiked">{t('matchups.mostLiked')}</option>
+                <option value="mostDownloaded">{t('matchups.mostDownloaded')}</option>
               </select>
             </div>
           </div>

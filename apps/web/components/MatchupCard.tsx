@@ -75,6 +75,7 @@ interface MatchupCardProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onRemove?: () => void; // For removing saved matchups from library
+  onAddToCollection?: () => void;
   onClick?: () => void;
   showAuthor?: boolean;
   editable?: boolean;
@@ -85,6 +86,7 @@ export const MatchupCard: React.FC<MatchupCardProps> = ({
   onEdit,
   onDelete,
   onRemove,
+  onAddToCollection,
   onClick,
   showAuthor = false,
   editable = false,
@@ -240,6 +242,22 @@ export const MatchupCard: React.FC<MatchupCardProps> = ({
         {/* Action buttons */}
         {editable && (
           <div className="flex gap-2">
+            {onAddToCollection && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToCollection();
+                }}
+                className="px-3 py-1 rounded text-sm transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  color: 'var(--color-text-secondary)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                {t('matchups.addToCollection')}
+              </button>
+            )}
             {/* Show edit/delete only for owned matchups */}
             {matchup.isOwned && (
               <>

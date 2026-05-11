@@ -242,14 +242,14 @@ const MATCHUPS_STEPS: FlowStep[] = [
   },
   {
     id: 'browse-marketplace',
-    title: 'Visit the marketplace',
-    description: 'Open the matchup marketplace and browse shared guides.',
-    ctaLabel: 'Browse Marketplace',
+    title: 'Visit Discover',
+    description: 'Open Discover and browse shared matchup guides.',
+    ctaLabel: 'Discover Guides',
   },
   {
     id: 'add-to-library',
     title: 'Add one matchup to your library',
-    description: 'Save a matchup guide from the marketplace.',
+    description: 'Save a matchup guide from Discover.',
     ctaLabel: 'Save Matchup',
   },
   {

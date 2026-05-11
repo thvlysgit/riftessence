@@ -377,12 +377,13 @@ The matchups system allows users to create, manage, and share detailed champion-
 
 ---
 
-#### Public Marketplace (`/matchups/marketplace`)
+#### Public Discover (`/matchups/marketplace`)
 
-**Purpose**: Browse and download community-shared matchup sheets.
+**Purpose**: Discover and save free community-shared matchup sheets. The route remains `/matchups/marketplace` for compatibility, but user-facing copy should say Discover/Discover Guides rather than Marketplace.
 
 **Key Features**:
 - **No Auth Required** to browse (auth needed for actions)
+- Shared workspace tabs link between My Library, Collections, and Discover
 - Search bar: "Search by champion..." (searches myChampion and enemyChampion)
 - Filters:
   - Role dropdown (ALL + 5 roles)
@@ -390,7 +391,7 @@ The matchups system allows users to create, manage, and share detailed champion-
   - **Sort By**:
     - Newest (default)
     - Most Liked
-    - Most Downloaded
+    - Most Saved
 - Grid of public matchup cards showing:
   - **Author username** (with link to profile)
   - Champion matchup (icons with VS)
@@ -402,10 +403,10 @@ The matchups system allows users to create, manage, and share detailed champion-
     - Click opposite to change vote (like→dislike or vice versa)
     - Disabled on own matchups
     - Shows net likes count (e.g., "+15" for 20 likes, 5 dislikes)
-  - **Download Button**:
-    - Creates private copy in user's library
-    - Disabled if already downloaded (duplicate check by role+myChampion+enemyChampion)
-    - Increments original's download count
+  - **Save Button**:
+    - Saves the public guide to the user's library by reference
+    - Disabled if already saved
+    - Increments original's download/save analytics count only the first time that user saves it
   - **View Details**: Click on card → `/matchups/:id`
 - Pagination with Load More button
 - Empty state: "No public matchups found. Be the first to share!"
@@ -413,17 +414,48 @@ The matchups system allows users to create, manage, and share detailed champion-
 **API Calls**:
 - Browse: `GET /api/matchups/public` (with filters: myChampion, enemyChampion, role, difficulty, sortBy, limit, offset)
 - Vote: `POST /api/matchups/:id/vote` body: `{isLike: boolean}`
-- Download: `POST /api/matchups/:id/download`
+- Save: `POST /api/matchups/:id/download` (legacy endpoint name, saves by reference)
 
 **User Flow**:
 1. User browses public matchup marketplace
 2. Filters by champion, role, or difficulty
 3. Sorts by popularity or recency
 4. Votes on helpful guides (like/dislike)
-5. Downloads guides they want to keep privately
+5. Saves guides they want to keep in their library
 6. Clicks on card to see full details
 
 **State Management**: Local state for matchups, filters, pagination, loading states
+
+---
+
+#### Matchup Collections (`/matchups?tab=collections`)
+
+**Purpose**: Group matchup cards for one champion into shareable champion-level collections.
+
+**Key Features**:
+- Rendered as a tab inside the Matchups workspace
+- Auth required
+- Users can create a collection with:
+  - Champion
+  - Optional role
+  - Title
+  - Description
+  - Public/private sharing toggle
+- Collections list shows title, champion, optional role, visibility, author, and guide count
+- Library matchup cards expose "Add to Collection"
+- Add-to-collection only offers owned collections where `collection.champion === matchup.myChampion`
+
+**API Calls**:
+- List: `GET /api/matchup-collections`
+- Create: `POST /api/matchup-collections`
+- Add card: `POST /api/matchup-collections/:id/items`
+
+**User Flow**:
+1. User opens Matchups -> Collections
+2. Creates a collection for one champion, e.g. Aatrox
+3. Returns to My Library
+4. Adds owned or saved/public Aatrox matchup cards to that collection
+5. Optionally marks the collection public for sharing
 
 ---
 
@@ -441,7 +473,7 @@ The matchups system allows users to create, manage, and share detailed champion-
   - Large role badge
   - Color-coded difficulty badge
   - **Author info** (if public): username with profile link
-  - **Stats**: Like count (green), Dislike count (red), Net likes (+/-), Download count
+  - **Stats**: Like count (green), Dislike count (red), Net likes (+/-), save count
 - **Context-Aware Action Buttons**:
   - **Own Matchups**:
     - Edit button → `/matchups/create?id={id}`
@@ -450,7 +482,7 @@ The matchups system allows users to create, manage, and share detailed champion-
   - **Other's Public Matchups**:
     - Like button (👍)
     - Dislike button (👎)
-    - Download button → copies to personal library
+    - Save button -> saves to personal library by reference
 - **Notes Sections** (tabs or collapsible):
   - Laning Phase (full text or "No notes provided")
   - Team Fights (full text or "No notes provided")
@@ -463,7 +495,7 @@ The matchups system allows users to create, manage, and share detailed champion-
 **API Calls**:
 - Fetch: `GET /api/matchups/:id`
 - Vote: `POST /api/matchups/:id/vote`
-- Download: `POST /api/matchups/:id/download`
+- Save: `POST /api/matchups/:id/download` (legacy endpoint name, saves by reference)
 - Delete: `DELETE /api/matchups/:id`
 - Toggle public: `PUT /api/matchups/:id` with isPublic flipped
 

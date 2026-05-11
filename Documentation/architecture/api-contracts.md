@@ -21,6 +21,7 @@
 | Blocks | `/api/user` | `apps/api/src/routes/blocks.ts` |
 | Leaderboards | `/api` | `apps/api/src/routes/leaderboards.ts` |
 | Chat | `/api/chat` | `apps/api/src/routes/chat.ts` |
+| Matchups | `/api` | `apps/api/src/routes/matchups.ts` |
 
 ### Inline Routes (in `apps/api/src/index.ts`)
 - `POST /api/feedback` — Ratings/feedback (requires JWT auth)
@@ -58,6 +59,97 @@ Note: Some route modules (including Teams/Scrims) return direct payload roots (f
 ## Authentication
 
 All protected endpoints require: `Authorization: Bearer <jwt_token>`
+
+---
+
+## Matchup Collection Endpoints (`/api/matchup-collections`)
+
+Collection endpoints are implemented in `apps/api/src/routes/matchups.ts`.
+
+### GET `/api/matchup-collections`
+List the authenticated user's owned and saved matchup collections.
+
+Auth: Required
+
+Query:
+- `champion` optional
+- `role` optional
+- `limit` default 20
+- `offset` default 0
+
+Response:
+```json
+{
+  "collections": [
+    {
+      "id": "cuid",
+      "champion": "Aatrox",
+      "role": "TOP",
+      "title": "Aatrox Top",
+      "description": "Optional notes",
+      "isPublic": false,
+      "authorId": "cuid",
+      "authorUsername": "alice",
+      "itemCount": 3,
+      "isOwned": true,
+      "isSaved": false
+    }
+  ],
+  "total": 1,
+  "limit": 20,
+  "offset": 0,
+  "hasMore": false
+}
+```
+
+### POST `/api/matchup-collections`
+Create a champion collection.
+
+Auth: Required
+
+Body:
+- `champion` required
+- `role` optional
+- `title` required, max 100
+- `description` optional, max 500
+- `isPublic` optional, default false
+
+### GET `/api/matchup-collections/public`
+Browse public shared collections. Auth is optional; authenticated users receive save state.
+
+### GET `/api/matchup-collections/:id`
+Fetch one collection and ordered items. Private collections are visible only to the owner.
+
+### PUT `/api/matchup-collections/:id`
+Update collection metadata. Owner only.
+
+### DELETE `/api/matchup-collections/:id`
+Delete an owned collection.
+
+### POST `/api/matchup-collections/:id/items`
+Add a matchup card to an owned collection.
+
+Auth: Required
+
+Body:
+```json
+{ "matchupId": "cuid" }
+```
+
+Rules:
+- requester must own the collection
+- matchup must be public or owned by the requester
+- matchup `myChampion` must match collection `champion`
+- duplicate membership returns `409`
+
+### DELETE `/api/matchup-collections/:id/items/:itemId`
+Remove one matchup card from an owned collection.
+
+### POST `/api/matchup-collections/:id/save`
+Save a public collection to the authenticated user's library.
+
+### DELETE `/api/matchup-collections/:id/saved`
+Remove a saved collection from the authenticated user's library.
 
 ---
 

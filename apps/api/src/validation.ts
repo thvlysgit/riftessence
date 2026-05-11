@@ -253,16 +253,39 @@ export const MatchupQuerySchema = z.object({
   userId: z.string().optional(),
   myChampion: z.string().optional(),
   role: z.string().optional(),
+  difficulty: z.string().optional(),
   limit: z.preprocess((val) => Number(val), z.number().min(1).max(100)).default(20),
   offset: z.preprocess((val) => Number(val), z.number().min(0)).default(0),
 });
 
 export const PublicMatchupQuerySchema = z.object({
+  search: z.string().optional(),
   myChampion: z.string().optional(),
   enemyChampion: z.string().optional(),
   role: z.string().optional(),
   difficulty: z.string().optional(),
-  sortBy: z.enum(['newest', 'mostLiked', 'mostDownloaded']).default('newest'),
+  sortBy: z.preprocess((val) => {
+    if (val === 'likes') return 'mostLiked';
+    if (val === 'downloads') return 'mostDownloaded';
+    return val;
+  }, z.enum(['newest', 'mostLiked', 'mostDownloaded']).default('newest')),
+  limit: z.preprocess((val) => Number(val), z.number().min(1).max(100)).default(20),
+  offset: z.preprocess((val) => Number(val), z.number().min(0)).default(0),
+});
+
+export const CreateMatchupCollectionSchema = z.object({
+  champion: z.string().min(1).max(50),
+  role: z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FILL']).optional(),
+  title: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  isPublic: z.boolean().default(false),
+});
+
+export const UpdateMatchupCollectionSchema = CreateMatchupCollectionSchema.partial();
+
+export const MatchupCollectionQuerySchema = z.object({
+  champion: z.string().optional(),
+  role: z.string().optional(),
   limit: z.preprocess((val) => Number(val), z.number().min(1).max(100)).default(20),
   offset: z.preprocess((val) => Number(val), z.number().min(0)).default(0),
 });

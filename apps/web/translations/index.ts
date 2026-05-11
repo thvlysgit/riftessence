@@ -689,6 +689,21 @@ export type TranslationKey =
   | 'matchups.descriptionLabel'
   | 'matchups.descriptionPlaceholder'
   | 'matchups.marketplace'
+  | 'matchups.discover'
+  | 'matchups.collections'
+  | 'matchups.createCollection'
+  | 'matchups.createCollectionDesc'
+  | 'matchups.noCollections'
+  | 'matchups.collectionChampion'
+  | 'matchups.collectionTitle'
+  | 'matchups.collectionDescription'
+  | 'matchups.collectionPublic'
+  | 'matchups.collectionCreated'
+  | 'matchups.collectionItemCount'
+  | 'matchups.sharedCollections'
+  | 'matchups.addToCollection'
+  | 'matchups.addedToCollection'
+  | 'matchups.noCompatibleCollections'
   | 'matchups.browsePublic'
   | 'matchups.search'
   | 'matchups.sortBy'
@@ -1383,7 +1398,7 @@ export const translations: Record<LanguageCode, Translations> = {
     'matchups.public': 'Public',
     'matchups.private': 'Private',
     'matchups.likes': 'Likes',
-    'matchups.downloads': 'Downloads',
+    'matchups.downloads': 'Saves',
     'matchups.edit': 'Edit',
     'matchups.delete': 'Delete',
     'matchups.confirmDelete': 'Are you sure you want to delete this matchup?',
@@ -1397,16 +1412,31 @@ export const translations: Record<LanguageCode, Translations> = {
     'matchups.titleLabel': 'Title',
     'matchups.titlePlaceholder': 'e.g., Darius vs Teemo - Complete Guide',
     'matchups.descriptionLabel': 'Description',
-    'matchups.descriptionPlaceholder': 'Brief description for marketplace',
-    'matchups.marketplace': 'Marketplace',
-    'matchups.browsePublic': 'Browse Marketplace',
+    'matchups.descriptionPlaceholder': 'Brief description for Discover',
+    'matchups.marketplace': 'Discover Guides',
+    'matchups.discover': 'Discover',
+    'matchups.collections': 'Collections',
+    'matchups.createCollection': 'Create Collection',
+    'matchups.createCollectionDesc': 'Group matchup cards for one champion. Collections can include your guides and saved public guides for the same champion.',
+    'matchups.noCollections': 'No collections yet. Create one for a champion you play.',
+    'matchups.collectionChampion': 'Collection Champion',
+    'matchups.collectionTitle': 'Collection Title',
+    'matchups.collectionDescription': 'Collection Description',
+    'matchups.collectionPublic': 'Share this collection publicly',
+    'matchups.collectionCreated': 'Collection created successfully',
+    'matchups.collectionItemCount': '{count} guides',
+    'matchups.sharedCollections': 'Shared Collections',
+    'matchups.addToCollection': 'Add to Collection',
+    'matchups.addedToCollection': 'Added to collection',
+    'matchups.noCompatibleCollections': 'Create a collection for this champion first.',
+    'matchups.browsePublic': 'Discover Guides',
     'matchups.search': 'Search by champion...',
     'matchups.sortBy': 'Sort By',
     'matchups.newest': 'Newest',
     'matchups.mostLiked': 'Most Liked',
-    'matchups.mostDownloaded': 'Most Downloaded',
-    'matchups.download': 'Download',
-    'matchups.downloaded': 'Downloaded successfully',
+    'matchups.mostDownloaded': 'Most Saved',
+    'matchups.download': 'Save',
+    'matchups.downloaded': 'Saved successfully',
     'matchups.addToLibrary': 'Add to Library',
     'matchups.addedToLibrary': 'Added to your library',
     'matchups.removeFromLibrary': 'Remove from Library',
@@ -2090,7 +2120,7 @@ export const translations: Record<LanguageCode, Translations> = {
     'matchups.public': 'Public',
     'matchups.private': 'Privé',
     'matchups.likes': 'J\'aime',
-    'matchups.downloads': 'Téléchargements',
+    'matchups.downloads': 'Enregistrements',
     'matchups.edit': 'Modifier',
     'matchups.delete': 'Supprimer',
     'matchups.confirmDelete': 'Voulez-vous vraiment supprimer ce matchup?',
@@ -2104,16 +2134,31 @@ export const translations: Record<LanguageCode, Translations> = {
     'matchups.titleLabel': 'Titre',
     'matchups.titlePlaceholder': 'ex. : Darius vs Teemo - Guide complet',
     'matchups.descriptionLabel': 'Description',
-    'matchups.descriptionPlaceholder': 'Brève description pour le Marketplace',
-    'matchups.marketplace': 'Marketplace',
-    'matchups.browsePublic': 'Parcourir le Marketplace',
+    'matchups.descriptionPlaceholder': 'Brève description pour Découvrir',
+    'matchups.marketplace': 'Découvrir des guides',
+    'matchups.discover': 'Découvrir',
+    'matchups.collections': 'Collections',
+    'matchups.createCollection': 'Créer une collection',
+    'matchups.createCollectionDesc': 'Regroupez des cartes de matchup pour un champion. Les collections peuvent inclure vos guides et les guides publics enregistrés pour le même champion.',
+    'matchups.noCollections': 'Aucune collection pour le moment. Créez-en une pour un champion que vous jouez.',
+    'matchups.collectionChampion': 'Champion de la collection',
+    'matchups.collectionTitle': 'Titre de la collection',
+    'matchups.collectionDescription': 'Description de la collection',
+    'matchups.collectionPublic': 'Partager cette collection publiquement',
+    'matchups.collectionCreated': 'Collection créée avec succès',
+    'matchups.collectionItemCount': '{count} guides',
+    'matchups.sharedCollections': 'Collections partagées',
+    'matchups.addToCollection': 'Ajouter à une collection',
+    'matchups.addedToCollection': 'Ajouté à la collection',
+    'matchups.noCompatibleCollections': 'Créez d’abord une collection pour ce champion.',
+    'matchups.browsePublic': 'Découvrir des guides',
     'matchups.search': 'Rechercher par champion...',
     'matchups.sortBy': 'Trier par',
     'matchups.newest': 'Plus récents',
     'matchups.mostLiked': 'Les plus aimés',
-    'matchups.mostDownloaded': 'Les plus téléchargés',
-    'matchups.download': 'Télécharger',
-    'matchups.downloaded': 'Téléchargé avec succès',
+    'matchups.mostDownloaded': 'Les plus enregistrés',
+    'matchups.download': 'Enregistrer',
+    'matchups.downloaded': 'Enregistré avec succès',
     'matchups.addToLibrary': 'Ajouter à la bibliothèque',
     'matchups.addedToLibrary': 'Ajouté à votre bibliothèque',
     'matchups.removeFromLibrary': 'Retirer de la bibliothèque',
