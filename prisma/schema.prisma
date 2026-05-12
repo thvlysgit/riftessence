@@ -963,6 +963,8 @@ model Matchup {
   teamfightNotes String?
   itemNotes      String?
   spikeNotes     String?
+  runePages      Json?
+  itemBuilds     Json?
 
   // Public sharing
   isPublic    Boolean @default(false)

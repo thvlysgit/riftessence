@@ -2,6 +2,7 @@ import { normalizeChampionName } from './championData';
 
 const DDRAGON_VERSION_CACHE_KEY = 'riftessence_ddragon_version_v1';
 const MATCHUP_KNOWLEDGE_CACHE_KEY = 'riftessence_matchup_knowledge_v1';
+const MATCHUP_RUNE_TREE_CACHE_KEY = 'riftessence_matchup_rune_trees_v1';
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
 interface VersionCache {
@@ -23,6 +24,12 @@ interface ChampionSpellCache {
   timestamp: number;
 }
 
+interface RuneTreeCache {
+  version: string;
+  runeTrees: MatchupRuneTree[];
+  timestamp: number;
+}
+
 export type MatchupKnowledgeType = 'spell' | 'item' | 'rune';
 
 export interface MatchupKnowledgeSuggestion {
@@ -34,6 +41,23 @@ export interface MatchupKnowledgeSuggestion {
   iconUrl: string;
   insertText: string;
   keywords: string[];
+}
+
+export interface MatchupRune {
+  id: number;
+  key: string;
+  name: string;
+  iconUrl: string;
+  detail?: string;
+  slotIndex: number;
+}
+
+export interface MatchupRuneTree {
+  id: number;
+  key: string;
+  name: string;
+  iconUrl: string;
+  slots: MatchupRune[][];
 }
 
 const readCache = <T>(key: string): T | null => {
@@ -154,6 +178,50 @@ export const fetchMatchupKnowledge = async (): Promise<{
   });
 
   return { version, items, runes };
+};
+
+export const fetchRuneTrees = async (): Promise<MatchupRuneTree[]> => {
+  const version = await fetchLatestDDragonVersion();
+  const cached = readCache<RuneTreeCache>(MATCHUP_RUNE_TREE_CACHE_KEY);
+  if (cached && cached.version === version && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.runeTrees;
+  }
+
+  const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/runesReforged.json`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch Data Dragon rune trees');
+  }
+
+  const runeData = await response.json();
+  const runeTrees: MatchupRuneTree[] = runeData.map((tree: any) => ({
+    id: tree.id,
+    key: tree.key,
+    name: tree.name,
+    iconUrl: getRuneIconUrl(tree.icon),
+    slots: tree.slots.map((slot: any, slotIndex: number) => (
+      slot.runes.map((rune: any) => ({
+        id: rune.id,
+        key: rune.key,
+        name: rune.name,
+        iconUrl: getRuneIconUrl(rune.icon),
+        detail: cleanText(rune.shortDesc || rune.longDesc),
+        slotIndex,
+      }))
+    )),
+  }));
+
+  writeCache(MATCHUP_RUNE_TREE_CACHE_KEY, {
+    version,
+    runeTrees,
+    timestamp: Date.now(),
+  });
+
+  return runeTrees;
+};
+
+export const fetchItemSuggestions = async (): Promise<MatchupKnowledgeSuggestion[]> => {
+  const knowledge = await fetchMatchupKnowledge();
+  return knowledge.items;
 };
 
 export const fetchChampionSpellSuggestions = async (champion: string): Promise<MatchupKnowledgeSuggestion[]> => {

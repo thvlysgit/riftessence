@@ -232,6 +232,33 @@ export const PaginationSchema = z.object({
 // MATCHUP SCHEMAS
 // ============================================================
 
+const MatchupBuildItemSchema = z.object({
+  id: z.string().min(1).max(30),
+  name: z.string().min(1).max(80),
+  iconUrl: z.string().url().optional(),
+});
+
+const MatchupRunePageSchema = z.object({
+  id: z.string().max(80).optional(),
+  name: z.string().max(80).optional(),
+  primaryTreeId: z.number().int().optional(),
+  secondaryTreeId: z.number().int().optional(),
+  selectedRunes: z.array(z.number().int()).max(9).optional(),
+  statShards: z.array(z.string().max(40)).max(3).optional(),
+  notes: z.string().max(500).optional(),
+});
+
+const MatchupItemBuildSchema = z.object({
+  id: z.string().max(80).optional(),
+  name: z.string().max(80).optional(),
+  startingItems: z.array(MatchupBuildItemSchema).max(8).optional(),
+  boots: z.array(MatchupBuildItemSchema).max(4).optional(),
+  coreItems: z.array(MatchupBuildItemSchema).max(8).optional(),
+  situationalItems: z.array(MatchupBuildItemSchema).max(12).optional(),
+  finalItems: z.array(MatchupBuildItemSchema).max(8).optional(),
+  notes: z.string().max(500).optional(),
+});
+
 export const CreateMatchupSchema = z.object({
   userId: z.string().min(1),
   role: z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FILL']),
@@ -242,6 +269,8 @@ export const CreateMatchupSchema = z.object({
   teamfightNotes: z.string().max(2000).optional(),
   itemNotes: z.string().max(2000).optional(),
   spikeNotes: z.string().max(2000).optional(),
+  runePages: z.array(MatchupRunePageSchema).max(8).optional(),
+  itemBuilds: z.array(MatchupItemBuildSchema).max(8).optional(),
   isPublic: z.boolean().default(false),
   title: z.string().max(100).optional(),
   description: z.string().max(500).optional(),

@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getChampionIconUrl } from '../utils/championData';
+import { MatchupButton } from './MatchupButton';
 
 type DifficultyLevel = 
   | 'FREE_WIN' 
@@ -110,11 +111,12 @@ export const MatchupCard: React.FC<MatchupCardProps> = ({
   
   return (
     <div 
-      className="rounded-lg p-4 transition-all hover:shadow-lg"
+      className="rounded-xl p-4 transition-all hover:translate-y-[-2px] hover:shadow-lg"
       style={{
         backgroundColor: 'var(--color-bg-secondary)',
         border: '1px solid var(--color-border)',
         cursor: onClick ? 'pointer' : 'default',
+        boxShadow: '0 12px 32px rgba(0,0,0,0.12)',
       }}
       onClick={onClick}
     >
@@ -243,74 +245,61 @@ export const MatchupCard: React.FC<MatchupCardProps> = ({
         {editable && (
           <div className="flex gap-2">
             {onAddToCollection && (
-              <button
+              <MatchupButton
                 onClick={(e) => {
                   e.stopPropagation();
                   onAddToCollection();
                 }}
-                className="px-3 py-1 rounded text-sm transition-colors"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  color: 'var(--color-text-secondary)',
-                  border: '1px solid var(--color-border)',
-                }}
+                size="sm"
+                variant="secondary"
               >
                 {t('matchups.addToCollection')}
-              </button>
+              </MatchupButton>
             )}
             {/* Show edit/delete only for owned matchups */}
             {matchup.isOwned && (
               <>
                 {onEdit && (
-                  <button
+                  <MatchupButton
                     onClick={(e) => {
                       e.stopPropagation();
                       onEdit();
                     }}
-                    className="px-3 py-1 rounded text-sm transition-colors"
-                    style={{
-                      backgroundColor: 'var(--color-accent-primary-bg)',
-                      color: 'var(--color-accent-1)',
-                      border: '1px solid var(--color-accent-primary-border)',
-                    }}
+                    size="sm"
+                    variant="primary"
                   >
                     {t('matchups.edit')}
-                  </button>
+                  </MatchupButton>
                 )}
                 {onDelete && (
-                  <button
+                  <MatchupButton
                     onClick={(e) => {
                       e.stopPropagation();
                       onDelete();
                     }}
-                    className="px-3 py-1 rounded text-sm transition-colors"
-                    style={{
-                      backgroundColor: 'var(--color-accent-danger-bg)',
-                      color: 'var(--color-error)',
-                      border: '1px solid var(--color-accent-danger-border)',
-                    }}
+                    size="sm"
+                    variant="danger"
                   >
                     {t('matchups.delete')}
-                  </button>
+                  </MatchupButton>
                 )}
               </>
             )}
             {/* Show remove button for saved (non-owned) matchups */}
             {matchup.isSaved && !matchup.isOwned && onRemove && (
-              <button
+              <MatchupButton
                 onClick={(e) => {
                   e.stopPropagation();
                   onRemove();
                 }}
-                className="px-3 py-1 rounded text-sm transition-colors"
+                size="sm"
+                variant="secondary"
                 style={{
-                  backgroundColor: 'var(--color-accent-warning-bg)',
                   color: 'var(--color-warning)',
-                  border: '1px solid var(--color-accent-warning-border)',
                 }}
               >
                 {t('matchups.removeFromLibrary')}
-              </button>
+              </MatchupButton>
             )}
           </div>
         )}

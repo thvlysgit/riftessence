@@ -6,6 +6,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useGlobalUI } from '@components/GlobalUI';
 import { LoadingSpinner } from '@components/LoadingSpinner';
+import { MatchupButton } from '@components/MatchupButton';
+import { MatchupRichText } from '@components/MatchupRichText';
+import { MatchupRunePage, MatchupRunePagesView } from '@components/MatchupRuneBuilder';
+import { MatchupItemBuild, MatchupItemBuildsView } from '@components/MatchupBuildPlanner';
 import { getChampionIconUrl } from '../../utils/championData';
 import { getAuthHeader } from '../../utils/auth';
 
@@ -55,6 +59,8 @@ interface MatchupDetail {
   teamfightNotes: string;
   itemNotes: string;
   spikeNotes: string;
+  runePages?: MatchupRunePage[];
+  itemBuilds?: MatchupItemBuild[];
   isPublic: boolean;
   title?: string;
   description?: string;
@@ -77,7 +83,7 @@ const MatchupDetailPage: React.FC = () => {
   
   const [matchup, setMatchup] = useState<MatchupDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'laning' | 'teamfight' | 'items' | 'spikes'>('laning');
+  const [activeTab, setActiveTab] = useState<'laning' | 'teamfight' | 'runes' | 'builds' | 'items' | 'spikes'>('laning');
   
   useEffect(() => {
     if (matchup?.myChampion && matchup?.enemyChampion) {
@@ -214,7 +220,7 @@ const MatchupDetailPage: React.FC = () => {
       }
       
       const data = await response.json();
-      setMatchup(data);
+      setMatchup(data.matchup);
       showToast(t('matchups.toggledPublic'), 'success');
     } catch (error) {
       console.error('Error toggling public:', error);
@@ -257,9 +263,12 @@ const MatchupDetailPage: React.FC = () => {
   const netLikes = getNetLikes();
   
   return (
-    <div 
+    <div
       className="min-h-screen py-8 px-4"
-      style={{ backgroundColor: 'var(--color-bg-primary)' }}
+      style={{
+        background:
+          'linear-gradient(180deg, rgba(200,170,110,0.08) 0%, transparent 300px), var(--color-bg-primary)',
+      }}
     >
       <div className="max-w-5xl mx-auto">
         {/* Back Button */}
@@ -399,41 +408,29 @@ const MatchupDetailPage: React.FC = () => {
           <div className="flex items-center justify-center gap-3 flex-wrap">
             {isOwnMatchup ? (
               <>
-                <button
+                <MatchupButton
                   onClick={() => router.push(`/matchups/create?id=${matchup.id}`)}
-                  className="px-6 py-3 rounded-lg font-semibold transition-all"
-                  style={{
-                    backgroundColor: 'var(--color-accent-primary-bg)',
-                    color: 'var(--color-accent-1)',
-                    border: '1px solid var(--color-accent-primary-border)',
-                  }}
+                  variant="primary"
+                  size="lg"
                 >
                   {t('matchups.edit')}
-                </button>
+                </MatchupButton>
                 
-                <button
+                <MatchupButton
                   onClick={handleTogglePublic}
-                  className="px-6 py-3 rounded-lg font-semibold transition-all"
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    color: 'var(--color-text-primary)',
-                    border: '1px solid var(--color-border)',
-                  }}
+                  variant="secondary"
+                  size="lg"
                 >
                   {matchup.isPublic ? 'Make Private' : 'Make Public'}
-                </button>
+                </MatchupButton>
                 
-                <button
+                <MatchupButton
                   onClick={handleDelete}
-                  className="px-6 py-3 rounded-lg font-semibold transition-all"
-                  style={{
-                    backgroundColor: 'var(--color-accent-danger-bg)',
-                    color: 'var(--color-error)',
-                    border: '1px solid var(--color-accent-danger-border)',
-                  }}
+                  variant="danger"
+                  size="lg"
                 >
                   {t('matchups.delete')}
-                </button>
+                </MatchupButton>
               </>
             ) : matchup.isPublic ? (
               <>
@@ -499,8 +496,8 @@ const MatchupDetailPage: React.FC = () => {
           }}
         >
           {/* Tab Headers */}
-          <div 
-            className="flex border-b"
+          <div
+            className="flex overflow-x-auto border-b"
             style={{ borderColor: 'var(--color-border)' }}
           >
             <button
@@ -535,6 +532,40 @@ const MatchupDetailPage: React.FC = () => {
               }}
             >
               {t('matchups.teamFights')}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('runes')}
+              className={`flex-1 px-4 py-3 font-semibold transition-colors ${
+                activeTab === 'runes' ? 'border-b-2' : ''
+              }`}
+              style={{
+                color: activeTab === 'runes'
+                  ? 'var(--color-accent-1)'
+                  : 'var(--color-text-secondary)',
+                borderColor: activeTab === 'runes'
+                  ? 'var(--color-accent-1)'
+                  : 'transparent',
+              }}
+            >
+              Runes
+            </button>
+
+            <button
+              onClick={() => setActiveTab('builds')}
+              className={`flex-1 px-4 py-3 font-semibold transition-colors ${
+                activeTab === 'builds' ? 'border-b-2' : ''
+              }`}
+              style={{
+                color: activeTab === 'builds'
+                  ? 'var(--color-accent-1)'
+                  : 'var(--color-text-secondary)',
+                borderColor: activeTab === 'builds'
+                  ? 'var(--color-accent-1)'
+                  : 'transparent',
+              }}
+            >
+              Builds
             </button>
             
             <button
@@ -576,49 +607,33 @@ const MatchupDetailPage: React.FC = () => {
           <div className="p-6">
             {activeTab === 'laning' && (
               <div style={{ color: 'var(--color-text-primary)' }}>
-                {matchup.laningNotes ? (
-                  <p className="whitespace-pre-wrap">{matchup.laningNotes}</p>
-                ) : (
-                  <p style={{ color: 'var(--color-text-muted)' }}>
-                    No notes provided for laning phase.
-                  </p>
-                )}
+                <MatchupRichText text={matchup.laningNotes} champion={matchup.myChampion} emptyText="No notes provided for laning phase." />
               </div>
             )}
             
             {activeTab === 'teamfight' && (
               <div style={{ color: 'var(--color-text-primary)' }}>
-                {matchup.teamfightNotes ? (
-                  <p className="whitespace-pre-wrap">{matchup.teamfightNotes}</p>
-                ) : (
-                  <p style={{ color: 'var(--color-text-muted)' }}>
-                    No notes provided for team fights.
-                  </p>
-                )}
+                <MatchupRichText text={matchup.teamfightNotes} champion={matchup.myChampion} emptyText="No notes provided for team fights." />
               </div>
+            )}
+
+            {activeTab === 'runes' && (
+              <MatchupRunePagesView pages={matchup.runePages || []} />
+            )}
+
+            {activeTab === 'builds' && (
+              <MatchupItemBuildsView builds={matchup.itemBuilds || []} />
             )}
             
             {activeTab === 'items' && (
               <div style={{ color: 'var(--color-text-primary)' }}>
-                {matchup.itemNotes ? (
-                  <p className="whitespace-pre-wrap">{matchup.itemNotes}</p>
-                ) : (
-                  <p style={{ color: 'var(--color-text-muted)' }}>
-                    No notes provided for items and builds.
-                  </p>
-                )}
+                <MatchupRichText text={matchup.itemNotes} champion={matchup.myChampion} emptyText="No notes provided for items and builds." />
               </div>
             )}
             
             {activeTab === 'spikes' && (
               <div style={{ color: 'var(--color-text-primary)' }}>
-                {matchup.spikeNotes ? (
-                  <p className="whitespace-pre-wrap">{matchup.spikeNotes}</p>
-                ) : (
-                  <p style={{ color: 'var(--color-text-muted)' }}>
-                    No notes provided for power spikes.
-                  </p>
-                )}
+                <MatchupRichText text={matchup.spikeNotes} champion={matchup.myChampion} emptyText="No notes provided for power spikes." />
               </div>
             )}
           </div>

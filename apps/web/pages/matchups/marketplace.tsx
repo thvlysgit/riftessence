@@ -8,6 +8,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useGlobalUI } from '@components/GlobalUI';
 import { LoadingSpinner } from '@components/LoadingSpinner';
 import { MatchupWorkspaceTabs } from '@components/MatchupWorkspaceTabs';
+import { MatchupButton } from '@components/MatchupButton';
 import { getChampionIconUrl } from '../../utils/championData';
 import { getAuthHeader } from '../../utils/auth';
 
@@ -324,7 +325,10 @@ const MarketplacePage: React.FC = () => {
       />
       <div 
         className="min-h-screen py-8 px-4"
-        style={{ backgroundColor: 'var(--color-bg-primary)' }}
+        style={{
+          background:
+            'linear-gradient(180deg, rgba(200,170,110,0.08) 0%, transparent 300px), var(--color-bg-primary)',
+        }}
       >
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -342,15 +346,12 @@ const MarketplacePage: React.FC = () => {
           </div>
           
           <Link href="/matchups/create">
-            <button
-              className="px-6 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"
-              style={{
-                background: 'var(--btn-gradient)',
-                color: 'var(--btn-gradient-text)',
-              }}
+            <MatchupButton
+              variant="primary"
+              size="lg"
             >
               + {t('matchups.createNew')}
-            </button>
+            </MatchupButton>
           </Link>
         </div>
 
@@ -374,15 +375,12 @@ const MarketplacePage: React.FC = () => {
               </p>
             </div>
             <Link href="/matchups/create">
-              <button
-                className="px-6 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"
-                style={{
-                  backgroundColor: 'var(--color-bg-primary)',
-                  color: 'var(--color-text-primary)',
-                }}
+              <MatchupButton
+                variant="secondary"
+                size="lg"
               >
                 + {t('matchups.createNew')}
-              </button>
+              </MatchupButton>
             </Link>
           </div>
         )}
@@ -738,18 +736,14 @@ const MarketplacePage: React.FC = () => {
             {/* Load More */}
             {hasMore && (
               <div className="flex justify-center mt-8">
-                <button
+                <MatchupButton
                   onClick={() => fetchMatchups(false)}
                   disabled={isLoadingMore}
-                  className="px-6 py-3 rounded-lg font-semibold transition-all disabled:opacity-50"
-                  style={{
-                    backgroundColor: 'var(--color-bg-secondary)',
-                    color: 'var(--color-text-primary)',
-                    border: '1px solid var(--color-border)',
-                  }}
+                  variant="secondary"
+                  size="lg"
                 >
                   {isLoadingMore ? t('common.loading') : t('common.loadMore')}
-                </button>
+                </MatchupButton>
               </div>
             )}
           </>

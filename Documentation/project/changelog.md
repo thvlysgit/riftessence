@@ -1,6 +1,38 @@
 # Changelog
 
-> Last updated: 2026-05-11
+> Last updated: 2026-05-12
+
+---
+
+## 2026-05-12 - Matchup Rune Builder, Build Planner, and Icon-Rich Notes
+
+### Objective: Make matchup cards feel like real League planning tools
+
+Overview: Added persisted rune pages and item build plans, rendered smart-note tokens with Data Dragon icons, and refreshed Matchups buttons/cards/tabs so the workspace matches the newer app surfaces.
+
+Changes:
+
+- Updated [prisma/schema.prisma](prisma/schema.prisma) and added [prisma/migrations/20260512103000_add_matchup_build_plans/migration.sql](prisma/migrations/20260512103000_add_matchup_build_plans/migration.sql):
+  - Added `runePages` and `itemBuilds` JSONB fields to `Matchup`.
+- Updated [apps/api/src/validation.ts](apps/api/src/validation.ts):
+  - Validates structured rune page and item build payloads on create/update.
+- Updated [apps/web/utils/matchupKnowledgeData.ts](apps/web/utils/matchupKnowledgeData.ts):
+  - Added cached Data Dragon rune tree and item suggestion helpers.
+- Added [apps/web/components/MatchupRuneBuilder.tsx](apps/web/components/MatchupRuneBuilder.tsx), [apps/web/components/MatchupBuildPlanner.tsx](apps/web/components/MatchupBuildPlanner.tsx), [apps/web/components/MatchupRichText.tsx](apps/web/components/MatchupRichText.tsx), and [apps/web/components/MatchupButton.tsx](apps/web/components/MatchupButton.tsx).
+- Updated [apps/web/pages/matchups/create.tsx](apps/web/pages/matchups/create.tsx):
+  - Added actual rune page builder and item build planner sections.
+  - Added icon-rendered note previews for smart textareas.
+- Updated [apps/web/pages/matchups/[id].tsx](apps/web/pages/matchups/[id].tsx):
+  - Added Runes and Builds tabs.
+  - Renders smart note tokens as inline icon chips.
+  - Fixed public toggle state to use the API response payload.
+- Updated Matchups library/discover cards, workspace tabs, and top-level actions to use the shared Matchups button/card visual treatment.
+
+Verification:
+- `pnpm --filter @lfd/web lint`
+- `pnpm --filter @lfd/api build`
+- `pnpm --filter @lfd/web build`
+- Shell HTTP check returned `200` for `http://localhost:3000/matchups/create`; in-app browser visual verification could not connect to the local dev server from its browser network surface.
 
 ---
 

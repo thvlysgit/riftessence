@@ -339,22 +339,24 @@ The matchups system allows users to create, manage, and share detailed champion-
   2. My Champion (ChampionAutocomplete component)
   3. Enemy Champion (ChampionAutocomplete component)
   4. Difficulty Slider (7 levels, default: SKILL_MATCHUP)
-  5. Laning Phase Notes (`MatchupSmartTextarea`, max 2000 chars with live counter and Data Dragon autocomplete)
-  6. Team Fight Notes (`MatchupSmartTextarea`, max 2000 chars with live counter and Data Dragon autocomplete)
-  7. Items & Builds Notes (`MatchupSmartTextarea`, max 2000 chars with live counter and Data Dragon autocomplete)
-  8. Power Spikes Notes (`MatchupSmartTextarea`, max 2000 chars with live counter and Data Dragon autocomplete)
-  9. **Public Sharing Toggle** (checkbox: "Make this matchup public")
-  10. **If Public** (conditional):
+  5. Rune pages (`MatchupRuneBuilder`, Data Dragon rune trees, multiple page variants)
+  6. Item build plans (`MatchupBuildPlanner`, Data Dragon item search, multiple situation variants)
+  7. Laning Phase Notes (`MatchupSmartTextarea`, max 2000 chars with live counter, Data Dragon autocomplete, rendered icon preview)
+  8. Team Fight Notes (`MatchupSmartTextarea`, max 2000 chars with live counter, Data Dragon autocomplete, rendered icon preview)
+  9. Items & Builds Notes (`MatchupSmartTextarea`, max 2000 chars with live counter, Data Dragon autocomplete, rendered icon preview)
+  10. Power Spikes Notes (`MatchupSmartTextarea`, max 2000 chars with live counter, Data Dragon autocomplete, rendered icon preview)
+  11. **Public Sharing Toggle** (checkbox: "Make this matchup public")
+  12. **If Public** (conditional):
       - Title (max 100 chars, **required** if public)
       - Description (max 500 chars)
 - **Editor Layout**:
-  - Two-column desktop layout with setup/notes on the left and sticky preview/sharing controls on the right
+  - Two-column desktop layout with setup/runes/builds/notes on the left and sticky preview/sharing controls on the right
   - Shared Matchups workspace tabs are visible at the top
   - Champion preview updates as selected champions change
 - **Autocomplete Behavior**:
   - Typing Q/W/E/R suggests the selected champion's spells with icons and inserts `Q - Spell Name`
-  - Typing item names suggests current Data Dragon items with icons and inserts `**Item Name**`
-  - Typing rune names suggests current Data Dragon runes with icons and inserts `**Rune Name**`
+  - Typing item names suggests current Data Dragon items with icons and inserts `**Item Name**`; previews and detail pages render those tokens with item icons
+  - Typing rune names suggests current Data Dragon runes with icons and inserts `**Rune Name**`; previews and detail pages render those tokens with rune icons
   - Data is cached in localStorage for 24 hours and uses the latest Data Dragon version endpoint
 - **Action Buttons**:
   - "Save" / "Update" (depending on create vs edit mode)
@@ -374,14 +376,15 @@ The matchups system allows users to create, manage, and share detailed champion-
 - Uses `championData.ts` utility to fetch champions from Riot Data Dragon API
 - Champions cached in localStorage for 24 hours
 - ChampionAutocomplete component provides searchable dropdown with icons
-- Uses `matchupKnowledgeData.ts` to fetch latest Data Dragon items, runes, and selected champion spells for smart notes
+- Uses `matchupKnowledgeData.ts` to fetch latest Data Dragon items, rune trees, and selected champion spells for smart notes, rune pages, and build planning
 
 **User Flow**:
 1. User clicks "Create New Matchup" from library page
 2. Selects role, both champions, difficulty level
-3. Writes detailed notes in all 4 sections with spell/item/rune autocomplete
-4. Optionally enables public sharing with title/description
-5. Saves → Redirected to library page with success toast
+3. Creates matchup-specific rune pages and build variants
+4. Writes detailed notes in all 4 sections with spell/item/rune autocomplete and icon previews
+5. Optionally enables public sharing with title/description
+6. Saves and is redirected to library page with success toast
 
 **State Management**: Local state for form fields, loading states
 
@@ -496,8 +499,11 @@ The matchups system allows users to create, manage, and share detailed champion-
 - **Notes Sections** (tabs or collapsible):
   - Laning Phase (full text or "No notes provided")
   - Team Fights (full text or "No notes provided")
+  - Runes (saved rune page summaries with rune icons)
+  - Builds (saved item build plans with item icons)
   - Items & Builds (full text or "No notes provided")
   - Power Spikes (full text or "No notes provided")
+  - Text notes render item/rune `**Name**` tokens and spell labels as inline icon chips where Data Dragon metadata is available
 - **Back Button**:
   - Returns to `/matchups` if own matchup
   - Returns to `/matchups/marketplace` if public matchup
@@ -540,6 +546,17 @@ The matchups system allows users to create, manage, and share detailed champion-
    - Stats display (likes, downloads)
    - Edit/Delete action buttons (conditional)
    - Props: `matchup`, `onEdit`, `onDelete`, `showAuthor`, `editable`
+
+4. **`MatchupRuneBuilder`** (`apps/web/components/MatchupRuneBuilder.tsx`)
+   - Builds multiple rune page variants using Data Dragon rune trees
+   - Supports primary and secondary trees, row/slot selection, stat shards, notes, and read-only summaries
+
+5. **`MatchupBuildPlanner`** (`apps/web/components/MatchupBuildPlanner.tsx`)
+   - Builds multiple item plan variants using Data Dragon item search
+   - Groups items into start, boots, core, situational, and final build sections
+
+6. **`MatchupRichText`** (`apps/web/components/MatchupRichText.tsx`)
+   - Renders smart note tokens as inline icon chips for spells, items, and runes
 
 **Champion Data Utility** (`apps/web/utils/championData.ts`):
 - Fetches all champions from Riot Data Dragon API (v14.23.1)

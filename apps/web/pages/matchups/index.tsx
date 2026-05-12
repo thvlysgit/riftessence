@@ -8,6 +8,7 @@ import { useGlobalUI } from '@components/GlobalUI';
 import { LoadingSpinner } from '@components/LoadingSpinner';
 import { MatchupCard, Matchup } from '@components/MatchupCard';
 import { MatchupWorkspaceTabs } from '@components/MatchupWorkspaceTabs';
+import { MatchupButton } from '@components/MatchupButton';
 import { ChampionAutocomplete } from '@components/ChampionAutocomplete';
 import { getAuthHeader } from '../../utils/auth';
 
@@ -338,7 +339,10 @@ const MatchupsPage: React.FC = () => {
       />
       <div 
         className="min-h-screen py-8 px-4"
-        style={{ backgroundColor: 'var(--color-bg-primary)' }}
+        style={{
+          background:
+            'linear-gradient(180deg, rgba(200,170,110,0.08) 0%, transparent 300px), var(--color-bg-primary)',
+        }}
       >
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -357,27 +361,21 @@ const MatchupsPage: React.FC = () => {
           
           <div className="flex gap-3">
             {activeTab === 'collections' ? (
-              <button
+              <MatchupButton
                 onClick={() => setShowCollectionForm(prev => !prev)}
-                className="px-6 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"
-                style={{
-                  background: 'var(--btn-gradient)',
-                  color: 'var(--btn-gradient-text)',
-                }}
+                variant="primary"
+                size="lg"
               >
                 + {t('matchups.createCollection')}
-              </button>
+              </MatchupButton>
             ) : (
               <Link href="/matchups/create">
-                <button 
-                  className="px-6 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"
-                  style={{
-                    background: 'var(--btn-gradient)',
-                    color: 'var(--btn-gradient-text)',
-                  }}
+                <MatchupButton
+                  variant="primary"
+                  size="lg"
                 >
                   + {t('matchups.createNew')}
-                </button>
+                </MatchupButton>
               </Link>
             )}
           </div>
@@ -425,29 +423,22 @@ const MatchupsPage: React.FC = () => {
             </div>
 
             <div className="flex gap-3">
-              <button
+              <MatchupButton
                 type="button"
                 onClick={() => setMatchupForCollection(null)}
-                className="px-5 py-3 rounded-lg font-semibold"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  color: 'var(--color-text-secondary)',
-                  border: '1px solid var(--color-border)',
-                }}
+                variant="secondary"
+                size="lg"
               >
                 {t('common.cancel')}
-              </button>
-              <button
+              </MatchupButton>
+              <MatchupButton
                 type="submit"
                 disabled={isAddingToCollection || compatibleCollections.length === 0}
-                className="px-5 py-3 rounded-lg font-semibold disabled:opacity-50"
-                style={{
-                  background: 'var(--btn-gradient)',
-                  color: 'var(--btn-gradient-text)',
-                }}
+                variant="primary"
+                size="lg"
               >
                 {isAddingToCollection ? t('common.saving') : t('matchups.addToCollection')}
-              </button>
+              </MatchupButton>
             </div>
           </form>
         )}
@@ -557,15 +548,12 @@ const MatchupsPage: React.FC = () => {
               {t('matchups.noMatchups')}
             </p>
             <Link href="/matchups/create">
-              <button 
-                className="px-6 py-3 rounded-lg font-semibold transition-all"
-                style={{
-                  background: 'var(--btn-gradient)',
-                  color: 'var(--btn-gradient-text)',
-                }}
+              <MatchupButton
+                variant="primary"
+                size="lg"
               >
                 {t('matchups.createNew')}
-              </button>
+              </MatchupButton>
             </Link>
           </div>
         ) : (
@@ -588,18 +576,14 @@ const MatchupsPage: React.FC = () => {
             {/* Load More button */}
             {hasMore && (
               <div className="flex justify-center">
-                <button
+                <MatchupButton
                   onClick={() => fetchMatchups(false)}
                   disabled={isLoadingMore}
-                  className="px-8 py-3 rounded-lg font-semibold transition-all"
-                  style={{
-                    backgroundColor: 'var(--color-bg-secondary)',
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                  }}
+                  variant="secondary"
+                  size="lg"
                 >
                   {isLoadingMore ? <LoadingSpinner compact /> : t('common.loadMore')}
-                </button>
+                </MatchupButton>
               </div>
             )}
           </>
@@ -699,29 +683,20 @@ const MatchupsPage: React.FC = () => {
                 </label>
 
                 <div className="flex justify-end gap-3">
-                  <button
+                  <MatchupButton
                     type="button"
                     onClick={() => setShowCollectionForm(false)}
-                    className="px-5 py-2 rounded-lg font-semibold"
-                    style={{
-                      backgroundColor: 'var(--color-bg-tertiary)',
-                      color: 'var(--color-text-secondary)',
-                      border: '1px solid var(--color-border)',
-                    }}
+                    variant="secondary"
                   >
                     {t('common.cancel')}
-                  </button>
-                  <button
+                  </MatchupButton>
+                  <MatchupButton
                     type="submit"
                     disabled={isCreatingCollection}
-                    className="px-5 py-2 rounded-lg font-semibold disabled:opacity-50"
-                    style={{
-                      background: 'var(--btn-gradient)',
-                      color: 'var(--btn-gradient-text)',
-                    }}
+                    variant="primary"
                   >
                     {isCreatingCollection ? t('common.saving') : t('matchups.createCollection')}
-                  </button>
+                  </MatchupButton>
                 </div>
               </form>
             )}
@@ -741,26 +716,24 @@ const MatchupsPage: React.FC = () => {
                 <p className="text-xl mb-4" style={{ color: 'var(--color-text-secondary)' }}>
                   {t('matchups.noCollections')}
                 </p>
-                <button
+                <MatchupButton
                   onClick={() => setShowCollectionForm(true)}
-                  className="px-6 py-3 rounded-lg font-semibold transition-all"
-                  style={{
-                    background: 'var(--btn-gradient)',
-                    color: 'var(--btn-gradient-text)',
-                  }}
+                  variant="primary"
+                  size="lg"
                 >
                   {t('matchups.createCollection')}
-                </button>
+                </MatchupButton>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {collections.map(collection => (
                   <div
                     key={collection.id}
-                    className="rounded-lg p-5 transition-all hover:shadow-lg"
+                    className="rounded-xl p-5 transition-all hover:translate-y-[-2px] hover:shadow-lg"
                     style={{
                       backgroundColor: 'var(--color-bg-secondary)',
                       border: '1px solid var(--color-border)',
+                      boxShadow: '0 12px 32px rgba(0,0,0,0.12)',
                     }}
                   >
                     <div className="flex items-start justify-between gap-4 mb-4">

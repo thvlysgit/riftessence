@@ -20,10 +20,11 @@ export const MatchupWorkspaceTabs: React.FC<MatchupWorkspaceTabsProps> = ({ acti
 
   return (
     <div
-      className="mb-6 flex flex-wrap items-center gap-2 rounded-lg p-2"
+      className="mb-6 flex flex-wrap items-center gap-2 rounded-xl p-2 shadow-lg"
       style={{
         backgroundColor: 'var(--color-bg-secondary)',
         border: '1px solid var(--color-border)',
+        boxShadow: '0 18px 45px rgba(0,0,0,0.18)',
       }}
     >
       {tabs.map((tab) => {
@@ -33,11 +34,12 @@ export const MatchupWorkspaceTabs: React.FC<MatchupWorkspaceTabsProps> = ({ acti
           <Link key={tab.id} href={tab.href} shallow={tab.href.startsWith('/matchups?')}>
             <button
               type="button"
-              className="px-4 py-2 rounded-md text-sm font-semibold transition-all"
+              className="px-4 py-2.5 rounded-lg text-sm font-bold transition-all hover:translate-y-[-1px]"
               style={{
-                backgroundColor: isActive ? 'var(--color-accent-primary-bg)' : 'transparent',
-                color: isActive ? 'var(--color-accent-1)' : 'var(--color-text-secondary)',
-                border: isActive ? '1px solid var(--color-accent-primary-border)' : '1px solid transparent',
+                background: isActive ? 'var(--btn-gradient)' : 'transparent',
+                color: isActive ? 'var(--btn-gradient-text)' : 'var(--color-text-secondary)',
+                border: isActive ? '1px solid rgba(200,170,110,0.42)' : '1px solid transparent',
+                boxShadow: isActive ? '0 10px 24px rgba(200,170,110,0.16)' : 'none',
               }}
               aria-current={isActive ? 'page' : undefined}
               onClick={(event) => {

@@ -10,6 +10,9 @@ import { ChampionAutocomplete } from '@components/ChampionAutocomplete';
 import { DifficultySlider } from '@components/DifficultySlider';
 import { MatchupSmartTextarea } from '@components/MatchupSmartTextarea';
 import { MatchupWorkspaceTabs } from '@components/MatchupWorkspaceTabs';
+import { MatchupButton } from '@components/MatchupButton';
+import { MatchupRuneBuilder, MatchupRunePage } from '@components/MatchupRuneBuilder';
+import { MatchupBuildPlanner, MatchupItemBuild } from '@components/MatchupBuildPlanner';
 import { getAuthHeader } from '../../utils/auth';
 import { getChampionIconUrl } from '../../utils/championData';
 
@@ -62,6 +65,8 @@ const CreateMatchupPage: React.FC = () => {
   const [teamfightNotes, setTeamfightNotes] = useState('');
   const [itemBuild, setItemBuild] = useState('');
   const [powerSpikes, setPowerSpikes] = useState('');
+  const [runePages, setRunePages] = useState<MatchupRunePage[]>([]);
+  const [itemBuilds, setItemBuilds] = useState<MatchupItemBuild[]>([]);
   const [isPublic, setIsPublic] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -97,6 +102,8 @@ const CreateMatchupPage: React.FC = () => {
       setTeamfightNotes(matchup.teamfightNotes || '');
       setItemBuild(matchup.itemNotes || '');
       setPowerSpikes(matchup.spikeNotes || '');
+      setRunePages(matchup.runePages || []);
+      setItemBuilds(matchup.itemBuilds || []);
       setIsPublic(matchup.isPublic || false);
       setTitle(matchup.title || '');
       setDescription(matchup.description || '');
@@ -141,6 +148,8 @@ const CreateMatchupPage: React.FC = () => {
         teamfightNotes,
         itemNotes: itemBuild,
         spikeNotes: powerSpikes,
+        runePages,
+        itemBuilds,
         isPublic,
         title: isPublic ? title : undefined,
         description: isPublic ? description : undefined,
@@ -258,30 +267,23 @@ const CreateMatchupPage: React.FC = () => {
           </div>
 
           <div className="flex gap-3">
-            <button
+            <MatchupButton
               type="button"
               onClick={handleCancel}
-              className="rounded-lg px-5 py-3 text-sm font-semibold transition-all hover:opacity-85"
-              style={{
-                backgroundColor: 'var(--color-bg-secondary)',
-                color: 'var(--color-text-secondary)',
-                border: '1px solid var(--color-border)',
-              }}
+              variant="secondary"
+              size="lg"
             >
               {t('matchups.cancel')}
-            </button>
-            <button
+            </MatchupButton>
+            <MatchupButton
               type="submit"
               form="matchup-create-form"
               disabled={isLoading}
-              className="rounded-lg px-5 py-3 text-sm font-bold shadow-lg transition-all hover:translate-y-[-1px] disabled:translate-y-0 disabled:opacity-50"
-              style={{
-                background: 'var(--btn-gradient)',
-                color: 'var(--btn-gradient-text)',
-              }}
+              variant="primary"
+              size="lg"
             >
               {isLoading ? t('common.saving') : isEditMode ? t('matchups.update') : t('matchups.save')}
-            </button>
+            </MatchupButton>
           </div>
         </div>
 
@@ -360,6 +362,44 @@ const CreateMatchupPage: React.FC = () => {
                   label={t('matchups.difficulty')}
                 />
               </div>
+            </section>
+
+            <section
+              className="rounded-lg p-5 md:p-6"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                border: '1px solid var(--color-border)',
+                boxShadow: 'var(--shadow-lg)',
+              }}
+            >
+              <div className="mb-5">
+                <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                  Rune Builder
+                </h2>
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  Create one or more in-game style rune pages for different lanes, recalls, or enemy patterns.
+                </p>
+              </div>
+              <MatchupRuneBuilder value={runePages} onChange={setRunePages} />
+            </section>
+
+            <section
+              className="rounded-lg p-5 md:p-6"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                border: '1px solid var(--color-border)',
+                boxShadow: 'var(--shadow-lg)',
+              }}
+            >
+              <div className="mb-5">
+                <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                  Build Planner
+                </h2>
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  Plan starts, boots, core items, situational swaps, and full-build variants with current item icons.
+                </p>
+              </div>
+              <MatchupBuildPlanner value={itemBuilds} onChange={setItemBuilds} />
             </section>
 
             <section
@@ -465,6 +505,14 @@ const CreateMatchupPage: React.FC = () => {
                 <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
                   <span style={{ color: 'var(--color-text-muted)' }}>Visibility</span>
                   <p className="mt-1 font-bold" style={{ color: 'var(--color-text-primary)' }}>{isPublic ? t('matchups.public') : t('matchups.private')}</p>
+                </div>
+                <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Rune pages</span>
+                  <p className="mt-1 font-bold" style={{ color: 'var(--color-text-primary)' }}>{runePages.length}</p>
+                </div>
+                <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Builds</span>
+                  <p className="mt-1 font-bold" style={{ color: 'var(--color-text-primary)' }}>{itemBuilds.length}</p>
                 </div>
               </div>
             </section>

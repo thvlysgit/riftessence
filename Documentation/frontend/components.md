@@ -1,6 +1,6 @@
 # Frontend Components
 
-> Last updated: 2026-05-06
+> Last updated: 2026-05-12
 
 ## Top-Level Components (`apps/web/components/`)
 
@@ -25,7 +25,11 @@
 | `CreateTeamLftModal` | Create LFT team post modal |
 | `MatchupCard` | Displays matchup guide cards with champion icons, difficulty, visibility, stats, and library/collection actions |
 | `MatchupWorkspaceTabs` | Shared Matchups workspace tab navigation between Library, Collections, and Discover |
-| `MatchupSmartTextarea` | Data Dragon-backed matchup notes editor with spell, item, and rune autocomplete suggestions |
+| `MatchupSmartTextarea` | Data Dragon-backed matchup notes editor with spell, item, and rune autocomplete suggestions plus rendered icon preview |
+| `MatchupRichText` | Renders matchup notes with inline Data Dragon icons for inserted spell, item, and rune tokens |
+| `MatchupRuneBuilder` | In-game style rune page builder with primary/secondary trees, rune slots, stat shards, and saved page summaries |
+| `MatchupBuildPlanner` | Data Dragon item build planner for starts, boots, core, situational, and final build variants |
+| `MatchupButton` | Shared Matchups button styling used across library, discover, detail, and create/edit actions |
 
 ### LoadingSpinner — Theme-Specific Animations
 

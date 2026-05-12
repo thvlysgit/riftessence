@@ -5,6 +5,7 @@ import {
   fetchMatchupKnowledge,
   MatchupKnowledgeSuggestion,
 } from '../utils/matchupKnowledgeData';
+import { MatchupRichText } from './MatchupRichText';
 
 interface MatchupSmartTextareaProps {
   label: string;
@@ -221,6 +222,21 @@ export const MatchupSmartTextarea: React.FC<MatchupSmartTextareaProps> = ({
         {champion && <span>Type Q/W/E/R for {champion} spells.</span>}
         <span>{isKnowledgeLoading ? 'Loading icons...' : 'Items and runes use Data Dragon icons.'}</span>
       </div>
+
+      {value.trim() && (
+        <div
+          className="rounded-lg p-3"
+          style={{
+            backgroundColor: 'var(--color-bg-tertiary)',
+            border: '1px solid var(--color-border)',
+          }}
+        >
+          <div className="mb-2 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
+            Rendered preview
+          </div>
+          <MatchupRichText text={value} champion={champion} compact />
+        </div>
+      )}
     </div>
   );
 };
