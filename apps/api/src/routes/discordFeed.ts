@@ -58,6 +58,18 @@ const LANGUAGE_ALIASES: Record<string, string> = {
 };
 
 const DISCORD_ROLE_ID_REGEX = /^\d{6,30}$/;
+const RIOT_GAME_NAME_REGEX = /^[\p{L}\p{N} _.-]{3,16}$/u;
+const RIOT_TAGLINE_REGEX = /^[\p{L}\p{N}]{2,5}$/u;
+
+function normalizePlainDisplayText(raw: unknown, fallback: string, maxLength: number): string {
+  const normalized = String(raw || '')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/[<>"'`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return (normalized || fallback).slice(0, maxLength);
+}
 
 function rankIndex(rank: string | null | undefined): number {
   if (!rank) return -1;
@@ -188,16 +200,25 @@ function isRealRiotAccount(account: any): boolean {
   return linked && !puuid.startsWith('discord_');
 }
 
-function parseRiotId(raw: string | null | undefined): { summonerName: string | null; gameName: string | null; tagLine: string | null } {
+export function parseRiotId(raw: string | null | undefined): { summonerName: string | null; gameName: string | null; tagLine: string | null } {
   const trimmed = String(raw || '').trim();
   if (!trimmed) return { summonerName: null, gameName: null, tagLine: null };
 
   const [gameNamePart, tagLinePart] = trimmed.split('#');
-  const gameName = gameNamePart ? gameNamePart.trim() : '';
-  const tagLine = tagLinePart ? tagLinePart.trim() : '';
+  const gameName = gameNamePart ? normalizePlainDisplayText(gameNamePart, '', 16) : '';
+  const tagLine = tagLinePart ? normalizePlainDisplayText(tagLinePart, '', 5) : '';
   const summonerName = tagLine ? `${gameName}#${tagLine}` : gameName;
 
-  if (!summonerName) return { summonerName: null, gameName: null, tagLine: null };
+  if (
+    !summonerName
+    || trimmed.includes('<')
+    || trimmed.includes('>')
+    || (gameName && !RIOT_GAME_NAME_REGEX.test(gameName))
+    || (tagLine && !RIOT_TAGLINE_REGEX.test(tagLine))
+  ) {
+    return { summonerName: null, gameName: null, tagLine: null };
+  }
+
   return {
     summonerName,
     gameName: gameName || null,
@@ -252,13 +273,12 @@ function normalizeLanguageArray(raw: any): string[] {
     .filter((value: string | null): value is string => Boolean(value));
 }
 
-function buildDiscordDisplayUsername(authorDiscordUsername: string, authorDiscordId: string): string {
-  const trimmed = String(authorDiscordUsername || '').trim();
-  if (!trimmed) {
-    return `discord_${authorDiscordId}`.substring(0, 50);
-  }
-
-  return trimmed.substring(0, 50);
+export function buildDiscordDisplayUsername(authorDiscordUsername: string, authorDiscordId: string): string {
+  return normalizePlainDisplayText(
+    authorDiscordUsername,
+    `discord_${authorDiscordId}`,
+    50
+  );
 }
 
 async function createDiscordOnlyUser(prismaClient: any, authorDiscordUsername: string, authorDiscordId: string, autoEnableDms: boolean = true) {
@@ -540,6 +560,8 @@ export default async function discordFeedRoutes(fastify: any) {
         return reply.status(400).send({ error: 'Missing required fields' });
       }
 
+      const safeAuthorDiscordUsername = buildDiscordDisplayUsername(authorDiscordUsername, authorDiscordId);
+
       // Find community by guildId
       const community = await prisma.community.findUnique({
         where: { discordServerId: guildId },
@@ -641,7 +663,7 @@ export default async function discordFeedRoutes(fastify: any) {
           postingRiotAccountId = selectedAccount.id;
         } else {
           // Create a placeholder Riot account for Discord users without linked Riot
-          const fallbackSummoner = riotIdentity.summonerName || authorDiscordUsername || 'Discord User';
+          const fallbackSummoner = riotIdentity.summonerName || safeAuthorDiscordUsername || 'Discord User';
           const placeholderAccount = await prisma.riotAccount.create({
             data: {
               puuid: `discord_${authorDiscordId}`,
@@ -666,12 +688,12 @@ export default async function discordFeedRoutes(fastify: any) {
         }
       } else {
         // Create a visible app user for Discord-only users so the Discord identity is shown in feed.
-        const discordUser = await createDiscordOnlyUser(prisma, authorDiscordUsername, authorDiscordId, isModal);
+        const discordUser = await createDiscordOnlyUser(prisma, safeAuthorDiscordUsername, authorDiscordId, isModal);
 
         userId = discordUser.id;
 
         // Create placeholder Riot account
-        const fallbackSummoner = riotIdentity.summonerName || authorDiscordUsername || 'Discord User';
+        const fallbackSummoner = riotIdentity.summonerName || safeAuthorDiscordUsername || 'Discord User';
         const placeholderAccount = await prisma.riotAccount.create({
           data: {
             puuid: `discord_${authorDiscordId}`,
@@ -690,7 +712,7 @@ export default async function discordFeedRoutes(fastify: any) {
         await prisma.discordAccount.create({
           data: {
             discordId: authorDiscordId,
-            username: authorDiscordUsername,
+            username: safeAuthorDiscordUsername,
             userId,
           },
         });
@@ -944,24 +966,24 @@ export default async function discordFeedRoutes(fastify: any) {
           missingFields,
           author: {
             id: post.author.id,
-            username: post.author.anonymous ? 'Anonymous' : post.author.username,
-            discordUsername: post.author.discordAccount?.username,
+            username: post.author.anonymous ? 'Anonymous' : normalizePlainDisplayText(post.author.username, 'Unknown', 50),
+            discordUsername: normalizePlainDisplayText(post.author.discordAccount?.username, '', 50) || null,
             discordId: post.author.discordAccount?.discordId,
           },
           riotAccount: postingAccount ? {
-            summonerName: postingAccount.summonerName,
+            summonerName: normalizePlainDisplayText(postingAccount.summonerName, 'Unknown', 100),
             rank: postingAccount.rank,
             division: postingAccount.division,
             winrate: postingAccount.winrate,
-            gameName: postingAccount.gameName,
-            tagLine: postingAccount.tagLine,
+            gameName: normalizePlainDisplayText(postingAccount.gameName, '', 50) || null,
+            tagLine: normalizePlainDisplayText(postingAccount.tagLine, '', 20) || null,
           } : null,
           championPoolMode: post.author.championPoolMode || null,
           championList: Array.isArray(post.author.championList) ? post.author.championList : [],
           championTierlist: post.author.championTierlist || null,
           communityId: post.community?.id || null,
           communitySlug: post.community?.slug || null,
-          communityName: post.community?.name || null,
+          communityName: normalizePlainDisplayText(post.community?.name, '', 80) || null,
           feedChannels: matchingChannels.map((fc: any) => ({
             channelId: fc.channelId,
             guildId: fc.guildId,

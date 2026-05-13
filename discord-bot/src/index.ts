@@ -265,6 +265,15 @@ function truncateForDiscord(text: string | null | undefined, maxLen = 260): stri
   return `${normalized.slice(0, maxLen - 3)}...`;
 }
 
+function safeDiscordDisplayText(text: string | null | undefined, maxLen = 260): string {
+  const normalized = truncateForDiscord(text, maxLen)
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/[<>]/g, '')
+    .replace(/@/g, '@\u200B');
+
+  return normalized.replace(/([\\`*_{}\[\]()#+.!|>~])/g, '\\$1');
+}
+
 function normalizeRankTier(rank: string | null | undefined): string | null {
   if (!rank) return null;
   const tier = rank.trim().toUpperCase().split(/\s+/)[0];
@@ -2769,9 +2778,13 @@ function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): Embed
   const { id, author, riotAccount, message, role, region, vcPreference, languages, communityName } = post;
 
   const mainAccount = riotAccount || { gameName: 'Unknown', tagLine: '', rank: '', division: '', winrate: null };
-  const displayName = mainAccount.gameName && mainAccount.tagLine
+  const rawDisplayName = mainAccount.gameName && mainAccount.tagLine
     ? `${mainAccount.gameName}#${mainAccount.tagLine}`
     : mainAccount.summonerName || 'Unknown';
+  const displayName = safeDiscordDisplayText(rawDisplayName, 80);
+  const authorName = safeDiscordDisplayText(author?.username || 'Unknown', 80);
+  const safeMessage = safeDiscordDisplayText(message, 320);
+  const safeCommunityName = safeDiscordDisplayText(communityName, 80);
 
   const postUrl = `${APP_URL}/share/post/${id}`;
   const regionLine = `${resolveEmoji(guild, 'region', '🌍')} **${region || 'Unknown'}** • ${formatRoleLabelForDiscord(role, guild)}`;
@@ -2803,7 +2816,7 @@ function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): Embed
     : null;
 
   const descriptionParts = [
-    truncateForDiscord(message, 320) ? `> ${truncateForDiscord(message, 320)}` : null,
+    safeMessage ? `> ${safeMessage}` : null,
     `${resolveEmoji(guild, 'riot', '🎮')} **${displayName}**`,
     regionLine,
     [rankLine, winrateLine].filter(Boolean).join(' • ') || null,
@@ -2812,13 +2825,13 @@ function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): Embed
     verificationLine,
     missingInfoLine,
     championSummary ? `🗡️ Champion Pool\n${championSummary}` : null,
-    communityName ? `🏠 ${communityName}` : null,
+    safeCommunityName ? `🏠 ${safeCommunityName}` : null,
     `↗ [open in app](${postUrl})`,
   ].filter(Boolean);
 
   return new EmbedBuilder()
     .setColor(embedColor)
-    .setTitle(`Duo • ${author.username}`)
+    .setTitle(`Duo • ${authorName}`)
     .setURL(postUrl)
     .setDescription(descriptionParts.join('\n'))
     .setFooter({ text: 'RiftEssence' })

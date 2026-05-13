@@ -19,6 +19,16 @@ function normalizeStringArray(value: unknown): string[] {
     .filter((entry) => entry.length > 0);
 }
 
+function safeDisplayText(value: unknown, fallback = '', maxLength = 120): string {
+  const normalized = String(value || '')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/[<>"'`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return (normalized || fallback).slice(0, maxLength);
+}
+
 function isRealRiotAccount(account: any): boolean {
   const puuid = String(account?.puuid || '');
   if (!puuid) return false;
@@ -141,6 +151,21 @@ export function formatDuoPost(post: any, viewerIsAdmin: boolean = false) {
     ? personalityRatings.reduce((sum: number, r: any) => sum + r.moons, 0) / personalityRatings.length
     : 0;
 
+  const username = author.anonymous ? 'Anonymous' : safeDisplayText(author.username, 'Unknown', 50);
+  const discordUsername = author.anonymous ? null : safeDisplayText(author.discordAccount?.username, '', 50) || null;
+  const postingGameName = postingAccount
+    ? safeDisplayText(postingAccount.gameName || postingAccount.summonerName?.split('#')[0], 'Unknown', 50)
+    : 'Unknown';
+  const postingTagLine = postingAccount
+    ? safeDisplayText(postingAccount.tagLine || postingAccount.summonerName?.split('#')[1], '0000', 20)
+    : '0000';
+  const mainGameName = mainAccount
+    ? safeDisplayText(mainAccount.gameName || mainAccount.summonerName?.split('#')[0], 'Unknown', 50)
+    : 'Unknown';
+  const mainTagLine = mainAccount
+    ? safeDisplayText(mainAccount.tagLine || mainAccount.summonerName?.split('#')[1], '0000', 20)
+    : '0000';
+
   return {
     id: post.id,
     createdAt: post.createdAt,
@@ -152,20 +177,20 @@ export function formatDuoPost(post: any, viewerIsAdmin: boolean = false) {
     vcPreference: post.vcPreference,
     duoType: post.duoType,
     authorId: author.id,
-    username: author.anonymous ? 'Anonymous' : author.username,
+    username,
     isAnonymous: author.anonymous,
     isAdmin: viewerIsAdmin,
     reportCount: author.reportCount || 0,
     preferredRole: author.anonymous ? null : author.preferredRole,
     secondaryRole: author.anonymous ? null : author.secondaryRole,
-    discordUsername: author.anonymous ? null : author.discordAccount?.username,
+    discordUsername,
     postingRiotAccount: postingAccount ? {
       gameName: author.anonymous
         ? 'Hidden'
-        : (postingAccount.gameName || postingAccount.summonerName?.split('#')[0] || 'Unknown'),
+        : postingGameName,
       tagLine: author.anonymous
         ? 'XXX'
-        : (postingAccount.tagLine || postingAccount.summonerName?.split('#')[1] || '0000'),
+        : postingTagLine,
       region: postingAccount.region,
       rank: postingAccount.rank,
       division: postingAccount.division,
@@ -175,10 +200,10 @@ export function formatDuoPost(post: any, viewerIsAdmin: boolean = false) {
     bestRank: mainAccount && !isSameAccount ? {
       gameName: author.anonymous
         ? 'Hidden'
-        : (mainAccount.gameName || mainAccount.summonerName?.split('#')[0] || 'Unknown'),
+        : mainGameName,
       tagLine: author.anonymous
         ? 'XXX'
-        : (mainAccount.tagLine || mainAccount.summonerName?.split('#')[1] || '0000'),
+        : mainTagLine,
       rank: mainAccount.rank,
       division: mainAccount.division,
       lp: mainAccount.lp,
@@ -192,7 +217,7 @@ export function formatDuoPost(post: any, viewerIsAdmin: boolean = false) {
     },
     community: post.community ? {
       id: post.community.id,
-      name: post.community.name,
+      name: safeDisplayText(post.community.name, 'Community', 80),
       isPartner: post.community.isPartner,
       inviteLink: post.community.inviteLink,
     } : null,
