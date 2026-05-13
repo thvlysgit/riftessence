@@ -4,6 +4,7 @@ import { getOrSetCache } from '../utils/requestCache';
 import { cacheDel } from '../utils/cache';
 import { enqueueMirrorDeletion } from '../services/discordMirrorDeletionQueue';
 import { formatDuoPost, getDuoVerificationAuthorWhere, parseBooleanQuery } from '../utils/developerFeed';
+import { getUserIdFromRequest } from '../middleware/auth';
 
 function toPositiveInt(value: string | undefined, fallback: number) {
   const parsed = Number(value);
@@ -40,37 +41,11 @@ async function attachPostingRiotAccounts(posts: any[]) {
 }
 
 export default async function postsRoutes(fastify: any) {
-  // Helper to extract userId from Authorization header using JWT
-  const getUserIdFromRequest = async (request: any, reply: any): Promise<string | null> => {
-    const authHeader = request.headers['authorization'];
-    if (!authHeader || typeof authHeader !== 'string') {
-      reply.code(401).send({ error: 'Authorization header missing' });
-      return null;
-    }
-    const token = authHeader.replace('Bearer ', '').trim();
-    if (!token) {
-      reply.code(401).send({ error: 'Invalid Authorization header' });
-      return null;
-    }
-    try {
-      const payload = fastify.jwt.verify(token) as any;
-      if (!payload?.userId) {
-        reply.code(401).send({ error: 'Invalid token payload' });
-        return null;
-      }
-      (request as any).userId = payload.userId;
-      return payload.userId as string;
-    } catch (err) {
-      fastify.log.error('JWT verification failed:', err);
-      reply.code(401).send({ error: 'Invalid or expired token' });
-      return null;
-    }
-  };
-
   // GET /api/posts - Get all posts for feed with pagination
   fastify.get('/posts', async (request: any, reply: any) => {
     try {
-      const { region, role, vcPreference, duoType, language, userId, verified, limit = 10, offset = 0 } = (request.query || {}) as any;
+      const { region, role, vcPreference, duoType, language, verified, limit = 10, offset = 0 } = (request.query || {}) as any;
+      const viewerUserId = await getUserIdFromRequest(request as any, reply as any, false);
       const where: any = {};
       
       // Validate pagination params
@@ -123,18 +98,18 @@ export default async function postsRoutes(fastify: any) {
 
       // Check if viewer is admin
       let viewerIsAdmin = false;
-      if (userId) {
-        const viewer = await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } });
+      if (viewerUserId) {
+        const viewer = await prisma.user.findUnique({ where: { id: viewerUserId }, include: { badges: true } });
         viewerIsAdmin = (viewer?.badges || []).some((b: any) => b.key === 'admin');
       }
 
       // Filter out blocked users - exclude posts from users the viewer has blocked
       // and posts from users who have blocked the viewer
-      if (userId) {
+      if (viewerUserId) {
         const blocksResult = await prisma.$queryRaw<Array<{ blockedId: string }>>`
-          SELECT "blockedId" FROM "Block" WHERE "blockerId" = ${userId}
+          SELECT "blockedId" FROM "Block" WHERE "blockerId" = ${viewerUserId}
           UNION
-          SELECT "blockerId" FROM "Block" WHERE "blockedId" = ${userId}
+          SELECT "blockerId" FROM "Block" WHERE "blockedId" = ${viewerUserId}
         `;
         
         const blockedUserIds = blocksResult.map((b: any) => b.blockedId);

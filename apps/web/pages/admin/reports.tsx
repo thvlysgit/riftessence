@@ -76,7 +76,7 @@ export default function AdminReportsPage() {
 
     try {
       console.log('Fetching reports for userId:', uid);
-      const res = await fetch(`${API_URL}/api/admin/reports?userId=${encodeURIComponent(uid)}`, {
+      const res = await fetch(`${API_URL}/api/admin/reports`, {
         headers: getAuthHeader(),
       });
       console.log('Reports response status:', res.status);

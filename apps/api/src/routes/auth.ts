@@ -10,11 +10,18 @@ import {
   validateRequest,
   TurnstileVerifySchema,
 } from '../validation';
+import { getUserIdFromRequest } from '../middleware/auth';
 import { logError } from '../middleware/logger';
 import { Errors } from '../middleware/errors';
 import { sendDiscordWebhook, createNewUserEmbed } from '../utils/discord-webhook';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
+
+function extractBearerToken(authHeader: unknown): string | null {
+  if (typeof authHeader !== 'string') return null;
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
 
 function normalizeClientIp(rawIp: string | null | undefined): string | null {
   if (!rawIp) return null;
@@ -135,7 +142,14 @@ async function sendPasswordResetEmail(
 
 export default async function authRoutes(fastify: FastifyInstance) {
   // Register new user with username/email/password
-  fastify.post('/register', async (request: any, reply: any) => {
+  fastify.post('/register', {
+    config: {
+      rateLimit: {
+        max: 8,
+        timeWindow: '15 minutes',
+      },
+    },
+  }, async (request: any, reply: any) => {
     try {
       // Validate request body
       const validation = validateRequest(RegisterSchema, request.body);
@@ -145,9 +159,13 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
       const { username, email, password } = validation.data;
 
-      // Verify CAPTCHA token (if provided)
+      // Verify CAPTCHA token when Turnstile is configured.
       const turnstileToken = (request.body as any)?.turnstileToken;
-      if (turnstileToken && process.env.TURNSTILE_SECRET_KEY) {
+      if (process.env.TURNSTILE_SECRET_KEY) {
+        if (!turnstileToken) {
+          return reply.code(400).send({ error: 'CAPTCHA verification required' });
+        }
+
         const turnstileValidation = validateRequest(TurnstileVerifySchema, { token: turnstileToken });
         if (!turnstileValidation.success) {
           return reply.code(400).send({ error: 'Invalid CAPTCHA token' });
@@ -230,7 +248,14 @@ export default async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Login with username/email and password
-  fastify.post('/login', async (request: any, reply: any) => {
+  fastify.post('/login', {
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: '15 minutes',
+      },
+    },
+  }, async (request: any, reply: any) => {
     try {
       // Validate request body
       const validation = validateRequest(LoginSchema, request.body);
@@ -298,15 +323,25 @@ export default async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Set password for existing user (e.g., if they only had Riot login before)
-  fastify.post('/set-password', async (request: any, reply: any) => {
+  fastify.post('/set-password', {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '15 minutes',
+      },
+    },
+  }, async (request: any, reply: any) => {
     try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
       // Validate request body
       const validation = validateRequest(SetPasswordSchema, request.body);
       if (!validation.success) {
         return reply.code(400).send({ error: 'Invalid input', details: validation.errors });
       }
 
-      const { userId, password } = validation.data;
+      const { password } = validation.data;
       
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -325,7 +360,14 @@ export default async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Request password reset email
-  fastify.post('/forgot-password', async (request: any, reply: any) => {
+  fastify.post('/forgot-password', {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '15 minutes',
+      },
+    },
+  }, async (request: any, reply: any) => {
     try {
       if (!passwordResetEmailConfigured()) {
         return reply.code(503).send({
@@ -385,7 +427,14 @@ export default async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Reset password with a valid reset token
-  fastify.post('/reset-password', async (request: any, reply: any) => {
+  fastify.post('/reset-password', {
+    config: {
+      rateLimit: {
+        max: 8,
+        timeWindow: '15 minutes',
+      },
+    },
+  }, async (request: any, reply: any) => {
     try {
       const validation = validateRequest(ResetPasswordSchema, request.body);
       if (!validation.success) {
@@ -435,13 +484,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
   // Token refresh endpoint
   fastify.post('/refresh', async (request: any, reply: any) => {
     try {
-      // Extract token from Authorization header
-      const authHeader = request.headers['authorization'];
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      const token = extractBearerToken(request.headers['authorization']);
+      if (!token) {
         return reply.code(401).send({ error: 'No token provided' });
       }
-
-      const token = authHeader.substring(7);
       
       // Verify and decode the token
       let decoded: any;

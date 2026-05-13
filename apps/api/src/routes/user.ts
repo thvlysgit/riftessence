@@ -373,24 +373,14 @@ export default async function userRoutes(fastify: any) {
   fastify.get('/profile', async (request: any, reply: any) => {
     try {
       const { userId, username, includeHidden } = (request.query as { userId?: string; username?: string; includeHidden?: string }) || {};
-      const shouldIncludeHidden = includeHidden === 'true';
+      const requestedIncludeHidden = includeHidden === 'true';
 
-      let authenticatedUserId: string | null = null;
+      const authenticatedUserId = await getUserIdFromRequest(request as any, reply as any, false);
       let targetUserId = userId;
       
       // If no userId or username provided, try to get from JWT token
       if (!userId && !username) {
-        const authHeader = request.headers['authorization'];
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-          const token = authHeader.substring(7);
-          try {
-            const decoded = request.server.jwt.verify(token) as { userId: string };
-            authenticatedUserId = decoded.userId;
-            targetUserId = decoded.userId;
-          } catch (err) {
-            // Invalid token, will fall through to default behavior
-          }
-        }
+        targetUserId = authenticatedUserId || undefined;
 
         // Never fall back to arbitrary users when no explicit profile target is provided.
         if (!targetUserId) {
@@ -405,7 +395,7 @@ export default async function userRoutes(fastify: any) {
         'api:user:profile:response:v1',
         profileTargetKey,
         `viewer:${authenticatedUserId || 'anon'}`,
-        `includeHidden:${shouldIncludeHidden ? '1' : '0'}`,
+        `includeHidden:${requestedIncludeHidden ? '1' : '0'}`,
       ].join(':');
 
       const cachedProfile = await cacheGet<any>(profileResponseCacheKey);
@@ -492,14 +482,7 @@ export default async function userRoutes(fastify: any) {
         }
       }
 
-      // Filter hidden accounts if not requested to include them
-      if (!shouldIncludeHidden) {
-        // Don't filter out hidden accounts, just mark them for frontend to hide username
-        user.riotAccounts = user.riotAccounts.map((acc: any) => ({
-          ...acc,
-          // Keep the hidden flag so frontend knows to hide the username
-        }));
-      }
+      const canViewHiddenAccounts = authenticatedUserId === user.id;
 
       // Calculate average ratings
       const avgStars =
@@ -662,10 +645,11 @@ export default async function userRoutes(fastify: any) {
         profileIconId,
         riotAccounts: (Array.isArray(user.riotAccounts) ? user.riotAccounts : []).map((acc: any, index: number) => {
           const riotIdentity = resolveRiotIdentityParts(acc);
+          const hideRiotIdentity = acc.hidden && !canViewHiddenAccounts;
           return {
             id: acc.id,
-            gameName: riotIdentity.gameName,
-            tagLine: riotIdentity.tagLine,
+            gameName: hideRiotIdentity ? null : riotIdentity.gameName,
+            tagLine: hideRiotIdentity ? null : riotIdentity.tagLine,
             region: acc.region,
             isMain: acc.isMain || false, // Use actual isMain field from database
             verified: acc.verified,
@@ -1399,10 +1383,10 @@ export default async function userRoutes(fastify: any) {
     try {
       const { key } = request.params as { key: string };
       const { description } = request.body as { description: string };
-      const { userId } = request.query as { userId?: string };
+      const userId = await getUserIdFromRequest(request as any, reply as any);
 
       if (!userId) {
-        return reply.status(401).send({ error: 'User authentication required' });
+        return;
       }
 
       // Check if user has admin badge

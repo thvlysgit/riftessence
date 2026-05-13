@@ -35,8 +35,18 @@ import { getUserIdFromRequest } from './middleware/auth';
 import { logError, logInfo } from './middleware/logger';
 import { Errors } from './middleware/errors';
 import { logAdminAction, AuditActions } from './utils/auditLog';
+import { normalizeDiscordWebhookUrl } from './utils/discord-webhook';
 
-const server = Fastify({ logger: true });
+const server = Fastify({
+  logger: true,
+  trustProxy: true,
+});
+
+function extractBearerToken(authHeader: unknown): string | null {
+  if (typeof authHeader !== 'string') return null;
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
 
 function normalizeClientIp(rawIp: string | null | undefined): string | null {
   if (!rawIp) return null;
@@ -216,10 +226,36 @@ async function build() {
     maxAge: 86400,
   });
 
+  server.addHook('onRequest', async (request: any, reply: any) => {
+    const method = String(request.method || '').toUpperCase();
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+      return;
+    }
+
+    const origin = request.headers?.origin;
+    if (typeof origin === 'string' && !isAllowedOrigin(origin)) {
+      return reply.code(403).send({
+        error: 'Origin is not allowed for this request.',
+        code: 'ORIGIN_NOT_ALLOWED',
+      });
+    }
+  });
+
+  server.addHook('onSend', async (_request: any, reply: any, payload: any) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+    reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+    if (env.NODE_ENV === 'production') {
+      reply.header('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+    }
+    return payload;
+  });
+
   // Register JWT for secure authentication
   await server.register(jwt, {
     secret: env.JWT_SECRET,
-    sign: { expiresIn: '7d' },
+    sign: { expiresIn: env.JWT_EXPIRES_IN },
   });
 
   // Global enforcement for IP/account blacklists.
@@ -259,12 +295,7 @@ async function build() {
       }
     }
 
-    const authHeader = request.headers?.authorization;
-    if (!authHeader || typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
-      return;
-    }
-
-    const token = authHeader.substring(7).trim();
+    const token = extractBearerToken(request.headers?.authorization);
     if (!token) {
       return;
     }
@@ -334,45 +365,40 @@ async function build() {
     }
   });
 
-  // Rate limiting disabled for development
-  // await server.register(rateLimit as any, {
-  //   max: (request: any) => {
-  //     const token = request.headers['authorization']?.replace('Bearer ', '').trim();
-  //     if (token) {
-  //       try {
-  //         request.server.jwt.verify(token);
-  //         return 1000;
-  //       } catch {
-  //         return 500;
-  //       }
-  //     }
-  //     return 500;
-  //   },
-  //   timeWindow: '15 minutes',
-  //   cache: 10000,
-  //   allowList: ['127.0.0.1'],
-  //   skip: (request: any) => {
-  //     return request.url === '/health' || 
-  //            request.url === '/health/db' ||
-  //            request.url === '/health/deep' ||
-  //            request.url.startsWith('/docs') ||
-  //            request.url === '/api/auth/login' ||
-  //            request.url === '/api/auth/register' ||
-  //            request.url === '/api/auth/set-password';
-  //   },
-  // });
-
-  await server.register(swagger, {
-    openapi: {
-      info: { title: 'LFD Hub API', version: '0.1.0' }
-    }
+  await server.register(rateLimit as any, {
+    global: true,
+    max: (request: any) => request.userId ? 1000 : 300,
+    timeWindow: '15 minutes',
+    cache: 10000,
+    keyGenerator: (request: any) => {
+      if (request.userId) return `user:${request.userId}`;
+      return `ip:${extractClientIp(request) || request.ip || request.socket?.remoteAddress || 'unknown'}`;
+    },
+    skip: (request: any) => {
+      const pathname = String(request.url || '').split('?')[0] || '';
+      return pathname === '/health'
+        || pathname === '/health/db'
+        || pathname === '/health/deep';
+    },
+    errorResponseBuilder: () => ({
+      error: 'Too many requests. Please slow down and try again later.',
+      code: 'RATE_LIMITED',
+    }),
   });
 
-  await server.register(swaggerUi, {
-    routePrefix: '/docs',
-    uiConfig: { docExpansion: 'none' },
-    staticCSP: true
-  });
+  if (env.NODE_ENV !== 'production') {
+    await server.register(swagger, {
+      openapi: {
+        info: { title: 'LFD Hub API', version: '0.1.0' }
+      }
+    });
+
+    await server.register(swaggerUi, {
+      routePrefix: '/docs',
+      uiConfig: { docExpansion: 'none' },
+      staticCSP: true
+    });
+  }
 
   // Register auth routes (login, register, set-password, refresh token)
   await server.register(authRoutes, { prefix: '/api/auth' });
@@ -402,6 +428,87 @@ async function build() {
   await server.register(teamsRoutes, { prefix: '/api' });
   await server.register(scrimRoutes, { prefix: '/api' });
   await server.register(walletRoutes, { prefix: '/api' });
+
+  server.post('/api/bug-report', {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '15 minutes',
+      },
+    },
+  }, async (request: any, reply: any) => {
+    try {
+      const configuredWebhook = process.env.DISCORD_BUG_WEBHOOK_URL || process.env.DISCORD_WEBHOOK_URL || '';
+      const webhookUrl = normalizeDiscordWebhookUrl(configuredWebhook);
+      if (!webhookUrl) {
+        return reply.code(503).send({ error: 'Bug reporting is not configured' });
+      }
+
+      const body = request.body && typeof request.body === 'object' ? request.body : {};
+      const description = String(body.description || '').trim();
+      const pageUrl = String(body.pageUrl || '').trim().slice(0, 500);
+
+      if (description.length < 10 || description.length > 2000) {
+        return reply.code(400).send({ error: 'Bug description must be between 10 and 2000 characters' });
+      }
+
+      const userId = await getUserIdFromRequest(request, reply, false);
+      const user = userId
+        ? await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+              username: true,
+              discordAccount: { select: { username: true } },
+              riotAccounts: {
+                where: { isMain: true },
+                select: { gameName: true, tagLine: true, summonerName: true, region: true },
+                take: 1,
+              },
+            },
+          })
+        : null;
+
+      const mainRiotAccount = user?.riotAccounts?.[0] || null;
+      const riotIdentity = mainRiotAccount
+        ? `${mainRiotAccount.gameName && mainRiotAccount.tagLine ? `${mainRiotAccount.gameName}#${mainRiotAccount.tagLine}` : mainRiotAccount.summonerName || 'Unknown'} (${mainRiotAccount.region})`
+        : 'Not linked';
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          allowed_mentions: { parse: [] },
+          embeds: [{
+            title: 'Bug Report',
+            description,
+            color: 15158332,
+            fields: [
+              {
+                name: 'User',
+                value: user
+                  ? `Username: ${user.username}\nRiot: ${riotIdentity}\nDiscord: ${user.discordAccount?.username || 'Not linked'}`
+                  : 'Not logged in',
+                inline: false,
+              },
+              { name: 'Page', value: pageUrl || 'Unknown', inline: false },
+              { name: 'User Agent', value: String(request.headers['user-agent'] || 'Unknown').slice(0, 200), inline: false },
+            ],
+            timestamp: new Date().toISOString(),
+          }],
+        }),
+      });
+
+      if (!response.ok) {
+        request.log.warn({ status: response.status }, 'Bug report webhook failed');
+        return reply.code(502).send({ error: 'Failed to submit bug report' });
+      }
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      logError(request, 'Failed to submit bug report', error);
+      return reply.code(500).send({ error: 'Failed to submit bug report' });
+    }
+  });
 
   // Feedback endpoint
   server.post('/api/feedback', async (request: any, reply: any) => {
@@ -1474,21 +1581,35 @@ async function build() {
   });
 
   server.post('/verify/riot', {
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: '15 minutes',
+      },
+    },
     schema: {
       description: 'Verify a user\'s Riot account by checking profile icon',
       body: {
         type: 'object',
-        required: ['userId', 'riotAccountId', 'verificationIconId'],
+        required: ['riotAccountId', 'verificationIconId'],
         properties: {
-          userId: { type: 'string' },
           riotAccountId: { type: 'string' },
           verificationIconId: { type: 'integer' }
         }
       },
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' } } } }
+      response: {
+        200: { type: 'object', properties: { success: { type: 'boolean' } } },
+        400: { type: 'object', properties: { error: { type: 'string' } } },
+        401: { type: 'object', properties: { error: { type: 'string' } } },
+        403: { type: 'object', properties: { error: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' } } },
+        502: { type: 'object', properties: { error: { type: 'string' } } },
+      }
     }
   }, async (req, reply) => {
-    const { userId, riotAccountId, verificationIconId } = req.body as any;
+    const userId = await getUserIdFromRequest(req as any, reply as any);
+    if (!userId) return;
+    const { riotAccountId, verificationIconId } = req.body as any;
 
     // fetch the riot account
     const ra = await prisma.riotAccount.findUnique({ where: { id: riotAccountId } });

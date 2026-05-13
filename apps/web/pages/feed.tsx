@@ -172,10 +172,11 @@ async function fetchPaginatedPosts({
   if (filters.verified) params.append('verified', filters.verified);
   params.append('limit', `${limit}`);
   params.append('offset', `${offset}`);
-  if (viewerId) params.append('userId', viewerId);
 
   const query = params.toString();
-  const res = await fetch(`${API_URL}/api/posts${query ? `?${query}` : ''}`);
+  const res = await fetch(`${API_URL}/api/posts${query ? `?${query}` : ''}`, {
+    headers: viewerId ? getAuthHeader() : undefined,
+  });
   if (!res.ok) throw new Error('Failed to fetch posts');
   return res.json();
 }

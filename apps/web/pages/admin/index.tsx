@@ -80,7 +80,7 @@ export default function AdminDashboard() {
       // This endpoint would need to be created on the backend
       // For now, we'll fetch data from existing endpoints
       const [reportsRes, badgesRes] = await Promise.all([
-        fetch(`${API_URL}/api/admin/reports?userId=${encodeURIComponent(userId)}`),
+        fetch(`${API_URL}/api/admin/reports`, { headers: getAuthHeader() }),
         fetch(`${API_URL}/api/user/badges`),
       ]);
 

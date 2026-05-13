@@ -20,32 +20,6 @@ function normalizeQueryArray(value: any) {
 }
 
 export default async function communitiesRoutes(fastify: any) {
-  // Helper to extract userId from JWT (duplicated for route isolation)
-  const getUserIdFromRequest = async (request: any, reply: any): Promise<string | null> => {
-    const authHeader = request.headers['authorization'];
-    if (!authHeader || typeof authHeader !== 'string') {
-      reply.code(401).send({ error: 'Authorization header missing' });
-      return null;
-    }
-    const token = authHeader.replace('Bearer ', '').trim();
-    if (!token) {
-      reply.code(401).send({ error: 'Invalid Authorization header' });
-      return null;
-    }
-    try {
-      const payload = fastify.jwt.verify(token) as any;
-      if (!payload?.userId) {
-        reply.code(401).send({ error: 'Invalid token payload' });
-        return null;
-      }
-      (request as any).userId = payload.userId;
-      return payload.userId as string;
-    } catch (err) {
-      fastify.log.error('JWT verification failed:', err);
-      reply.code(401).send({ error: 'Invalid or expired token' });
-      return null;
-    }
-  };
   // GET /api/communities - List all communities with optional filters
   fastify.get('/communities', async (request: any, reply: any) => {
     try {
@@ -156,21 +130,7 @@ export default async function communitiesRoutes(fastify: any) {
         return reply.status(404).send({ error: 'Community not found' });
       }
 
-      let viewerUserId: string | null = null;
-      const authHeader = request.headers?.authorization;
-      if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.replace('Bearer ', '').trim();
-        if (token) {
-          try {
-            const payload = fastify.jwt.verify(token) as any;
-            if (payload?.userId) {
-              viewerUserId = payload.userId as string;
-            }
-          } catch {
-            // Optional viewer context only; ignore invalid auth here.
-          }
-        }
-      }
+      const viewerUserId = await getUserIdFromRequest(request as any, reply as any, false);
 
       let viewerMembershipRole: string | null = null;
       let viewerCanManageMembers = false;

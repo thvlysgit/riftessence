@@ -5,6 +5,7 @@ import {
   validateDiscordWebhook,
   createTeamMemberJoinedEmbed
 } from '../utils/discord-webhook';
+import { getUserIdFromRequest } from '../middleware/auth';
 
 // Valid team roles
 const TEAM_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS', 'MANAGER', 'OWNER', 'COACH'] as const;
@@ -652,33 +653,6 @@ export default async function teamsRoutes(fastify: any) {
     }
 
     return true;
-  };
-
-  // Helper to extract userId from JWT
-  const getUserIdFromRequest = async (request: any, reply: any): Promise<string | null> => {
-    const authHeader = request.headers['authorization'];
-    if (!authHeader || typeof authHeader !== 'string') {
-      reply.code(401).send({ error: 'Authorization header missing' });
-      return null;
-    }
-    const token = authHeader.replace('Bearer ', '').trim();
-    if (!token) {
-      reply.code(401).send({ error: 'Invalid Authorization header' });
-      return null;
-    }
-    try {
-      const payload = fastify.jwt.verify(token) as any;
-      if (!payload?.userId) {
-        reply.code(401).send({ error: 'Invalid token payload' });
-        return null;
-      }
-      (request as any).userId = payload.userId;
-      return payload.userId as string;
-    } catch (err) {
-      fastify.log.error('JWT verification failed:', err);
-      reply.code(401).send({ error: 'Invalid or expired token' });
-      return null;
-    }
   };
 
   // Helper to check if user is team owner
@@ -3035,6 +3009,11 @@ export default async function teamsRoutes(fastify: any) {
       const targetWebhook = webhookToTest || team.discordWebhookUrl;
       if (!targetWebhook) {
         return reply.status(400).send({ error: 'No Discord webhook configured. Add one first or provide webhookUrl in test request.' });
+      }
+
+      const validation = await validateDiscordWebhook(targetWebhook);
+      if (!validation.valid) {
+        return reply.status(400).send({ error: 'Invalid Discord webhook URL. Please check the URL and try again.' });
       }
 
       const user = await prisma.user.findUnique({

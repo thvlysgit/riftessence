@@ -35,5 +35,14 @@
   "dependencies": {
     "@prisma/client": "5.22.0",
     "viz.js": "^2.1.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "ajv": "8.18.0",
+      "bn.js": "4.12.3",
+      "fast-uri": "3.1.2",
+      "postcss": "8.5.10",
+      "yaml": "2.8.3"
+    }
   }
 }

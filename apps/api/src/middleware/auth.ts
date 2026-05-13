@@ -5,6 +5,12 @@
 
 import { FastifyRequest, FastifyReply } from 'fastify';
 
+function extractBearerToken(authHeader: unknown): string | null {
+  if (typeof authHeader !== 'string') return null;
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
 /**
  * Extracts the user ID from the Authorization Bearer token
  * @param request Fastify request object
@@ -17,17 +23,10 @@ export async function getUserIdFromRequest(
   reply: FastifyReply,
   required: boolean = true
 ): Promise<string | null> {
-  const authHeader = request.headers['authorization'];
-  if (!authHeader || typeof authHeader !== 'string') {
-    if (!required) return null;
-    reply.code(401).send({ error: 'Authorization header missing' });
-    return null;
-  }
-
-  const token = authHeader.replace('Bearer ', '').trim();
+  const token = extractBearerToken(request.headers['authorization']);
   if (!token) {
     if (!required) return null;
-    reply.code(401).send({ error: 'Invalid Authorization header' });
+    reply.code(401).send({ error: 'Invalid or missing Authorization header' });
     return null;
   }
 

@@ -1,5 +1,26 @@
 // Discord webhook utilities for notifications
 
+const DISCORD_WEBHOOK_HOSTS = new Set(['discord.com', 'discordapp.com']);
+const DISCORD_WEBHOOK_PATH_REGEX = /^\/api\/webhooks\/\d{6,30}\/[A-Za-z0-9._-]{20,}$/;
+
+export function normalizeDiscordWebhookUrl(webhookUrl: string): string | null {
+  if (!webhookUrl) return null;
+
+  try {
+    const parsed = new URL(webhookUrl.trim());
+    if (parsed.protocol !== 'https:') return null;
+    if (!DISCORD_WEBHOOK_HOSTS.has(parsed.hostname.toLowerCase())) return null;
+    if (!DISCORD_WEBHOOK_PATH_REGEX.test(parsed.pathname)) return null;
+
+    parsed.username = '';
+    parsed.password = '';
+    parsed.hash = '';
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 export async function sendDiscordWebhook(content: string, embeds?: any[]) {
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
   
@@ -30,12 +51,13 @@ export async function sendDiscordWebhook(content: string, embeds?: any[]) {
 
 // Send to a specific webhook URL (for team notifications)
 export async function sendTeamDiscordWebhook(webhookUrl: string, content?: string, embeds?: any[]): Promise<boolean> {
-  if (!webhookUrl) {
+  const safeWebhookUrl = normalizeDiscordWebhookUrl(webhookUrl);
+  if (!safeWebhookUrl) {
     return false;
   }
 
   try {
-    const response = await fetch(webhookUrl, {
+    const response = await fetch(safeWebhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -59,12 +81,13 @@ export async function sendTeamDiscordWebhook(webhookUrl: string, content?: strin
 
 // Validate a Discord webhook URL
 export async function validateDiscordWebhook(webhookUrl: string): Promise<{ valid: boolean; guildName?: string; channelName?: string }> {
-  if (!webhookUrl || !webhookUrl.includes('discord.com/api/webhooks/')) {
+  const safeWebhookUrl = normalizeDiscordWebhookUrl(webhookUrl);
+  if (!safeWebhookUrl) {
     return { valid: false };
   }
 
   try {
-    const response = await fetch(webhookUrl);
+    const response = await fetch(safeWebhookUrl);
     if (!response.ok) {
       return { valid: false };
     }

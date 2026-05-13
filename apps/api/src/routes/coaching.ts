@@ -1,37 +1,12 @@
 import prisma from '../prisma';
+import { getUserIdFromRequest } from '../middleware/auth';
 
 export default async function coachingRoutes(fastify: any) {
-  // Helper to extract userId from JWT (duplicated for route isolation)
-  const getUserIdFromRequest = async (request: any, reply: any): Promise<string | null> => {
-    const authHeader = request.headers['authorization'];
-    if (!authHeader || typeof authHeader !== 'string') {
-      reply.code(401).send({ error: 'Authorization header missing' });
-      return null;
-    }
-    const token = authHeader.replace('Bearer ', '').trim();
-    if (!token) {
-      reply.code(401).send({ error: 'Invalid Authorization header' });
-      return null;
-    }
-    try {
-      const payload = fastify.jwt.verify(token) as any;
-      if (!payload?.userId) {
-        reply.code(401).send({ error: 'Invalid token payload' });
-        return null;
-      }
-      (request as any).userId = payload.userId;
-      return payload.userId as string;
-    } catch (err) {
-      fastify.log.error('JWT verification failed:', err);
-      reply.code(401).send({ error: 'Invalid or expired token' });
-      return null;
-    }
-  };
-
   // GET /api/coaching/posts - Get all coaching posts
   fastify.get('/coaching/posts', async (request: any, reply: any) => {
     try {
-      const { region, type, userId } = (request.query || {}) as any;
+      const { region, type } = (request.query || {}) as any;
+      const viewerUserId = await getUserIdFromRequest(request as any, reply as any, false);
       const where: any = {};
       
       // Filter by region(s)
@@ -49,18 +24,18 @@ export default async function coachingRoutes(fastify: any) {
 
       // Viewer admin status (used by frontend to conditionally show admin controls)
       let viewerIsAdmin = false;
-      if (userId) {
-        const viewer = await prisma.user.findUnique({ where: { id: userId }, include: { badges: true } });
+      if (viewerUserId) {
+        const viewer = await prisma.user.findUnique({ where: { id: viewerUserId }, include: { badges: true } });
         viewerIsAdmin = (viewer?.badges || []).some((b: any) => (b.key || '').toLowerCase() === 'admin');
       }
 
       // Filter out blocked users - exclude posts from users the viewer has blocked
       // and posts from users who have blocked the viewer (bidirectional blocking)
-      if (userId) {
+      if (viewerUserId) {
         const blocksResult = await prisma.$queryRaw<Array<{ blockedId: string }>>`
-          SELECT "blockedId" FROM "Block" WHERE "blockerId" = ${userId}
+          SELECT "blockedId" FROM "Block" WHERE "blockerId" = ${viewerUserId}
           UNION
-          SELECT "blockerId" FROM "Block" WHERE "blockedId" = ${userId}
+          SELECT "blockerId" FROM "Block" WHERE "blockedId" = ${viewerUserId}
         `;
         
         const blockedUserIds = blocksResult.map((b: any) => b.blockedId);

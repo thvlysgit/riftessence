@@ -89,7 +89,7 @@ export default function SettingsPage() {
       return;
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       setError(t('settings.password.error.length'));
       return;
     }
@@ -99,8 +99,8 @@ export default function SettingsPage() {
     try {
       const res = await fetch(`${API_URL}/api/auth/set-password`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, password }),
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ password }),
       });
 
       const data = await res.json();

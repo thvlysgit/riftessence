@@ -334,7 +334,8 @@ export default async function adsRoutes(fastify: any) {
   // POST /api/ads/impression - Track an ad impression
   fastify.post('/ads/impression', async (request: any, reply: any) => {
     try {
-      const { adId, feed, userId } = request.body as { adId: string; feed: string; userId?: string };
+      const { adId, feed } = request.body as { adId: string; feed: string };
+      const userId = await getUserIdFromRequest(request as any, reply as any, false);
       
       if (!adId || !feed) {
         return reply.code(400).send({ error: 'adId and feed are required' });
@@ -375,7 +376,8 @@ export default async function adsRoutes(fastify: any) {
   // POST /api/ads/click - Track an ad click
   fastify.post('/ads/click', async (request: any, reply: any) => {
     try {
-      const { adId, feed, userId } = request.body as { adId: string; feed: string; userId?: string };
+      const { adId, feed } = request.body as { adId: string; feed: string };
+      const userId = await getUserIdFromRequest(request as any, reply as any, false);
       
       if (!adId || !feed) {
         return reply.code(400).send({ error: 'adId and feed are required' });

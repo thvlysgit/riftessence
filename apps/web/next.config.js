@@ -1,3 +1,28 @@
+const securityHeaders = [
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+  {
+    key: 'Content-Security-Policy',
+    value: [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+      "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://va.vercel-scripts.com",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https://ddragon.leagueoflegends.com https://*.riftessence.app",
+      "font-src 'self' data:",
+      "connect-src 'self' http://localhost:3333 https://riftessence.app https://www.riftessence.app https://*.riftessence.app https://*.herokuapp.com https://ddragon.leagueoflegends.com https://challenges.cloudflare.com https://vitals.vercel-insights.com",
+      "frame-src https://challenges.cloudflare.com https://www.youtube.com",
+      "form-action 'self'",
+      "upgrade-insecure-requests",
+    ].join('; '),
+  },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -23,6 +48,14 @@ const nextConfig = {
     config.resolve.alias = config.resolve.alias || {};
     config.resolve.alias['client-only'] = require('path').resolve(__dirname, 'src/shims/client-only.js');
     return config;
+  },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: securityHeaders,
+      },
+    ];
   },
 };
 

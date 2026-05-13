@@ -215,8 +215,9 @@ export default function CoachingPage() {
       try {
         setLoading(true);
         const currentUserId = getCurrentUserId();
-        const url = `${API_URL}/api/coaching/posts${currentUserId ? `?userId=${encodeURIComponent(currentUserId)}` : ''}`;
-        const res = await fetch(url);
+        const res = await fetch(`${API_URL}/api/coaching/posts`, {
+          headers: currentUserId ? getAuthHeader() : undefined,
+        });
         if (res.ok) {
           const data = await res.json();
           if (!cancelled) {
@@ -267,8 +268,9 @@ export default function CoachingPage() {
         setShowOfferModal(false);
         // Refresh posts
         const currentUserId = getCurrentUserId();
-        const refreshUrl = `${API_URL}/api/coaching/posts${currentUserId ? `?userId=${encodeURIComponent(currentUserId)}` : ''}`;
-        const refreshRes = await fetch(refreshUrl);
+        const refreshRes = await fetch(`${API_URL}/api/coaching/posts`, {
+          headers: currentUserId ? getAuthHeader() : undefined,
+        });
         if (refreshRes.ok) {
           const posts = await refreshRes.json();
           setAllPosts(posts);
@@ -304,8 +306,9 @@ export default function CoachingPage() {
         setShowRequestModal(false);
         // Refresh posts
         const currentUserId = getCurrentUserId();
-        const refreshUrl = `${API_URL}/api/coaching/posts${currentUserId ? `?userId=${encodeURIComponent(currentUserId)}` : ''}`;
-        const refreshRes = await fetch(refreshUrl);
+        const refreshRes = await fetch(`${API_URL}/api/coaching/posts`, {
+          headers: currentUserId ? getAuthHeader() : undefined,
+        });
         if (refreshRes.ok) {
           const posts = await refreshRes.json();
           setAllPosts(posts);
@@ -337,8 +340,9 @@ export default function CoachingPage() {
       showToast(t('coaching.deleteSuccess'), 'success');
       // Refresh posts
       const currentUserId = getCurrentUserId();
-      const refreshUrl = `${API_URL}/api/coaching/posts${currentUserId ? `?userId=${encodeURIComponent(currentUserId)}` : ''}`;
-      const refreshRes = await fetch(refreshUrl);
+      const refreshRes = await fetch(`${API_URL}/api/coaching/posts`, {
+        headers: currentUserId ? getAuthHeader() : undefined,
+      });
       if (refreshRes.ok) {
         const posts = await refreshRes.json();
         setAllPosts(posts);

@@ -19,7 +19,6 @@ export const LoginSchema = z.object({
 });
 
 export const SetPasswordSchema = z.object({
-  userId: z.string().min(1),
   password: z.string()
     .min(8, 'Password must be at least 8 characters')
     .max(128, 'Password too long')
