@@ -108,19 +108,30 @@ export default async function userRoutes(fastify: any) {
   // Verify Riot account and create/link user
   fastify.post('/verify-riot', async (request: any, reply: any) => {
     try {
-      // Log raw request body for debugging
-      fastify.log.info({ body: request.body }, 'Verify riot request received (raw body)');
+      const requestedUserId = typeof request.body?.userId === 'string' && request.body.userId.trim()
+        ? request.body.userId.trim()
+        : null;
+      const authenticatedUserId = await getUserIdFromRequest(request as any, reply as any, false);
+
+      if (requestedUserId && !authenticatedUserId) {
+        return reply.status(401).send({ error: 'Authentication required to link a Riot account to an existing profile' });
+      }
+
+      if (requestedUserId && authenticatedUserId !== requestedUserId) {
+        return reply.status(403).send({ error: 'Cannot link a Riot account to another user profile' });
+      }
       
       // Validate request body
       const validation = validateRequest(VerifyRiotSchema, request.body);
       if (!validation.success) {
-        fastify.log.error({ errors: validation.errors, body: request.body }, 'Verification validation failed');
+        fastify.log.error({ errors: validation.errors }, 'Verification validation failed');
         return reply.status(400).send({ error: 'Invalid input', details: validation.errors });
       }
 
-      const { summonerName, region, verificationIconId, userId } = validation.data;
+      const { summonerName, region, verificationIconId } = validation.data;
+      const userId = authenticatedUserId;
 
-      fastify.log.info({ summonerName, region, verificationIconId, userId }, 'Verify riot request validated');
+      fastify.log.info({ summonerName, region, verificationIconId, linkingExistingUser: Boolean(userId) }, 'Verify riot request validated');
 
       // Parse summoner name into gameName and tagLine first
       let gameName: string;

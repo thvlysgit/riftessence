@@ -3734,7 +3734,27 @@ type ReminderAvailabilityBuckets = {
   noResponse: TeamEventMember[];
 };
 
-const TEAM_EVENT_WEBHOOK_REGEX = /discord(?:app)?\.com\/api\/webhooks\/([^/]+)\/([^/?]+)/i;
+const TEAM_EVENT_WEBHOOK_REGEX = /^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/(\d{6,30})\/([A-Za-z0-9._-]{20,})$/i;
+
+function normalizeDiscordWebhookUrl(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl) return null;
+
+  try {
+    const parsed = new URL(rawUrl.trim());
+    const hostname = parsed.hostname.toLowerCase();
+    if (parsed.protocol !== 'https:') return null;
+    if (hostname !== 'discord.com' && hostname !== 'discordapp.com') return null;
+    if (!/^\/api\/webhooks\/\d{6,30}\/[A-Za-z0-9._-]{20,}$/.test(parsed.pathname)) return null;
+
+    parsed.username = '';
+    parsed.password = '';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
 const teamLastChannelPingCache = new Map<string, number>();
 
 function parseIsoDateToMs(value: string | null | undefined): number | null {
@@ -4181,7 +4201,13 @@ async function sendTeamEventChannelNotification(
     return { sent: false };
   }
 
-  const parsedWebhook = notification.webhookUrl.match(TEAM_EVENT_WEBHOOK_REGEX);
+  const safeWebhookUrl = normalizeDiscordWebhookUrl(notification.webhookUrl);
+  if (!safeWebhookUrl) {
+    console.warn(`Skipping invalid Discord webhook URL for team ${notification.teamName}`);
+    return { sent: false };
+  }
+
+  const parsedWebhook = safeWebhookUrl.match(TEAM_EVENT_WEBHOOK_REGEX);
   if (parsedWebhook) {
     const webhookId = parsedWebhook[1];
     const webhookToken = parsedWebhook[2];
@@ -4207,9 +4233,7 @@ async function sendTeamEventChannelNotification(
   }
 
   try {
-    const webhookUrlWithWait = notification.webhookUrl.includes('?')
-      ? `${notification.webhookUrl}&wait=true`
-      : `${notification.webhookUrl}?wait=true`;
+    const webhookUrlWithWait = `${safeWebhookUrl}?wait=true`;
 
     const response = await fetch(webhookUrlWithWait, {
       method: 'POST',

@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import AccessRequirementModal from '@components/AccessRequirementModal';
+import { getAuthHeader } from '../utils/auth';
 
 // Type definitions for the request and response payloads
 type VerifyResponse = {
@@ -291,15 +292,15 @@ export default function AuthenticatePage(): JSX.Element {
     try {
       const verifyName = sanitizeRiotId(summonerName);
       const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/user/verify-riot` : '/api/user/verify-riot';
+      const authHeaders = currentUserId ? getAuthHeader() : {};
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         credentials: 'include',
         body: JSON.stringify({
           summonerName: verifyName,
           region,
           verificationIconId: Number(selectedIconId),
-          userId: currentUserId,
         }),
       });
       const data = await res.json().catch(() => ({ error: 'Invalid JSON response' }));

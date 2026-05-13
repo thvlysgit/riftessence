@@ -62,7 +62,6 @@ export const VerifyRiotSchema = z.object({
   summonerName: z.string().min(1).max(100),
   region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'UNKNOWN']),
   verificationIconId: z.number().int().min(0),
-  userId: z.string().optional().nullable(),
 });
 
 export const RiotLookupSchema = z.object({
