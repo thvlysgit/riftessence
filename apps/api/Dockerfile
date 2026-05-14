@@ -10,8 +10,10 @@ ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
 # Install build tools for native modules like bcrypt
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
-# enable corepack & pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# enable corepack & pin pnpm to a Node 20 compatible release.
+# Newer pnpm releases require Node 22's node:sqlite builtin and crash at runtime.
+ARG PNPM_VERSION=10.22.0
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 # copy only lockfile + package.json (faster, cached)
 COPY pnpm-lock.yaml ./
@@ -49,5 +51,6 @@ RUN chown -R node:node /app
 USER node
 ENV HOME=/tmp
 
-# apply pending schema migrations, then run the compiled API
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy --schema=/app/prisma/schema.prisma && node dist/index.js"]
+# apply pending schema migrations, then run the compiled API.
+# Do not call pnpm at runtime; Corepack may resolve a newer incompatible pnpm.
+CMD ["sh", "-c", "/app/node_modules/.bin/prisma migrate deploy --schema=/app/prisma/schema.prisma && node dist/index.js"]

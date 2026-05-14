@@ -2,6 +2,7 @@
   "name": "lfd-hub-monorepo",
   "private": true,
   "version": "0.0.0",
+  "packageManager": "pnpm@10.22.0",
   "license": "MIT",
   "scripts": {
     "generate:erd": "node ./scripts/generate-erd.js",
