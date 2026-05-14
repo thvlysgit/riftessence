@@ -18,7 +18,7 @@ function buildContentSecurityPolicy(nonce: string): string {
     "style-src 'self'",
     "style-src-elem 'self' 'unsafe-inline'",
     "style-src-attr 'unsafe-inline'",
-    "img-src 'self' data: blob: https://ddragon.leagueoflegends.com https://riftessence.app https://www.riftessence.app https://api.riftessence.app",
+    "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "connect-src 'self' http://localhost:3333 https://riftessence.app https://www.riftessence.app https://api.riftessence.app https://ddragon.leagueoflegends.com https://challenges.cloudflare.com https://vitals.vercel-insights.com",
     "frame-src https://challenges.cloudflare.com https://www.youtube.com",
