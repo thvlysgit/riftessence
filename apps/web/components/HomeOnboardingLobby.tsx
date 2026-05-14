@@ -157,6 +157,7 @@ export default function HomeOnboardingLobby() {
       try {
         const response = await fetch(`${API_URL}/api/user/profile`, {
           headers: getAuthHeader(),
+          credentials: 'include',
         });
 
         if (!response.ok) return;
@@ -286,6 +287,7 @@ export default function HomeOnboardingLobby() {
       try {
         const response = await fetch(`${API_URL}/api/auth/discord/login`, {
           headers: getAuthHeader(),
+          credentials: 'include',
         });
 
         if (!response.ok) {

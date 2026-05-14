@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import AccessRequirementModal from '@components/AccessRequirementModal';
-import { getAuthHeader } from '../utils/auth';
+import { getAuthHeader, markCookieSessionPresent, setAuthToken } from '../utils/auth';
 
 // Type definitions for the request and response payloads
 type VerifyResponse = {
@@ -20,7 +20,7 @@ const ICON_REFRESH_INTERVAL_MS = 15000;
 const ICON_SYNC_EXPECTED_MINUTES = 5;
 
 export default function AuthenticatePage(): JSX.Element {
-  const { refreshUser } = useAuth();
+  const { refreshUser, user } = useAuth();
   const router = useRouter();
 
   // RSO state
@@ -51,24 +51,29 @@ export default function AuthenticatePage(): JSX.Element {
 
   // Check RSO status and handle callback on mount
   useEffect(() => {
+    if (user?.id) {
+      setCurrentUserId(user.id);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
     // Check RSO configuration status
     checkRsoStatus();
 
     // Handle RSO callback parameters
     const urlParams = new URLSearchParams(window.location.search);
     const rsoResult = urlParams.get('rso');
-    const token = urlParams.get('token');
     const _isNew = urlParams.get('isNew'); // Available for welcome message if needed
     const rsoError = urlParams.get('error');
     const riotLinked = urlParams.get('riot');
     const discordResult = urlParams.get('discord');
     const promptDiscordDm = urlParams.get('promptDiscordDm');
 
-    if ((rsoResult === 'success' || discordResult === 'success') && token) {
-      // RSO login/registration successful
-      localStorage.setItem('lfd_token', token);
+    if (rsoResult === 'success' || discordResult === 'success') {
+      markCookieSessionPresent();
       refreshUser().then(() => {
-        const returnUrl = urlParams.get('returnUrl') || '/feed';
+        const rawReturnUrl = urlParams.get('returnUrl') || '/feed';
+        const returnUrl = rawReturnUrl.startsWith('/') ? rawReturnUrl : '/feed';
         if (promptDiscordDm === '1') {
           router.replace(`/settings?dmConsent=1&returnUrl=${encodeURIComponent(returnUrl)}`);
           return;
@@ -115,16 +120,6 @@ export default function AuthenticatePage(): JSX.Element {
       router.replace('/authenticate', undefined, { shallow: true });
     }
 
-    // Load userId from JWT token
-    try {
-      const storedToken = localStorage.getItem('lfd_token');
-      if (storedToken) {
-        const payload = JSON.parse(atob(storedToken.split('.')[1]));
-        setCurrentUserId(payload.userId);
-      }
-    } catch (e) {
-      console.error('[Authenticate] Failed to extract userId from token:', e);
-    }
   }, []);
 
   useEffect(() => {
@@ -168,20 +163,18 @@ export default function AuthenticatePage(): JSX.Element {
     setError(null);
     try {
       // For new registration/login (no existing account)
-      const endpoint = currentUserId ? '/api/auth/riot/login' : '/api/auth/riot/auth';
+      const effectiveUserId = currentUserId || user?.id || null;
+      const endpoint = effectiveUserId ? '/api/auth/riot/login' : '/api/auth/riot/auth';
       const url = apiBase ? `${apiBase.replace(/\/$/, '')}${endpoint}` : endpoint;
 
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 
       // If linking to existing account, include auth header
-      if (currentUserId) {
-        const token = localStorage.getItem('lfd_token');
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
+      if (effectiveUserId) {
+        Object.assign(headers, getAuthHeader());
       }
 
-      const res = await fetch(url, { headers });
+      const res = await fetch(url, { headers, credentials: 'include' });
       const data = await res.json();
 
       if (data.url) {
@@ -292,7 +285,7 @@ export default function AuthenticatePage(): JSX.Element {
     try {
       const verifyName = sanitizeRiotId(summonerName);
       const url = apiBase ? `${apiBase.replace(/\/$/, '')}/api/user/verify-riot` : '/api/user/verify-riot';
-      const authHeaders = currentUserId ? getAuthHeader() : {};
+      const authHeaders = (currentUserId || user?.id) ? getAuthHeader() : {};
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
@@ -312,7 +305,9 @@ export default function AuthenticatePage(): JSX.Element {
         if (data.success && data.userId) {
           try {
             if (data.token) {
-              localStorage.setItem('lfd_token', data.token);
+              setAuthToken(data.token);
+            } else {
+              markCookieSessionPresent(data.userId);
             }
             setCurrentUserId(data.userId);
           } catch (e) {

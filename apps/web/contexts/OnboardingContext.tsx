@@ -428,6 +428,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       try {
         const response = await fetch(`${API_URL}/api/user/profile`, {
           headers: getAuthHeader(),
+          credentials: 'include',
         });
         if (!response.ok) return;
         const profile = await response.json();

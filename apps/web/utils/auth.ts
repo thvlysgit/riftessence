@@ -2,6 +2,14 @@
  * Utility functions for authentication and token handling
  */
 
+const COOKIE_SESSION_MARKER_KEY = 'lfd_session_present';
+const COOKIE_SESSION_AUTH_PLACEHOLDER = '__cookie_session__';
+const API_FETCH_CREDENTIALS_PATCH_KEY = '__riftessenceApiFetchCredentialsPatched';
+
+export function isCookieSessionPlaceholder(token: string | null | undefined): boolean {
+  return token === COOKIE_SESSION_AUTH_PLACEHOLDER;
+}
+
 function decodeJwtPayload(token: string): any | null {
   try {
     const parts = token.split('.');
@@ -20,6 +28,14 @@ function decodeJwtPayload(token: string): any | null {
  * Extracts the user ID from a JWT token (decoded payload)
  */
 export function getUserIdFromToken(token: string): string | null {
+  if (isCookieSessionPlaceholder(token)) {
+    if (typeof window === 'undefined') return null;
+    try {
+      return localStorage.getItem('lfd_userId');
+    } catch {
+      return null;
+    }
+  }
   const payload = decodeJwtPayload(token);
   return payload?.userId || null;
 }
@@ -28,6 +44,7 @@ export function getUserIdFromToken(token: string): string | null {
  * Checks if JWT token is expired or will expire soon (within 1 hour)
  */
 export function isTokenExpiringSoon(token: string): boolean {
+  if (isCookieSessionPlaceholder(token)) return false;
   const payload = decodeJwtPayload(token);
   if (!payload?.exp) return true;
 
@@ -42,6 +59,7 @@ export function isTokenExpiringSoon(token: string): boolean {
  * Checks if JWT token is already expired.
  */
 export function isTokenExpired(token: string): boolean {
+  if (isCookieSessionPlaceholder(token)) return false;
   const payload = decodeJwtPayload(token);
   if (!payload?.exp) return true;
   return (payload.exp * 1000) <= Date.now();
@@ -62,16 +80,20 @@ export async function refreshAuthToken(apiUrl: string): Promise<string | null> {
   }
   
   const currentToken = getAuthToken();
-  if (!currentToken) return null;
   
   refreshPromise = (async () => {
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (currentToken) {
+        headers.Authorization = `Bearer ${currentToken}`;
+      }
+
       const res = await fetch(`${apiUrl}/api/auth/refresh`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentToken}`
-        },
+        headers,
+        credentials: 'include',
       });
       
       if (res.ok) {
@@ -95,12 +117,12 @@ export async function refreshAuthToken(apiUrl: string): Promise<string | null> {
 }
 
 /**
- * Gets stored JWT token from localStorage
+ * Gets a legacy JWT token from localStorage, or a non-secret cookie-session marker.
  */
 export function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    return localStorage.getItem('lfd_token');
+    return localStorage.getItem('lfd_token') || (hasCookieSessionMarker() ? COOKIE_SESSION_AUTH_PLACEHOLDER : null);
   } catch (e) {
     console.error('Failed to read auth token from localStorage:', e);
     return null;
@@ -108,14 +130,40 @@ export function getAuthToken(): string | null {
 }
 
 /**
- * Stores JWT token in localStorage
+ * Marks the browser as having a cookie session without writing JWTs to localStorage.
  */
-export function setAuthToken(token: string): void {
+export function setAuthToken(_token: string): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem('lfd_token', token);
+    const payload = decodeJwtPayload(_token);
+    localStorage.removeItem('lfd_token');
+    if (payload?.userId) {
+      localStorage.setItem('lfd_userId', payload.userId);
+    }
+    localStorage.setItem(COOKIE_SESSION_MARKER_KEY, '1');
   } catch (e) {
-    console.error('Failed to store auth token in localStorage:', e);
+    console.error('Failed to mark auth session:', e);
+  }
+}
+
+export function markCookieSessionPresent(userId?: string | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (userId) {
+      localStorage.setItem('lfd_userId', userId);
+    }
+    localStorage.setItem(COOKIE_SESSION_MARKER_KEY, '1');
+  } catch (e) {
+    console.error('Failed to mark cookie session:', e);
+  }
+}
+
+function hasCookieSessionMarker(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(COOKIE_SESSION_MARKER_KEY) === '1';
+  } catch {
+    return false;
   }
 }
 
@@ -126,6 +174,7 @@ export function clearAuthToken(): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem('lfd_token');
+    localStorage.removeItem(COOKIE_SESSION_MARKER_KEY);
   } catch (e) {
     console.error('Failed to clear auth token from localStorage:', e);
   }
@@ -140,6 +189,7 @@ export function clearAllAuthState(): void {
   try {
     localStorage.removeItem('lfd_token');
     localStorage.removeItem('lfd_userId'); // Legacy key cleanup
+    localStorage.removeItem(COOKIE_SESSION_MARKER_KEY);
   } catch (e) {
     console.error('Failed to clear auth state from localStorage:', e);
   }
@@ -152,4 +202,35 @@ export function getAuthHeader(): { Authorization: string } | {} {
   const token = getAuthToken();
   if (!token) return {};
   return { Authorization: `Bearer ${token}` };
+}
+
+export function installApiFetchCredentials(apiUrl: string): void {
+  if (typeof window === 'undefined') return;
+
+  const win = window as any;
+  if (win[API_FETCH_CREDENTIALS_PATCH_KEY]) return;
+  win[API_FETCH_CREDENTIALS_PATCH_KEY] = true;
+
+  const nativeFetch = window.fetch.bind(window);
+  const normalizedApiUrl = apiUrl.replace(/\/$/, '');
+
+  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    const rawUrl = typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : input.url;
+
+    const isConfiguredApi = normalizedApiUrl && rawUrl.startsWith(`${normalizedApiUrl}/`);
+    const isRelativeApi = rawUrl.startsWith('/api/');
+
+    if (!isConfiguredApi && !isRelativeApi) {
+      return nativeFetch(input, init);
+    }
+
+    return nativeFetch(input, {
+      ...init,
+      credentials: init?.credentials || 'include',
+    });
+  };
 }

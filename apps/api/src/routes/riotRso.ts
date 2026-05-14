@@ -4,6 +4,8 @@ import { getUserIdFromRequest } from '../middleware/auth';
 import { sendDiscordWebhook, createNewUserEmbed } from '../utils/discord-webhook';
 import * as riotClient from '../riotClient';
 import { syncUserVerification } from '../utils/verification';
+import { setAuthSessionCookie } from '../utils/sessionCookie';
+import { createOAuthState, parseOAuthState } from '../utils/oauthState';
 
 /**
  * Riot Sign-On (RSO) OAuth integration routes
@@ -38,6 +40,12 @@ interface RsoUserInfo {
   cpid?: string; // Also PUUID
 }
 
+type RsoOAuthState = {
+  userId?: string;
+  timestamp: number;
+  mode: 'link' | 'register';
+};
+
 export default async function riotRsoRoutes(fastify: FastifyInstance) {
   /**
    * GET /login
@@ -56,12 +64,10 @@ export default async function riotRsoRoutes(fastify: FastifyInstance) {
         return reply.code(500).send({ error: 'Riot RSO client ID not configured' });
       }
 
-      // Generate state token including userId for verification on callback
-      const state = Buffer.from(JSON.stringify({
+      const state = createOAuthState({
         userId,
-        timestamp: Date.now(),
         mode: 'link' // Linking to existing account
-      })).toString('base64');
+      });
 
       const authUrl = new URL(RSO_AUTH_URL);
       authUrl.searchParams.set('client_id', clientId);
@@ -91,11 +97,9 @@ export default async function riotRsoRoutes(fastify: FastifyInstance) {
         return reply.code(500).send({ error: 'Riot RSO client ID not configured' });
       }
 
-      // For new registration, just store timestamp and mode
-      const state = Buffer.from(JSON.stringify({
-        timestamp: Date.now(),
+      const state = createOAuthState({
         mode: 'register' // New registration/login
-      })).toString('base64');
+      });
 
       const authUrl = new URL(RSO_AUTH_URL);
       authUrl.searchParams.set('client_id', clientId);
@@ -137,17 +141,9 @@ export default async function riotRsoRoutes(fastify: FastifyInstance) {
         return reply.redirect(`${frontendUrl}/authenticate?error=missing_params`);
       }
 
-      // Decode and validate state
-      let stateData: { userId?: string; timestamp: number; mode: 'link' | 'register' };
-      try {
-        stateData = JSON.parse(Buffer.from(state, 'base64').toString());
-      } catch {
+      const stateData = parseOAuthState<RsoOAuthState>(state);
+      if (!stateData) {
         return reply.redirect(`${frontendUrl}/authenticate?error=invalid_state`);
-      }
-
-      // Verify state timestamp (prevent replay attacks - 10 min window)
-      if (Date.now() - stateData.timestamp > 10 * 60 * 1000) {
-        return reply.redirect(`${frontendUrl}/authenticate?error=state_expired`);
       }
 
       const clientId = process.env.RIOT_RSO_CLIENT_ID;
@@ -485,7 +481,7 @@ async function handleRegisterMode(
 
   // Generate JWT token
   const token = fastify.jwt.sign({ userId: user.id });
+  setAuthSessionCookie(reply, token);
 
-  // Redirect with token (frontend will store it)
-  return reply.redirect(`${frontendUrl}/authenticate?rso=success&token=${token}&isNew=${isNewUser}`);
+  return reply.redirect(`${frontendUrl}/authenticate?rso=success&isNew=${isNewUser}`);
 }

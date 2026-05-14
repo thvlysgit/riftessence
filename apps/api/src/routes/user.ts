@@ -5,6 +5,7 @@ import { VerifyRiotSchema, validateRequest } from '../validation';
 import { cacheGet, cacheSet } from '../utils/cache';
 import { getOrSetCache } from '../utils/requestCache';
 import { getUserIdFromRequest } from '../middleware/auth';
+import { setAuthSessionCookie } from '../utils/sessionCookie';
 
 // Temporary fallback PUUID generator until real Riot PUUID retrieval is implemented.
 // Creates a deterministic hash so the same summonerName+region maps to same pseudo value.
@@ -360,6 +361,7 @@ export default async function userRoutes(fastify: any) {
 
       // Generate JWT token for the user
       const token = fastify.jwt.sign({ userId: user.id });
+      setAuthSessionCookie(reply, token);
 
       return reply.send({
         success: true,

@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import prisma from './prisma';
@@ -36,6 +37,9 @@ import { logError, logInfo } from './middleware/logger';
 import { Errors } from './middleware/errors';
 import { logAdminAction, AuditActions } from './utils/auditLog';
 import { normalizeDiscordWebhookUrl } from './utils/discord-webhook';
+import { getSessionCookieToken } from './utils/sessionCookie';
+
+const COOKIE_SESSION_AUTH_PLACEHOLDER = '__cookie_session__';
 
 const server = Fastify({
   logger: true,
@@ -252,6 +256,8 @@ async function build() {
     return payload;
   });
 
+  await server.register(cookie);
+
   // Register JWT for secure authentication
   await server.register(jwt, {
     secret: env.JWT_SECRET,
@@ -295,7 +301,11 @@ async function build() {
       }
     }
 
-    const token = extractBearerToken(request.headers?.authorization);
+    const bearerToken = extractBearerToken(request.headers?.authorization);
+    const cookieToken = getSessionCookieToken(request);
+    const token = bearerToken === COOKIE_SESSION_AUTH_PLACEHOLDER
+      ? cookieToken
+      : bearerToken || cookieToken;
     if (!token) {
       return;
     }

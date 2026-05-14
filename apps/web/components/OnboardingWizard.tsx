@@ -268,6 +268,7 @@ export default function OnboardingWizard() {
                       try {
                         const response = await fetch(`${API_URL}/api/auth/discord/login`, {
                           headers: getAuthHeader(),
+                          credentials: 'include',
                         });
                         if (!response.ok) {
                           const data = await response.json().catch(() => ({}));

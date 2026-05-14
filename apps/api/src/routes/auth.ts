@@ -16,6 +16,9 @@ import { Errors } from '../middleware/errors';
 import { sendDiscordWebhook, createNewUserEmbed } from '../utils/discord-webhook';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
+import { clearAuthSessionCookie, getSessionCookieToken, setAuthSessionCookie } from '../utils/sessionCookie';
+
+const COOKIE_SESSION_AUTH_PLACEHOLDER = '__cookie_session__';
 
 function extractBearerToken(authHeader: unknown): string | null {
   if (typeof authHeader !== 'string') return null;
@@ -234,6 +237,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
       // Generate JWT token
       const token = fastify.jwt.sign({ userId: user.id });
+      setAuthSessionCookie(reply, token);
 
       return reply.send({
         userId: user.id,
@@ -305,6 +309,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
       // Generate JWT token
       const token = fastify.jwt.sign({ userId: user.id });
+      setAuthSessionCookie(reply, token);
 
       return reply.send({
         userId: user.id,
@@ -484,7 +489,11 @@ export default async function authRoutes(fastify: FastifyInstance) {
   // Token refresh endpoint
   fastify.post('/refresh', async (request: any, reply: any) => {
     try {
-      const token = extractBearerToken(request.headers['authorization']);
+      const bearerToken = extractBearerToken(request.headers['authorization']);
+      const cookieToken = getSessionCookieToken(request);
+      const token = bearerToken === COOKIE_SESSION_AUTH_PLACEHOLDER
+        ? cookieToken
+        : bearerToken || cookieToken;
       if (!token) {
         return reply.code(401).send({ error: 'No token provided' });
       }
@@ -513,11 +522,17 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
       // Generate new token
       const newToken = fastify.jwt.sign({ userId: user.id });
+      setAuthSessionCookie(reply, newToken);
       
       return reply.send({ token: newToken });
     } catch (error: any) {
       request.log && request.log.error && request.log.error(error);
       return reply.code(500).send({ error: 'Failed to refresh token' });
     }
+  });
+
+  fastify.post('/logout', async (_request: any, reply: any) => {
+    clearAuthSessionCookie(reply);
+    return reply.send({ success: true });
   });
 }

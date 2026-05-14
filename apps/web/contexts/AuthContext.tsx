@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/router';
-import { getAuthToken, setAuthToken, clearAllAuthState, getAuthHeader, isTokenExpiringSoon, isTokenExpired, refreshAuthToken } from '../utils/auth';
+import { getAuthToken, setAuthToken, clearAllAuthState, getAuthHeader, isTokenExpiringSoon, isTokenExpired, refreshAuthToken, markCookieSessionPresent } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -66,58 +66,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               console.warn('Token refresh failed during bootstrap; keeping current session token for now.');
             }
           }
+        }
 
-          const fetchProfile = async () => fetch(`${API_URL}/api/user/profile`, {
-            headers: getAuthHeader(),
+        const fetchProfile = async () => fetch(`${API_URL}/api/user/profile`, {
+          headers: getAuthHeader(),
+          credentials: 'include',
+        });
+
+        let res = await fetchProfile();
+        if (res.status === 401) {
+          const refreshed = await refreshAuthToken(API_URL);
+          if (refreshed || !token) {
+            res = await fetchProfile();
+          }
+        }
+
+        if (res.ok) {
+          const data = await res.json();
+          markCookieSessionPresent(data.id);
+          setUser({
+            id: data.id,
+            username: data.username,
+            region: data.region || null,
+            email: data.email,
+            bio: data.bio,
+            verified: data.verified,
+            badges: data.badges?.map((b: any) => ({ key: b.key, name: b.name })),
+            riotAccountsCount: data.riotAccounts?.length || 0,
+            onboardingCompleted: data.onboardingCompleted || false,
+            profileIconId: data.profileIconId,
+            discordLinked: Boolean(data.discordLinked ?? data.discordAccount),
+            discordUsername: data.discordUsername || null,
+            activeUsernameDecoration: data.activeUsernameDecoration || null,
+            activeHoverEffect: data.activeHoverEffect || null,
+            activeNameplateFont: data.activeNameplateFont || null,
           });
-
-          let res = await fetchProfile();
-          if (res.status === 401) {
-            const refreshed = await refreshAuthToken(API_URL);
-            if (refreshed) {
-              res = await fetchProfile();
-            }
+        } else {
+          let payload: any = null;
+          try {
+            payload = await res.json();
+          } catch {
+            payload = null;
           }
 
-          if (res.ok) {
-            const data = await res.json();
-            setUser({
-              id: data.id,
-              username: data.username,
-              region: data.region || null,
-              email: data.email,
-              bio: data.bio,
-              verified: data.verified,
-              badges: data.badges?.map((b: any) => ({ key: b.key, name: b.name })),
-              riotAccountsCount: data.riotAccounts?.length || 0,
-              onboardingCompleted: data.onboardingCompleted || false,
-              profileIconId: data.profileIconId,
-              discordLinked: Boolean(data.discordLinked ?? data.discordAccount),
-              discordUsername: data.discordUsername || null,
-              activeUsernameDecoration: data.activeUsernameDecoration || null,
-              activeHoverEffect: data.activeHoverEffect || null,
-              activeNameplateFont: data.activeNameplateFont || null,
-            });
+          if (res.status === 403 && isBannedPayload(payload)) {
+            clearAllAuthState();
+            setUser(null);
+            router.push('/banned');
+          } else if ((token && res.status === 401) || (res.status === 403 && isInvalidSessionPayload(payload))) {
+            // Only clear browser-visible tokens for explicit auth failures.
+            clearAllAuthState();
+            setUser(null);
           } else {
-            let payload: any = null;
-            try {
-              payload = await res.json();
-            } catch {
-              payload = null;
-            }
-
-            if (res.status === 403 && isBannedPayload(payload)) {
-              clearAllAuthState();
-              setUser(null);
-              router.push('/banned');
-            } else if (res.status === 401 || (res.status === 403 && isInvalidSessionPayload(payload))) {
-              // Only clear session for explicit auth failures.
-              clearAllAuthState();
-              setUser(null);
-            } else {
-              // Keep session token on transient backend/network errors to avoid false disconnects.
-              console.warn('Profile bootstrap failed without auth invalidation.', { status: res.status, payload });
-            }
+            // Keep session token on transient backend/network errors to avoid false disconnects.
+            console.warn('Profile bootstrap failed without auth invalidation.', { status: res.status, payload });
           }
         }
       } catch (err) {
@@ -162,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ usernameOrEmail, password }),
       });
 
@@ -178,6 +181,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Store JWT token
         if (data.token) {
           setAuthToken(data.token);
+        } else {
+          markCookieSessionPresent(data.userId);
         }
         setUser({
           id: data.userId,
@@ -214,6 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ username, email, password }),
       });
 
@@ -230,6 +236,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Store JWT token
         if (data.token) {
           setAuthToken(data.token);
+        } else {
+          markCookieSessionPresent(data.userId);
         }
         setUser({
           id: data.userId,
@@ -261,6 +269,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    fetch(`${API_URL}/api/auth/logout`, {
+      method: 'POST',
+      headers: getAuthHeader(),
+      credentials: 'include',
+    }).catch(() => {});
     clearAllAuthState();
     setUser(null);
     router.push('/');
@@ -269,22 +282,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = async () => {
     try {
       const token = getAuthToken();
-      if (!token) return;
 
       const fetchProfile = async () => fetch(`${API_URL}/api/user/profile`, {
         headers: getAuthHeader(),
+        credentials: 'include',
       });
 
       let res = await fetchProfile();
       if (res.status === 401) {
         const refreshed = await refreshAuthToken(API_URL);
-        if (refreshed) {
+        if (refreshed || !token) {
           res = await fetchProfile();
         }
       }
 
       if (res.ok) {
         const data = await res.json();
+        markCookieSessionPresent(data.id);
         setUser({
           id: data.id,
           username: data.username,

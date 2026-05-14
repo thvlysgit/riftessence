@@ -40,7 +40,7 @@
       "required": true
     },
     "ALLOW_ORIGIN": {
-      "value": "true"
+      "value": "https://riftessence.app,https://www.riftessence.app"
     }
   }
 }

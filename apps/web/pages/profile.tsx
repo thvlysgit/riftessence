@@ -2889,6 +2889,7 @@ export default function ProfilePage() {
                       const response = await fetch(`${API_URL}/api/auth/discord/unlink`, {
                         method: 'DELETE',
                         headers: getAuthHeader(),
+                        credentials: 'include',
                       });
                       if (!response.ok) {
                         const data = await response.json().catch(() => ({}));
@@ -2898,6 +2899,7 @@ export default function ProfilePage() {
                       const profileUrl = `${API_URL}/api/user/profile?includeHidden=true`;
                       const profileResponse = await fetch(profileUrl, {
                         headers: getAuthHeader(),
+                        credentials: 'include',
                       });
                       if (profileResponse.ok) {
                         const data = await profileResponse.json();
@@ -2924,6 +2926,7 @@ export default function ProfilePage() {
                     try {
                       const response = await fetch(`${API_URL}/api/auth/discord/login`, {
                         headers: getAuthHeader(),
+                        credentials: 'include',
                       });
                       if (!response.ok) {
                         const data = await response.json().catch(() => ({}));

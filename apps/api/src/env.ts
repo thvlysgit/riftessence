@@ -45,6 +45,10 @@ const envSchema = z.object({
   // JWT Secret (required for security)
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().default('12h'),
+  SESSION_COOKIE_NAME: z.string().optional(),
+  SESSION_COOKIE_DOMAIN: z.string().optional(),
+  SESSION_COOKIE_MAX_AGE_SECONDS: z.string().optional(),
+  OAUTH_STATE_SECRET: z.union([z.string().min(32), z.literal('')]).optional(),
   
   // Use fake DB for testing
   USE_FAKE_DB: z.string().optional(),

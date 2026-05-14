@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { getUserIdFromToken, getAuthHeader } from '../../utils/auth';
+import { getAuthHeader } from '../../utils/auth';
+import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalUI } from '@components/GlobalUI';
 import { DiscordIcon } from '../../src/components/DiscordBrand';
 
@@ -38,6 +39,7 @@ type Community = {
 export default function CommunityDetailPage() {
   const router = useRouter();
   const { id } = router.query;
+  const { user } = useAuth();
   const { showToast, confirm } = useGlobalUI();
   const [community, setCommunity] = useState<Community | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,10 +62,8 @@ export default function CommunityDetailPage() {
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('lfd_token');
-    const uid = token ? getUserIdFromToken(token) : null;
-    setUserId(uid);
-  }, []);
+    setUserId(user?.id || null);
+  }, [user?.id]);
 
   useEffect(() => {
     if (community?.name) {
@@ -98,6 +98,7 @@ export default function CommunityDetailPage() {
       try {
         const res = await fetch(`${API_URL}/api/user/check-admin?userId=${encodeURIComponent(userId)}`, {
           headers: getAuthHeader(),
+          credentials: 'include',
         });
 
         if (!res.ok) {
@@ -138,6 +139,7 @@ export default function CommunityDetailPage() {
       setLoading(true);
       const res = await fetch(`${API_URL}/api/communities/${id}`, {
         headers: getAuthHeader(),
+        credentials: 'include',
       });
       if (res.ok) {
         const data = await res.json();
@@ -163,6 +165,7 @@ export default function CommunityDetailPage() {
       const res = await fetch(`${API_URL}/api/communities/${id}/join`, {
         method: 'POST',
         headers: getAuthHeader(),
+        credentials: 'include',
       });
 
       if (res.ok) {
@@ -196,6 +199,7 @@ export default function CommunityDetailPage() {
       const res = await fetch(`${API_URL}/api/communities/${id}/leave`, {
         method: 'DELETE',
         headers: getAuthHeader(),
+        credentials: 'include',
       });
 
       if (res.ok) {
@@ -220,6 +224,7 @@ export default function CommunityDetailPage() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
+        credentials: 'include',
         body: JSON.stringify(editData),
       });
       const data = await res.json();
@@ -252,6 +257,7 @@ export default function CommunityDetailPage() {
       const res = await fetch(`${API_URL}/api/communities/${community.id}`, {
         method: 'DELETE',
         headers: getAuthHeader(),
+        credentials: 'include',
       });
       if (res.ok) {
         showToast('Community deleted.', 'success');
@@ -284,6 +290,7 @@ export default function CommunityDetailPage() {
       const res = await fetch(`${API_URL}/api/communities/${community.id}/members/${member.userId}`, {
         method: 'DELETE',
         headers: getAuthHeader(),
+        credentials: 'include',
       });
 
       if (res.ok) {

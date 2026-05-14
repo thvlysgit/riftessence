@@ -71,6 +71,7 @@ export default function RegisterPage() {
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ username, email, password, turnstileToken }),
       });
 
@@ -105,7 +106,9 @@ export default function RegisterPage() {
     setDiscordLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/discord/auth?returnUrl=${encodeURIComponent('/feed')}`);
+      const res = await fetch(`${API_URL}/api/auth/discord/auth?returnUrl=${encodeURIComponent('/feed')}`, {
+        credentials: 'include',
+      });
       const data = await res.json();
 
       if (!res.ok || !data.url) {

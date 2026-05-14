@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { getAuthHeader } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -119,19 +120,13 @@ export const CreatePlayerLftModal: React.FC<CreatePlayerLftModalProps> = ({ open
     const fetchUserData = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem('lfd_token');
-        if (!token) return;
+        const headers = getAuthHeader();
+        if (!('Authorization' in headers)) return;
 
-        let userId: string | null = null;
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          userId = payload.userId;
-        } catch {
-          return;
-        }
-        if (!userId) return;
-
-        const res = await fetch(`${API_URL}/api/user/profile?userId=${userId}`);
+        const res = await fetch(`${API_URL}/api/user/profile?includeHidden=true`, {
+          headers,
+          credentials: 'include',
+        });
         if (!res.ok) return;
 
         const data = await res.json();

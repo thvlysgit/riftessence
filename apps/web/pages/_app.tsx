@@ -21,6 +21,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { OnboardingProvider } from '../contexts/OnboardingContext';
 import GlobalOnboardingModal from '../components/GlobalOnboardingModal';
 import { globalOgImageUrl } from '../utils/ogImage';
+import { installApiFetchCredentials } from '../utils/auth';
 
 const queryClient = new QueryClient();
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -168,6 +169,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
 
   // Track new visitors on app load
   useEffect(() => {
+    installApiFetchCredentials(API_URL);
     trackNewVisitor();
   }, []);
 

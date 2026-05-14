@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getAuthHeader } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -47,20 +48,13 @@ export const CreateCoachingOfferModal: React.FC<CreateCoachingOfferModalProps> =
       const fetchUserData = async () => {
         try {
           setLoading(true);
-          const token = localStorage.getItem('lfd_token');
-          if (!token) return;
-          
-          let userId: string | null = null;
-          try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            userId = payload.userId;
-          } catch {
-            console.error('Failed to decode token');
-            return;
-          }
-          if (!userId) return;
+          const headers = getAuthHeader();
+          if (!('Authorization' in headers)) return;
 
-          const res = await fetch(`${API_URL}/api/user/profile?userId=${userId}`);
+          const res = await fetch(`${API_URL}/api/user/profile?includeHidden=true`, {
+            headers,
+            credentials: 'include',
+          });
           if (res.ok) {
             const data = await res.json();
             

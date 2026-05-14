@@ -10,14 +10,14 @@ services:
     volumes:
       - ./pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
 
   redis:
     image: redis:7
     platform: linux/arm64
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
   api:
     platform: linux/arm64
@@ -36,7 +36,12 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@db:5432/riftessence?connection_limit=8&pool_timeout=30}
       RIOT_API_KEY: ${RIOT_API_KEY}
       DISCORD_BOT_API_KEY: ${DISCORD_BOT_API_KEY}
-      JWT_SECRET: ${JWT_SECRET:-changeme_generate_a_real_secret_in_production}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-lfd_session}
+      SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-}
+      SESSION_COOKIE_MAX_AGE_SECONDS: ${SESSION_COOKIE_MAX_AGE_SECONDS:-43200}
+      OAUTH_STATE_SECRET: ${OAUTH_STATE_SECRET:-}
       PORT: "3333"
       REDIS_URL: redis://redis:6379
       ALLOW_ORIGIN: ${ALLOW_ORIGIN:-http://localhost:3000}

@@ -4,6 +4,9 @@
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
+import { getSessionCookieToken } from '../utils/sessionCookie';
+
+const COOKIE_SESSION_AUTH_PLACEHOLDER = '__cookie_session__';
 
 function extractBearerToken(authHeader: unknown): string | null {
   if (typeof authHeader !== 'string') return null;
@@ -23,7 +26,11 @@ export async function getUserIdFromRequest(
   reply: FastifyReply,
   required: boolean = true
 ): Promise<string | null> {
-  const token = extractBearerToken(request.headers['authorization']);
+  const bearerToken = extractBearerToken(request.headers['authorization']);
+  const cookieToken = getSessionCookieToken(request);
+  const token = bearerToken === COOKIE_SESSION_AUTH_PLACEHOLDER
+    ? cookieToken
+    : bearerToken || cookieToken;
   if (!token) {
     if (!required) return null;
     reply.code(401).send({ error: 'Invalid or missing Authorization header' });

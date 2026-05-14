@@ -95,6 +95,7 @@ export default function GlobalOnboardingModal() {
       if (stepId === 'link-discord' || stepId === 'link-discord-server') {
         const profileSnapshot = await fetch(`${API_URL}/api/user/profile`, {
           headers: getAuthHeader(),
+          credentials: 'include',
         })
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null);
@@ -111,6 +112,7 @@ export default function GlobalOnboardingModal() {
           try {
             const response = await fetch(`${API_URL}/api/auth/discord/login`, {
               headers: getAuthHeader(),
+              credentials: 'include',
             });
 
             if (!response.ok) {

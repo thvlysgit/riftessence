@@ -46,7 +46,9 @@ export default function LoginPage() {
 
     try {
       const returnUrl = typeof router.query.returnUrl === 'string' ? router.query.returnUrl : '/feed';
-      const res = await fetch(`${API_URL}/api/auth/discord/auth?returnUrl=${encodeURIComponent(returnUrl)}`);
+      const res = await fetch(`${API_URL}/api/auth/discord/auth?returnUrl=${encodeURIComponent(returnUrl)}`, {
+        credentials: 'include',
+      });
       const data = await res.json();
 
       if (!res.ok || !data.url) {

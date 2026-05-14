@@ -45,5 +45,9 @@ WORKDIR /app/apps/api
 
 EXPOSE 3333
 
+RUN chown -R node:node /app
+USER node
+ENV HOME=/tmp
+
 # apply pending schema migrations, then run the compiled API
 CMD ["sh", "-c", "pnpm exec prisma migrate deploy --schema=/app/prisma/schema.prisma && node dist/index.js"]

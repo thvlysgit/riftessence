@@ -2,6 +2,15 @@ import { FastifyInstance } from 'fastify';
 import prisma from '../prisma';
 import { getUserIdFromRequest } from '../middleware/auth';
 import { syncUserVerification } from '../utils/verification';
+import { setAuthSessionCookie } from '../utils/sessionCookie';
+import { createOAuthState, parseOAuthState } from '../utils/oauthState';
+
+type DiscordOAuthState = {
+  userId?: string;
+  timestamp: number;
+  mode?: 'link' | 'register';
+  returnUrl?: string | null;
+};
 
 /**
  * Discord OAuth integration routes
@@ -52,11 +61,10 @@ export default async function discordRoutes(fastify: FastifyInstance) {
       const userId = await getUserIdFromRequest(request, reply);
       if (!userId) return;
 
-      const authUrl = buildDiscordAuthUrl(Buffer.from(JSON.stringify({
+      const authUrl = buildDiscordAuthUrl(createOAuthState({
         userId,
-        timestamp: Date.now(),
         mode: 'link',
-      })).toString('base64'));
+      }));
 
       if (!authUrl) {
         return reply.code(500).send({ error: 'Discord client ID not configured' });
@@ -74,11 +82,10 @@ export default async function discordRoutes(fastify: FastifyInstance) {
     try {
       const { returnUrl } = request.query as { returnUrl?: string };
 
-      const state = Buffer.from(JSON.stringify({
-        timestamp: Date.now(),
+      const state = createOAuthState({
         mode: 'register',
         returnUrl: typeof returnUrl === 'string' ? returnUrl : null,
-      })).toString('base64');
+      });
 
       const authUrl = buildDiscordAuthUrl(state);
       if (!authUrl) {
@@ -101,17 +108,9 @@ export default async function discordRoutes(fastify: FastifyInstance) {
         return redirectDiscordError(reply, 'missing_params', 'Missing code or state parameter');
       }
 
-      // Decode and validate state
-      let stateData: { userId?: string; timestamp: number; mode?: 'link' | 'register'; returnUrl?: string | null };
-      try {
-        stateData = JSON.parse(Buffer.from(state, 'base64').toString());
-      } catch {
-        return redirectDiscordError(reply, 'invalid_state', 'Invalid state parameter');
-      }
-
-      // Verify state timestamp (prevent replay attacks - 10 min window)
-      if (Date.now() - stateData.timestamp > 10 * 60 * 1000) {
-        return redirectDiscordError(reply, 'state_expired', 'State token expired');
+      const stateData = parseOAuthState<DiscordOAuthState>(state);
+      if (!stateData) {
+        return redirectDiscordError(reply, 'invalid_state', 'Invalid or expired state parameter');
       }
 
       const clientSecret = process.env.DISCORD_CLIENT_SECRET;
@@ -241,10 +240,11 @@ export default async function discordRoutes(fastify: FastifyInstance) {
       await syncUserVerification(user.id);
 
       const token = fastify.jwt.sign({ userId: user.id });
+      setAuthSessionCookie(reply, token);
       const returnUrl = typeof stateData.returnUrl === 'string' && stateData.returnUrl.startsWith('/')
         ? stateData.returnUrl
         : '/feed';
-      return reply.redirect(`${frontendUrl}/authenticate?discord=success&token=${encodeURIComponent(token)}&isNew=${isNew}&returnUrl=${encodeURIComponent(returnUrl)}&promptDiscordDm=1`);
+      return reply.redirect(`${frontendUrl}/authenticate?discord=success&isNew=${isNew}&returnUrl=${encodeURIComponent(returnUrl)}&promptDiscordDm=1`);
     } catch (error: any) {
       request.log?.error(error);
       return redirectDiscordError(reply, 'callback_failed', 'Discord linking failed');

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { getAuthToken } from '../utils/auth';
+import { getAuthHeader, getAuthToken } from '../utils/auth';
 
 interface UserTeam {
   id: string;
@@ -95,7 +95,8 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
         setTeamsLoading(true);
         try {
           const res = await fetch(`${apiUrl}/api/teams`, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: getAuthHeader(),
+            credentials: 'include',
           });
           if (res.ok) {
             const data = await res.json();
