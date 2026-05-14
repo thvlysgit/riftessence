@@ -15,7 +15,7 @@ import { useGlobalUI } from '@components/GlobalUI';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useChat } from '../contexts/ChatContext';
 import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../utils/auth';
-import { getChampionIconUrl } from '../utils/championData';
+import { getChampionIconUrl, getProfileIconUrl } from '../utils/championData';
 import { DiscordIcon } from '../src/components/DiscordBrand';
 import LivingBadge from '../src/components/LivingBadge';
 import NoAccess from '@components/NoAccess';
@@ -971,17 +971,17 @@ export default function ProfilePage() {
         const token = getAuthToken();
         const uid = token ? getUserIdFromToken(token) : null;
         setCurrentUserId(uid);
-        
-        // Fetch current user's badges to check admin status
-        if (uid) {
-          const res = await fetch(`${API_URL}/api/user/profile`, {
-            headers: getAuthHeader()
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.badges) {
-              setCurrentUserBadges(data.badges);
-            }
+
+        // Cookie auth is the source of truth; token auth is a legacy fallback.
+        const res = await fetch(`${API_URL}/api/user/profile`, {
+          headers: getAuthHeader(),
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setCurrentUserId(data.id || uid);
+          if (data.badges) {
+            setCurrentUserBadges(data.badges);
           }
         }
       } catch (err) {
@@ -1076,14 +1076,10 @@ export default function ProfilePage() {
           // When viewing others, don't include hidden accounts
           profileUrl = `${API_URL}/api/user/profile?username=${encodeURIComponent(routeUsername)}`;
         } else {
-          // When viewing own profile, require auth token
-          const token = getAuthToken();
-          if (!token) {
-            throw new Error('AUTH_ERROR');
-          }
-          // When viewing own profile, include hidden accounts - use auth header
+          // Cookie auth is authoritative; localStorage tokens are legacy only.
           profileUrl = `${API_URL}/api/user/profile?includeHidden=true`;
           fetchOptions.headers = getAuthHeader();
+          fetchOptions.credentials = 'include';
         }
         
         const initialResponse = await fetch(profileUrl, fetchOptions);
@@ -1120,7 +1116,11 @@ export default function ProfilePage() {
         
         // Step 2: Refresh Riot stats in background (non-blocking)
         if (data.id && !isViewingOther) {
-          fetch(`${API_URL}/api/user/refresh-riot-stats`, { method: 'POST', headers: getAuthHeader() })
+          fetch(`${API_URL}/api/user/refresh-riot-stats`, {
+            method: 'POST',
+            headers: getAuthHeader(),
+            credentials: 'include',
+          })
             .then(() => fetch(profileUrl, fetchOptions))
             .then(res => res.ok ? res.json() : null)
             .then(refreshedData => {
@@ -1183,6 +1183,7 @@ export default function ProfilePage() {
       try {
         const res = await fetch(`${API_URL}/api/user/block/status/${user.id}`, {
           headers: getAuthHeader(),
+          credentials: 'include',
         });
         if (res.ok) {
           const data = await res.json();
@@ -1249,7 +1250,8 @@ export default function ProfilePage() {
       if (isViewingOther) return; // Only for own profile
       try {
         const res = await fetch(`${API_URL}/api/user/champion-mastery`, {
-          headers: getAuthHeader()
+          headers: getAuthHeader(),
+          credentials: 'include',
         });
         if (res.ok) {
           const data = await res.json();
@@ -1283,6 +1285,7 @@ export default function ProfilePage() {
               'Content-Type': 'application/json',
               ...getAuthHeader(),
             },
+            credentials: 'include',
             body: JSON.stringify({ username: editedUsername }),
           });
           if (!usernameRes.ok) {
@@ -1309,6 +1312,7 @@ export default function ProfilePage() {
           const bioRes = await fetch(`${API_URL}/api/user/bio`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            credentials: 'include',
             body: JSON.stringify({ bio: normalizedEditedBio }),
           });
           if (!bioRes.ok) {
@@ -1331,6 +1335,7 @@ export default function ProfilePage() {
           const langRes = await fetch(`${API_URL}/api/user/languages`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            credentials: 'include',
             body: JSON.stringify({ languages: editedLanguages }),
           });
           if (!langRes.ok) {
@@ -1356,6 +1361,7 @@ export default function ProfilePage() {
           await fetch(`${API_URL}/api/user/playstyles`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            credentials: 'include',
             body: JSON.stringify({ playstyles: selectedPlaystyles }),
           });
         }
@@ -1391,6 +1397,7 @@ export default function ProfilePage() {
       const cpRes = !isViewingOther ? await fetch(`${API_URL}/api/user/champion-pool`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        credentials: 'include',
         body: JSON.stringify({
           mode: 'TIERLIST',
           championList: [],
@@ -1419,6 +1426,7 @@ export default function ProfilePage() {
       if (!isViewingOther && pendingMainAccountId && pendingMainAccountId !== user?.riotAccounts.find(acc => acc.isMain)?.id) {
         const response = await fetch(`${API_URL}/api/user/riot-accounts/${pendingMainAccountId}/set-main`, {
           method: 'PATCH',
+          credentials: 'include',
         });
         if (!response.ok) throw new Error('Failed to set main account');
       }
@@ -1428,14 +1436,16 @@ export default function ProfilePage() {
       if (!isViewingOther) {
         await fetch(`${API_URL}/api/user/refresh-riot-stats`, { 
           method: 'POST',
-          headers: getAuthHeader() 
+          headers: getAuthHeader(),
+          credentials: 'include',
         }).catch(err => console.error('Failed to refresh stats:', err));
       }
       const url = isViewingOther
         ? `${API_URL}/api/user/profile?username=${encodeURIComponent(routeUsername as string)}`
         : `${API_URL}/api/user/profile?includeHidden=true`;
       const profileResponse = await fetch(url, {
-        headers: isViewingOther ? {} : getAuthHeader()
+        headers: isViewingOther ? {} : getAuthHeader(),
+        credentials: isViewingOther ? 'same-origin' : 'include',
       });
       if (profileResponse.ok) {
         const data = await profileResponse.json();
@@ -1475,6 +1485,7 @@ export default function ProfilePage() {
       const response = await fetch(`${API_URL}/api/user/anonymous`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        credentials: 'include',
         body: JSON.stringify({ anonymous: newMode }),
       });
       if (!response.ok) throw new Error('Failed to update anonymous mode');
@@ -1499,6 +1510,7 @@ export default function ProfilePage() {
       const response = await fetch(`${API_URL}/api/user/riot-accounts/${accountId}/toggle-hidden`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ hidden: !currentHidden }),
       });
       if (!response.ok) {
@@ -1526,6 +1538,7 @@ export default function ProfilePage() {
     try {
       const response = await fetch(`${API_URL}/api/user/riot-accounts/${accountId}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -1535,7 +1548,8 @@ export default function ProfilePage() {
       // Refresh profile after deletion
       const url = `${API_URL}/api/user/profile?includeHidden=true`;
       const profileResponse = await fetch(url, {
-        headers: getAuthHeader()
+        headers: getAuthHeader(),
+        credentials: 'include',
       });
       if (profileResponse.ok) {
         const data = await profileResponse.json();
@@ -1560,6 +1574,7 @@ export default function ProfilePage() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
+        credentials: 'include',
         body: JSON.stringify({
           receiverId: user.id,
           stars: data.stars,
@@ -1592,6 +1607,7 @@ export default function ProfilePage() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
+        credentials: 'include',
         body: JSON.stringify({
           reportedUserId: user.id,
           reason,
@@ -1634,6 +1650,7 @@ export default function ProfilePage() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
+        credentials: 'include',
         body: JSON.stringify({ targetUserId: user.id }),
       });
       
@@ -1660,6 +1677,7 @@ export default function ProfilePage() {
       const res = await fetch(`${API_URL}/api/feedback/${feedbackId}`, {
         method: 'DELETE',
         headers: getAuthHeader(),
+        credentials: 'include',
       });
       
       if (res.ok) {
@@ -1756,7 +1774,8 @@ export default function ProfilePage() {
                 try {
                   await fetch(`${API_URL}/api/user/refresh-riot-stats`, {
                     method: 'POST',
-                    headers: getAuthHeader()
+                    headers: getAuthHeader(),
+                    credentials: 'include',
                   });
                   showToast('League statistics refreshed!', 'success');
                   // Reload profile data
@@ -1841,10 +1860,7 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="relative flex-shrink-0">
                       <img
-                        src={user.profileIconId
-                          ? `https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/${user.profileIconId}.png`
-                          : `https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/29.png`
-                        }
+                        src={getProfileIconUrl(user.profileIconId || 29)}
                         alt="Summoner Icon"
                         className="w-[72px] h-[72px] rounded-xl border-2 shadow-lg"
                         style={{ borderColor: 'var(--accent-primary)' }}

@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getAuthHeader } from '../utils/auth';
+import { getProfileIconUrl } from '../utils/championData';
 import PrismaticEssenceIcon from '../src/components/PrismaticEssenceIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -537,7 +538,7 @@ export default function Navbar() {
                     >
                       {result.profileIconId ? (
                         <img
-                          src={`https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/${result.profileIconId}.png`}
+                          src={getProfileIconUrl(result.profileIconId)}
                           alt={result.username}
                           className="w-8 h-8 rounded-full"
                           style={{ objectFit: 'cover' }}
@@ -679,7 +680,7 @@ export default function Navbar() {
                   {/* User Avatar */}
                   {user.profileIconId ? (
                     <img
-                      src={`https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/${user.profileIconId}.png`}
+                      src={getProfileIconUrl(user.profileIconId)}
                       alt={user.username}
                       className="w-8 h-8 rounded-full"
                       style={{ objectFit: 'cover' }}

@@ -7,6 +7,7 @@ import Head from 'next/head';
 import type { GetServerSideProps, GetServerSidePropsContext } from 'next';
 import IconPicker from '../../src/components/IconPicker';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { getProfileIconUrl } from '../../utils/championData';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 const SERVER_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -240,7 +241,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
     if (!receiver) return null;
 
     const iconUrl = receiver.mainAccount?.profileIconId
-      ? `https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${receiver.mainAccount.profileIconId}.png`
+      ? getProfileIconUrl(receiver.mainAccount.profileIconId)
       : null;
 
     return (
@@ -383,7 +384,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
                   <span className="text-sm font-semibold mr-4" style={{ color: 'var(--accent-primary)' }}>Your current icon:</span>
                   {currentIcon !== null && (
                     <img
-                      src={`https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${currentIcon}.png`}
+                      src={getProfileIconUrl(currentIcon)}
                       alt={`Icon ${currentIcon}`}
                       className="w-10 h-10 rounded-md"
                       style={{ boxShadow: 'var(--shadow-md)' }}

@@ -6,6 +6,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import AccessRequirementModal from '@components/AccessRequirementModal';
 import { getAuthHeader, markCookieSessionPresent, setAuthToken } from '../utils/auth';
+import { getProfileIconUrl } from '../utils/championData';
 
 // Type definitions for the request and response payloads
 type VerifyResponse = {
@@ -561,7 +562,7 @@ export default function AuthenticatePage(): JSX.Element {
                         <div className="flex items-center">
                           <span className="text-sm font-semibold mr-3" style={{ color: 'var(--accent-primary)' }}>Current icon</span>
                           <img
-                            src={`https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${currentIcon}.png`}
+                            src={getProfileIconUrl(currentIcon)}
                             alt={`Icon ${currentIcon}`}
                             className="w-10 h-10 rounded-md mr-2"
                             style={{ boxShadow: 'var(--shadow-md)' }}
@@ -572,7 +573,7 @@ export default function AuthenticatePage(): JSX.Element {
                           <div className="flex items-center">
                             <span className="text-sm font-semibold mr-3" style={{ color: 'var(--accent-primary)' }}>Target icon</span>
                             <img
-                              src={`https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${selectedIconId}.png`}
+                              src={getProfileIconUrl(selectedIconId)}
                               alt={`Target icon ${selectedIconId}`}
                               className="w-10 h-10 rounded-md mr-2"
                               style={{ boxShadow: 'var(--shadow-md)' }}
@@ -651,7 +652,7 @@ export default function AuthenticatePage(): JSX.Element {
                         <div className="flex flex-col items-center gap-4">
                           <div className="relative">
                             <img
-                              src={`https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${selectedIconId}.png`}
+                              src={getProfileIconUrl(selectedIconId)}
                               alt={`Verification Icon ${selectedIconId}`}
                               className="w-24 h-24 rounded-lg"
                               style={{ 

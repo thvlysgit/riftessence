@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
 import { getAuthHeader } from '../utils/auth';
+import { getProfileIconUrl } from '../utils/championData';
 import AccessRequirementModal from './AccessRequirementModal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -44,7 +45,7 @@ const UserAvatar = ({ profileIconId, username, size = 'md' }: { profileIconId?: 
   if (profileIconId) {
     return (
       <img
-        src={`https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/${profileIconId}.png`}
+        src={getProfileIconUrl(profileIconId)}
         alt={username}
         className={`${sizes[size]} rounded-full object-cover flex-shrink-0 border-2`}
         style={{ borderColor: 'var(--color-border)' }}

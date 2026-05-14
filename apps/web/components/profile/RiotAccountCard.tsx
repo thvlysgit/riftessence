@@ -1,4 +1,5 @@
 import React from 'react';
+import { getProfileIconUrl } from '../../utils/championData';
 
 type RiotAccount = {
   id: string;
@@ -48,7 +49,7 @@ export const RiotAccountCard: React.FC<RiotAccountCardProps> = ({
       <div className="flex items-start gap-3">
         {account.profileIconId && (
           <img
-            src={`https://ddragon.leagueoflegends.com/cdn/14.1.1/img/profileicon/${account.profileIconId}.png`}
+            src={getProfileIconUrl(account.profileIconId)}
             alt="Profile Icon"
             className="w-16 h-16 rounded"
           />

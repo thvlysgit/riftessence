@@ -3,7 +3,7 @@
  * Fetches and caches League of Legends champion data from Riot Data Dragon API
  */
 
-const DDRAGON_VERSION = '14.23.1';
+export const DDRAGON_VERSION = '16.10.1';
 const DDRAGON_BASE_URL = `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}`;
 const CACHE_KEY = 'lfd_champions_cache_v2';
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
@@ -50,6 +50,16 @@ export const normalizeChampionName = (name: string): string => {
 export const getChampionIconUrl = (name: string, version: string = DDRAGON_VERSION): string => {
   const normalizedName = normalizeChampionName(name);
   return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${normalizedName}.png`;
+};
+
+/**
+ * Get profile icon URL
+ * @param iconId Summoner profile icon id
+ * @param version Data Dragon version (defaults to current configured version)
+ * @returns Full URL to profile icon
+ */
+export const getProfileIconUrl = (iconId: number | string = 29, version: string = DDRAGON_VERSION): string => {
+  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/profileicon/${iconId}.png`;
 };
 
 /**

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingSpinner } from '@components/LoadingSpinner';
 import { useGlobalUI } from '@components/GlobalUI';
+import { getProfileIconUrl } from '../utils/championData';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -394,7 +395,7 @@ This leaderboard is sorted by live wallet PE balance, highest to lowest.
                   <div className="col-span-5 flex items-center gap-3">
                     {entry.profileIconId ? (
                       <img
-                        src={`https://ddragon.leagueoflegends.com/cdn/14.23.1/img/profileicon/${entry.profileIconId}.png`}
+                        src={getProfileIconUrl(entry.profileIconId)}
                         alt={entry.username}
                         className="w-10 h-10 rounded-full"
                         style={{ objectFit: 'cover' }}
