@@ -4,7 +4,7 @@
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { getSessionCookieToken } from '../utils/sessionCookie';
+import { getSessionCookieToken, setAuthSessionCookie } from '../utils/sessionCookie';
 
 const COOKIE_SESSION_AUTH_PLACEHOLDER = '__cookie_session__';
 
@@ -43,6 +43,9 @@ export async function getUserIdFromRequest(
       if (!required) return null;
       reply.code(401).send({ error: 'Invalid token payload' });
       return null;
+    }
+    if (bearerToken && bearerToken !== COOKIE_SESSION_AUTH_PLACEHOLDER) {
+      setAuthSessionCookie(reply, bearerToken);
     }
     (request as any).userId = payload.userId;
     return payload.userId as string;

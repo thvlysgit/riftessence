@@ -1,6 +1,6 @@
 import React, { ReactNode, useEffect } from 'react';
 import '../styles/globals.css';
-import type { AppProps } from 'next/app';
+import NextApp, { AppContext, AppInitialProps, AppProps } from 'next/app';
 import Head from 'next/head';
 import Script from 'next/script';
 import { useRouter } from 'next/router';
@@ -233,29 +233,6 @@ export default function App({ Component, pageProps, router }: AppProps) {
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="alternate icon" type="image/png" href="/favicon.png" />
         
-        {/* Structured Data (JSON-LD) for SEO */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              "name": "RiftEssence",
-              "url": "https://riftessence.app",
-              "description": "Find your perfect League of Legends duo partner. The premier LoL duo finder for ranked games across all regions (NA, EUW, EUNE, KR, OCE) and ranks (Iron-Challenger). Team recruitment, free coaching, and matchup guides.",
-              "potentialAction": {
-                "@type": "SearchAction",
-                "target": "https://riftessence.app/feed?search={search_term_string}",
-                "query-input": "required name=search_term_string"
-              },
-              "publisher": {
-                "@type": "Organization",
-                "name": "RiftEssence",
-                "url": "https://riftessence.app"
-              }
-            })
-          }}
-        />
       </Head>
       <Script
         src="https://challenges.cloudflare.com/turnstile/v0/api.js"
@@ -289,3 +266,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
     </>
   );
 }
+
+App.getInitialProps = async (appContext: AppContext): Promise<AppInitialProps> => {
+  return NextApp.getInitialProps(appContext);
+};
