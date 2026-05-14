@@ -197,16 +197,6 @@ async function build() {
       return true;
     }
 
-    // Allow trusted subdomains under riftessence.app if needed (e.g. previews).
-    try {
-      const parsed = new URL(normalizedOrigin);
-      if (parsed.protocol === 'https:' && parsed.hostname.endsWith('.riftessence.app')) {
-        return true;
-      }
-    } catch {
-      // Continue with environment-specific checks below.
-    }
-
     if (env.NODE_ENV !== 'production') {
       return developmentOrigins.has(normalizedOrigin) || isLocalOrigin(normalizedOrigin);
     }
