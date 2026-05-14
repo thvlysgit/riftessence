@@ -100,6 +100,7 @@ const OnboardingContext = createContext<OnboardingContextType | undefined>(undef
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 const STORAGE_KEY = 'riftessence_onboarding_flows_v1';
+const DISMISSED_TEAM_INVITES_STORAGE_KEY = 'riftessence_dismissed_team_invites_v1';
 
 const FLOW_LABELS: Record<FlowId, string> = {
   duo: 'I want to find a Duo!',
@@ -378,6 +379,16 @@ function safeParseState(raw: string | null): PersistedFlowState {
   }
 }
 
+function safeParseStringArray(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, refreshUser } = useAuth();
@@ -389,6 +400,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const [teamSnapshots, setTeamSnapshots] = useState<TeamSnapshot[]>([]);
   const [teamDiscordSnapshot, setTeamDiscordSnapshot] = useState<TeamDiscordSnapshot | null>(null);
   const [teamInviteSnapshots, setTeamInviteSnapshots] = useState<TeamInviteSnapshot[]>([]);
+  const [dismissedTeamInviteIds, setDismissedTeamInviteIds] = useState<string[]>([]);
   const [matchupCountSnapshot, setMatchupCountSnapshot] = useState<MatchupCountSnapshot | null>(null);
   const [lftPostsSnapshot, setLftPostsSnapshot] = useState<LftPostsSnapshot | null>(null);
   const [scrimFeedSnapshot, setScrimFeedSnapshot] = useState<ScrimFeedSnapshot | null>(null);
@@ -400,6 +412,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     setActiveFlowIds(initialState.activeFlowIds);
     setFocusedFlowId(initialState.focusedFlowId);
     setFlowStepStatuses(initialState.byFlow || {});
+    setDismissedTeamInviteIds(safeParseStringArray(window.localStorage.getItem(DISMISSED_TEAM_INVITES_STORAGE_KEY)));
     if (initialState.focusedFlowId) {
       setWindowOpen(true);
     }
@@ -416,6 +429,11 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
   }, [activeFlowIds, flowStepStatuses, focusedFlowId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(DISMISSED_TEAM_INVITES_STORAGE_KEY, JSON.stringify(dismissedTeamInviteIds));
+  }, [dismissedTeamInviteIds]);
 
   // Load profile snapshot
   useEffect(() => {
@@ -504,7 +522,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
             return prev.length > 0 ? prev : [];
           }
 
-          return invites.map((invite: any) => ({
+          const nextInvites = invites.map((invite: any) => ({
             teamId: invite.teamId,
             teamName: invite.teamName,
             teamTag: invite.teamTag || null,
@@ -513,6 +531,9 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
             canJoin: Boolean(invite.canJoin),
             addedAt: invite.addedAt,
           }));
+          const activeInviteIds = new Set(nextInvites.map((invite) => invite.pendingSpotId));
+          setDismissedTeamInviteIds((dismissed) => dismissed.filter((inviteId) => activeInviteIds.has(inviteId)));
+          return nextInvites;
         });
       } catch {
         // Silent on purpose
@@ -646,8 +667,9 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       const hasTeamWebhook = Boolean(teamDiscordSnapshot?.webhookUrl || teamDiscordSnapshot?.scrimCodeWebhookUrl);
       const hasValidTeamWebhook = Boolean(teamDiscordSnapshot?.webhookValid || teamDiscordSnapshot?.scrimCodeWebhookValid);
       const hasUpcomingTeamEvents = teamSnapshots.some((team) => (team.upcomingEventCount || 0) > 0);
-      const invitedTeamIds = new Set(teamInviteSnapshots.map((invite) => invite.teamId));
-      const hasTeamInvite = teamInviteSnapshots.length > 0;
+      const visibleTeamInviteSnapshots = teamInviteSnapshots.filter((invite) => !dismissedTeamInviteIds.includes(invite.pendingSpotId));
+      const invitedTeamIds = new Set(visibleTeamInviteSnapshots.map((invite) => invite.teamId));
+      const hasTeamInvite = visibleTeamInviteSnapshots.length > 0;
       const communityCount = profileSnapshot?.communities?.length || 0;
       const lftPostCount = lftPostsSnapshot?.count || 0;
       const matchupSavedCount = matchupCountSnapshot?.saved || 0;
@@ -774,7 +796,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         [focusedFlowId]: next,
       };
     });
-  }, [focusedFlowId, lftPostsSnapshot, matchupCountSnapshot, profileSnapshot, router.pathname, scrimFeedSnapshot, teamDiscordSnapshot, teamInviteSnapshots, teamSnapshots, user]);
+  }, [dismissedTeamInviteIds, focusedFlowId, lftPostsSnapshot, matchupCountSnapshot, profileSnapshot, router.pathname, scrimFeedSnapshot, teamDiscordSnapshot, teamInviteSnapshots, teamSnapshots, user]);
 
   // If a persisted flow exists and the user just authenticated, open the onboarding window automatically
   useEffect(() => {
@@ -784,12 +806,13 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   }, [user, focusedFlowId]);
 
   useEffect(() => {
-    if (user && activeFlowIds.length === 0 && teamInviteSnapshots.length > 0) {
+    const visibleTeamInviteSnapshots = teamInviteSnapshots.filter((invite) => !dismissedTeamInviteIds.includes(invite.pendingSpotId));
+    if (user && activeFlowIds.length === 0 && visibleTeamInviteSnapshots.length > 0) {
       setActiveFlowIds(['team-invite']);
       setFocusedFlowId('team-invite');
       setWindowOpen(true);
     }
-  }, [activeFlowIds.length, setActiveFlowIds, setFocusedFlowId, teamInviteSnapshots.length, user]);
+  }, [activeFlowIds.length, dismissedTeamInviteIds, setActiveFlowIds, setFocusedFlowId, teamInviteSnapshots, user]);
 
   // Calculate progress for each flow
   const flowProgressById = useMemo(() => {
@@ -837,15 +860,28 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   );
 
   const handleOpenFlow = useCallback((flowId: FlowId) => {
+    if (flowId === 'team-invite') {
+      setDismissedTeamInviteIds((prev) => {
+        const activeInviteIds = new Set(teamInviteSnapshots.map((invite) => invite.pendingSpotId));
+        return prev.filter((inviteId) => !activeInviteIds.has(inviteId));
+      });
+    }
     setActiveFlowIds((prev) => {
       const next = [...prev.filter((existingFlowId) => existingFlowId !== flowId), flowId];
       return next.slice(-3);
     });
     setFocusedFlowId(flowId);
     setWindowOpen(true);
-  }, []);
+  }, [teamInviteSnapshots]);
 
   const handleCloseOnboarding = useCallback(() => {
+    if (focusedFlowId === 'team-invite') {
+      setDismissedTeamInviteIds((prev) => {
+        const next = new Set(prev);
+        teamInviteSnapshots.forEach((invite) => next.add(invite.pendingSpotId));
+        return Array.from(next);
+      });
+    }
     setActiveFlowIds((prev) => {
       if (!focusedFlowId) return prev;
       const next = prev.filter((flowId) => flowId !== focusedFlowId);
@@ -853,7 +889,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       setWindowOpen(false);
       return next;
     });
-  }, [focusedFlowId]);
+  }, [focusedFlowId, teamInviteSnapshots]);
 
   const handleToggleWindow = useCallback(() => {
     if (!focusedFlowId && activeFlowIds.length > 0) {
@@ -873,7 +909,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     currentFlowSteps,
     currentStepStatuses,
     profileSnapshot,
-    teamInviteSnapshots,
+    teamInviteSnapshots: teamInviteSnapshots.filter((invite) => !dismissedTeamInviteIds.includes(invite.pendingSpotId)),
     openFlow: handleOpenFlow,
     closeOnboarding: handleCloseOnboarding,
     toggleWindow: handleToggleWindow,
