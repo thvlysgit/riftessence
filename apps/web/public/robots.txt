@@ -3,15 +3,27 @@
 
 User-agent: *
 Allow: /
+Allow: /api/og/
 
 # Disallow private and admin areas
 Disallow: /admin/
 Disallow: /api/
 Disallow: /settings
 Disallow: /notifications
+Disallow: /create
+Disallow: /matchups/create
+Disallow: /teams/dashboard
+Disallow: /teams/discord
+Disallow: /teams/drafts
+Disallow: /teams/schedule
+Disallow: /teams/scrims
 
 # Disallow auth pages (don't index login/register)
 Disallow: /authenticate
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
 
 # Sitemap
 Sitemap: https://riftessence.app/sitemap.xml

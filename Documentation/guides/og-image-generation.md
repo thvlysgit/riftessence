@@ -1,119 +1,76 @@
-# How to Generate the Open Graph Image
+# Open Graph Image Generation
 
-The Open Graph (OG) image is displayed when you share RiftEssence links on Discord, Twitter, Facebook, etc.
+> Last updated: 2026-05-14
 
-## Current Global OG Route
+The Open Graph (OG) image is displayed when RiftEssence links are shared on Discord, Twitter/X, Facebook, and other preview surfaces.
 
-RiftEssence uses one global branded Edge OG image for every public link:
+## Current OG Routes
 
-- `/api/og/app` — default app showcase image
-`_app.tsx` and `SEOHead` publish the shared image through `globalOgImageUrl()` in `apps/web/utils/ogImage.ts`. The URL includes a version query string because Discord and OG validators can cache image URLs aggressively.
+RiftEssence uses a global branded Edge OG image for normal public pages, and dynamic Edge OG images for share-style pages:
 
-The global OG template is designed as a fixed 1200x630 share surface with bounded copy areas. Keep text short and avoid dynamic user content; the image should sell the brand and core features without risking text collision in Discord previews.
+- `/api/og/app` - default app showcase image
+- `/api/og/post/:id` - dynamic duo post image
+- `/api/og/rating/:username` - dynamic rating image
+- `/api/og/team/:id` - dynamic team invite/share image
 
-## Static Image Method
+`_app.tsx` and `SEOHead` publish the global image through `globalOgImageUrl()` in `apps/web/utils/ogImage.ts` unless a page provides an explicit image through `ssrOgImage` or the `SEOHead` `ogImage` prop. The global URL includes a version query string because Discord and OG validators cache image URLs aggressively.
 
-1. **Open the template**:
-   - Navigate to `apps/web/public/assets/og-image-template.html`
-   - Open this file in your web browser (Chrome recommended)
+The canonical production host is:
 
-2. **Capture the image**:
-   - Press `F12` to open Developer Tools
-   - Press `Ctrl+Shift+P` (Windows) or `Cmd+Shift+P` (Mac)
-   - Type "Capture screenshot"
-   - Select **"Capture node screenshot"**
-   - Click on the card element (it will highlight in blue)
-   
-   OR use the dimension method:
-   - Press `Ctrl+Shift+P` / `Cmd+Shift+P`
-   - Type "Capture screenshot"
-   - Select **"Capture screenshot"** (full size)
-   - In DevTools, toggle device toolbar (Ctrl+Shift+M)
-   - Set dimensions to **1200 x 630** pixels
-   - Take the screenshot
+```
+https://riftessence.app
+```
 
-3. **Save the image**:
-   - Save as `og-image.png` in `apps/web/public/assets/`
-   - File should be exactly **1200x630 pixels**
+## Global Image Template
 
-## Alternative Methods
+The historical static template still lives at:
 
-### Using Online Tools
+```
+apps/web/public/assets/og-image-template.html
+```
 
-1. Use [Screely](https://www.screely.com/) or similar
-2. Upload a screenshot of the template
-3. Export as 1200x630px PNG
+If a static fallback image is regenerated from that template, save it as:
 
-### Using Screenshot Software
+```
+apps/web/public/assets/og-image.png
+```
 
-- **Windows**: Snipping Tool (Win+Shift+S)
-- **Mac**: Screenshot utility (Cmd+Shift+4)
-- **Linux**: Spectacle, Flameshot
-
-Make sure final dimensions are **1200x630px**.
+The final image should be exactly `1200x630` pixels.
 
 ## Verification
 
-After creating the image:
+After changing OG behavior:
 
-1. Check file exists: `apps/web/public/assets/og-image.png`
-2. Verify dimensions: Right-click → Properties → Details (should be 1200x630)
-3. Test locally: Paste link in Discord and check preview
-
-## Testing Discord Embed
-
-### Local Testing
-If running dev server:
-```
-http://localhost:3000
-```
-
-### Production (DevTunnel)
-```
-https://qpnpc65t-3333.uks1.devtunnels.ms
-```
-
-Paste the URL in a Discord chat and see the embed!
-
-## Customization
-
-Want to change the OG image design?
-
-Edit `apps/web/public/assets/og-image-template.html`:
-- Change colors (CSS variables)
-- Modify text (logo, tagline, description)
-- Adjust feature badges
-- Change gradient/theme
-
-Then regenerate the screenshot.
+1. Check the relevant route emits the expected `og:image` and `twitter:image` tags.
+2. Check the image URL opens directly in a browser.
+3. Test a production URL in Discord or an OG validator.
+4. If Discord shows stale content, bump `GLOBAL_OG_IMAGE_VERSION` in `apps/web/utils/ogImage.ts` or change the dynamic image URL query.
 
 ## SEO Meta Tags
 
 The meta tags are configured in:
-- Global: `apps/web/pages/_app.tsx`
-- Per-page: `apps/web/components/SEOHead.tsx`
 
-Image URL is set to:
-```
-https://qpnpc65t-3333.uks1.devtunnels.ms/assets/og-image.png
-```
+- Global fallback: `apps/web/pages/_app.tsx`
+- Per-page helper: `apps/web/components/SEOHead.tsx`
+- Dynamic share metadata: page `getServerSideProps` values such as `ssrTitle`, `ssrDescription`, `ssrOgImage`, and `ssrUrl`
 
-Update this URL when migrating to production hosting.
+Default global image URL shape:
+
+```
+https://riftessence.app/api/og/app?v={GLOBAL_OG_IMAGE_VERSION}
+```
 
 ## Troubleshooting
 
 **Discord not showing embed?**
-- Clear Discord cache (Settings → Advanced → Clear Cache)
-- Wait 5-10 minutes (Discord caches OG data)
-- Check image is accessible: paste image URL directly in browser
 
-**Image not loading?**
-- Verify file path: `/public/assets/og-image.png`
-- Check file size (should be <1MB for fast loading)
-- Ensure Next.js dev server or production build is running
+- Confirm the page is publicly accessible.
+- Confirm `og:image` is an absolute HTTPS URL.
+- Open the image URL directly.
+- Bump the image version/query if Discord has cached an older preview.
 
 **Wrong image showing?**
-- Discord caches OG data - use different URL parameter to force refresh:
-  ```
-  https://your-url.com?v=2
-  ```
+
+- Check whether the page provides `ssrOgImage`.
+- Check whether `SEOHead` receives an `ogImage` prop.
+- Confirm `_app.tsx` is not falling back to `globalOgImageUrl()` because no page image was provided.

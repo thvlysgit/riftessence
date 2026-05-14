@@ -25,7 +25,60 @@ import { installApiFetchCredentials } from '../utils/auth';
 
 const queryClient = new QueryClient();
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://www.riftessence.app';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://riftessence.app';
+
+function absoluteSiteUrl(value: string): string {
+  if (/^https?:\/\//i.test(value)) return value;
+  return `${SITE_URL}${value.startsWith('/') ? value : `/${value}`}`;
+}
+
+function shouldNoIndex(pathname: string, asPath: string): boolean {
+  if (pathname === '/profile') {
+    return !/[?&]username=/.test(asPath);
+  }
+
+  const exactNoIndex = new Set([
+    '/admin',
+    '/adspace',
+    '/authenticate',
+    '/banned',
+    '/cosmetics',
+    '/create',
+    '/forgot-password',
+    '/login',
+    '/matchups',
+    '/matchups/create',
+    '/notifications',
+    '/purse',
+    '/purse/gamble',
+    '/register',
+    '/reset-password',
+    '/settings',
+    '/teams/dashboard',
+    '/teams/discord',
+    '/teams/drafts',
+    '/teams/schedule',
+    '/teams/scrims',
+  ]);
+
+  return exactNoIndex.has(pathname) || pathname.startsWith('/admin/');
+}
+
+function buildWebsiteSchema() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'RiftEssence',
+    url: SITE_URL,
+    description: 'League of Legends duo finder, team recruitment, coaching, ratings, and matchup knowledge platform.',
+    publisher: {
+      '@type': 'Organization',
+      name: 'RiftEssence',
+      url: SITE_URL,
+      logo: `${SITE_URL}/assets/riftessencelogo.png`,
+    },
+  };
+}
 
 function RouteAccessGate({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -164,8 +217,10 @@ export default function App({ Component, pageProps, router }: AppProps) {
   const routeTitle = ROUTE_TITLES[router.pathname];
   const pageTitle = pageProps.ssrTitle || routeTitle || 'RiftEssence - The League of Legends Community Platform';
   const pageDescription = pageProps.ssrDescription || 'Find your duo partner, join a team, get free coaching and share matchup knowledge. The all-in-one platform for the LoL community.';
-  const pageUrl = pageProps.ssrUrl || `${SITE_URL}${router.asPath === '/' ? '' : router.asPath.split('#')[0]}`;
-  const pageOgImage = globalOgImageUrl(SITE_URL);
+  const pageUrl = absoluteSiteUrl(pageProps.ssrUrl || (router.asPath === '/' ? '/' : router.asPath.split('#')[0]));
+  const pageOgImage = absoluteSiteUrl(pageProps.ssrOgImage || globalOgImageUrl(SITE_URL));
+  const noIndex = shouldNoIndex(router.pathname, router.asPath || '');
+  const structuredDataNonce = typeof pageProps.nonce === 'string' ? pageProps.nonce : undefined;
 
   // Track new visitors on app load
   useEffect(() => {
@@ -227,7 +282,14 @@ export default function App({ Component, pageProps, router }: AppProps) {
         <meta key="twitter:description" name="twitter:description" content={pageDescription} />
         <meta key="twitter:image" name="twitter:image" content={pageOgImage} />
         <meta key="twitter:image:alt" name="twitter:image:alt" content="RiftEssence - Find better League teammates with duo posts, team rosters, player ratings, and coaching." />
+        <meta key="robots" name="robots" content={noIndex ? 'noindex, nofollow' : 'index, follow'} />
         <meta name="keywords" content="league of legends duo finder, lol duo partner, league of legends duo queue, lol ranked duo, duo partner lol, LoL duo finder, find duo partner, lol duo NA, lol duo EUW, lol duo EUNE, lol duo KR, duo partner lol plat, duo partner lol diamond, duo partner lol gold, League of Legends, LoL, LFD, Looking for Duo, LFT, Looking for Team, Coaching LoL, Matchups LoL" />
+        <script
+          key="website-schema"
+          nonce={structuredDataNonce}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildWebsiteSchema()) }}
+        />
         
         {/* Favicon */}
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -268,5 +330,15 @@ export default function App({ Component, pageProps, router }: AppProps) {
 }
 
 App.getInitialProps = async (appContext: AppContext): Promise<AppInitialProps> => {
-  return NextApp.getInitialProps(appContext);
+  const appProps = await NextApp.getInitialProps(appContext);
+  const rawNonce = appContext.ctx.req?.headers['x-nonce'];
+  const nonce = Array.isArray(rawNonce) ? rawNonce[0] : rawNonce;
+
+  return {
+    ...appProps,
+    pageProps: {
+      ...appProps.pageProps,
+      nonce: nonce || null,
+    },
+  };
 };

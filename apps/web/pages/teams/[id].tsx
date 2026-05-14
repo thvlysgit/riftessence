@@ -98,7 +98,7 @@ const PLAYER_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS'];
 const STAFF_ROLES = ['MANAGER', 'COACH'];
 const ALL_ROLES = ['TOP', 'JGL', 'MID', 'ADC', 'SUP', 'SUBS', 'MANAGER', 'COACH'];
 const SERVER_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://www.riftessence.app';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://riftessence.app';
 
 function requestOrigin(req: GetServerSidePropsContext['req']): string {
   const host = req.headers.host;

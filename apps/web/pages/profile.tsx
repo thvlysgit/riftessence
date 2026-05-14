@@ -3,6 +3,7 @@
 // Styled to match the Riot "Summoner Hub" dark theme
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
 import Toast from '@components/Toast';
@@ -1743,9 +1744,23 @@ export default function ProfilePage() {
   const profileVisualEffectClass = user.activeVisualEffect
     ? PROFILE_VISUAL_EFFECT_CLASSES[user.activeVisualEffect] || ''
     : '';
+  const profileTitle = isViewingOther ? `${user.username}'s Profile | RiftEssence` : 'My Profile | RiftEssence';
+  const profileDescription = isViewingOther
+    ? `View ${user.username}'s League of Legends profile on RiftEssence, including Riot account context, rank, roles, champion pool, and community feedback.`
+    : 'Manage your RiftEssence League of Legends profile, Riot accounts, roles, languages, and champion pool.';
+  const profileCanonical = isViewingOther ? `https://riftessence.app/profile/${encodeURIComponent(user.username)}` : undefined;
   
   return (
-    <div className="min-h-screen py-8 px-4" style={{ background: 'transparent' }}>
+    <>
+      <Head>
+        <title>{profileTitle}</title>
+        <meta name="description" content={profileDescription} />
+        <meta property="og:title" content={profileTitle} />
+        <meta property="og:description" content={profileDescription} />
+        {profileCanonical && <meta property="og:url" content={profileCanonical} />}
+        {profileCanonical && <link rel="canonical" href={profileCanonical} />}
+      </Head>
+      <div className="min-h-screen py-8 px-4" style={{ background: 'transparent' }}>
       {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx global>{`
         @keyframes rainbow {
@@ -3265,7 +3280,8 @@ export default function ProfilePage() {
         type={toast.type}
         onClose={() => setToast((t) => ({ ...t, open: false }))}
       />
-    </div>
+      </div>
+    </>
   );
 }
 

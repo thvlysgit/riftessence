@@ -1,6 +1,36 @@
 # Changelog
 
-> Last updated: 2026-05-12
+> Last updated: 2026-05-14
+
+---
+
+## 2026-05-14 - SEO Priority Fixes
+
+### Objective: Correct crawler metadata and replace thin SEO surfaces
+
+Overview: Fixed page-specific OG image plumbing, added index/noindex controls and JSON-LD, replaced the static sitemap with a dynamic server-rendered sitemap, and turned the role/region redirect placeholders into crawlable landing pages.
+
+Changes:
+
+- Updated [apps/web/pages/_app.tsx](apps/web/pages/_app.tsx) and [apps/web/components/SEOHead.tsx](apps/web/components/SEOHead.tsx):
+  - `ssrOgImage` and `SEOHead` `ogImage` values now reach Open Graph and Twitter card tags.
+  - Default canonical host now uses `https://riftessence.app`.
+  - Added route-level `robots` meta handling for auth, admin, account, creation, and private workspace routes.
+  - Added WebSite/Organization JSON-LD with the existing CSP nonce.
+- Added [apps/web/pages/sitemap.xml.tsx](apps/web/pages/sitemap.xml.tsx) and removed the static [apps/web/public/sitemap.xml](apps/web/public/sitemap.xml):
+  - Emits core public routes plus role/region landing pages.
+  - Pulls public duo share URLs, community detail URLs, public matchup guide URLs, and profile URLs discoverable from public posts/matchups.
+- Updated [apps/web/public/robots.txt](apps/web/public/robots.txt):
+  - Keeps private/auth/workspace routes out of crawling.
+  - Allows `/api/og/` while the wider `/api/` surface remains disallowed.
+- Updated [apps/web/pages/region/[region].tsx](apps/web/pages/region/[region].tsx) and [apps/web/pages/role/[role].tsx](apps/web/pages/role/[role].tsx):
+  - Removed immediate client redirects.
+  - Added crawlable landing copy, CTAs, and internal links into filtered feed views.
+- Updated share/rating/team default site URLs to the canonical non-www host.
+
+Verification:
+- `pnpm --filter @lfd/web build` passes.
+- Build still reports the pre-existing Next/ESLint warnings about `experimental.esmExternals`, `missingRefs`, `defaultMeta`, and `_app.getInitialProps` disabling Automatic Static Optimization.
 
 ---
 
