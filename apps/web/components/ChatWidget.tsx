@@ -4,6 +4,7 @@ import { useChat } from '../contexts/ChatContext';
 import { getAuthHeader } from '../utils/auth';
 import { getProfileIconUrl } from '../utils/championData';
 import AccessRequirementModal from './AccessRequirementModal';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -173,6 +174,7 @@ function useAdaptivePolling(
 export default function ChatWidget() {
   const { user } = useAuth();
   const { conversationToOpen, clearConversationToOpen } = useChat();
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -187,6 +189,21 @@ export default function ChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<Message[]>([]);
+
+  const formatRelativeTime = useCallback((dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return t('chat.now');
+    if (diffMins < 60) return t('chat.minutesAgo', { count: diffMins });
+    if (diffHours < 24) return t('chat.hoursAgo', { count: diffHours });
+    if (diffDays < 7) return t('chat.daysAgo', { count: diffDays });
+    return date.toLocaleDateString();
+  }, [t]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -512,7 +529,7 @@ export default function ChatWidget() {
             ? '0 0 20px var(--color-accent-1), 0 4px 6px rgba(0, 0, 0, 0.3)' 
             : '0 4px 6px rgba(0, 0, 0, 0.3)',
         }}
-        title="Messages"
+        title={t('chat.messages')}
       >
         <svg
           className="w-6 h-6"
@@ -574,7 +591,7 @@ export default function ChatWidget() {
                       {selectedConversation.otherUser.username}
                     </h3>
                     {selectedConversation.otherUser.verified && (
-                      <span style={{ color: 'var(--color-accent-1)' }} title="Verified">
+                      <span style={{ color: 'var(--color-accent-1)' }} title={t('common.verified')}>
                         ✓
                       </span>
                     )}
@@ -600,7 +617,7 @@ export default function ChatWidget() {
                 className="font-bold text-lg"
                 style={{ color: 'var(--color-text-primary)' }}
               >
-                Messages
+                {t('chat.messages')}
               </h3>
             )}
             <div className="flex items-center gap-1">
@@ -618,7 +635,7 @@ export default function ChatWidget() {
                   onMouseLeave={(e) => { 
                     e.currentTarget.style.backgroundColor = 'transparent'; 
                   }}
-                  title="Back to conversations"
+                  title={t('chat.backToConversations')}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -638,7 +655,7 @@ export default function ChatWidget() {
                 onMouseLeave={(e) => { 
                   e.currentTarget.style.backgroundColor = 'transparent'; 
                 }}
-                title="Close"
+                title={t('common.close')}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -664,7 +681,7 @@ export default function ChatWidget() {
                     onClick={handleDismissBanner}
                     className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity"
                     style={{ color: 'var(--color-text-muted)' }}
-                    title="Dismiss"
+                    title={t('common.dismiss')}
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -678,10 +695,10 @@ export default function ChatWidget() {
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                        Get messages on Discord!
+                        {t('chat.discordDmTitle')}
                       </p>
                       <p className="text-xs mb-2 leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-                        Never miss a duo request — receive chat notifications directly in your Discord DMs.
+                        {t('chat.discordDmDescription')}
                       </p>
                       <button
                         onClick={handleEnableDiscordDm}
@@ -692,7 +709,7 @@ export default function ChatWidget() {
                           color: '#fff',
                         }}
                       >
-                        {togglingDm ? 'Enabling...' : 'Enable Discord DMs'}
+                        {togglingDm ? t('chat.enabling') : t('chat.enableDiscordDms')}
                       </button>
                     </div>
                   </div>
@@ -717,9 +734,9 @@ export default function ChatWidget() {
                         d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                       />
                     </svg>
-                    <p className="text-sm">No conversations yet</p>
+                    <p className="text-sm">{t('chat.noConversations')}</p>
                     <p className="text-xs mt-1 opacity-75">
-                      Click the message button on someone's profile to start chatting
+                      {t('chat.startFromProfile')}
                     </p>
                   </div>
                 </div>
@@ -756,7 +773,7 @@ export default function ChatWidget() {
                         {conv.otherUser.verified && (
                           <span 
                             style={{ color: 'var(--color-accent-1)' }} 
-                            title="Verified"
+                            title={t('common.verified')}
                             className="flex-shrink-0"
                           >
                             ✓
@@ -783,7 +800,7 @@ export default function ChatWidget() {
                         className="text-xs truncate"
                         style={{ color: 'var(--color-text-secondary)' }}
                       >
-                        {conv.lastMessagePreview || 'No messages yet'}
+                        {conv.lastMessagePreview || t('chat.noMessagesYet')}
                       </p>
                     </div>
                     
@@ -792,7 +809,7 @@ export default function ChatWidget() {
                         className="text-xs"
                         style={{ color: 'var(--color-text-secondary)' }}
                       >
-                        {getRelativeTime(conv.lastMessageAt)}
+                        {formatRelativeTime(conv.lastMessageAt)}
                       </span>
                       {conv.unreadCount > 0 && (
                         <span
@@ -824,7 +841,7 @@ export default function ChatWidget() {
                     className="flex items-center justify-center h-full text-center"
                     style={{ color: 'var(--color-text-secondary)' }}
                   >
-                    <p className="text-sm">No messages yet. Start the conversation!</p>
+                    <p className="text-sm">{t('chat.startConversation')}</p>
                   </div>
                 ) : (
                   messages.map((msg) => {

@@ -78,3 +78,7 @@ t('profile.save.usernameError', { error: err.message })
 ```
 
 Existing `.replace('{token}', value)` call sites still work, but new code should prefer `t(key, values)`.
+
+## Current Coverage Notes
+
+As of 2026-05-20, the second i18n sweep covers the main feed filter surface and duo post cards, profile competitive snapshot/champion pool/account panels, navbar search and menu labels, chat/Discord DM prompts, access requirement redirect modals, and champion autocomplete empty states.

@@ -8,7 +8,7 @@
 
 ### Objective: Make i18n easier to extend and safer to maintain
 
-Overview: Reworked the web translation system from one large hand-typed file into modular locale catalogs with English-derived keys, compile-time parity checks, centralized language metadata, and lightweight interpolation.
+Overview: Reworked the web translation system from one large hand-typed file into modular locale catalogs with English-derived keys, compile-time parity checks, centralized language metadata, and lightweight interpolation. Follow-up sweep added French coverage for newly surfaced feed, profile, navbar, chat, access modal, and champion autocomplete copy.
 
 Changes:
 
@@ -22,6 +22,10 @@ Changes:
   - Supports `t(key, values)` for `{token}` interpolation while keeping existing call sites compatible.
 - Updated [Documentation/frontend/translations.md](Documentation/frontend/translations.md):
   - Documented the new file layout, add-language workflow, architecture alternatives, and League glossary policy.
+- Added missing catalog keys and wired them through the main untranslated UI pockets:
+  - Feed filter boxes, active filter pills, duo post verification/status labels, post actions, and admin delete copy.
+  - Profile snapshot, champion pool helper states, linked Riot/Discord panels, anonymous mode, region, and feedback labels.
+  - Navbar search/menu labels, chat window/Discord DM prompt, access requirement modals, and champion autocomplete empty states.
 
 Verification:
 - `pnpm --filter @lfd/web build` passes.

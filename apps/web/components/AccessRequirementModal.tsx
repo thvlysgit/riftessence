@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { RiotAuthButton } from '@components/RiotBrand';
 import { DiscordIcon } from '../src/components/DiscordBrand';
+import { useLanguage } from '../contexts/LanguageContext';
 
 type AccessRequirementType = 'riot-required' | 'account-required' | 'admin-only' | 'discord-required' | 'banned';
 
@@ -15,21 +16,22 @@ interface AccessRequirementModalProps {
 
 export default function AccessRequirementModal({ type, countdown, reason, onClose }: AccessRequirementModalProps) {
   const router = useRouter();
+  const { t } = useLanguage();
 
   const defaultReasonByType: Record<AccessRequirementType, string> = {
-    'account-required': 'You need to have an account to use this feature.',
-    'riot-required': 'You need to be connected with Riot Games to use this feature.',
-    'discord-required': 'You need to connect Discord to use this feature.',
-    'admin-only': 'You do not have administrator access to open this page.',
-    'banned': 'You are banned and cannot use RiftEssence anymore.',
+    'account-required': t('access.accountRequired'),
+    'riot-required': t('access.riotRequired'),
+    'discord-required': t('access.discordRequired'),
+    'admin-only': t('access.adminOnly'),
+    'banned': t('access.banned'),
   };
 
   const titleByType: Record<AccessRequirementType, string> = {
-    'account-required': 'Access Restricted',
-    'riot-required': 'Access Restricted',
-    'discord-required': 'Access Restricted',
-    'admin-only': 'Access Restricted',
-    'banned': 'Access Restricted',
+    'account-required': t('access.restricted'),
+    'riot-required': t('access.restricted'),
+    'discord-required': t('access.restricted'),
+    'admin-only': t('access.restricted'),
+    'banned': t('access.restricted'),
   };
 
   const handleBack = () => {
@@ -67,7 +69,7 @@ export default function AccessRequirementModal({ type, countdown, reason, onClos
             style={{ color: 'var(--color-text-secondary)' }}
           >
             <span aria-hidden="true">←</span>
-            Back
+            {t('common.back')}
           </button>
         </div>
 
@@ -77,7 +79,7 @@ export default function AccessRequirementModal({ type, countdown, reason, onClos
 
         {type === 'admin-only' && (
           <p className="mt-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            Redirecting you in {countdown ?? 3} second{(countdown ?? 3) === 1 ? '' : 's'}.
+            {t('access.redirecting', { count: countdown ?? 3, plural: (countdown ?? 3) === 1 ? '' : 's' })}
           </p>
         )}
 
@@ -90,27 +92,27 @@ export default function AccessRequirementModal({ type, countdown, reason, onClos
                   className="px-4 py-2 rounded-lg font-semibold text-center"
                   style={{ background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))', color: 'var(--color-bg-primary)' }}
                 >
-                  Sign In
+                  {t('access.signIn')}
                 </Link>
                 <Link
                   href="/register"
                   className="px-4 py-2 rounded-lg border font-semibold text-center"
                   style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
                 >
-                  Create Account
+                  {t('access.createAccount')}
                 </Link>
               </>
             )}
 
             {type === 'riot-required' && (
               <>
-                <RiotAuthButton label="Connect Riot Account" />
+                <RiotAuthButton label={t('access.connectRiot')} />
                 <Link
                   href="/profile"
                   className="px-4 py-2 rounded-lg border font-semibold text-center"
                   style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
                 >
-                  Open Profile
+                  {t('access.openProfile')}
                 </Link>
               </>
             )}
@@ -122,14 +124,14 @@ export default function AccessRequirementModal({ type, countdown, reason, onClos
                   className="discord-cta inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold"
                 >
                   <DiscordIcon className="w-4 h-4" />
-                  Link Discord In Profile
+                  {t('access.linkDiscordProfile')}
                 </Link>
                 <Link
                   href="/settings"
                   className="px-4 py-2 rounded-lg border font-semibold text-center"
                   style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
                 >
-                  Open Settings
+                  {t('access.openSettings')}
                 </Link>
               </>
             )}

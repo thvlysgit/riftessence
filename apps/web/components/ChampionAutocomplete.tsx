@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { fetchChampions, getChampionIconUrl } from '../utils/championData';
 import { LoadingSpinner } from './LoadingSpinner';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface ChampionAutocompleteProps {
   value: string;
@@ -14,8 +15,9 @@ export const ChampionAutocomplete: React.FC<ChampionAutocompleteProps> = ({
   value,
   onChange,
   label,
-  placeholder = 'Search champion...',
+  placeholder,
 }) => {
+  const { t } = useLanguage();
   const [champions, setChampions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
@@ -121,7 +123,7 @@ export const ChampionAutocomplete: React.FC<ChampionAutocompleteProps> = ({
               handleClearSelection();
             }}
             className="text-red-500 hover:text-red-600 transition-colors p-1"
-            aria-label="Clear selection"
+            aria-label={t('common.clearSelection')}
           >
             ✕
           </button>
@@ -132,7 +134,7 @@ export const ChampionAutocomplete: React.FC<ChampionAutocompleteProps> = ({
           value={searchTerm}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
-          placeholder={placeholder}
+          placeholder={placeholder || t('champion.searchPlaceholder')}
           className="w-full p-3 rounded-lg transition-colors"
           style={{
             backgroundColor: 'var(--color-bg-tertiary)',
@@ -189,7 +191,7 @@ export const ChampionAutocomplete: React.FC<ChampionAutocompleteProps> = ({
               className="p-4 text-center"
               style={{ color: 'var(--color-text-muted)' }}
             >
-              No champions found
+              {t('champion.noChampionsFound')}
             </div>
           )}
         </div>

@@ -379,7 +379,7 @@ export default function Navbar() {
                     }
                   }}
                 >
-                  Teams
+                  {t('navbar.teams')}
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -425,7 +425,7 @@ export default function Navbar() {
                         e.currentTarget.style.color = 'var(--color-text-secondary)';
                       }}
                     >
-                      Teams Dashboard
+                      {t('navbar.teamsDashboard')}
                     </Link>
                     <Link
                       href="/teams/schedule"
@@ -441,7 +441,7 @@ export default function Navbar() {
                         e.currentTarget.style.color = 'var(--color-text-secondary)';
                       }}
                     >
-                      Team Schedule
+                      {t('navbar.teamSchedule')}
                     </Link>
                     <Link
                       href="/teams/scrims"
@@ -457,7 +457,7 @@ export default function Navbar() {
                         e.currentTarget.style.color = 'var(--color-text-secondary)';
                       }}
                     >
-                      Scrim Finder
+                      {t('navbar.scrimFinder')}
                     </Link>
                     <Link
                       href="/teams/drafts"
@@ -473,7 +473,7 @@ export default function Navbar() {
                         e.currentTarget.style.color = 'var(--color-text-secondary)';
                       }}
                     >
-                      Draft Room
+                      {t('navbar.draftRoom')}
                     </Link>
                   </div>
                 )}
@@ -481,7 +481,7 @@ export default function Navbar() {
 
               <NavLink href="/matchups">Matchups</NavLink>
               <NavLink href="/coaching">Coaching</NavLink>
-              <NavLink href="/profile">Profile</NavLink>
+              <NavLink href="/profile">{t('nav.profile')}</NavLink>
             </div>
           </div>
 
@@ -557,7 +557,7 @@ export default function Navbar() {
                       <div className="flex-1">
                         <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{result.username}</p>
                         {result.verified && (
-                          <span className="text-xs text-green-400">✓ Verified</span>
+                          <span className="text-xs text-green-400">✓ {t('common.verified')}</span>
                         )}
                       </div>
                     </button>
@@ -575,7 +575,7 @@ export default function Navbar() {
                     boxShadow: 'var(--shadow)',
                   }}
                 >
-                  <p className="text-sm text-center" style={{ color: 'var(--color-text-muted)' }}>No users found</p>
+                  <p className="text-sm text-center" style={{ color: 'var(--color-text-muted)' }}>{t('navbar.noUsersFound')}</p>
                 </div>
               )}
             </div>
@@ -601,7 +601,7 @@ export default function Navbar() {
               <Link
                 href="/purse"
                 className="hidden md:flex relative p-2 rounded-lg transition-colors"
-                title={walletSummary ? `Purse • ${walletSummary.prismaticEssence.toLocaleString()} PE` : 'Purse'}
+                title={walletSummary ? `${t('navbar.purse')} • ${walletSummary.prismaticEssence.toLocaleString()} PE` : t('navbar.purse')}
                 style={{ color: 'var(--color-text-muted)' }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.color = 'var(--color-accent-1)';
@@ -632,7 +632,7 @@ export default function Navbar() {
             <Link
               href="/notifications"
               className="hidden md:block relative p-2 rounded-lg transition-colors"
-              title="Notifications"
+              title={t('nav.notifications')}
               style={{ color: 'var(--color-text-muted)' }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.color = 'var(--color-accent-1)';
@@ -726,12 +726,12 @@ export default function Navbar() {
                   >
                     <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
                       <p className="text-sm font-medium" style={{ color: 'var(--color-accent-1)' }}>{user.username}</p>
-                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>View Profile</p>
+                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('navbar.viewProfile')}</p>
                     </div>
-                    <DropdownLink href="/profile">My Profile</DropdownLink>
+                    <DropdownLink href="/profile">{t('navbar.myProfile')}</DropdownLink>
                     <DropdownLink href="/purse">
                       <div className="flex items-center justify-between">
-                        <span>Purse</span>
+                        <span>{t('navbar.purse')}</span>
                         {walletSummary && (
                           <span className="text-xs font-semibold" style={{ color: 'var(--color-accent-1)' }}>
                             {formatCompactBalance(walletSummary.prismaticEssence)} PE
@@ -741,7 +741,7 @@ export default function Navbar() {
                     </DropdownLink>
                     <DropdownLink href="/notifications">
                       <div className="flex items-center justify-between">
-                        <span>Notifications</span>
+                        <span>{t('nav.notifications')}</span>
                         {unreadCount > 0 && (
                           <span 
                             className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full"
@@ -756,10 +756,10 @@ export default function Navbar() {
                         )}
                       </div>
                     </DropdownLink>
-                    <DropdownLink href="/settings">Settings</DropdownLink>
-                    <DropdownLink href="/communities">Communities</DropdownLink>
-                    <DropdownLink href="/leaderboards">Leaderboards</DropdownLink>
-                    {isAdmin && <DropdownLink href="/admin">🛡️ Admin Dashboard</DropdownLink>}
+                    <DropdownLink href="/settings">{t('nav.settings')}</DropdownLink>
+                    <DropdownLink href="/communities">{t('navbar.communities')}</DropdownLink>
+                    <DropdownLink href="/leaderboards">{t('navbar.leaderboards')}</DropdownLink>
+                    {isAdmin && <DropdownLink href="/admin">🛡️ {t('navbar.adminDashboard')}</DropdownLink>}
                     <hr className="my-1" style={{ borderColor: 'var(--color-border)' }} />
                     <button
                       onClick={handleLogout}
@@ -774,7 +774,7 @@ export default function Navbar() {
                         e.currentTarget.style.color = 'var(--color-text-secondary)';
                       }}
                     >
-                      Logout
+                      {t('nav.logout')}
                     </button>
                   </div>
                 )}
@@ -796,7 +796,7 @@ export default function Navbar() {
                   e.currentTarget.style.opacity = '1';
                 }}
               >
-                Login
+                {t('nav.login')}
               </Link>
             )}
 
@@ -903,7 +903,7 @@ export default function Navbar() {
                         <div className="flex-1">
                           <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{result.username}</p>
                           {result.verified && (
-                            <span className="text-xs text-green-400">✓ Verified</span>
+                            <span className="text-xs text-green-400">✓ {t('common.verified')}</span>
                           )}
                         </div>
                       </button>
@@ -921,7 +921,7 @@ export default function Navbar() {
                       boxShadow: 'var(--shadow)',
                     }}
                   >
-                    <p className="text-sm text-center" style={{ color: 'var(--color-text-muted)' }}>No users found</p>
+                    <p className="text-sm text-center" style={{ color: 'var(--color-text-muted)' }}>{t('navbar.noUsersFound')}</p>
                   </div>
                 )}
               </div>
@@ -930,22 +930,22 @@ export default function Navbar() {
             {/* Mobile Navigation Links */}
             <MobileNavLink href="/feed">LFD</MobileNavLink>
             <div className="px-4 py-1">
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>Teams</p>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>{t('navbar.teams')}</p>
             </div>
             <MobileNavLink href="/lft">LFT</MobileNavLink>
-            <MobileNavLink href="/teams/dashboard">Teams Dashboard</MobileNavLink>
-            <MobileNavLink href="/teams/schedule">Team Schedule</MobileNavLink>
-            <MobileNavLink href="/teams/scrims">Scrim Finder</MobileNavLink>
-            <MobileNavLink href="/teams/drafts">Draft Room</MobileNavLink>
+            <MobileNavLink href="/teams/dashboard">{t('navbar.teamsDashboard')}</MobileNavLink>
+            <MobileNavLink href="/teams/schedule">{t('navbar.teamSchedule')}</MobileNavLink>
+            <MobileNavLink href="/teams/scrims">{t('navbar.scrimFinder')}</MobileNavLink>
+            <MobileNavLink href="/teams/drafts">{t('navbar.draftRoom')}</MobileNavLink>
             <MobileNavLink href="/matchups">Matchups</MobileNavLink>
             <MobileNavLink href="/coaching">Coaching</MobileNavLink>
-            <MobileNavLink href="/profile">Profile</MobileNavLink>
-            <MobileNavLink href="/communities">Communities</MobileNavLink>
-            <MobileNavLink href="/leaderboards">Leaderboards</MobileNavLink>
+            <MobileNavLink href="/profile">{t('nav.profile')}</MobileNavLink>
+            <MobileNavLink href="/communities">{t('navbar.communities')}</MobileNavLink>
+            <MobileNavLink href="/leaderboards">{t('navbar.leaderboards')}</MobileNavLink>
             {user && (
               <MobileNavLink href="/purse">
                 <div className="flex items-center justify-between">
-                  <span>Purse</span>
+                  <span>{t('navbar.purse')}</span>
                   {walletSummary && (
                     <span className="text-xs font-semibold" style={{ color: 'var(--color-accent-1)' }}>
                       {formatCompactBalance(walletSummary.prismaticEssence)} PE
@@ -956,7 +956,7 @@ export default function Navbar() {
             )}
             <MobileNavLink href="/notifications">
               <div className="flex items-center justify-between">
-                <span>Notifications</span>
+                <span>{t('nav.notifications')}</span>
                 {user && unreadCount > 0 && (
                   <span 
                     className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full"

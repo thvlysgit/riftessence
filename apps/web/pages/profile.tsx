@@ -1135,27 +1135,27 @@ export default function ProfilePage() {
             .catch(() => {}); // Silently fail background refresh
         }
       } catch (err: any) {
-        setError(err.message || 'Failed to load profile');
+        setError(err.message || t('profile.loadFailed'));
         setLoading(false);
       }
     }
     fetchProfile();
-  }, [routeUsername, isViewingOther]);
+  }, [routeUsername, isViewingOther, t]);
 
   // Handle Discord OAuth callback
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('discord') === 'linked') {
-      showToast('Discord account linked successfully!', 'success');
+      showToast(t('profile.discordLinkedSuccess'), 'success');
       if (urlParams.get('promptDiscordDm') === '1') {
-        showToast('Discord DMs are on by default. Add the RiftEssence Discord app in Settings to improve delivery when needed.', 'info');
+        showToast(t('settings.discordDm.enabledMessage'), 'info');
       }
       // Clean up URL
       window.history.replaceState({}, '', '/profile');
       // Trigger profile refresh
       window.location.reload();
     }
-  }, []);
+  }, [showToast, t]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !user || isViewingOther || hasHandledChampionPoolOnboarding.current) return;
@@ -2057,14 +2057,14 @@ export default function ProfilePage() {
 
                   {user.reportCount > 0 && (
                     <div className="rounded-lg border px-3 py-2.5" style={{ background: 'var(--accent-danger-bg)', borderColor: 'var(--accent-danger-border)' }}>
-                      <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: 'var(--accent-danger)' }}>Status</p>
+                      <p className="text-xs mb-1 uppercase tracking-wide" style={{ color: 'var(--accent-danger)' }}>{t('profile.statusTitle')}</p>
                       <div className="flex items-center gap-2">
                         {user.reportCount > 3 ? (
-                          <span className="text-sm font-medium px-2 py-1 rounded" style={{ backgroundColor: 'var(--accent-danger-bg)', color: 'var(--accent-danger)' }}>⚠️ Flagged</span>
+                          <span className="text-sm font-medium px-2 py-1 rounded" style={{ backgroundColor: 'var(--accent-danger-bg)', color: 'var(--accent-danger)' }}>⚠️ {t('profile.flagged')}</span>
                         ) : (
                           <>
                             <span className="text-2xl">💀</span>
-                            <span className="text-sm font-semibold" style={{ color: 'var(--accent-danger)' }}>{user.reportCount} report{user.reportCount !== 1 ? 's' : ''}</span>
+                            <span className="text-sm font-semibold" style={{ color: 'var(--accent-danger)' }}>{t('profile.reportsCount', { count: user.reportCount, plural: user.reportCount !== 1 ? 's' : '' })}</span>
                           </>
                         )}
                       </div>
@@ -2083,13 +2083,13 @@ export default function ProfilePage() {
                   }}
                 >
                   <p className="text-xs uppercase tracking-wide font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>
-                    Competitive Snapshot
+                    {t('profile.competitiveSnapshot')}
                   </p>
 
                   <div className="space-y-3">
                     {mainAccount ? (
                       <div className="rounded-lg border p-3" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)' }}>
-                        <p className="text-[11px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-secondary)' }}>Riot Main</p>
+                        <p className="text-[11px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-secondary)' }}>{t('profile.riotMain')}</p>
                         <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
                           {mainAccount.gameName}#{mainAccount.tagLine}
                         </p>
@@ -2099,7 +2099,7 @@ export default function ProfilePage() {
                       </div>
                     ) : (
                       <div className="rounded-lg border p-3" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)' }}>
-                        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No Riot account linked.</p>
+                        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('profile.noRiotLinked')}</p>
                       </div>
                     )}
 
@@ -2108,7 +2108,7 @@ export default function ProfilePage() {
                       {user.riotAccounts && user.riotAccounts.length > 0 ? (
                         (() => {
                           const best = getBestAccount(user.riotAccounts);
-                          if (!best) return <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Unranked</p>;
+                          if (!best) return <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('common.rank.UNRANKED')}</p>;
                           const rankKey = best.rank || 'UNRANKED';
                           return (
                             <div className="flex flex-wrap items-center gap-2">
@@ -2118,7 +2118,7 @@ export default function ProfilePage() {
                           );
                         })()
                       ) : (
-                        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No ranked data.</p>
+                        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('profile.noRankedData')}</p>
                       )}
                     </div>
 
@@ -2134,7 +2134,7 @@ export default function ProfilePage() {
                           )}
                         </div>
                       ) : (
-                        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No peak rank recorded.</p>
+                        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('profile.noPeakRank')}</p>
                       )}
                     </div>
                   </div>
@@ -2184,7 +2184,7 @@ export default function ProfilePage() {
                           borderColor: 'var(--border-card)',
                           color: 'var(--text-main)',
                         }}
-                        placeholder="Write a short bio."
+                        placeholder={t('profile.bioPlaceholder')}
                       />
                       <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
                         {editedBio.length}/220
@@ -2196,7 +2196,7 @@ export default function ProfilePage() {
                     </p>
                   ) : (
                     <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                      No bio set yet.
+                      {t('profile.noBio')}
                     </p>
                   )}
                 </div>
@@ -2207,7 +2207,7 @@ export default function ProfilePage() {
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 4v-4z" />
                       </svg>
-                      Discord DMs
+                      {t('profile.discordDms')}
                     </span>
                     <span
                       className="px-2 py-0.5 rounded-full font-semibold"
@@ -2217,7 +2217,7 @@ export default function ProfilePage() {
                         border: `1px solid ${user.discordDmNotifications ? 'var(--accent-success-border)' : 'var(--border-card)'}`,
                       }}
                     >
-                      {user.discordDmNotifications ? 'On' : 'Off'}
+                      {user.discordDmNotifications ? t('common.on') : t('common.off')}
                     </span>
                   </div>
                 </div>
@@ -2239,7 +2239,7 @@ export default function ProfilePage() {
                     <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent-primary)' }}>{t('profile.activity.title')}</span>
                   </div>
                   <span className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--text-secondary)' }}>
-                    Match Rhythm
+                    {t('profile.matchRhythm')}
                   </span>
                 </div>
 
@@ -2296,7 +2296,7 @@ export default function ProfilePage() {
                   </>
                 ) : (
                   <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                    Link a Riot account to unlock activity stats.
+                    {t('profile.linkRiotForStats')}
                   </p>
                 )}
               </div>
@@ -2515,7 +2515,7 @@ export default function ProfilePage() {
               <div className="rounded-lg p-3 flex items-center gap-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
                 <span className="text-xl">💡</span>
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  <strong>Drag & Drop:</strong> Drag champions from suggestions or between tiers. Click × to remove.
+                  <strong>{t('profile.dragDropHintTitle')}</strong> {t('profile.dragDropHint')}
                 </p>
               </div>
 
@@ -2526,7 +2526,7 @@ export default function ProfilePage() {
                     type="text"
                     value={championInput}
                     onChange={(e) => setChampionInput(e.target.value)}
-                    placeholder="Search champion..."
+                    placeholder={t('champion.searchPlaceholder')}
                     className="w-full px-4 py-3 rounded-lg border-2 transition-colors pr-12"
                     style={{ background: 'var(--bg-input)', borderColor: 'var(--border-card)', color: 'var(--text-main)' }}
                   />
@@ -2537,7 +2537,7 @@ export default function ProfilePage() {
                 {championInput.trim().length > 0 && (
                   <div className="rounded-lg p-3 mb-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
                     <div className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
-                      Search Results - Drag to a tier
+                      {t('profile.searchResults')} - {t('profile.dragToTier')}
                     </div>
                     <div className="flex flex-wrap gap-2 max-h-32 overflow-auto">
                       {champions
@@ -2570,7 +2570,7 @@ export default function ProfilePage() {
                         .filter((c) => normalize(c).includes(normalize(championInput)))
                         .filter((c) => !isInAnyTier(c))
                         .length === 0 && (
-                        <span className="text-sm" style={{ color: 'var(--text-muted)' }}>No champions found</span>
+                        <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('champion.noChampionsFound')}</span>
                       )}
                     </div>
                   </div>
@@ -2581,7 +2581,7 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-lg">✨</span>
                     <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                      {userMasteryChampions.length > 0 ? 'Your Most Played Champions' : 'Popular Champions'} - Drag to add
+                      {userMasteryChampions.length > 0 ? t('profile.yourMostPlayedChampions') : t('profile.popularChampions')} - {t('profile.dragToAdd')}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -2612,7 +2612,7 @@ export default function ProfilePage() {
                       ))}
                     {(userMasteryChampions.length > 0 ? userMasteryChampions : POPULAR_CHAMPIONS)
                       .filter((c) => !isInAnyTier(c) && isValidChampion(c)).length === 0 && (
-                      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>All suggested champions have been added!</span>
+                      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('profile.allSuggestedAdded')}</span>
                     )}
                   </div>
                 </div>
@@ -2715,7 +2715,7 @@ export default function ProfilePage() {
                           ))}
                           {championTierlist[tier].length === 0 && (
                             <span className="text-sm py-2 px-3 rounded-lg" style={{ color: 'var(--text-muted)', background: isDragOver ? 'transparent' : 'var(--bg-input)' }}>
-                              {isDragOver ? '⬇️ Drop here' : 'Drag a champion here'}
+                              {isDragOver ? `⬇️ ${t('profile.dropHere')}` : t('profile.dragChampionHere')}
                             </span>
                           )}
                         </div>
@@ -2759,7 +2759,7 @@ export default function ProfilePage() {
                               </div>
                             ))
                           ) : (
-                            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>No champions</p>
+                            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('profile.noChampions')}</p>
                           )}
                         </div>
                       </div>
@@ -2801,23 +2801,23 @@ export default function ProfilePage() {
                               {account.gameName}#{account.tagLine}
                               {(isEditMode ? pendingMainAccountId === account.id : account.isMain) && (
                                 <span className="ml-2 text-xs px-2 py-1 rounded-full font-bold" style={{ background: 'var(--accent-primary)', color: 'var(--btn-gradient-text)' }}>
-                                  MAIN
+                                  {t('profile.main')}
                                 </span>
                               )}
                               {account.hidden && !isViewingOther && (
                                 <span className="ml-2 text-xs px-2 py-1 rounded-full font-medium" style={{ background: 'var(--accent-info-bg)', color: 'var(--accent-info)', border: '1px solid var(--accent-info-border)' }}>
-                                  🔒 Hidden
+                                  🔒 {t('profile.hiddenBadge')}
                                 </span>
                               )}
                             </p>
                           ) : (
                             <div className="flex items-center gap-2">
                               <p className="font-semibold italic" style={{ color: 'var(--text-muted)' }}>
-                                Hidden Account
+                                {t('profile.hiddenAccount')}
                               </p>
                               {account.isMain && (
                                 <span className="text-xs px-2 py-1 rounded-full font-bold" style={{ background: 'var(--accent-primary)', color: 'var(--btn-gradient-text)' }}>
-                                  MAIN
+                                  {t('profile.main')}
                                 </span>
                               )}
                             </div>
@@ -2827,7 +2827,7 @@ export default function ProfilePage() {
                             return getRankBadge(rankKey, account.division || undefined, undefined, rankColor, t);
                           })()}
                           {account.winrate !== null && account.winrate !== undefined ? getWinrateBadge(account.winrate, t) : (
-                            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>N/A WR</span>
+                            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('feed.notAvailable')} WR</span>
                           )}
                         </div>
                         {(!account.hidden || !isViewingOther) && (
@@ -2879,7 +2879,7 @@ export default function ProfilePage() {
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  Add Riot Account
+                  {t('profile.addRiotAccountCta')}
                 </Link>
               )}
             </>
@@ -2914,7 +2914,7 @@ export default function ProfilePage() {
               {!isViewingOther && (
                 <button 
                   onClick={async () => {
-                    const unlinkOk = await confirm({ title: 'Unlink Discord', message: 'Are you sure you want to unlink your Discord account?', confirmText: 'Unlink' });
+                    const unlinkOk = await confirm({ title: t('profile.unlinkDiscordTitle'), message: t('profile.unlinkDiscordConfirm'), confirmText: t('profile.unlink') });
                     if (!unlinkOk) return;
                     try {
                       const response = await fetch(`${API_URL}/api/auth/discord/unlink`, {
@@ -2924,7 +2924,7 @@ export default function ProfilePage() {
                       });
                       if (!response.ok) {
                         const data = await response.json().catch(() => ({}));
-                        throw new Error(data.error || 'Failed to unlink Discord');
+                        throw new Error(data.error || t('profile.unlinkDiscordFailed'));
                       }
                       // Refresh profile
                       const profileUrl = `${API_URL}/api/user/profile?includeHidden=true`;
@@ -2938,7 +2938,7 @@ export default function ProfilePage() {
                       }
                     } catch (err: any) {
                       console.error('Error unlinking Discord:', err);
-                      showToast(err.message || 'Failed to unlink Discord account', 'error');
+                      showToast(err.message || t('profile.unlinkDiscordAccountFailed'), 'error');
                     }
                   }}
                   className="px-3 py-1 rounded text-xs font-medium transition-colors"
@@ -2961,19 +2961,19 @@ export default function ProfilePage() {
                       });
                       if (!response.ok) {
                         const data = await response.json().catch(() => ({}));
-                        throw new Error(data.error || 'Failed to get Discord auth URL');
+                        throw new Error(data.error || t('profile.discordAuthUrlFailed'));
                       }
                       const data = await response.json();
                       window.location.href = data.url;
                     } catch (err: any) {
                       console.error('Error initiating Discord link:', err);
-                      showToast(err.message || 'Failed to start Discord linking', 'error');
+                      showToast(err.message || t('profile.discordLinkStartFailed'), 'error');
                     }
                   }}
                   className="discord-cta inline-flex items-center gap-2 px-4 py-2 font-semibold rounded-lg text-sm"
                 >
                   <DiscordIcon className="w-4 h-4" />
-                  Link Discord
+                  {t('profile.linkDiscord')}
                 </button>
               )}
             </div>
@@ -2988,14 +2988,14 @@ export default function ProfilePage() {
               <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Region
+              {t('profile.region')}
             </h2>
             {user.region ? (
               <span className="px-3 py-1 rounded-full font-medium text-sm" style={{ background: 'var(--accent-primary-bg)', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)' }}>
                 {user.region}
               </span>
             ) : (
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No region set</p>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{t('profile.noRegion')}</p>
             )}
           </div>
 
@@ -3006,17 +3006,17 @@ export default function ProfilePage() {
                 <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                 </svg>
-                Anonymous Mode
+                {t('profile.anonymousMode')}
               </h2>
               <div className="flex items-center justify-between">
                 <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  {anonymousMode ? 'Profile is hidden from public searches' : 'Profile is visible to everyone'}
+                  {anonymousMode ? t('profile.hiddenFromSearch') : t('profile.visibleToEveryone')}
                 </p>
                 <div className="flex items-center gap-2">
                   <div className="relative group">
                     <button
                       type="button"
-                      aria-label="Anonymous mode info"
+                      aria-label={t('profile.anonymousInfo')}
                       className="inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2"
                       style={{
                         background: 'var(--bg-input)',
@@ -3038,7 +3038,7 @@ export default function ProfilePage() {
                         boxShadow: 'var(--shadow-lg)',
                       }}
                     >
-                      Controls public search/discoverability visibility.
+                      {t('profile.anonymousTooltip')}
                     </div>
                   </div>
                   <button
@@ -3135,7 +3135,7 @@ export default function ProfilePage() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              Message
+              {t('common.message')}
             </button>
             <button
               className="px-4 py-2 rounded bg-[var(--accent-danger)] text-[var(--btn-gradient-text)] font-bold shadow"
@@ -3179,7 +3179,7 @@ export default function ProfilePage() {
             <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
             </svg>
-            Feedback ({user.feedback.length})
+            {t('profile.feedbackTitle', { count: user.feedback.length })}
           </h2>
           <div className="space-y-3">
             {user.feedback.length > 0 ? (
@@ -3189,7 +3189,7 @@ export default function ProfilePage() {
                     <div className="flex items-center gap-3">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1">
-                          <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Skill:</span>
+                          <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{t('feedback.skill')}:</span>
                           <div className="flex items-center">
                             {[1, 2, 3, 4, 5].map((star) => (
                               <svg
@@ -3205,7 +3205,7 @@ export default function ProfilePage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Personality:</span>
+                          <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{t('feedback.personality')}:</span>
                           <div className="flex items-center">
                             {[1, 2, 3, 4, 5].map((moon) => (
                               <svg
@@ -3224,7 +3224,7 @@ export default function ProfilePage() {
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       <span className="text-xs font-medium">
-                        by{' '}
+                        {t('profile.feedbackBy')}{' '}
                         <Link
                           href={`/profile/${fb.raterUsername}`}
                           className="hover:underline"
@@ -3241,7 +3241,7 @@ export default function ProfilePage() {
                     <button
                       onClick={() => setConfirmState({ open: true, feedbackId: fb.id })}
                       className="absolute top-2 right-2 p-1 rounded hover:bg-[var(--accent-danger-bg)] transition-colors"
-                      title="Delete feedback"
+                      title={t('profile.deleteFeedbackTitle')}
                     >
                       <svg className="w-4 h-4" fill="var(--accent-danger)" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -3251,7 +3251,7 @@ export default function ProfilePage() {
                 </div>
               ))
             ) : (
-              <p className="text-sm text-center py-4" style={{ color: 'var(--text-secondary)' }}>No feedback yet</p>
+              <p className="text-sm text-center py-4" style={{ color: 'var(--text-secondary)' }}>{t('profile.noFeedback')}</p>
             )}
           </div>
         </div>
@@ -3259,10 +3259,10 @@ export default function ProfilePage() {
       {/* Confirm delete feedback */}
       <ConfirmModal
         open={confirmState.open}
-        title="Delete Feedback"
-        message="Are you sure you want to delete this feedback? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
+        title={t('profile.deleteFeedback')}
+        message={t('profile.deleteFeedbackConfirm')}
+        confirmText={t('common.delete')}
+        cancelText={t('common.cancel')}
         onCancel={() => setConfirmState({ open: false, feedbackId: null })}
         onConfirm={() => {
           if (confirmState.feedbackId) {

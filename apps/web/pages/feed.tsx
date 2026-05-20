@@ -13,6 +13,7 @@ import { sanitizeText } from '../utils/sanitize';
 import { getFriendlyErrorMessage, extractErrorMessage } from '../utils/errorMessages';
 import { AdSpot, useAds, getAdForPosition } from '@components/AdSpot';
 import { DiscordIcon } from '../src/components/DiscordBrand';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -288,6 +289,7 @@ const USERNAME_HOVER_EFFECT_CLASSES: Record<string, string> = {
 export default function Feed() {
   const { theme } = useTheme();
   const { showToast } = useGlobalUI();
+  const { t } = useLanguage();
   const { openConversation } = useChat();
   const router = useRouter();
   const [allPosts, setAllPosts] = useState<Post[]>([]);
@@ -574,7 +576,7 @@ export default function Feed() {
       });
 
       if (!res.ok) throw new Error('Failed to send contact request');
-      showToast('Contact request sent! They will be notified.', 'success');
+      showToast(t('feed.contactSent'), 'success');
     } catch (err) {
       console.error('Error sending contact:', err);
       const errorMsg = extractErrorMessage(err);
@@ -910,8 +912,8 @@ export default function Feed() {
 
   const formatVerificationMissing = (missing: string[]) => {
     const labels = missing.map((value) => {
-      if (value === 'riot') return 'Riot Account not Linked';
-      if (value === 'discord') return 'Discord Account not Linked';
+      if (value === 'riot') return t('profile.noRiotLinked');
+      if (value === 'discord') return t('profile.noDiscordAccount');
       return value;
     });
     return labels.join(', ');
@@ -919,9 +921,9 @@ export default function Feed() {
 
   const formatMissingFields = (fields: string[]) => {
     const labels = fields.map((value) => {
-      if (value === 'region') return 'region';
-      if (value === 'languages') return 'languages';
-      if (value === 'message') return 'message';
+      if (value === 'region') return t('profile.region').toLowerCase();
+      if (value === 'languages') return t('feed.languages').toLowerCase();
+      if (value === 'message') return t('common.message').toLowerCase();
       return value;
     });
     return labels.join(', ');
@@ -1128,12 +1130,12 @@ export default function Feed() {
             }}
           >
             <div className="animate-spin h-4 w-4 border-2 border-t-transparent rounded-full" style={{ borderColor: 'var(--color-accent-1)' }}></div>
-            <span style={{ color: 'var(--color-text-primary)' }}>Updating...</span>
+            <span style={{ color: 'var(--color-text-primary)' }}>{t('feed.updating')}</span>
           </div>
         )}
         
         <div className="flex flex-wrap justify-between items-center gap-2">
-          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-text-main)' }}>Looking For Duo</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-text-main)' }}>{t('feed.lookingForDuo')}</h1>
           <Link 
             href="/create" 
             className="px-4 py-2 font-semibold transition-colors"
@@ -1145,7 +1147,7 @@ export default function Feed() {
             onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
             onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
           >
-            Create Post
+            {t('feed.createFirstPost')}
           </Link>
         </div>
 
@@ -1161,7 +1163,7 @@ export default function Feed() {
           <div className="flex flex-wrap gap-2 p-4 rounded-lg" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
             <span className="text-sm font-medium inline-flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
               <SparkIcon />
-              Active filters:
+              {t('feed.activeFilters')}
             </span>
             {filters.regions.map(region => (
               <button
@@ -1206,7 +1208,7 @@ export default function Feed() {
                   style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}
                 >
                   <MicIcon />
-                  VC: {filters.vcPreference}
+                  {t('feed.voiceChatPrefix')}: {filters.vcPreference}
                   <span>✕</span>
                 </button>
               )}
@@ -1217,7 +1219,7 @@ export default function Feed() {
                   style={{ backgroundColor: 'var(--color-accent-2)', color: 'var(--color-bg-primary)' }}
                 >
                   <DuoIcon />
-                  {filters.duoType === 'SHORT_TERM' ? 'Short Term' : filters.duoType === 'LONG_TERM' ? 'Long Term' : 'Both'}
+                  {filters.duoType === 'SHORT_TERM' ? t('feed.shortTerm') : filters.duoType === 'LONG_TERM' ? t('feed.longTerm') : t('feed.both')}
                   <span>✕</span>
                 </button>
               )}
@@ -1228,7 +1230,7 @@ export default function Feed() {
                   style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}
                 >
                   <ShieldIcon />
-                  {filters.verified === 'true' ? 'Verified Only' : 'Unverified Only'}
+                  {filters.verified === 'true' ? t('feed.verifiedOnly') : t('feed.unverifiedOnly')}
                   <span>✕</span>
                 </button>
               )}
@@ -1261,7 +1263,7 @@ export default function Feed() {
                   style={{ backgroundColor: 'var(--color-accent-2)', color: 'var(--color-bg-primary)' }}
                 >
                   <SparkIcon />
-                  {filters.smurfFilter === 'only-smurfs' ? 'Only Smurfs' : 'No Smurfs'}
+                  {filters.smurfFilter === 'only-smurfs' ? t('feed.onlySmurfs') : t('feed.noSmurfs')}
                   <span>x</span>
                 </button>
               )}
@@ -1283,7 +1285,7 @@ export default function Feed() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
-              Filters
+              {t('feed.filters')}
             </h2>
             <button
               type="button"
@@ -1296,14 +1298,14 @@ export default function Feed() {
               }}
             >
               <SparkIcon />
-              {moreFiltersOpen ? 'Hide More Filters' : `More Filters${moreFilterCount > 0 ? ` (${moreFilterCount})` : ''}`}
+              {moreFiltersOpen ? t('feed.hideMoreFilters') : `${t('feed.moreFilters')}${moreFilterCount > 0 ? ` (${moreFilterCount})` : ''}`}
             </button>
           </div>
           
           {/* Primary Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-4">
             <div>
-              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Regions</label>
+              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>{t('feed.regions')}</label>
               <div 
                 className="border p-3 flex flex-wrap gap-2"
                 style={{
@@ -1344,7 +1346,7 @@ export default function Feed() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Roles</label>
+              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>{t('feed.roles')}</label>
               <div 
                 className="border p-3 flex flex-wrap gap-2"
                 style={{
@@ -1385,7 +1387,7 @@ export default function Feed() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Languages</label>
+              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>{t('feed.languages')}</label>
               <div 
                 className="border p-3 flex flex-wrap gap-2"
                 style={{
@@ -1426,12 +1428,12 @@ export default function Feed() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Verification</label>
+              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>{t('feed.verification')}</label>
               <div className="grid grid-cols-1 gap-2">
                 {[
-                  { value: '', label: 'All accounts' },
-                  { value: 'true', label: 'Verified' },
-                  { value: 'false', label: 'Unverified' },
+                  { value: '', label: t('feed.allAccounts') },
+                  { value: 'true', label: t('common.verified') },
+                  { value: 'false', label: t('common.unverified') },
                 ].map((option) => {
                   const selected = filters.verified === option.value;
                   return (
@@ -1459,7 +1461,7 @@ export default function Feed() {
               <div className="flex items-center justify-between gap-2">
                 <label className="block text-xs font-medium inline-flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
                   <ShieldIcon />
-                  Rank Range
+                  {t('feed.rankRange')}
                 </label>
                 <span className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
                   {RANK_FILTER_OPTIONS[rankMinIndex].label} - {RANK_FILTER_OPTIONS[rankMaxIndex].label}
@@ -1484,7 +1486,7 @@ export default function Feed() {
                     }}
                   />
                   <input
-                    aria-label="Minimum rank"
+                    aria-label={t('feed.minRank')}
                     className="rank-range-input"
                     type="range"
                     min={0}
@@ -1494,7 +1496,7 @@ export default function Feed() {
                     onChange={(event) => updateRankRange(Number(event.target.value), rankMaxIndex)}
                   />
                   <input
-                    aria-label="Maximum rank"
+                    aria-label={t('feed.maxRank')}
                     className="rank-range-input"
                     type="range"
                     min={0}
@@ -1526,7 +1528,7 @@ export default function Feed() {
                       paddingRight: '2.5rem'
                     }}
                     value={filters.minDivision} onChange={e => setFilters(prev => ({ ...prev, minDivision: e.target.value }))}>
-                    <option value="">Min Div</option>
+                    <option value="">{t('feed.minDivision')}</option>
                     {['IV','III','II','I'].map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                     <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
@@ -1545,7 +1547,7 @@ export default function Feed() {
                       onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
                       onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
                       value={filters.maxDivision} onChange={e => setFilters(prev => ({ ...prev, maxDivision: e.target.value }))}>
-                      <option value="">Max Div</option>
+                      <option value="">{t('feed.maxDivision')}</option>
                       {['IV','III','II','I'].map(d => {
                         const divOrder = ['IV','III','II','I'];
                         const minDivIndex = filters.minDivision ? divOrder.indexOf(filters.minDivision) : -1;
@@ -1575,7 +1577,7 @@ export default function Feed() {
                     onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-hover)'; }}
                     onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
                     value={filters.minLp} onChange={e => setFilters(prev => ({ ...prev, minLp: e.target.value }))}>
-                    <option value="">LP &gt;=</option>
+                    <option value="">{t('feed.lpAtLeast')}</option>
                     {['0','200','400','600','800','1000','1200'].map(lp => <option key={lp} value={lp}>{lp}+ LP</option>)}
                   </select>
                   <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} fill="none" viewBox="0 0 20 20">
@@ -1590,7 +1592,7 @@ export default function Feed() {
               <div className="flex items-center justify-between gap-2">
                 <label className="block text-xs font-medium inline-flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
                   <SparkIcon />
-                  Winrate Range
+                  {t('feed.winrateRange')}
                 </label>
                 <span className="text-xs font-semibold" style={{ color: getWinrateColor(winrateMaxValue) }}>
                   {winrateMinValue}% - {winrateMaxValue}%
@@ -1619,7 +1621,7 @@ export default function Feed() {
                     }}
                   />
                   <input
-                    aria-label="Minimum winrate"
+                    aria-label={t('feed.minWinrate')}
                     className="winrate-range-input"
                     type="range"
                     min={0}
@@ -1630,7 +1632,7 @@ export default function Feed() {
                     style={{ '--wr-thumb': getWinrateColor(winrateMinValue) } as React.CSSProperties}
                   />
                   <input
-                    aria-label="Maximum winrate"
+                    aria-label={t('feed.maxWinrate')}
                     className="winrate-range-input"
                     type="range"
                     min={0}
@@ -1655,13 +1657,13 @@ export default function Feed() {
           <div className="border-t pt-4" style={{ borderColor: 'var(--color-border)' }}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Voice Chat</label>
+                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>{t('feed.voiceChat')}</label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { value: '', label: 'Any' },
-                    { value: 'ALWAYS', label: 'Always' },
-                    { value: 'SOMETIMES', label: 'Sometimes' },
-                    { value: 'NEVER', label: 'Never' },
+                    { value: '', label: t('feed.any') },
+                    { value: 'ALWAYS', label: t('feed.always') },
+                    { value: 'SOMETIMES', label: t('feed.sometimes') },
+                    { value: 'NEVER', label: t('feed.never') },
                   ].map((option) => {
                     const selected = filters.vcPreference === option.value;
                     return (
@@ -1685,13 +1687,13 @@ export default function Feed() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>Looking For</label>
+                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>{t('feed.lookingFor')}</label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { value: '', label: 'Any' },
-                    { value: 'SHORT_TERM', label: 'Short' },
-                    { value: 'LONG_TERM', label: 'Long' },
-                    { value: 'BOTH', label: 'Both' },
+                    { value: '', label: t('feed.any') },
+                    { value: 'SHORT_TERM', label: t('feed.short') },
+                    { value: 'LONG_TERM', label: t('feed.long') },
+                    { value: 'BOTH', label: t('feed.both') },
                   ].map((option) => {
                     const selected = filters.duoType === option.value;
                     return (
@@ -1718,13 +1720,13 @@ export default function Feed() {
               <div className="space-y-2">
                 <label className="block text-xs font-medium inline-flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
                   <SparkIcon />
-                  Smurf Status
+                  {t('feed.smurfStatus')}
                 </label>
                 <div className="grid grid-cols-1 gap-2">
                   {[
-                    { value: '', label: 'All Players' },
-                    { value: 'only-smurfs', label: 'Only Smurfs' },
-                    { value: 'no-smurfs', label: 'No Smurfs' },
+                    { value: '', label: t('feed.allPlayers') },
+                    { value: 'only-smurfs', label: t('feed.onlySmurfs') },
+                    { value: 'no-smurfs', label: t('feed.noSmurfs') },
                   ].map((option) => {
                     const selected = filters.smurfFilter === option.value;
                     return (
@@ -1762,7 +1764,7 @@ export default function Feed() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Clear Filters
+                {t('feed.clearFilters')}
               </button>
             </div>
           )}
@@ -1770,7 +1772,7 @@ export default function Feed() {
 
         {posts.length === 0 ? (
           <div className="border rounded-xl p-8 text-center" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
-            <p style={{ color: 'var(--color-text-secondary)' }}>No posts yet. Be the first to create one!</p>
+            <p style={{ color: 'var(--color-text-secondary)' }}>{t('feed.noPostsYet')}</p>
           </div>
         ) : (
           <div 
@@ -1796,7 +1798,7 @@ export default function Feed() {
               const verificationMissing = verification?.missing || [];
               const isVerified = verification?.isVerified === true;
               const missingFields = post.missingFields || [];
-              const regionLabel = post.region === 'UNKNOWN' ? 'Unknown' : post.region;
+              const regionLabel = post.region === 'UNKNOWN' ? t('common.unknown') : post.region;
               return (
                 <React.Fragment key={post.id}>
                   {/* Show ad before this post if applicable */}
@@ -1815,7 +1817,7 @@ export default function Feed() {
                       borderColor: isVerified ? 'rgba(34, 197, 94, 0.35)' : 'rgba(239, 68, 68, 0.35)',
                     }}
                   >
-                    <span>{isVerified ? 'Verified account' : 'Unverified account'}</span>
+                    <span>{isVerified ? t('feed.verifiedAccount') : t('feed.unverifiedAccount')}</span>
                     {verificationMissing.length > 0 && (
                       <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
                         {formatVerificationMissing(verificationMissing)}
@@ -1842,7 +1844,7 @@ export default function Feed() {
                           type="button"
                           onClick={() => handleCopyDiscord(post.discordUsername)}
                           className="discord-chip chip-interactive inline-flex items-center gap-2 border"
-                          title="Click to copy Discord username"
+                          title={t('feed.discordCopyTitle')}
                         >
                           <DiscordIcon className="w-4 h-4" />
                           {post.discordUsername}
@@ -1852,11 +1854,11 @@ export default function Feed() {
                         <Link
                           href={`/communities/${post.community.id}`}
                           className={`community-badge ${post.community.isPartner ? 'community-badge--partner' : ''}`.trim()}
-                          title={post.source === 'discord' ? 'Forwarded from this community on Discord' : 'Community badge'}
+                          title={post.source === 'discord' ? t('feed.forwardedFromDiscord') : t('feed.communityBadge')}
                         >
                           <span className="community-badge__name">{post.community.name}</span>
                           {post.community.isPartner && (
-                            <span className="community-badge__status">Partner</span>
+                            <span className="community-badge__status">{t('feed.partner')}</span>
                           )}
                           {post.source === 'discord' && (
                             <span className="community-badge__origin">
@@ -1869,15 +1871,15 @@ export default function Feed() {
                       {missingFields.length > 0 && (
                         <span
                           className="missing-info-chip chip-interactive inline-flex items-center gap-2 border"
-                          title={`Missing: ${formatMissingFields(missingFields)}`}
+                          title={t('feed.missingPrefix', { fields: formatMissingFields(missingFields) })}
                         >
-                          Missing Info
+                          {t('feed.missingInfo')}
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                        {new Date(post.createdAt).toLocaleDateString()} at {new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {t('feed.createdAt', { date: new Date(post.createdAt).toLocaleDateString(), time: new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}
                       </span>
                       <span style={{ color: 'var(--color-text-muted)' }}>•</span>
                       <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{regionLabel}</span>
@@ -1901,7 +1903,7 @@ export default function Feed() {
                         <>
                           <span style={{ color: 'var(--color-text-muted)' }}>•</span>
                           <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                            Most Played: {post.preferredRole || 'N/A'}{post.secondaryRole ? `, ${post.secondaryRole}` : ''}
+                            {t('feed.mostPlayed')}: {post.preferredRole || t('feed.notAvailable')}{post.secondaryRole ? `, ${post.secondaryRole}` : ''}
                           </span>
                         </>
                       )}
@@ -1910,7 +1912,7 @@ export default function Feed() {
                   {!post.isAnonymous ? (
                     <div className="flex gap-2 flex-wrap">
                       <Link href={`/profile?username=${encodeURIComponent(post.username)}`} className="px-3 py-1 rounded text-sm font-medium transition-colors border" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}>
-                        View Profile
+                        {t('feed.viewProfile')}
                       </Link>
                       {post.authorId !== currentUserId && (
                         <button
@@ -1921,7 +1923,7 @@ export default function Feed() {
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                           </svg>
-                          Message
+                          {t('common.message')}
                         </button>
                       )}
                       {post.authorId === currentUserId && (
@@ -1935,14 +1937,14 @@ export default function Feed() {
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                           </svg>
-                          Share Post
+                          {t('feed.sharePost')}
                         </button>
                       )}
                     </div>
                   ) : (
                     <button onClick={() => handleContact(post)} className="discord-cta inline-flex items-center gap-1.5 px-3 py-1 rounded text-sm font-medium">
                       <DiscordIcon className="w-3.5 h-3.5" />
-                      Contact
+                      {t('common.contact')}
                     </button>
                   )}
                 </div>
@@ -1952,7 +1954,7 @@ export default function Feed() {
                   {/* Posting Account */}
                   {post.postingRiotAccount && (
                     <div className="rounded-lg p-3" style={{ background: 'var(--color-bg-tertiary)' }}>
-                      <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Posting With</p>
+                      <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>{t('feed.postingWith')}</p>
                       <p className="font-semibold flex items-center gap-1.5" style={{ color: 'var(--color-text-primary)' }}>
                         <img width="16" height="16" src="https://img.icons8.com/color/48/riot-games.png" alt="riot-games" />
                         {post.postingRiotAccount.gameName}#{post.postingRiotAccount.tagLine}
@@ -1969,7 +1971,7 @@ export default function Feed() {
                   {/* Best Rank or Main Account Banner */}
                   {post.bestRank ? (
                     <div className="rounded-lg p-3" style={{ background: 'var(--color-bg-tertiary)' }}>
-                      <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Best Rank</p>
+                      <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>{t('feed.bestRank')}</p>
                       <p className="font-semibold flex items-center gap-1.5" style={{ color: 'var(--color-text-primary)' }}>
                         <img width="16" height="16" src="https://img.icons8.com/color/48/riot-games.png" alt="riot-games" />
                         {post.bestRank.gameName}#{post.bestRank.tagLine}
@@ -1987,7 +1989,7 @@ export default function Feed() {
                         <svg className="w-8 h-8 mx-auto mb-1" style={{ color: 'var(--color-accent-1)' }} fill="currentColor" viewBox="0 0 20 20">
                           <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                         </svg>
-                        <p className="font-bold text-xs" style={{ color: 'var(--color-accent-1)' }}>MAIN ACCOUNT</p>
+                        <p className="font-bold text-xs" style={{ color: 'var(--color-accent-1)' }}>{t('feed.mainAccount')}</p>
                       </div>
                     </div>
                   ) : null}
@@ -2009,7 +2011,7 @@ export default function Feed() {
                   return (
                     <div className="flex flex-wrap items-center gap-2 mb-4">
                       <span className="px-2 py-1 rounded text-xs font-medium border" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}>
-                        VC: {post.vcPreference}
+                        {t('feed.voiceChatPrefix')}: {post.vcPreference}
                       </span>
                       {post.languages.map(lang => (
                         <span key={lang}>{getLanguageBadge(lang)}</span>
@@ -2033,7 +2035,7 @@ export default function Feed() {
                 <div className="rounded-lg p-4 mb-4" style={{ background: 'var(--color-bg-tertiary)' }}>
                   <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>Skill:</span>
+                      <span className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>{t('feedback.skill')}:</span>
                       <div className="flex items-center space-x-1">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <svg
@@ -2051,7 +2053,7 @@ export default function Feed() {
                       <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>({post.ratings.skillCount})</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>Personality:</span>
+                      <span className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>{t('feedback.personality')}:</span>
                       <div className="flex items-center space-x-1">
                         {[1, 2, 3, 4, 5].map((moon) => (
                           <svg
@@ -2074,11 +2076,11 @@ export default function Feed() {
                       <div className="flex items-center gap-2">
                         {post.reportCount > 3 ? (
                           <>
-                            <span className="text-sm font-medium px-2 py-1 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}>⚠️ Flagged</span>
+                            <span className="text-sm font-medium px-2 py-1 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}>⚠️ {t('profile.flagged')}</span>
                           </>
                         ) : (
                           <>
-                            <span className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>Reports:</span>
+                            <span className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>{t('profile.status.reports', { count: post.reportCount })}:</span>
                             <span className="text-xl">💀</span>
                             <span className="text-sm font-semibold" style={{ color: '#EF4444' }}>{post.reportCount}</span>
                           </>
@@ -2110,7 +2112,7 @@ export default function Feed() {
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
                   }}
                 >
-                  {loadingMore ? 'Loading...' : 'Load More'}
+                  {loadingMore ? t('common.loading') : t('common.loadMore')}
                 </button>
               </div>
             )}
@@ -2124,8 +2126,9 @@ export default function Feed() {
 
 function AdminDelete({ postId }: { postId: string }) {
   const { showToast, confirm } = useGlobalUI();
+  const { t } = useLanguage();
   const handleDelete = async () => {
-    const ok = await confirm({ title: 'Delete Post', message: 'Are you sure you want to delete this post? This action cannot be undone.', confirmText: 'Delete' });
+    const ok = await confirm({ title: t('feed.deletePost'), message: t('feed.deleteConfirmFull'), confirmText: t('common.delete') });
     if (!ok) return;
     try {
       const res = await fetch(`${API_URL}/api/posts/${postId}`, {
@@ -2133,16 +2136,16 @@ function AdminDelete({ postId }: { postId: string }) {
         headers: getAuthHeader(),
       });
       if (!res.ok) throw new Error('Failed to delete post');
-      showToast('Post deleted', 'success');
+      showToast(t('feed.deleteSuccess'), 'success');
       location.reload();
     } catch (err) {
       console.error('Failed to delete', err);
-      showToast('Delete failed', 'error');
+      showToast(t('feed.deleteFailed'), 'error');
     }
   };
   return (
     <div className="mt-4 text-right">
-      <button onClick={handleDelete} className="px-3 py-1 rounded text-xs font-medium transition-colors" style={{ background: 'var(--accent-danger-bg)', color: 'var(--accent-danger)' }}>Delete</button>
+      <button onClick={handleDelete} className="px-3 py-1 rounded text-xs font-medium transition-colors" style={{ background: 'var(--accent-danger-bg)', color: 'var(--accent-danger)' }}>{t('common.delete')}</button>
     </div>
   );
 }
