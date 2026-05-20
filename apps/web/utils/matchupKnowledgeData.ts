@@ -5,6 +5,8 @@ const MATCHUP_KNOWLEDGE_CACHE_KEY = 'riftessence_matchup_knowledge_v1';
 const MATCHUP_RUNE_TREE_CACHE_KEY = 'riftessence_matchup_rune_trees_v1';
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
+export type DataDragonLocale = 'en_US' | 'fr_FR';
+
 interface VersionCache {
   version: string;
   timestamp: number;
@@ -59,6 +61,12 @@ export interface MatchupRuneTree {
   iconUrl: string;
   slots: MatchupRune[][];
 }
+
+export const getDataDragonLocale = (language?: string): DataDragonLocale => (
+  language === 'fr' ? 'fr_FR' : 'en_US'
+);
+
+const localeCacheKey = (baseKey: string, locale: DataDragonLocale) => `${baseKey}_${locale}`;
 
 const readCache = <T>(key: string): T | null => {
   if (typeof window === 'undefined') return null;
@@ -118,20 +126,21 @@ const cleanText = (value?: string) => (
     : ''
 );
 
-export const fetchMatchupKnowledge = async (): Promise<{
+export const fetchMatchupKnowledge = async (locale: DataDragonLocale = 'en_US'): Promise<{
   version: string;
   items: MatchupKnowledgeSuggestion[];
   runes: MatchupKnowledgeSuggestion[];
 }> => {
   const version = await fetchLatestDDragonVersion();
-  const cached = readCache<KnowledgeCache>(MATCHUP_KNOWLEDGE_CACHE_KEY);
+  const cacheKey = localeCacheKey(MATCHUP_KNOWLEDGE_CACHE_KEY, locale);
+  const cached = readCache<KnowledgeCache>(cacheKey);
   if (cached && cached.version === version && Date.now() - cached.timestamp < CACHE_DURATION) {
     return { version, items: cached.items, runes: cached.runes };
   }
 
   const [itemResponse, runeResponse] = await Promise.all([
-    fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/item.json`),
-    fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/runesReforged.json`),
+    fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/${locale}/item.json`),
+    fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/${locale}/runesReforged.json`),
   ]);
 
   if (!itemResponse.ok || !runeResponse.ok) {
@@ -170,7 +179,7 @@ export const fetchMatchupKnowledge = async (): Promise<{
     ))
   ));
 
-  writeCache(MATCHUP_KNOWLEDGE_CACHE_KEY, {
+  writeCache(cacheKey, {
     version,
     items,
     runes,
@@ -180,14 +189,15 @@ export const fetchMatchupKnowledge = async (): Promise<{
   return { version, items, runes };
 };
 
-export const fetchRuneTrees = async (): Promise<MatchupRuneTree[]> => {
+export const fetchRuneTrees = async (locale: DataDragonLocale = 'en_US'): Promise<MatchupRuneTree[]> => {
   const version = await fetchLatestDDragonVersion();
-  const cached = readCache<RuneTreeCache>(MATCHUP_RUNE_TREE_CACHE_KEY);
+  const cacheKey = localeCacheKey(MATCHUP_RUNE_TREE_CACHE_KEY, locale);
+  const cached = readCache<RuneTreeCache>(cacheKey);
   if (cached && cached.version === version && Date.now() - cached.timestamp < CACHE_DURATION) {
     return cached.runeTrees;
   }
 
-  const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/runesReforged.json`);
+  const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/${locale}/runesReforged.json`);
   if (!response.ok) {
     throw new Error('Failed to fetch Data Dragon rune trees');
   }
@@ -210,7 +220,7 @@ export const fetchRuneTrees = async (): Promise<MatchupRuneTree[]> => {
     )),
   }));
 
-  writeCache(MATCHUP_RUNE_TREE_CACHE_KEY, {
+  writeCache(cacheKey, {
     version,
     runeTrees,
     timestamp: Date.now(),
@@ -219,23 +229,23 @@ export const fetchRuneTrees = async (): Promise<MatchupRuneTree[]> => {
   return runeTrees;
 };
 
-export const fetchItemSuggestions = async (): Promise<MatchupKnowledgeSuggestion[]> => {
-  const knowledge = await fetchMatchupKnowledge();
+export const fetchItemSuggestions = async (locale: DataDragonLocale = 'en_US'): Promise<MatchupKnowledgeSuggestion[]> => {
+  const knowledge = await fetchMatchupKnowledge(locale);
   return knowledge.items;
 };
 
-export const fetchChampionSpellSuggestions = async (champion: string): Promise<MatchupKnowledgeSuggestion[]> => {
+export const fetchChampionSpellSuggestions = async (champion: string, locale: DataDragonLocale = 'en_US'): Promise<MatchupKnowledgeSuggestion[]> => {
   if (!champion) return [];
 
   const version = await fetchLatestDDragonVersion();
   const normalizedChampion = normalizeChampionName(champion);
-  const cacheKey = `${MATCHUP_KNOWLEDGE_CACHE_KEY}_spells_${normalizedChampion}`;
+  const cacheKey = `${MATCHUP_KNOWLEDGE_CACHE_KEY}_spells_${locale}_${normalizedChampion}`;
   const cached = readCache<ChampionSpellCache>(cacheKey);
   if (cached && cached.version === version && Date.now() - cached.timestamp < CACHE_DURATION) {
     return cached.spells;
   }
 
-  const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/champion/${normalizedChampion}.json`);
+  const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/${locale}/champion/${normalizedChampion}.json`);
   if (!response.ok) {
     return [];
   }

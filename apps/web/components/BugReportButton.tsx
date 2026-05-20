@@ -150,7 +150,7 @@ export default function BugReportButton() {
               {t('bug.reportButton')}
             </h2>
             <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Describe what went wrong and we will look into it.
+              {t('bug.description')}
             </p>
 
             <form onSubmit={handleSubmit}>
@@ -190,7 +190,7 @@ export default function BugReportButton() {
                   }}
                   disabled={isSubmitting}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -207,7 +207,7 @@ export default function BugReportButton() {
                   }}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? 'Submitting...' : 'Submit'}
+                  {isSubmitting ? t('bug.submitting') : t('common.submit')}
                 </button>
               </div>
             </form>

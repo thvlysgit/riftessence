@@ -61,7 +61,9 @@ French should be natural French for actions, legal readability, confirmations, a
 
 Keep these terms in English unless the product owner explicitly asks otherwise:
 
-LFT, Duo, Flex, Top, Jungle, Mid, Bot, Support, Iron, Bronze, Silver, Gold, Platinum, Emerald, Diamond, Master, Grandmaster, Challenger, Unranked, Winrate, Elo, Tier, Wave Management, Vision Control, Macro, Teamfighting, Lane Control, Champion Mastery, Matchup, Skill Matchup, Laning Phase, Items, Runes, Power Spikes, Scaling, Snowball, Coin Flips, draft, scrim, roster, champion names.
+LFT, Duo, Flex, Top, Jungle, Mid, Bot, Support, Iron, Bronze, Silver, Gold, Platinum, Emerald, Diamond, Master, Grandmaster, Challenger, Unranked, Winrate, Elo, Tier, Wave Management, Vision Control, Macro, Teamfighting, Lane Control, Champion Mastery, Matchup, Skill Matchup, Laning Phase, Power Spikes, Scaling, Snowball, Coin Flips, draft, scrim, roster, champion names.
+
+Runes, items, and champion spell names are an exception: when they come from Data Dragon, they should follow the active UI language (`en -> en_US`, `fr -> fr_FR`). This supports players who learned League in French without hand-translating Riot terminology. Champion names remain canonical and are not localized.
 
 When in doubt, keep the League term in English and ask for review instead of over-translating it.
 
@@ -79,6 +81,12 @@ t('profile.save.usernameError', { error: err.message })
 
 Existing `.replace('{token}', value)` call sites still work, but new code should prefer `t(key, values)`.
 
+## Matchup Guide Translation
+
+User-authored matchup guide text is not auto-translated yet. Product choice is still pending. Recommended direction is an opt-in, one-click AI translation that caches generated locale variants per guide, keeps the original available, and uses a glossary lock for champion names plus Riot/Data Dragon terms.
+
 ## Current Coverage Notes
 
-As of 2026-05-20, the second i18n sweep covers the main feed filter surface and duo post cards, profile competitive snapshot/champion pool/account panels, navbar search and menu labels, chat/Discord DM prompts, access requirement redirect modals, and champion autocomplete empty states.
+As of 2026-05-20, the third i18n sweep covers the main feed filter surface and duo post cards, profile competitive snapshot/champion pool/account panels, navbar search and menu labels, chat/Discord DM prompts, access requirement redirect modals, champion autocomplete empty states, bug report modal copy, Discord forwarding setup instructions, Team Schedule event modal copy, and the matchup rune/item builder/editor surfaces.
+
+Matchup rune trees, rune suggestions, item suggestions, saved item build display names, and selected champion spell suggestions now load Data Dragon in the active UI locale where supported. Cache keys are locale-scoped so English and French metadata do not overwrite each other.

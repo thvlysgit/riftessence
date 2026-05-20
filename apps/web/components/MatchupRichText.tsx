@@ -4,7 +4,9 @@ import {
   MatchupKnowledgeSuggestion,
   fetchChampionSpellSuggestions,
   fetchMatchupKnowledge,
+  getDataDragonLocale,
 } from '../utils/matchupKnowledgeData';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface MatchupRichTextProps {
   text?: string | null;
@@ -40,6 +42,8 @@ export const MatchupRichText: React.FC<MatchupRichTextProps> = ({
   emptyText = 'No notes yet.',
   compact = false,
 }) => {
+  const { currentLanguage } = useLanguage();
+  const dataDragonLocale = getDataDragonLocale(currentLanguage);
   const [suggestions, setSuggestions] = useState<MatchupKnowledgeSuggestion[]>([]);
 
   useEffect(() => {
@@ -48,8 +52,8 @@ export const MatchupRichText: React.FC<MatchupRichTextProps> = ({
     const load = async () => {
       try {
         const [knowledge, spells] = await Promise.all([
-          fetchMatchupKnowledge(),
-          fetchChampionSpellSuggestions(champion || ''),
+          fetchMatchupKnowledge(dataDragonLocale),
+          fetchChampionSpellSuggestions(champion || '', dataDragonLocale),
         ]);
 
         if (!isMounted) return;
@@ -64,7 +68,7 @@ export const MatchupRichText: React.FC<MatchupRichTextProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [champion]);
+  }, [champion, dataDragonLocale]);
 
   const lookup = useMemo(() => {
     const map = new Map<string, MatchupKnowledgeSuggestion>();

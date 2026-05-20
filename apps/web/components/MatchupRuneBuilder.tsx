@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { MatchupRune, MatchupRuneTree, fetchRuneTrees } from '../utils/matchupKnowledgeData';
+import { MatchupRune, MatchupRuneTree, fetchRuneTrees, getDataDragonLocale } from '../utils/matchupKnowledgeData';
+import { useLanguage } from '../contexts/LanguageContext';
 import { MatchupButton } from './MatchupButton';
 
 export interface MatchupRunePage {
@@ -24,9 +25,20 @@ const shardRows = [
   ['Health', 'Tenacity', 'Slow Resist'],
 ];
 
-const newRunePage = (index: number, trees: MatchupRuneTree[] = []): MatchupRunePage => ({
+const shardLabelKeys: Record<string, string> = {
+  'Adaptive Force': 'matchups.shard.adaptiveForce',
+  'Attack Speed': 'matchups.shard.attackSpeed',
+  'Ability Haste': 'matchups.shard.abilityHaste',
+  'Move Speed': 'matchups.shard.moveSpeed',
+  'Health Scaling': 'matchups.shard.healthScaling',
+  Health: 'matchups.shard.health',
+  Tenacity: 'matchups.shard.tenacity',
+  'Slow Resist': 'matchups.shard.slowResist',
+};
+
+const newRunePage = (index: number, trees: MatchupRuneTree[] = [], fallbackName = `Rune Page ${index + 1}`): MatchupRunePage => ({
   id: `rune-page-${Date.now()}-${index}`,
-  name: `Rune Page ${index + 1}`,
+  name: fallbackName,
   primaryTreeId: trees[0]?.id,
   secondaryTreeId: trees[1]?.id,
   selectedRunes: [],
@@ -69,23 +81,25 @@ const RuneButton: React.FC<{
 );
 
 export const MatchupRuneBuilder: React.FC<MatchupRuneBuilderProps> = ({ value, onChange }) => {
+  const { t, currentLanguage } = useLanguage();
+  const dataDragonLocale = getDataDragonLocale(currentLanguage);
   const [trees, setTrees] = useState<MatchupRuneTree[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
     let mounted = true;
-    fetchRuneTrees()
+    fetchRuneTrees(dataDragonLocale)
       .then((runeTrees) => {
         if (!mounted) return;
         setTrees(runeTrees);
-        if (!value.length) onChange([newRunePage(0, runeTrees)]);
+        if (!value.length) onChange([newRunePage(0, runeTrees, t('matchups.runePageName', { count: '1' }))]);
       })
       .catch(() => setTrees([]));
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [dataDragonLocale]);
 
   const activePage = value[activeIndex] || value[0];
   const primaryTree = trees.find((tree) => tree.id === activePage?.primaryTreeId) || trees[0];
@@ -151,7 +165,7 @@ export const MatchupRuneBuilder: React.FC<MatchupRuneBuilderProps> = ({ value, o
   };
 
   const addPage = () => {
-    const next = [...value, newRunePage(value.length, trees)];
+    const next = [...value, newRunePage(value.length, trees, t('matchups.runePageName', { count: String(value.length + 1) }))];
     onChange(next);
     setActiveIndex(next.length - 1);
   };
@@ -181,13 +195,13 @@ export const MatchupRuneBuilder: React.FC<MatchupRuneBuilderProps> = ({ value, o
                 color: index === activeIndex ? 'var(--color-accent-1)' : 'var(--color-text-secondary)',
               }}
             >
-              {page.name || `Rune Page ${index + 1}`}
+              {page.name || t('matchups.runePageName', { count: String(index + 1) })}
             </button>
           ))}
         </div>
         <div className="flex gap-2">
-          <MatchupButton size="sm" variant="secondary" onClick={addPage}>Add page</MatchupButton>
-          {value.length > 1 && <MatchupButton size="sm" variant="danger" onClick={removePage}>Remove</MatchupButton>}
+          <MatchupButton size="sm" variant="secondary" onClick={addPage}>{t('matchups.addPage')}</MatchupButton>
+          {value.length > 1 && <MatchupButton size="sm" variant="danger" onClick={removePage}>{t('common.remove')}</MatchupButton>}
         </div>
       </div>
 
@@ -242,7 +256,7 @@ export const MatchupRuneBuilder: React.FC<MatchupRuneBuilderProps> = ({ value, o
             <div className="rounded-lg p-4" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
               <div className="mb-3 flex items-center gap-2 text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>
                 <Image src={primaryTree.iconUrl} alt="" width={24} height={24} />
-                Primary: {primaryTree.name}
+                {t('matchups.primary')}: {primaryTree.name}
               </div>
               <div className="space-y-3">
                 {primaryTree.slots.map((slot, slotIndex) => (
@@ -260,7 +274,7 @@ export const MatchupRuneBuilder: React.FC<MatchupRuneBuilderProps> = ({ value, o
             <div className="rounded-lg p-4" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
               <div className="mb-3 flex items-center gap-2 text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>
                 <Image src={secondaryTree.iconUrl} alt="" width={24} height={24} />
-                Secondary: {secondaryTree.name}
+                {t('matchups.secondary')}: {secondaryTree.name}
               </div>
               <div className="space-y-3">
                 {secondaryTree.slots.slice(1).map((slot, index) => (
@@ -275,7 +289,7 @@ export const MatchupRuneBuilder: React.FC<MatchupRuneBuilderProps> = ({ value, o
           )}
 
           <div className="rounded-lg p-4" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
-            <div className="mb-3 text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>Stat shards</div>
+            <div className="mb-3 text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>{t('matchups.statShards')}</div>
             <div className="space-y-2">
               {shardRows.map((row, rowIndex) => (
                 <div key={rowIndex} className="flex flex-wrap gap-2">
@@ -297,7 +311,7 @@ export const MatchupRuneBuilder: React.FC<MatchupRuneBuilderProps> = ({ value, o
                           color: selected ? 'var(--color-accent-1)' : 'var(--color-text-secondary)',
                         }}
                       >
-                        {shard}
+                        {t(shardLabelKeys[shard] as any)}
                       </button>
                     );
                   })}
@@ -309,7 +323,7 @@ export const MatchupRuneBuilder: React.FC<MatchupRuneBuilderProps> = ({ value, o
           <textarea
             value={activePage.notes}
             onChange={(event) => updatePage({ notes: event.target.value.slice(0, 500) })}
-            placeholder="When this page is best..."
+            placeholder={t('matchups.runePageNotesPlaceholder')}
             rows={3}
             className="w-full resize-none rounded-lg px-3 py-2 text-sm outline-none"
             style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
@@ -321,11 +335,13 @@ export const MatchupRuneBuilder: React.FC<MatchupRuneBuilderProps> = ({ value, o
 };
 
 export const MatchupRunePagesView: React.FC<{ pages?: MatchupRunePage[] }> = ({ pages = [] }) => {
+  const { t, currentLanguage } = useLanguage();
+  const dataDragonLocale = getDataDragonLocale(currentLanguage);
   const [trees, setTrees] = useState<MatchupRuneTree[]>([]);
 
   useEffect(() => {
-    fetchRuneTrees().then(setTrees).catch(() => setTrees([]));
-  }, []);
+    fetchRuneTrees(dataDragonLocale).then(setTrees).catch(() => setTrees([]));
+  }, [dataDragonLocale]);
 
   const runeMap = useMemo(() => {
     const map = new Map<number, MatchupRune>();
@@ -334,7 +350,7 @@ export const MatchupRunePagesView: React.FC<{ pages?: MatchupRunePage[] }> = ({ 
   }, [trees]);
 
   if (!pages.length) {
-    return <p className="text-sm italic" style={{ color: 'var(--color-text-muted)' }}>No rune pages saved.</p>;
+    return <p className="text-sm italic" style={{ color: 'var(--color-text-muted)' }}>{t('matchups.noRunePages')}</p>;
   }
 
   return (
@@ -346,7 +362,7 @@ export const MatchupRunePagesView: React.FC<{ pages?: MatchupRunePage[] }> = ({ 
         return (
           <div key={page.id || index} className="rounded-lg p-4" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="font-bold" style={{ color: 'var(--color-text-primary)' }}>{page.name || `Rune Page ${index + 1}`}</h3>
+              <h3 className="font-bold" style={{ color: 'var(--color-text-primary)' }}>{page.name || t('matchups.runePageName', { count: String(index + 1) })}</h3>
               <div className="flex gap-2">
                 {[primaryTree, secondaryTree].filter(Boolean).map((tree) => (
                   <Image key={tree!.id} src={tree!.iconUrl} alt={tree!.name} width={26} height={26} />
@@ -366,7 +382,9 @@ export const MatchupRunePagesView: React.FC<{ pages?: MatchupRunePage[] }> = ({ 
               })}
             </div>
             {!!page.statShards?.length && (
-              <p className="mt-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>{page.statShards.filter(Boolean).join(' / ')}</p>
+              <p className="mt-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                {page.statShards.filter(Boolean).map((shard) => t(shardLabelKeys[shard] as any)).join(' / ')}
+              </p>
             )}
             {page.notes && <p className="mt-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>{page.notes}</p>}
           </div>

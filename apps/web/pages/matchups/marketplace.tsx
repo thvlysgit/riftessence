@@ -651,7 +651,7 @@ const MarketplacePage: React.FC = () => {
                               : 'var(--color-text-secondary)',
                             cursor: isOwnMatchup || !user ? 'not-allowed' : 'pointer',
                           }}
-                          title={isOwnMatchup ? 'Cannot vote on own matchup' : t('matchups.like')}
+                          title={isOwnMatchup ? t('matchups.cannotVoteOwn') : t('matchups.like')}
                         >
                           👍
                         </button>
@@ -677,7 +677,7 @@ const MarketplacePage: React.FC = () => {
                               : 'var(--color-text-secondary)',
                             cursor: isOwnMatchup || !user ? 'not-allowed' : 'pointer',
                           }}
-                          title={isOwnMatchup ? 'Cannot vote on own matchup' : t('matchups.dislike')}
+                          title={isOwnMatchup ? t('matchups.cannotVoteOwn') : t('matchups.dislike')}
                         >
                           👎
                         </button>
@@ -700,7 +700,7 @@ const MarketplacePage: React.FC = () => {
                               cursor: isOwnMatchup || !user ? 'not-allowed' : 'pointer',
                               opacity: isOwnMatchup ? 0.5 : 1,
                             }}
-                            title={isOwnMatchup ? 'Your own matchup' : t('matchups.removeFromLibrary')}
+                            title={isOwnMatchup ? t('matchups.ownMatchup') : t('matchups.removeFromLibrary')}
                           >
                             {t('matchups.removeFromLibrary')}
                           </button>
@@ -721,7 +721,7 @@ const MarketplacePage: React.FC = () => {
                               cursor: isOwnMatchup || !user ? 'not-allowed' : 'pointer',
                               opacity: isOwnMatchup ? 0.5 : 1,
                             }}
-                            title={isOwnMatchup ? 'Your own matchup' : t('matchups.addToLibrary')}
+                            title={isOwnMatchup ? t('matchups.ownMatchup') : t('matchups.addToLibrary')}
                           >
                             {t('matchups.addToLibrary')}
                           </button>

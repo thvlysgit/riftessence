@@ -169,6 +169,54 @@ const DiscordSettingsPage: React.FC = () => {
         inviteBot: 'Inviter le bot RiftEssence',
         webhookTitle: 'Configuration du webhook',
         webhookGuide: 'Configurez le webhook de votre canal',
+        dmOptInTitle: 'DMs Discord (par membre)',
+        dmOptInDesc: 'Les membres recoivent des DMs Discord seulement s ils lient Discord et activent les notifications DM dans leurs parametres.',
+        yourStatus: 'Ton statut',
+        discordLinkedDmOn: 'Lie et notifications DM activees',
+        discordLinkedDmOff: 'Lie, mais notifications DM desactivees',
+        discordNotLinked: 'Discord non lie',
+        manageDmSettings: 'Gerer les notifications DM dans les parametres',
+        linkDiscordSettings: 'Lier Discord dans les parametres',
+        deliveryBullet1: 'Les mises a jour du channel passent par ton webhook, donc les notifications partent meme si le bot ne peut pas poster directement dans le channel.',
+        deliveryBullet2: 'Le bot gere toujours les interactions et le processing (presences, slash commands, fanout DM), donc l inviter reste fortement recommande.',
+        deliveryBullet3: 'Si le ciblage d audience est utilise, seuls les membres concernes recoivent les DMs et peuvent repondre aux boutons de presence.',
+        webhookStep1: 'Ouvre Discord et va dans les parametres de ton serveur',
+        webhookStep2Prefix: 'Va dans',
+        webhookStep2A: 'Integrations',
+        webhookStep2B: 'Webhooks',
+        webhookStep3Prefix: 'Clique sur',
+        webhookStep3Action: 'Nouveau webhook',
+        webhookStep3Suffix: 'et choisis le channel',
+        webhookStep4: 'Copie l URL du webhook et colle-la ci-dessous',
+        webhookTip: 'Astuce : garde aussi le bot invite pour fiabiliser les presences et le fanout DM.',
+        scheduleWebhookUrl: 'URL du webhook Planning team',
+        connectedTo: 'Connecte a #{channel} dans {guild}',
+        invalidWebhook: 'Webhook invalide ou expire',
+        scrimWebhookUrl: 'Webhook des codes scrim (override optionnel)',
+        scrimWebhookPlaceholder: 'Laisse vide pour reutiliser le channel du webhook planning',
+        scrimWebhookHelp: 'Par defaut, les updates de codes scrim utilisent le channel du webhook planning. Renseigne ceci seulement si tu veux un channel dedie.',
+        scrimConnectedTo: 'Updates scrim connectees a #{channel} dans {guild}',
+        invalidScrimWebhook: 'Webhook de codes scrim invalide',
+        notifyTitle: 'Quoi notifier :',
+        scheduleEvents: 'Evenements du planning',
+        scheduleEventsDesc: 'Scrims, practices, tournois, reviews VOD, meetings',
+        rosterChanges: 'Changements roster',
+        rosterChangesDesc: 'Nouveaux membres, changements de role',
+        schedulePermissions: 'Permissions planning',
+        playersCanSetEvents: 'Les joueurs peuvent creer des evenements',
+        playersCanSetEventsDesc: 'Autorise tous les membres de la team a creer, modifier et supprimer des evenements du Planning. Sinon, seuls owner, managers et coaches peuvent les gerer.',
+        mentionStrategy: 'Strategie de mention',
+        mentionStrategyDesc: 'Choisis comment les notifications de channel ping les gens. Le ciblage par evenement se regle toujours dans le Planning team.',
+        everyoneDesc: 'Ping toujours tout le channel',
+        singleRole: 'Role Discord unique',
+        singleRoleDesc: 'Ping un role Discord fixe',
+        teamRoleMapping: 'Mapping roles team',
+        teamRoleMappingDesc: 'Mappe les roles team vers des IDs de roles Discord',
+        discordRoleId: 'ID du role Discord',
+        teamRoleMappingHelp: 'Configure seulement les roles que tu veux ping. Laisse les autres vides.',
+        discordRolePlaceholder: 'ID du role Discord',
+        mentionPreview: 'Apercu mention :',
+        noMappedRoles: 'Aucun role mappe pour le moment (les messages partiront sans ping de role tant que tu n ajoutes pas d IDs).',
       }
     : {
         back: 'Back to Dashboard',
@@ -182,6 +230,54 @@ const DiscordSettingsPage: React.FC = () => {
         inviteBot: 'Invite RiftEssence Bot',
         webhookTitle: 'Webhook Configuration',
         webhookGuide: 'Set up your channel webhook',
+        dmOptInTitle: 'Discord DM Opt-In (Per Member)',
+        dmOptInDesc: 'Team members only receive Discord DMs when they link their Discord account and enable DM notifications in personal settings.',
+        yourStatus: 'Your status',
+        discordLinkedDmOn: 'Linked and DM notifications enabled',
+        discordLinkedDmOff: 'Linked, but DM notifications disabled',
+        discordNotLinked: 'Discord not linked',
+        manageDmSettings: 'Manage DM Notifications in Settings',
+        linkDiscordSettings: 'Link Discord in Settings',
+        deliveryBullet1: 'Channel updates are sent through your webhook, so notifications still go out even if the bot cannot directly post to the channel.',
+        deliveryBullet2: 'The bot still powers interactions and processing (attendance updates, slash commands, DM fanout), so inviting it is strongly recommended.',
+        deliveryBullet3: 'If event audience targeting is used, only concerned members receive DMs and can act on attendance buttons for that event.',
+        webhookStep1: 'Open Discord and go to your server settings',
+        webhookStep2Prefix: 'Navigate to',
+        webhookStep2A: 'Integrations',
+        webhookStep2B: 'Webhooks',
+        webhookStep3Prefix: 'Click',
+        webhookStep3Action: 'New Webhook',
+        webhookStep3Suffix: 'and select the channel',
+        webhookStep4: 'Copy the webhook URL and paste it below',
+        webhookTip: 'Tip: keep the bot invited too for attendance processing and DM fanout reliability.',
+        scheduleWebhookUrl: 'Team Schedule Webhook URL',
+        connectedTo: 'Connected to #{channel} in {guild}',
+        invalidWebhook: 'Invalid or expired webhook URL',
+        scrimWebhookUrl: 'Scrim Code Forwarding Webhook (Optional Override)',
+        scrimWebhookPlaceholder: 'Leave empty to reuse the schedule webhook channel',
+        scrimWebhookHelp: 'By default, scrim code lifecycle updates use your schedule webhook channel. Set this only if you want a dedicated channel for scrim codes.',
+        scrimConnectedTo: 'Scrim updates connected to #{channel} in {guild}',
+        invalidScrimWebhook: 'Invalid scrim code webhook URL',
+        notifyTitle: 'What to notify:',
+        scheduleEvents: 'Schedule Events',
+        scheduleEventsDesc: 'Scrims, practices, tournaments, VOD reviews, meetings',
+        rosterChanges: 'Roster Changes',
+        rosterChangesDesc: 'New members joining, role changes',
+        schedulePermissions: 'Schedule Permissions',
+        playersCanSetEvents: 'Players can set schedule events',
+        playersCanSetEventsDesc: 'Allow every team member to create, edit, and delete Team Schedule events. When disabled, only the owner, managers, and coaches can manage events.',
+        mentionStrategy: 'Mention Strategy',
+        mentionStrategyDesc: 'Choose how channel notifications ping people. Event audience targeting is still controlled per event in Team Schedule.',
+        everyoneDesc: 'Always ping everyone in the channel',
+        singleRole: 'Single Discord Role',
+        singleRoleDesc: 'Ping one fixed Discord role',
+        teamRoleMapping: 'Team Role Mapping',
+        teamRoleMappingDesc: 'Map team roles to Discord role IDs',
+        discordRoleId: 'Discord Role ID',
+        teamRoleMappingHelp: 'Configure only the roles you want pinged. Leave others empty.',
+        discordRolePlaceholder: 'Discord role ID',
+        mentionPreview: 'Mention preview:',
+        noMappedRoles: 'No mapped roles yet (messages will be sent without role ping until you add role IDs).',
       };
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -624,14 +720,14 @@ const DiscordSettingsPage: React.FC = () => {
           {/* DM discoverability */}
           <div className="border rounded-xl p-5" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
             <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-              Discord DM Opt-In (Per Member)
+              {text.dmOptInTitle}
             </h2>
             <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-              Team members only receive Discord DMs when they link their Discord account and enable DM notifications in personal settings.
+              {text.dmOptInDesc}
             </p>
             <div className="rounded-lg p-3 mb-3" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
               <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                Your status: {isDiscordLinked ? (discordDmEnabled ? 'Linked and DM notifications enabled' : 'Linked, but DM notifications disabled') : 'Discord not linked'}
+                {text.yourStatus}: {isDiscordLinked ? (discordDmEnabled ? text.discordLinkedDmOn : text.discordLinkedDmOff) : text.discordNotLinked}
                 {isDiscordLinked && discordUsername ? ` (${discordUsername})` : ''}
               </p>
             </div>
@@ -640,7 +736,7 @@ const DiscordSettingsPage: React.FC = () => {
               className="inline-flex items-center gap-2 text-sm font-semibold"
               style={{ color: '#5865F2' }}
             >
-              {isDiscordLinked ? 'Manage DM Notifications in Settings' : 'Link Discord in Settings'}
+              {isDiscordLinked ? text.manageDmSettings : text.linkDiscordSettings}
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
@@ -655,9 +751,9 @@ const DiscordSettingsPage: React.FC = () => {
                   {text.deliveryTitle}
                 </h2>
                 <ul className="text-sm space-y-2 mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-                  <li>• Channel updates are sent through your webhook, so notifications still go out even if the bot cannot directly post to the channel.</li>
-                  <li>• The bot still powers interactions and processing (attendance updates, slash commands, DM fanout), so inviting it is strongly recommended.</li>
-                  <li>• If event audience targeting is used, only concerned members receive DMs and can act on attendance buttons for that event.</li>
+                  <li>• {text.deliveryBullet1}</li>
+                  <li>• {text.deliveryBullet2}</li>
+                  <li>• {text.deliveryBullet3}</li>
                 </ul>
                 <a
                   href={DISCORD_BOT_INVITE_URL}
@@ -686,13 +782,13 @@ const DiscordSettingsPage: React.FC = () => {
                     {text.webhookGuide}:
                   </h3>
                   <ol className="text-sm space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-                    <li>1. Open Discord and go to your server settings</li>
-                    <li>2. Navigate to <strong>Integrations</strong> → <strong>Webhooks</strong></li>
-                    <li>3. Click <strong>New Webhook</strong> and select the channel</li>
-                    <li>4. Copy the webhook URL and paste it below</li>
+                    <li>1. {text.webhookStep1}</li>
+                    <li>2. {text.webhookStep2Prefix} <strong>{text.webhookStep2A}</strong> → <strong>{text.webhookStep2B}</strong></li>
+                    <li>3. {text.webhookStep3Prefix} <strong>{text.webhookStep3Action}</strong> {text.webhookStep3Suffix}</li>
+                    <li>4. {text.webhookStep4}</li>
                   </ol>
                   <p className="text-xs mt-3" style={{ color: 'var(--color-text-muted)' }}>
-                    Tip: keep the bot invited too for attendance processing and DM fanout reliability.
+                    {text.webhookTip}
                   </p>
                 </div>
 
@@ -700,7 +796,7 @@ const DiscordSettingsPage: React.FC = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                      Team Schedule Webhook URL
+                      {text.scheduleWebhookUrl}
                     </label>
                     <input
                       type="url"
@@ -719,7 +815,7 @@ const DiscordSettingsPage: React.FC = () => {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        Connected to #{settings.channelName} in {settings.guildName}
+                        {text.connectedTo.replace('{channel}', settings.channelName).replace('{guild}', settings.guildName || '')}
                       </p>
                     )}
                     {settings?.webhookValid === false && (
@@ -727,20 +823,20 @@ const DiscordSettingsPage: React.FC = () => {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
-                        Invalid or expired webhook URL
+                        {text.invalidWebhook}
                       </p>
                     )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                      Scrim Code Forwarding Webhook (Optional Override)
+                      {text.scrimWebhookUrl}
                     </label>
                     <input
                       type="url"
                       value={scrimCodeWebhookUrl}
                       onChange={e => setScrimCodeWebhookUrl(e.target.value)}
-                      placeholder="Leave empty to reuse the schedule webhook channel"
+                      placeholder={text.scrimWebhookPlaceholder}
                       className="w-full px-4 py-3 rounded-lg border text-sm transition-all focus:ring-2 focus:ring-offset-2 focus:ring-[#5865F2]"
                       style={{
                         backgroundColor: 'var(--color-bg-tertiary)',
@@ -749,14 +845,14 @@ const DiscordSettingsPage: React.FC = () => {
                       }}
                     />
                     <p className="mt-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                      By default, scrim code lifecycle updates use your schedule webhook channel. Set this only if you want a dedicated channel for scrim codes.
+                      {text.scrimWebhookHelp}
                     </p>
                     {settings?.scrimCodeWebhookValid === true && settings?.scrimCodeChannelName && (
                       <p className="mt-2 text-sm flex items-center gap-2" style={{ color: '#22C55E' }}>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        Scrim updates connected to #{settings.scrimCodeChannelName} in {settings.scrimCodeGuildName}
+                        {text.scrimConnectedTo.replace('{channel}', settings.scrimCodeChannelName).replace('{guild}', settings.scrimCodeGuildName || '')}
                       </p>
                     )}
                     {settings?.scrimCodeWebhookValid === false && (
@@ -764,7 +860,7 @@ const DiscordSettingsPage: React.FC = () => {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
-                        Invalid scrim code webhook URL
+                        {text.invalidScrimWebhook}
                       </p>
                     )}
                   </div>
@@ -772,7 +868,7 @@ const DiscordSettingsPage: React.FC = () => {
                   {/* Notification Options */}
                   <div className="pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
                     <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                      What to notify:
+                      {text.notifyTitle}
                     </h3>
                     
                     <div className="space-y-3">
@@ -790,10 +886,10 @@ const DiscordSettingsPage: React.FC = () => {
                         </div>
                         <div>
                           <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                            Schedule Events
+                            {text.scheduleEvents}
                           </span>
                           <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                            Scrims, practices, tournaments, VOD reviews, meetings
+                            {text.scheduleEventsDesc}
                           </p>
                         </div>
                       </button>
@@ -812,10 +908,10 @@ const DiscordSettingsPage: React.FC = () => {
                         </div>
                         <div>
                           <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                            Roster Changes
+                            {text.rosterChanges}
                           </span>
                           <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                            New members joining, role changes
+                            {text.rosterChangesDesc}
                           </p>
                         </div>
                       </button>
@@ -825,7 +921,7 @@ const DiscordSettingsPage: React.FC = () => {
                   {/* Schedule permissions */}
                   <div className="pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
                     <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                      Schedule Permissions
+                      {text.schedulePermissions}
                     </h3>
                     <button
                       type="button"
@@ -841,10 +937,10 @@ const DiscordSettingsPage: React.FC = () => {
                       </div>
                       <div>
                         <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                          Players can set schedule events
+                          {text.playersCanSetEvents}
                         </span>
                         <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                          Allow every team member to create, edit, and delete Team Schedule events. When disabled, only the owner, managers, and coaches can manage events.
+                          {text.playersCanSetEventsDesc}
                         </p>
                       </div>
                     </button>
@@ -853,10 +949,10 @@ const DiscordSettingsPage: React.FC = () => {
                   {/* Mention strategy */}
                   <div className="pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
                     <h3 className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                      Mention Strategy
+                      {text.mentionStrategy}
                     </h3>
                     <p className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-                      Choose how channel notifications ping people. Event audience targeting is still controlled per event in Team Schedule.
+                      {text.mentionStrategyDesc}
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
@@ -870,7 +966,7 @@ const DiscordSettingsPage: React.FC = () => {
                         }}
                       >
                         <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>@everyone</p>
-                        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>Always ping everyone in the channel</p>
+                        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{text.everyoneDesc}</p>
                       </button>
 
                       <button
@@ -882,8 +978,8 @@ const DiscordSettingsPage: React.FC = () => {
                           borderColor: mentionMode === 'ROLE' ? 'rgba(88, 101, 242, 0.4)' : 'var(--color-border)',
                         }}
                       >
-                        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Single Discord Role</p>
-                        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>Ping one fixed Discord role</p>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{text.singleRole}</p>
+                        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{text.singleRoleDesc}</p>
                       </button>
 
                       <button
@@ -895,15 +991,15 @@ const DiscordSettingsPage: React.FC = () => {
                           borderColor: mentionMode === 'TEAM_ROLE_MAP' ? 'rgba(88, 101, 242, 0.4)' : 'var(--color-border)',
                         }}
                       >
-                        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Team Role Mapping</p>
-                        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>Map team roles to Discord role IDs</p>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{text.teamRoleMapping}</p>
+                        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{text.teamRoleMappingDesc}</p>
                       </button>
                     </div>
 
                     {mentionMode === 'ROLE' && (
                       <div>
                         <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                          Discord Role ID
+                          {text.discordRoleId}
                         </label>
                         <input
                           type="text"
@@ -923,7 +1019,7 @@ const DiscordSettingsPage: React.FC = () => {
                     {mentionMode === 'TEAM_ROLE_MAP' && (
                       <div>
                         <p className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-                          Configure only the roles you want pinged. Leave others empty.
+                          {text.teamRoleMappingHelp}
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {TEAM_ROLE_OPTIONS.map((role) => (
@@ -946,7 +1042,7 @@ const DiscordSettingsPage: React.FC = () => {
                                     return next;
                                   });
                                 }}
-                                placeholder="Discord role ID"
+                                placeholder={text.discordRolePlaceholder}
                                 className="w-full px-3 py-2 rounded-lg border text-sm"
                                 style={{
                                   backgroundColor: 'var(--color-bg-tertiary)',
@@ -961,10 +1057,10 @@ const DiscordSettingsPage: React.FC = () => {
                     )}
 
                     <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
-                      <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Mention preview:</p>
+                      <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>{text.mentionPreview}</p>
                       {mentionMode === 'TEAM_ROLE_MAP' && previewMentions.length === 0 ? (
                         <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                          No mapped roles yet (messages will be sent without role ping until you add role IDs).
+                          {text.noMappedRoles}
                         </p>
                       ) : (
                         <div className="flex flex-wrap gap-2">

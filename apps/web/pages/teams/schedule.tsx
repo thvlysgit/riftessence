@@ -252,6 +252,39 @@ const TeamSchedulePage: React.FC = () => {
         setStatus: 'Définir le statut',
         changeStatus: 'Modifier le statut',
         attendanceTitle: 'Présence',
+        editEvent: 'Modifier l evenement',
+        updateEventDetails: 'Mets a jour les details',
+        scheduleActivity: 'Planifie une activite team',
+        eventTitle: 'Titre de l evenement',
+        eventTitlePlaceholder: 'ex. Scrim vs Team X',
+        eventType: 'Type d evenement',
+        dateTime: 'Date & heure',
+        timezoneHint: 'Interprete dans ton fuseau local, puis enregistre en UTC pour eviter les decalages.',
+        durationMin: 'Duree (min)',
+        durationPlaceholder: 'ex. 120',
+        descriptionOptional: 'Description',
+        optionalParen: '(optionnel)',
+        descriptionPlaceholder: 'Details supplementaires...',
+        enemyTeamLink: 'Lien de la team adverse',
+        enemyTeamPlaceholder: 'https://example.com/team ou lien multi.gg',
+        enemyTeamHelp: 'Tout lien utile pour scout ou identifier la team adverse',
+        assignCoaches: 'Assigner des coaches',
+        noCoaches: 'Aucun coach dans cette team pour le moment',
+        coach: 'Coach',
+        concernedMembers: 'Membres concernes',
+        concernedMembersDesc: 'Seuls les membres concernes voient cet evenement dans le planning et recoivent les notifications. Par defaut, tout le monde dans la team est concerne.',
+        everyone: 'Tout le monde',
+        specificMembers: 'Membres specifiques',
+        cancel: 'Annuler',
+        saveChanges: 'Enregistrer',
+        createEvent: 'Creer l evenement',
+        saving: 'Enregistrement...',
+        creating: 'Creation...',
+        eventLabelScrim: 'Scrim',
+        eventLabelPractice: 'Practice',
+        eventLabelVod: 'VOD Review',
+        eventLabelTournament: 'Tournoi',
+        eventLabelTeam: 'Team',
       }
     : {
         title: 'Team Schedule',
@@ -266,7 +299,48 @@ const TeamSchedulePage: React.FC = () => {
         setStatus: 'Set Status',
         changeStatus: 'Change Status',
         attendanceTitle: 'Attendance',
+        editEvent: 'Edit Event',
+        updateEventDetails: 'Update event details',
+        scheduleActivity: 'Schedule a team activity',
+        eventTitle: 'Event Title',
+        eventTitlePlaceholder: 'e.g., Scrim vs Team X',
+        eventType: 'Event Type',
+        dateTime: 'Date & Time',
+        timezoneHint: 'Interpreted in your local timezone, then saved in UTC to avoid timezone shifts.',
+        durationMin: 'Duration (min)',
+        durationPlaceholder: 'e.g., 120',
+        descriptionOptional: 'Description',
+        optionalParen: '(optional)',
+        descriptionPlaceholder: 'Additional details...',
+        enemyTeamLink: 'Enemy Team Link',
+        enemyTeamPlaceholder: 'https://example.com/team or multi.gg link',
+        enemyTeamHelp: 'Any link to scout or identify the enemy team',
+        assignCoaches: 'Assign Coaches',
+        noCoaches: 'No coaches in this team yet',
+        coach: 'Coach',
+        concernedMembers: 'Concerned Members',
+        concernedMembersDesc: 'Only concerned members see this event in schedule and receive event notifications. Default is everyone in the team.',
+        everyone: 'Everyone',
+        specificMembers: 'Specific Members',
+        cancel: 'Cancel',
+        saveChanges: 'Save Changes',
+        createEvent: 'Create Event',
+        saving: 'Saving...',
+        creating: 'Creating...',
+        eventLabelScrim: 'Scrim',
+        eventLabelPractice: 'Practice',
+        eventLabelVod: 'VOD Review',
+        eventLabelTournament: 'Tournament',
+        eventLabelTeam: 'Team',
       };
+
+  const eventLabels: Record<string, string> = {
+    SCRIM: text.eventLabelScrim,
+    PRACTICE: text.eventLabelPractice,
+    VOD_REVIEW: text.eventLabelVod,
+    TOURNAMENT: text.eventLabelTournament,
+    TEAM_MEETING: text.eventLabelTeam,
+  };
 
   // Get coaches from team members for VOD Review assignment
   const getTeamCoaches = (): { userId: string; username: string }[] => {
@@ -1228,7 +1302,7 @@ const TeamSchedulePage: React.FC = () => {
                                     {height > 50 && (
                                       <div className="flex items-center gap-1 mt-auto text-white/70 text-xs">
                                         {EVENT_ICONS[event.type]}
-                                        <span>{EVENT_LABELS[event.type]}</span>
+                                        <span>{eventLabels[event.type]}</span>
                                       </div>
                                     )}
                                   </div>
@@ -1632,7 +1706,7 @@ const TeamSchedulePage: React.FC = () => {
                         <div className="flex items-center gap-2">
                           {EVENT_ICONS[selectedEvent.type]}
                           <span className="text-xs font-bold uppercase tracking-wider text-white/80">
-                            {EVENT_LABELS[selectedEvent.type]}
+                            {eventLabels[selectedEvent.type]}
                           </span>
                         </div>
                         <button
@@ -1910,7 +1984,7 @@ const TeamSchedulePage: React.FC = () => {
                               >
                                 <div className="flex items-center justify-between mb-1">
                                   <span className="text-xs font-medium" style={{ color: EVENT_COLORS[event.type] }}>
-                                    {EVENT_LABELS[event.type]}
+                                    {eventLabels[event.type]}
                                   </span>
                                   {myAtt && (
                                     <span
@@ -1957,7 +2031,7 @@ const TeamSchedulePage: React.FC = () => {
                         Event Types
                       </h3>
                       <div className="space-y-2">
-                        {Object.entries(EVENT_LABELS).map(([type, label]) => (
+                        {Object.entries(eventLabels).map(([type, label]) => (
                           <div key={type} className="flex items-center gap-3">
                             <div
                               className="w-3 h-3 rounded-full"
@@ -2067,10 +2141,10 @@ const TeamSchedulePage: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                    {editingEvent ? 'Edit Event' : 'New Event'}
+                    {editingEvent ? text.editEvent : text.newEvent}
                   </h2>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    {editingEvent ? 'Update event details' : 'Schedule a team activity'}
+                    {editingEvent ? text.updateEventDetails : text.scheduleActivity}
                   </p>
                 </div>
               </div>
@@ -2097,7 +2171,7 @@ const TeamSchedulePage: React.FC = () => {
             <form onSubmit={handleCreateEvent} className="p-5 space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                  Event Title *
+                  {text.eventTitle} *
                 </label>
                 <input
                   type="text"
@@ -2109,7 +2183,7 @@ const TeamSchedulePage: React.FC = () => {
                     borderColor: 'var(--color-border)',
                     color: 'var(--color-text-primary)',
                   }}
-                  placeholder="e.g., Scrim vs Team X"
+                  placeholder={text.eventTitlePlaceholder}
                   maxLength={100}
                   required
                 />
@@ -2118,10 +2192,10 @@ const TeamSchedulePage: React.FC = () => {
               {/* Event Type Visual Selector */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                  Event Type *
+                  {text.eventType} *
                 </label>
                 <div className="grid grid-cols-5 gap-2">
-                  {Object.entries(EVENT_LABELS).map(([type, label]) => (
+                  {Object.entries(eventLabels).map(([type, label]) => (
                     <button
                       key={type}
                       type="button"
@@ -2155,7 +2229,7 @@ const TeamSchedulePage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                    Date & Time *
+                    {text.dateTime} *
                   </label>
                   <input
                     type="datetime-local"
@@ -2170,13 +2244,13 @@ const TeamSchedulePage: React.FC = () => {
                     required
                   />
                   <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                    Interpreted in your local timezone, then saved in UTC to avoid timezone shifts.
+                    {text.timezoneHint}
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                    Duration (min)
+                    {text.durationMin}
                   </label>
                   <input
                     type="number"
@@ -2188,7 +2262,7 @@ const TeamSchedulePage: React.FC = () => {
                       borderColor: 'var(--color-border)',
                       color: 'var(--color-text-primary)',
                     }}
-                    placeholder="e.g., 120"
+                    placeholder={text.durationPlaceholder}
                     min="15"
                     max="480"
                   />
@@ -2197,7 +2271,7 @@ const TeamSchedulePage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                  Description <span className="font-normal">(optional)</span>
+                  {text.descriptionOptional} <span className="font-normal">{text.optionalParen}</span>
                 </label>
                 <textarea
                   value={eventForm.description}
@@ -2208,7 +2282,7 @@ const TeamSchedulePage: React.FC = () => {
                     borderColor: 'var(--color-border)',
                     color: 'var(--color-text-primary)',
                   }}
-                  placeholder="Additional details..."
+                  placeholder={text.descriptionPlaceholder}
                   rows={2}
                   maxLength={500}
                 />
@@ -2221,7 +2295,7 @@ const TeamSchedulePage: React.FC = () => {
                   style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)' }}
                 >
                   <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#A78BFA' }}>
-                    Enemy Team Link <span className="font-normal">(optional)</span>
+                    {text.enemyTeamLink} <span className="font-normal">{text.optionalParen}</span>
                   </label>
                   <input
                     type="text"
@@ -2233,10 +2307,10 @@ const TeamSchedulePage: React.FC = () => {
                       borderColor: 'rgba(139, 92, 246, 0.3)',
                       color: 'var(--color-text-primary)',
                     }}
-                    placeholder="https://example.com/team or multi.gg link"
+                    placeholder={text.enemyTeamPlaceholder}
                   />
                   <p className="text-[10px] mt-1.5" style={{ color: 'rgba(167, 139, 250, 0.7)' }}>
-                    Any link to scout or identify the enemy team
+                    {text.enemyTeamHelp}
                   </p>
                 </div>
               )}
@@ -2248,7 +2322,7 @@ const TeamSchedulePage: React.FC = () => {
                   style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.2)' }}
                 >
                   <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#F59E0B' }}>
-                    Assign Coaches <span className="font-normal">(optional)</span>
+                    {text.assignCoaches} <span className="font-normal">{text.optionalParen}</span>
                   </label>
                   {getTeamCoaches().length > 0 ? (
                     <div className="space-y-2">
@@ -2280,14 +2354,14 @@ const TeamSchedulePage: React.FC = () => {
                             className="text-xs px-2 py-0.5 rounded-full"
                             style={{ backgroundColor: 'rgba(157, 78, 221, 0.2)', color: '#9D4EDD' }}
                           >
-                            Coach
+                            {text.coach}
                           </span>
                         </label>
                       ))}
                     </div>
                   ) : (
                     <p className="text-sm py-2 text-center" style={{ color: 'var(--color-text-muted)' }}>
-                      No coaches in this team yet
+                      {text.noCoaches}
                     </p>
                   )}
                 </div>
@@ -2299,10 +2373,10 @@ const TeamSchedulePage: React.FC = () => {
                 style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)' }}
               >
                 <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#3B82F6' }}>
-                  Concerned Members
+                  {text.concernedMembers}
                 </label>
                 <p className="text-[11px] mb-3" style={{ color: 'var(--color-text-muted)' }}>
-                  Only concerned members see this event in schedule and receive event notifications. Default is everyone in the team.
+                  {text.concernedMembersDesc}
                 </p>
 
                 <div className="grid grid-cols-2 gap-2 mb-3">
@@ -2316,7 +2390,7 @@ const TeamSchedulePage: React.FC = () => {
                       border: `1px solid ${eventForm.concernedMemberIds.length === 0 ? 'rgba(59, 130, 246, 0.35)' : 'var(--color-border)'}`,
                     }}
                   >
-                    Everyone
+                    {text.everyone}
                   </button>
                   <button
                     type="button"
@@ -2332,7 +2406,7 @@ const TeamSchedulePage: React.FC = () => {
                       border: `1px solid ${eventForm.concernedMemberIds.length > 0 ? 'rgba(59, 130, 246, 0.35)' : 'var(--color-border)'}`,
                     }}
                   >
-                    Specific Members
+                    {text.specificMembers}
                   </button>
                 </div>
 
@@ -2390,7 +2464,7 @@ const TeamSchedulePage: React.FC = () => {
                     color: 'var(--color-text-primary)',
                   }}
                 >
-                  Cancel
+                  {text.cancel}
                 </button>
                 <button
                   type="submit"
@@ -2412,7 +2486,7 @@ const TeamSchedulePage: React.FC = () => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      {editingEvent ? 'Saving...' : 'Creating...'}
+                      {editingEvent ? text.saving : text.creating}
                     </>
                   ) : (
                     <>
@@ -2423,7 +2497,7 @@ const TeamSchedulePage: React.FC = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         )}
                       </svg>
-                      {editingEvent ? 'Save Changes' : 'Create Event'}
+                      {editingEvent ? text.saveChanges : text.createEvent}
                     </>
                   )}
                 </button>
@@ -2506,7 +2580,7 @@ const TeamSchedulePage: React.FC = () => {
                     {EVENT_ICONS[newlyCreatedEvent.type]}
                   </span>
                   <span style={{ color: 'var(--color-text-secondary)' }}>
-                    {EVENT_LABELS[newlyCreatedEvent.type]}
+                    {eventLabels[newlyCreatedEvent.type]}
                   </span>
                 </div>
               </div>

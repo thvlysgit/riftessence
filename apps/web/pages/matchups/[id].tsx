@@ -111,12 +111,12 @@ const MatchupDetailPage: React.FC = () => {
       
       if (!response.ok) {
         if (response.status === 404) {
-          showToast('Matchup not found', 'error');
+          showToast(t('matchups.notFound'), 'error');
           router.push('/matchups');
           return;
         }
         if (response.status === 403) {
-          showToast('You do not have access to this matchup', 'error');
+          showToast(t('matchups.noAccess'), 'error');
           router.push('/matchups');
           return;
         }
@@ -421,7 +421,7 @@ const MatchupDetailPage: React.FC = () => {
                   variant="secondary"
                   size="lg"
                 >
-                  {matchup.isPublic ? 'Make Private' : 'Make Public'}
+                  {matchup.isPublic ? t('matchups.makePrivate') : t('matchups.makePublicAction')}
                 </MatchupButton>
                 
                 <MatchupButton
@@ -450,7 +450,7 @@ const MatchupDetailPage: React.FC = () => {
                     border: '1px solid var(--color-border)',
                     cursor: !user ? 'not-allowed' : 'pointer',
                   }}
-                  title={!user ? 'Login to vote' : t('matchups.like')}
+                  title={!user ? t('matchups.loginToVote') : t('matchups.like')}
                 >
                   👍 {t('matchups.like')}
                 </button>
@@ -471,7 +471,7 @@ const MatchupDetailPage: React.FC = () => {
                     border: '1px solid var(--color-border)',
                     cursor: !user ? 'not-allowed' : 'pointer',
                   }}
-                  title={!user ? 'Login to vote' : t('matchups.dislike')}
+                  title={!user ? t('matchups.loginToVote') : t('matchups.dislike')}
                 >
                   👎 {t('matchups.dislike')}
                 </button>
@@ -481,7 +481,7 @@ const MatchupDetailPage: React.FC = () => {
                 className="text-center py-4"
                 style={{ color: 'var(--color-text-muted)' }}
               >
-                This is a private matchup
+                {t('matchups.privateMatchup')}
               </div>
             )}
           </div>
@@ -548,7 +548,7 @@ const MatchupDetailPage: React.FC = () => {
                   : 'transparent',
               }}
             >
-              Runes
+              {t('matchups.runes')}
             </button>
 
             <button
@@ -565,7 +565,7 @@ const MatchupDetailPage: React.FC = () => {
                   : 'transparent',
               }}
             >
-              Builds
+              {t('matchups.builds')}
             </button>
             
             <button
@@ -607,13 +607,13 @@ const MatchupDetailPage: React.FC = () => {
           <div className="p-6">
             {activeTab === 'laning' && (
               <div style={{ color: 'var(--color-text-primary)' }}>
-                <MatchupRichText text={matchup.laningNotes} champion={matchup.myChampion} emptyText="No notes provided for laning phase." />
+                <MatchupRichText text={matchup.laningNotes} champion={matchup.myChampion} emptyText={t('matchups.noLaningNotes')} />
               </div>
             )}
             
             {activeTab === 'teamfight' && (
               <div style={{ color: 'var(--color-text-primary)' }}>
-                <MatchupRichText text={matchup.teamfightNotes} champion={matchup.myChampion} emptyText="No notes provided for team fights." />
+                <MatchupRichText text={matchup.teamfightNotes} champion={matchup.myChampion} emptyText={t('matchups.noTeamfightNotes')} />
               </div>
             )}
 
@@ -627,13 +627,13 @@ const MatchupDetailPage: React.FC = () => {
             
             {activeTab === 'items' && (
               <div style={{ color: 'var(--color-text-primary)' }}>
-                <MatchupRichText text={matchup.itemNotes} champion={matchup.myChampion} emptyText="No notes provided for items and builds." />
+                <MatchupRichText text={matchup.itemNotes} champion={matchup.myChampion} emptyText={t('matchups.noItemNotes')} />
               </div>
             )}
             
             {activeTab === 'spikes' && (
               <div style={{ color: 'var(--color-text-primary)' }}>
-                <MatchupRichText text={matchup.spikeNotes} champion={matchup.myChampion} emptyText="No notes provided for power spikes." />
+                <MatchupRichText text={matchup.spikeNotes} champion={matchup.myChampion} emptyText={t('matchups.noSpikeNotes')} />
               </div>
             )}
           </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { MatchupKnowledgeSuggestion, fetchItemSuggestions } from '../utils/matchupKnowledgeData';
+import { MatchupKnowledgeSuggestion, fetchItemSuggestions, getDataDragonLocale } from '../utils/matchupKnowledgeData';
+import { useLanguage } from '../contexts/LanguageContext';
 import { MatchupButton } from './MatchupButton';
 
 export interface MatchupBuildItem {
@@ -27,17 +28,17 @@ interface MatchupBuildPlannerProps {
 
 type BuildSectionKey = 'startingItems' | 'boots' | 'coreItems' | 'situationalItems' | 'finalItems';
 
-const sections: Array<{ key: BuildSectionKey; label: string; limit: number }> = [
-  { key: 'startingItems', label: 'Start', limit: 8 },
-  { key: 'boots', label: 'Boots', limit: 4 },
-  { key: 'coreItems', label: 'Core', limit: 8 },
-  { key: 'situationalItems', label: 'Situational', limit: 12 },
-  { key: 'finalItems', label: 'Full build', limit: 8 },
+const sections: Array<{ key: BuildSectionKey; labelKey: string; limit: number }> = [
+  { key: 'startingItems', labelKey: 'matchups.buildSection.start', limit: 8 },
+  { key: 'boots', labelKey: 'matchups.buildSection.boots', limit: 4 },
+  { key: 'coreItems', labelKey: 'matchups.buildSection.core', limit: 8 },
+  { key: 'situationalItems', labelKey: 'matchups.buildSection.situational', limit: 12 },
+  { key: 'finalItems', labelKey: 'matchups.buildSection.fullBuild', limit: 8 },
 ];
 
-const newBuild = (index: number): MatchupItemBuild => ({
+const newBuild = (index: number, fallbackName = `Build ${index + 1}`): MatchupItemBuild => ({
   id: `item-build-${Date.now()}-${index}`,
-  name: `Build ${index + 1}`,
+  name: fallbackName,
   startingItems: [],
   boots: [],
   coreItems: [],
@@ -55,8 +56,9 @@ const toBuildItem = (suggestion: MatchupKnowledgeSuggestion): MatchupBuildItem =
 const ItemSearch: React.FC<{
   items: MatchupKnowledgeSuggestion[];
   onSelect: (item: MatchupBuildItem) => void;
+  placeholder: string;
   disabled?: boolean;
-}> = ({ items, onSelect, disabled }) => {
+}> = ({ items, onSelect, placeholder, disabled }) => {
   const [query, setQuery] = useState('');
   const matches = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -72,7 +74,7 @@ const ItemSearch: React.FC<{
         value={query}
         disabled={disabled}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="Search item..."
+        placeholder={placeholder}
         className="w-full rounded-lg px-3 py-2 text-sm outline-none disabled:opacity-50"
         style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
       />
@@ -102,23 +104,25 @@ const ItemSearch: React.FC<{
 };
 
 export const MatchupBuildPlanner: React.FC<MatchupBuildPlannerProps> = ({ value, onChange }) => {
+  const { t, currentLanguage } = useLanguage();
+  const dataDragonLocale = getDataDragonLocale(currentLanguage);
   const [items, setItems] = useState<MatchupKnowledgeSuggestion[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
     let mounted = true;
-    fetchItemSuggestions()
+    fetchItemSuggestions(dataDragonLocale)
       .then((itemSuggestions) => {
         if (!mounted) return;
         setItems(itemSuggestions);
-        if (!value.length) onChange([newBuild(0)]);
+        if (!value.length) onChange([newBuild(0, t('matchups.buildName', { count: '1' }))]);
       })
       .catch(() => setItems([]));
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [dataDragonLocale]);
 
   const activeBuild = value[activeIndex] || value[0];
 
@@ -129,7 +133,7 @@ export const MatchupBuildPlanner: React.FC<MatchupBuildPlannerProps> = ({ value,
   };
 
   const addBuild = () => {
-    const next = [...value, newBuild(value.length)];
+    const next = [...value, newBuild(value.length, t('matchups.buildName', { count: String(value.length + 1) }))];
     onChange(next);
     setActiveIndex(next.length - 1);
   };
@@ -171,13 +175,13 @@ export const MatchupBuildPlanner: React.FC<MatchupBuildPlannerProps> = ({ value,
                 color: index === activeIndex ? 'var(--color-accent-1)' : 'var(--color-text-secondary)',
               }}
             >
-              {build.name || `Build ${index + 1}`}
+              {build.name || t('matchups.buildName', { count: String(index + 1) })}
             </button>
           ))}
         </div>
         <div className="flex gap-2">
-          <MatchupButton size="sm" variant="secondary" onClick={addBuild}>Add build</MatchupButton>
-          {value.length > 1 && <MatchupButton size="sm" variant="danger" onClick={removeBuild}>Remove</MatchupButton>}
+          <MatchupButton size="sm" variant="secondary" onClick={addBuild}>{t('matchups.addBuild')}</MatchupButton>
+          {value.length > 1 && <MatchupButton size="sm" variant="danger" onClick={removeBuild}>{t('common.remove')}</MatchupButton>}
         </div>
       </div>
 
@@ -192,7 +196,7 @@ export const MatchupBuildPlanner: React.FC<MatchupBuildPlannerProps> = ({ value,
         {sections.map((section) => (
           <div key={section.key} className="rounded-lg p-4" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>{section.label}</h3>
+              <h3 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>{t(section.labelKey as any)}</h3>
               <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{activeBuild[section.key].length}/{section.limit}</span>
             </div>
 
@@ -202,7 +206,7 @@ export const MatchupBuildPlanner: React.FC<MatchupBuildPlannerProps> = ({ value,
                   key={`${item.id}-${itemIndex}`}
                   type="button"
                   onClick={() => removeItem(section.key, itemIndex)}
-                  title={`Remove ${item.name}`}
+                  title={t('matchups.removeItem', { name: item.name })}
                   className="group relative rounded-md transition-transform hover:scale-105"
                 >
                   <Image src={item.iconUrl} alt={item.name} width={40} height={40} className="rounded-md" />
@@ -210,12 +214,13 @@ export const MatchupBuildPlanner: React.FC<MatchupBuildPlannerProps> = ({ value,
                 </button>
               ))}
               {!activeBuild[section.key].length && (
-                <span className="text-sm italic" style={{ color: 'var(--color-text-muted)' }}>No items yet.</span>
+                <span className="text-sm italic" style={{ color: 'var(--color-text-muted)' }}>{t('matchups.noItemsYet')}</span>
               )}
             </div>
 
             <ItemSearch
               items={items}
+              placeholder={t('matchups.searchItem')}
               disabled={activeBuild[section.key].length >= section.limit}
               onSelect={(item) => addItem(section.key, item, section.limit)}
             />
@@ -226,7 +231,7 @@ export const MatchupBuildPlanner: React.FC<MatchupBuildPlannerProps> = ({ value,
       <textarea
         value={activeBuild.notes}
         onChange={(event) => updateBuild({ notes: event.target.value.slice(0, 500) })}
-        placeholder="Recall timing, substitutions, or matchup-specific item rules..."
+        placeholder={t('matchups.itemBuildNotesPlaceholder')}
         rows={3}
         className="w-full resize-none rounded-lg px-3 py-2 text-sm outline-none"
         style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
@@ -236,15 +241,29 @@ export const MatchupBuildPlanner: React.FC<MatchupBuildPlannerProps> = ({ value,
 };
 
 export const MatchupItemBuildsView: React.FC<{ builds?: MatchupItemBuild[] }> = ({ builds = [] }) => {
+  const { t, currentLanguage } = useLanguage();
+  const dataDragonLocale = getDataDragonLocale(currentLanguage);
+  const [items, setItems] = useState<MatchupKnowledgeSuggestion[]>([]);
+
+  useEffect(() => {
+    fetchItemSuggestions(dataDragonLocale).then(setItems).catch(() => setItems([]));
+  }, [dataDragonLocale]);
+
+  const itemNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    items.forEach((item) => map.set(item.id.replace('item-', ''), item.name));
+    return map;
+  }, [items]);
+
   if (!builds.length) {
-    return <p className="text-sm italic" style={{ color: 'var(--color-text-muted)' }}>No item builds saved.</p>;
+    return <p className="text-sm italic" style={{ color: 'var(--color-text-muted)' }}>{t('matchups.noItemBuilds')}</p>;
   }
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {builds.map((build, index) => (
         <div key={build.id || index} className="rounded-lg p-4" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
-          <h3 className="mb-3 font-bold" style={{ color: 'var(--color-text-primary)' }}>{build.name || `Build ${index + 1}`}</h3>
+          <h3 className="mb-3 font-bold" style={{ color: 'var(--color-text-primary)' }}>{build.name || t('matchups.buildName', { count: String(index + 1) })}</h3>
           <div className="space-y-3">
             {sections.map((section) => {
               const items = build[section.key] || [];
@@ -252,12 +271,12 @@ export const MatchupItemBuildsView: React.FC<{ builds?: MatchupItemBuild[] }> = 
 
               return (
                 <div key={section.key}>
-                  <div className="mb-1 text-xs font-bold uppercase" style={{ color: 'var(--color-text-muted)' }}>{section.label}</div>
+                  <div className="mb-1 text-xs font-bold uppercase" style={{ color: 'var(--color-text-muted)' }}>{t(section.labelKey as any)}</div>
                   <div className="flex flex-wrap gap-2">
                     {items.map((item, itemIndex) => (
                       <span key={`${item.id}-${itemIndex}`} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
                         <Image src={item.iconUrl} alt="" width={22} height={22} className="rounded" />
-                        {item.name}
+                        {itemNameMap.get(item.id) || item.name}
                       </span>
                     ))}
                   </div>

@@ -8,7 +8,7 @@
 
 ### Objective: Make i18n easier to extend and safer to maintain
 
-Overview: Reworked the web translation system from one large hand-typed file into modular locale catalogs with English-derived keys, compile-time parity checks, centralized language metadata, and lightweight interpolation. Follow-up sweep added French coverage for newly surfaced feed, profile, navbar, chat, access modal, and champion autocomplete copy.
+Overview: Reworked the web translation system from one large hand-typed file into modular locale catalogs with English-derived keys, compile-time parity checks, centralized language metadata, and lightweight interpolation. Follow-up sweeps added French coverage for newly surfaced feed, profile, navbar, chat, access modal, champion autocomplete, Discord/team scheduling, bug reporting, and matchup planning copy.
 
 Changes:
 
@@ -26,6 +26,13 @@ Changes:
   - Feed filter boxes, active filter pills, duo post verification/status labels, post actions, and admin delete copy.
   - Profile snapshot, champion pool helper states, linked Riot/Discord panels, anonymous mode, region, and feedback labels.
   - Navbar search/menu labels, chat window/Discord DM prompt, access requirement modals, and champion autocomplete empty states.
+  - Bug report modal, Discord forwarding setup/status blocks, and Team Schedule event creation/editing modal.
+  - Matchup setup, rune builder, build planner, smart note helper text, matchup detail tabs, and Discover guide own-matchup tooltips.
+- Updated [apps/web/utils/matchupKnowledgeData.ts](apps/web/utils/matchupKnowledgeData.ts):
+  - Added UI-language to Data Dragon locale mapping (`en_US`, `fr_FR`).
+  - Locale-scoped Data Dragon cache keys for items, runes, rune trees, and champion spell suggestions.
+  - Runes/items/spells can now use Riot-provided French names while champion names stay canonical.
+- Documented the product decision still needed for auto-translating user-authored matchup guide text, with opt-in cached translation as the recommended direction.
 
 Verification:
 - `pnpm --filter @lfd/web build` passes.

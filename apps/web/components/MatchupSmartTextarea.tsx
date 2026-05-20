@@ -3,8 +3,10 @@ import Image from 'next/image';
 import {
   fetchChampionSpellSuggestions,
   fetchMatchupKnowledge,
+  getDataDragonLocale,
   MatchupKnowledgeSuggestion,
 } from '../utils/matchupKnowledgeData';
+import { useLanguage } from '../contexts/LanguageContext';
 import { MatchupRichText } from './MatchupRichText';
 
 interface MatchupSmartTextareaProps {
@@ -23,12 +25,6 @@ interface ActiveFragment {
   end: number;
   query: string;
 }
-
-const typeLabel: Record<string, string> = {
-  spell: 'Spell',
-  item: 'Item',
-  rune: 'Rune',
-};
 
 const getActiveFragment = (text: string, cursor: number): ActiveFragment | null => {
   const beforeCursor = text.slice(0, cursor);
@@ -67,6 +63,8 @@ export const MatchupSmartTextarea: React.FC<MatchupSmartTextareaProps> = ({
   rows = 5,
   helperText,
 }) => {
+  const { t, currentLanguage } = useLanguage();
+  const dataDragonLocale = getDataDragonLocale(currentLanguage);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [cursorPosition, setCursorPosition] = useState(0);
   const [itemsAndRunes, setItemsAndRunes] = useState<MatchupKnowledgeSuggestion[]>([]);
@@ -80,8 +78,8 @@ export const MatchupSmartTextarea: React.FC<MatchupSmartTextareaProps> = ({
       setIsKnowledgeLoading(true);
       try {
         const [knowledge, championSpells] = await Promise.all([
-          fetchMatchupKnowledge(),
-          fetchChampionSpellSuggestions(champion),
+          fetchMatchupKnowledge(dataDragonLocale),
+          fetchChampionSpellSuggestions(champion, dataDragonLocale),
         ]);
 
         if (!cancelled) {
@@ -102,7 +100,13 @@ export const MatchupSmartTextarea: React.FC<MatchupSmartTextareaProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [champion]);
+  }, [champion, dataDragonLocale]);
+
+  const typeLabel: Record<string, string> = {
+    spell: t('matchups.suggestionType.spell'),
+    item: t('matchups.suggestionType.item'),
+    rune: t('matchups.suggestionType.rune'),
+  };
 
   const activeFragment = useMemo(() => getActiveFragment(value, cursorPosition), [cursorPosition, value]);
 
@@ -146,7 +150,7 @@ export const MatchupSmartTextarea: React.FC<MatchupSmartTextareaProps> = ({
           {label}
         </label>
         <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {maxLength - value.length} left
+          {t('matchups.charactersLeft', { count: String(maxLength - value.length) })}
         </span>
       </div>
 
@@ -219,8 +223,8 @@ export const MatchupSmartTextarea: React.FC<MatchupSmartTextareaProps> = ({
 
       <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
         <span>{helperText}</span>
-        {champion && <span>Type Q/W/E/R for {champion} spells.</span>}
-        <span>{isKnowledgeLoading ? 'Loading icons...' : 'Items and runes use Data Dragon icons.'}</span>
+        {champion && <span>{t('matchups.spellHint', { champion })}</span>}
+        <span>{isKnowledgeLoading ? t('matchups.loadingIcons') : t('matchups.dataDragonHint')}</span>
       </div>
 
       {value.trim() && (
@@ -232,7 +236,7 @@ export const MatchupSmartTextarea: React.FC<MatchupSmartTextareaProps> = ({
           }}
         >
           <div className="mb-2 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
-            Rendered preview
+            {t('matchups.renderedPreview')}
           </div>
           <MatchupRichText text={value} champion={champion} compact />
         </div>

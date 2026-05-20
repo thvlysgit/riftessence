@@ -302,10 +302,10 @@ const CreateMatchupPage: React.FC = () => {
               <div className="mb-5 flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                    Matchup Setup
+                    {t('matchups.setupTitle')}
                   </h2>
                   <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    Pick the lane, your champion, the opponent, and the difficulty baseline.
+                    {t('matchups.setupDescription')}
                   </p>
                 </div>
               </div>
@@ -374,10 +374,10 @@ const CreateMatchupPage: React.FC = () => {
             >
               <div className="mb-5">
                 <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                  Rune Builder
+                  {t('matchups.runeBuilder')}
                 </h2>
                 <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  Create one or more in-game style rune pages for different lanes, recalls, or enemy patterns.
+                  {t('matchups.runeBuilderDesc')}
                 </p>
               </div>
               <MatchupRuneBuilder value={runePages} onChange={setRunePages} />
@@ -393,10 +393,10 @@ const CreateMatchupPage: React.FC = () => {
             >
               <div className="mb-5">
                 <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                  Build Planner
+                  {t('matchups.buildPlanner')}
                 </h2>
                 <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  Plan starts, boots, core items, situational swaps, and full-build variants with current item icons.
+                  {t('matchups.buildPlannerDesc')}
                 </p>
               </div>
               <MatchupBuildPlanner value={itemBuilds} onChange={setItemBuilds} />
@@ -412,10 +412,10 @@ const CreateMatchupPage: React.FC = () => {
             >
               <div className="mb-5">
                 <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                  Smart Notes
+                  {t('matchups.smartNotes')}
                 </h2>
                 <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  Type champion spells, item names, or rune names to get icon-backed suggestions.
+                  {t('matchups.smartNotesDesc')}
                 </p>
               </div>
 
@@ -426,7 +426,7 @@ const CreateMatchupPage: React.FC = () => {
                   onChange={setLaningNotes}
                   placeholder={t('matchups.laningNotesPlaceholder')}
                   champion={myChampion}
-                  helperText="Good for wave plans, trading windows, cooldown tracking, and level spikes."
+                  helperText={t('matchups.laningHelper')}
                 />
 
                 <MatchupSmartTextarea
@@ -435,7 +435,7 @@ const CreateMatchupPage: React.FC = () => {
                   onChange={setTeamfightNotes}
                   placeholder={t('matchups.teamfightNotesPlaceholder')}
                   champion={myChampion}
-                  helperText="Capture engage angles, peel rules, target priority, and combo notes."
+                  helperText={t('matchups.teamfightHelper')}
                 />
 
                 <MatchupSmartTextarea
@@ -444,7 +444,7 @@ const CreateMatchupPage: React.FC = () => {
                   onChange={setItemBuild}
                   placeholder={t('matchups.itemNotesPlaceholder')}
                   champion={myChampion}
-                  helperText="Try Doran, Plated, Revitalize, Conqueror, or any current item/rune name."
+                  helperText={t('matchups.itemHelper')}
                 />
 
                 <MatchupSmartTextarea
@@ -453,7 +453,7 @@ const CreateMatchupPage: React.FC = () => {
                   onChange={setPowerSpikes}
                   placeholder={t('matchups.spikeNotesPlaceholder')}
                   champion={myChampion}
-                  helperText="Track levels, recalls, first item, and enemy breakpoint warnings."
+                  helperText={t('matchups.spikeHelper')}
                 />
               </div>
             </section>
@@ -469,7 +469,7 @@ const CreateMatchupPage: React.FC = () => {
               }}
             >
               <h2 className="mb-4 text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                Card Preview
+                {t('matchups.cardPreview')}
               </h2>
               <div className="flex items-center justify-center gap-4">
                 <div className="flex flex-col items-center gap-2">
@@ -507,11 +507,11 @@ const CreateMatchupPage: React.FC = () => {
                   <p className="mt-1 font-bold" style={{ color: 'var(--color-text-primary)' }}>{isPublic ? t('matchups.public') : t('matchups.private')}</p>
                 </div>
                 <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
-                  <span style={{ color: 'var(--color-text-muted)' }}>Rune pages</span>
+                  <span style={{ color: 'var(--color-text-muted)' }}>{t('matchups.runePages')}</span>
                   <p className="mt-1 font-bold" style={{ color: 'var(--color-text-primary)' }}>{runePages.length}</p>
                 </div>
                 <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}>
-                  <span style={{ color: 'var(--color-text-muted)' }}>Builds</span>
+                  <span style={{ color: 'var(--color-text-muted)' }}>{t('matchups.builds')}</span>
                   <p className="mt-1 font-bold" style={{ color: 'var(--color-text-primary)' }}>{itemBuilds.length}</p>
                 </div>
               </div>
