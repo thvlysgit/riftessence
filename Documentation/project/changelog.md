@@ -1,6 +1,31 @@
 # Changelog
 
-> Last updated: 2026-05-14
+> Last updated: 2026-05-20
+
+---
+
+## 2026-05-20 - Modular Translation Catalogs
+
+### Objective: Make i18n easier to extend and safer to maintain
+
+Overview: Reworked the web translation system from one large hand-typed file into modular locale catalogs with English-derived keys, compile-time parity checks, centralized language metadata, and lightweight interpolation.
+
+Changes:
+
+- Split [apps/web/translations/index.ts](apps/web/translations/index.ts) into focused translation modules:
+  - [apps/web/translations/locales/en.ts](apps/web/translations/locales/en.ts) is now the source catalog and key authority.
+  - [apps/web/translations/locales/fr.ts](apps/web/translations/locales/fr.ts) must satisfy the English key shape.
+  - [apps/web/translations/types.ts](apps/web/translations/types.ts), [apps/web/translations/languages.ts](apps/web/translations/languages.ts), and [apps/web/translations/format.ts](apps/web/translations/format.ts) hold shared types, language metadata, and interpolation.
+- Updated [apps/web/contexts/LanguageContext.tsx](apps/web/contexts/LanguageContext.tsx):
+  - Removed the catalog/context circular dependency.
+  - Reads supported languages from the translation module.
+  - Supports `t(key, values)` for `{token}` interpolation while keeping existing call sites compatible.
+- Updated [Documentation/frontend/translations.md](Documentation/frontend/translations.md):
+  - Documented the new file layout, add-language workflow, architecture alternatives, and League glossary policy.
+
+Verification:
+- `pnpm --filter @lfd/web build` passes.
+- Build still reports the pre-existing Next/ESLint warnings about `experimental.esmExternals`, `missingRefs`, `defaultMeta`, and `_app.getInitialProps` disabling Automatic Static Optimization.
 
 ---
 

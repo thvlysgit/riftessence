@@ -1,58 +1,80 @@
 # Translations / i18n
 
-> Last updated: 2026-04-22  
-> Source: `apps/web/translations/index.ts` (~2000+ lines), `apps/web/contexts/LanguageContext.tsx`
+> Last updated: 2026-05-20
+> Source: `apps/web/translations/*`, `apps/web/contexts/LanguageContext.tsx`
 
 ## System
 
-Custom i18n implementation (no external library). `LanguageContext` provides a `t()` function for lookups.
+RiftEssence uses a custom, dependency-free i18n runtime for the Next.js web app. The system is intentionally small because the app does not currently need localized routes, server-side locale negotiation, or ICU plural rules.
+
+Chosen approach: split TypeScript catalogs with compile-time key parity.
+
+Other options considered:
+- JSON catalogs + generated types: good for translator tooling, but adds a generation step and makes editor feedback slower.
+- `next-intl` or similar: strong for localized routing, pluralization, and server components, but heavier than the current product needs and would require a broader migration.
+
+## File Layout
+
+- `apps/web/translations/locales/en.ts` - primary catalog and source of translation keys.
+- `apps/web/translations/locales/fr.ts` - French catalog, checked against English with `satisfies TranslationCatalog`.
+- `apps/web/translations/types.ts` - derives `TranslationKey` from the English catalog.
+- `apps/web/translations/languages.ts` - supported language metadata, default language, and localStorage key.
+- `apps/web/translations/format.ts` - lightweight `{token}` interpolation.
+- `apps/web/translations/index.ts` - public exports plus `translate()`.
+- `apps/web/contexts/LanguageContext.tsx` - React provider and `useLanguage()` hook.
+
+## Runtime Usage
 
 ```tsx
 const { t } = useLanguage();
+
 <h1>{t('feed.title')}</h1>
+<p>{t('profile.save.usernameError', { error: message })}</p>
 ```
+
+`t()` falls back to English if the active locale is missing a key. In normal development, missing locale keys should be caught by TypeScript before runtime because each non-English catalog must satisfy the English catalog shape.
+
+The selected UI language is stored in `localStorage` under `lfd_language`.
 
 ## Languages
 
-- **English** (`en`) — Primary
-- **French** (`fr`) — Secondary
+- **English** (`en`) - primary/source catalog
+- **French** (`fr`) - secondary catalog
 
-Stored in `localStorage` as `lfd_language`.
+## Adding a Language
 
-## French Locale Policy (2026-04-22)
+1. Copy `apps/web/translations/locales/en.ts` to a new locale file, for example `apps/web/translations/locales/es.ts`.
+2. Rename the export and make it satisfy `TranslationCatalog`.
+3. Add the locale metadata to `apps/web/translations/languages.ts`.
+4. Import the locale in `apps/web/translations/index.ts` and add it to `translations`.
+5. Run `pnpm --filter @lfd/web build` or `pnpm --filter @lfd/web lint` to catch missing or extra keys.
 
-- Keep UI copy natural in French for actions, prompts, and legal readability.
-- Keep competitive League gameplay glossary terms in English for consistency and player clarity.
-- Current enforced English glossary examples include: LFT, Duo, Flex, Top/Jungle/Mid/Bot/Support, rank names (Iron to Unranked), Winrate, Elo, Tier, Wave Management, Vision Control, Macro, Teamfighting, Lane Control, Champion Mastery, Matchup, Skill Matchup, Laning Phase, Items, Runes, Power Spikes, Scaling, Snowball, and Coin Flips.
-- Preserve placeholder and key parity with English; no key removals when refining phrasing.
-- Legal parity note: FR `terms.section4Description1` is aligned with EN ownership/licensing intent.
+The English catalog is the only place that defines the key set. Do not hand-maintain a `TranslationKey` union.
 
-## Translation Key Format
+## Copy Voice
 
-Type-safe via `TranslationKey` union type. Dot-notation: `section.subsection.element`
+RiftEssence copy should feel like it was written by people in the League ecosystem: short, direct, and specific. Avoid generic SaaS phrasing and avoid making the UI verbose.
 
-### Sections (non-exhaustive)
-- `common.*` — Loading, save, cancel, delete, edit, confirm, ranks, etc.
-- `nav.*` — Navigation labels
-- `auth.*` — Login, register, password
-- `home.*` — Landing page
-- `createPost.*` — Post creation form
-- `feed.*` — Feed page, filters, posts
-- `lft.*` / `coaching.*` — Team and coaching flows
-- `profile.*` — Profile page elements
-- `settings.*` — Settings page
-- `notifications.*` — Notification types
-- `feedback.*` / `report.*` — Feedback and report modals
-- `privacy.*` / `terms.*` / `cookies.*` — Legal pages
-- `matchups.*` — Matchup creation and marketplace
-- `communities.*` — Community features
-- `admin.*` — Admin panel
+French should be natural French for actions, legal readability, confirmations, and onboarding, while keeping common League vocabulary in English when players would expect it.
 
-## Adding New Translation Keys
+## League Glossary Policy
 
-1. Add key to `TranslationKey` type union in `translations/index.ts`
-2. Add `en` value in the English translations object
-3. Add `fr` value in the French translations object
-4. Use `t('new.key')` in components
+Keep these terms in English unless the product owner explicitly asks otherwise:
 
-Every user-facing string MUST use the translation system.
+LFT, Duo, Flex, Top, Jungle, Mid, Bot, Support, Iron, Bronze, Silver, Gold, Platinum, Emerald, Diamond, Master, Grandmaster, Challenger, Unranked, Winrate, Elo, Tier, Wave Management, Vision Control, Macro, Teamfighting, Lane Control, Champion Mastery, Matchup, Skill Matchup, Laning Phase, Items, Runes, Power Spikes, Scaling, Snowball, Coin Flips, draft, scrim, roster, champion names.
+
+When in doubt, keep the League term in English and ask for review instead of over-translating it.
+
+## Interpolation
+
+Use `{name}` tokens in catalogs and pass values through `t()`.
+
+```ts
+'profile.save.usernameError': 'Failed to save username: {error}'
+```
+
+```tsx
+t('profile.save.usernameError', { error: err.message })
+```
+
+Existing `.replace('{token}', value)` call sites still work, but new code should prefer `t(key, values)`.
