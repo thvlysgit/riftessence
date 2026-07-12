@@ -174,25 +174,26 @@ export default async function leaderboardRoutes(fastify: any) {
             },
           },
         }),
-        prisma.$queryRaw<Array<{
-          userId: string | null;
-          rank: string | null;
-          division: string | null;
-          lp: number | null;
-          winrate: number | null;
-          region: string | null;
-        }>>`
-          SELECT DISTINCT ON ("userId")
-            "userId",
-            "rank"::text AS "rank",
-            "division",
-            "lp",
-            "winrate",
-            "region"::text AS "region"
-          FROM "RiotAccount"
-          WHERE "isMain" = true AND "userId" IS NOT NULL
-          ORDER BY "userId", "createdAt" DESC
-        `,
+        prisma.riotAccount.findMany({
+          where: {
+            isMain: true,
+            userId: {
+              not: null,
+            },
+          },
+          orderBy: [
+            { userId: 'asc' },
+            { createdAt: 'desc' },
+          ],
+          select: {
+            userId: true,
+            rank: true,
+            division: true,
+            lp: true,
+            winrate: true,
+            region: true,
+          },
+        }),
       ]);
 
       const mainAccountByUserId = new Map<string, MainAccountSnapshot>();
@@ -205,6 +206,7 @@ export default async function leaderboardRoutes(fastify: any) {
         region: string | null;
       }) => {
         if (!row.userId) return;
+        if (mainAccountByUserId.has(row.userId)) return;
         mainAccountByUserId.set(row.userId, {
           rank: normalizeRank(row.rank),
           division: normalizeDivision(row.division),

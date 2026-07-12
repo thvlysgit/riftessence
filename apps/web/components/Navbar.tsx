@@ -627,7 +627,7 @@ export default function Navbar() {
               <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors"
+                  className="account-menu-trigger flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors"
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
                   }}
@@ -674,7 +674,7 @@ export default function Navbar() {
                 {/* User Dropdown Menu */}
                 {isUserMenuOpen && (
                   <div 
-                    className="absolute right-0 mt-2 w-48 border py-1 z-10"
+                    className="account-menu-card absolute right-0 mt-3 w-60 border py-2 z-10"
                     style={{
                       backgroundColor: 'var(--color-bg-tertiary)',
                       borderColor: 'var(--color-border)',
@@ -682,7 +682,7 @@ export default function Navbar() {
                       boxShadow: 'var(--shadow)',
                     }}
                   >
-                    <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                    <div className="account-menu-compact-header px-4 py-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
                       <p className="text-sm font-medium" style={{ color: 'var(--color-accent-1)' }}>{user.username}</p>
                       <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('navbar.viewProfile')}</p>
                     </div>
@@ -717,11 +717,11 @@ export default function Navbar() {
                     <DropdownLink href="/settings">{t('nav.settings')}</DropdownLink>
                     <DropdownLink href="/communities">{t('navbar.communities')}</DropdownLink>
                     <DropdownLink href="/leaderboards">{t('navbar.leaderboards')}</DropdownLink>
-                    {isAdmin && <DropdownLink href="/admin">🛡️ {t('navbar.adminDashboard')}</DropdownLink>}
+                    {isAdmin && <DropdownLink href="/admin">{t('navbar.adminDashboard')}</DropdownLink>}
                     <hr className="my-1" style={{ borderColor: 'var(--color-border)' }} />
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm transition-colors"
+                      className="account-menu-logout w-full text-left text-sm transition-colors"
                       style={{ color: 'var(--color-text-secondary)' }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
@@ -952,22 +952,94 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   );
 }
 
+type AccountMenuIconName =
+  | 'profile'
+  | 'purse'
+  | 'notifications'
+  | 'settings'
+  | 'communities'
+  | 'leaderboards'
+  | 'admin';
+
+function getAccountIconForHref(href: string): AccountMenuIconName {
+  if (href.startsWith('/purse')) return 'purse';
+  if (href.startsWith('/notifications')) return 'notifications';
+  if (href.startsWith('/settings')) return 'settings';
+  if (href.startsWith('/communities')) return 'communities';
+  if (href.startsWith('/leaderboards')) return 'leaderboards';
+  if (href.startsWith('/admin')) return 'admin';
+  return 'profile';
+}
+
+function AccountMenuIcon({ icon }: { icon: AccountMenuIconName }) {
+  const common = {
+    className: 'account-menu-icon-svg',
+    fill: 'none',
+    stroke: 'currentColor',
+    viewBox: '0 0 24 24',
+  };
+
+  switch (icon) {
+    case 'purse':
+      return (
+        <svg {...common}>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 7.5h10a3 3 0 0 1 3 3v5.5a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V8.5A3.5 3.5 0 0 1 7.5 5H16" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 12h4m-4 3h.01" />
+        </svg>
+      );
+    case 'notifications':
+      return (
+        <svg {...common}>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 0 0-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17a3 3 0 0 0 6 0" />
+        </svg>
+      );
+    case 'settings':
+      return (
+        <svg {...common}>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 12a7.4 7.4 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a8 8 0 0 0-1.8-1L14.4 3h-4.8l-.3 3a8 8 0 0 0-1.8 1L5.1 6l-2 3.5 2 1.5a7.4 7.4 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a8 8 0 0 0 1.8 1l.3 3h4.8l.3-3a8 8 0 0 0 1.8-1l2.4 1 2-3.5-2-1.5c.1-.3.1-.7.1-1Z" />
+        </svg>
+      );
+    case 'communities':
+      return (
+        <svg {...common}>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8-1a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3.5 19a4.5 4.5 0 0 1 9 0m1-1.2a3.7 3.7 0 0 1 7 1.2" />
+        </svg>
+      );
+    case 'leaderboards':
+      return (
+        <svg {...common}>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 20V9h4v11H5Zm5 0V4h4v16h-4Zm5 0v-7h4v7h-4Z" />
+        </svg>
+      );
+    case 'admin':
+      return (
+        <svg {...common}>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 3 5 6v5c0 4.4 2.8 8.3 7 10 4.2-1.7 7-5.6 7-10V6l-7-3Z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="m9.5 12 1.7 1.7 3.5-4" />
+        </svg>
+      );
+    case 'profile':
+    default:
+      return (
+        <svg {...common}>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+        </svg>
+      );
+  }
+}
+
 // Dropdown Menu Link Component
 function DropdownLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Link
       href={href}
-      className="block px-4 py-2 text-sm transition-colors"
-      style={{ color: 'var(--color-text-secondary)' }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
-        e.currentTarget.style.color = 'var(--color-accent-1)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = 'transparent';
-        e.currentTarget.style.color = 'var(--color-text-secondary)';
-      }}
+      className="account-menu-link"
     >
+      <AccountMenuIcon icon={getAccountIconForHref(href)} />
       {children}
     </Link>
   );
