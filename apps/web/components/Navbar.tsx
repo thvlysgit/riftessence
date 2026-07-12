@@ -26,6 +26,12 @@ type WalletNavbarSummary = {
   prismaticEssence: number;
 };
 
+function isActiveHref(asPath: string, href: string) {
+  const path = asPath.split(/[?#]/)[0] || '/';
+  if (href === '/') return path === '/';
+  return path === href || path.startsWith(`${href}/`);
+}
+
 const USERNAME_DECORATION_STYLES: Record<string, React.CSSProperties> = {
   username_gilded_edge: {
     textShadow: '0 0 10px rgba(251, 191, 36, 0.34)',
@@ -103,6 +109,9 @@ export default function Navbar() {
     if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
     return `${value}`;
   };
+  const isTeamsTabActive =
+    isActiveHref(router.asPath, '/lft') ||
+    isActiveHref(router.asPath, '/teams');
 
   // Theme-based logo SVG icon
   const getThemeLogo = () => {
@@ -356,38 +365,27 @@ export default function Navbar() {
             </Link>
 
             {/* Desktop Navigation Links */}
-            <div className="hidden md:flex items-center space-x-1">
+            <div className="rift-nav-shell hidden md:flex items-center">
               <NavLink href="/feed">LFD</NavLink>
 
               {/* Teams Dropdown */}
               <div className="relative" ref={teamsMenuRef}>
                 <button
                   onClick={() => setIsTeamsMenuOpen(!isTeamsMenuOpen)}
-                  className="px-3 py-2 text-sm font-medium transition-colors flex items-center gap-1"
-                  style={{
-                    color: 'var(--color-text-secondary)',
-                    borderRadius: 'var(--border-radius)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = 'var(--color-accent-1)';
-                    e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isTeamsMenuOpen) {
-                      e.currentTarget.style.color = 'var(--color-text-secondary)';
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }
-                  }}
+                  className={`rift-nav-tab rift-nav-tab--menu ${isTeamsTabActive || isTeamsMenuOpen ? 'rift-nav-tab-active' : ''}`}
+                  aria-expanded={isTeamsMenuOpen}
+                  aria-current={isTeamsTabActive ? 'page' : undefined}
+                  type="button"
                 >
-                  {t('navbar.teams')}
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span>{t('navbar.teams')}</span>
+                  <svg className="rift-nav-tab__chevron w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
 
                 {isTeamsMenuOpen && (
                   <div
-                    className="absolute left-0 mt-2 w-48 border py-1 z-50"
+                    className="rift-tab-menu absolute left-0 mt-2 w-56 border py-2 z-50"
                     style={{
                       backgroundColor: 'var(--color-bg-tertiary)',
                       borderColor: 'var(--color-border)',
@@ -398,80 +396,40 @@ export default function Navbar() {
                     <Link
                       href="/lft"
                       onClick={() => setIsTeamsMenuOpen(false)}
-                      className="block px-4 py-2 text-sm transition-colors"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
-                        e.currentTarget.style.color = 'var(--color-accent-1)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = 'var(--color-text-secondary)';
-                      }}
+                      className={`rift-dropdown-link ${isActiveHref(router.asPath, '/lft') ? 'rift-dropdown-link-active' : ''}`}
+                      aria-current={isActiveHref(router.asPath, '/lft') ? 'page' : undefined}
                     >
                       LFT
                     </Link>
                     <Link
                       href="/teams/dashboard"
                       onClick={() => setIsTeamsMenuOpen(false)}
-                      className="block px-4 py-2 text-sm transition-colors"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
-                        e.currentTarget.style.color = 'var(--color-accent-1)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = 'var(--color-text-secondary)';
-                      }}
+                      className={`rift-dropdown-link ${isActiveHref(router.asPath, '/teams/dashboard') ? 'rift-dropdown-link-active' : ''}`}
+                      aria-current={isActiveHref(router.asPath, '/teams/dashboard') ? 'page' : undefined}
                     >
                       {t('navbar.teamsDashboard')}
                     </Link>
                     <Link
                       href="/teams/schedule"
                       onClick={() => setIsTeamsMenuOpen(false)}
-                      className="block px-4 py-2 text-sm transition-colors"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
-                        e.currentTarget.style.color = 'var(--color-accent-1)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = 'var(--color-text-secondary)';
-                      }}
+                      className={`rift-dropdown-link ${isActiveHref(router.asPath, '/teams/schedule') ? 'rift-dropdown-link-active' : ''}`}
+                      aria-current={isActiveHref(router.asPath, '/teams/schedule') ? 'page' : undefined}
                     >
                       {t('navbar.teamSchedule')}
                     </Link>
                     <Link
                       href="/teams/scrims"
                       onClick={() => setIsTeamsMenuOpen(false)}
-                      className="block px-4 py-2 text-sm transition-colors"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
-                        e.currentTarget.style.color = 'var(--color-accent-1)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = 'var(--color-text-secondary)';
-                      }}
+                      className={`rift-dropdown-link ${isActiveHref(router.asPath, '/teams/scrims') ? 'rift-dropdown-link-active' : ''}`}
+                      aria-current={isActiveHref(router.asPath, '/teams/scrims') ? 'page' : undefined}
                     >
                       {t('navbar.scrimFinder')}
                     </Link>
                     <Link
                       href="/teams/drafts"
                       onClick={() => setIsTeamsMenuOpen(false)}
-                      className="block px-4 py-2 text-sm transition-colors"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
-                        e.currentTarget.style.color = 'var(--color-accent-1)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = 'var(--color-text-secondary)';
-                      }}
+                      className={`rift-dropdown-link ${isActiveHref(router.asPath, '/teams/drafts') ? 'rift-dropdown-link-active' : ''}`}
+                      aria-current={isActiveHref(router.asPath, '/teams/drafts') ? 'page' : undefined}
                     >
                       {t('navbar.draftRoom')}
                     </Link>
@@ -837,7 +795,7 @@ export default function Navbar() {
             borderColor: 'var(--color-border)',
           }}
         >
-          <div className="px-4 py-4 space-y-1">
+          <div className="rift-mobile-tabs px-4 py-4 space-y-1">
             {/* Mobile Search */}
             <div className="mb-4" ref={searchRef}>
               <div className="relative">
@@ -980,22 +938,14 @@ export default function Navbar() {
 
 // Desktop Navigation Link Component
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const router = useRouter();
+  const isActive = isActiveHref(router.asPath, href);
+
   return (
     <Link
       href={href}
-      className="px-3 py-2 text-sm font-medium transition-colors"
-      style={{
-        color: 'var(--color-text-secondary)',
-        borderRadius: 'var(--border-radius)',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.color = 'var(--color-accent-1)';
-        e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.color = 'var(--color-text-secondary)';
-        e.currentTarget.style.backgroundColor = 'transparent';
-      }}
+      className={`rift-nav-tab ${isActive ? 'rift-nav-tab-active' : ''}`}
+      aria-current={isActive ? 'page' : undefined}
     >
       {children}
     </Link>
@@ -1025,22 +975,14 @@ function DropdownLink({ href, children }: { href: string; children: React.ReactN
 
 // Mobile Navigation Link Component
 function MobileNavLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const router = useRouter();
+  const isActive = isActiveHref(router.asPath, href);
+
   return (
     <Link
       href={href}
-      className="block px-4 py-2 text-sm font-medium transition-colors"
-      style={{
-        color: 'var(--color-text-secondary)',
-        borderRadius: 'var(--border-radius)',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.color = 'var(--color-accent-1)';
-        e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.color = 'var(--color-text-secondary)';
-        e.currentTarget.style.backgroundColor = 'transparent';
-      }}
+      className={`rift-mobile-tab ${isActive ? 'rift-mobile-tab-active' : ''}`}
+      aria-current={isActive ? 'page' : undefined}
     >
       {children}
     </Link>
