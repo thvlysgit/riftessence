@@ -15,8 +15,9 @@ RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt
 ARG PNPM_VERSION=10.22.0
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
-# copy only lockfile + package.json (faster, cached)
+# copy only workspace manifests first (faster, cached)
 COPY pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml ./
 COPY package.json ./
 COPY apps/api/package.json ./apps/api/
 
@@ -32,12 +33,9 @@ WORKDIR /app
 # places the generated files where @prisma/client expects them
 RUN pnpm exec prisma generate --schema=./prisma/schema.prisma
 
-# ensure package-local node_modules exist so tsc can resolve types/modules
-ENV CI=true
-RUN pnpm -C apps/api install --no-frozen-lockfile
-
 # build the TypeScript project into `dist` from the workspace root
 # run tsc from the repo root so it resolves hoisted node_modules correctly
+ENV CI=true
 RUN pnpm exec tsc -p apps/api/tsconfig.json
 
 # Generate Prisma client again after build to ensure it's in the right location
