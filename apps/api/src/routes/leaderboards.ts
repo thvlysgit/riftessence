@@ -64,6 +64,15 @@ type RatingSnapshot = {
   ratingCount: number;
 };
 
+type MainAccountRow = {
+  userId: string | null;
+  rank: string | null;
+  division: string | null;
+  lp: number | null;
+  winrate: number | null;
+  region: string | null;
+};
+
 function normalizeLeaderboardType(value: unknown): LeaderboardType {
   const normalized = String(value || 'overall').toLowerCase();
   if (VALID_LEADERBOARD_TYPES.has(normalized as LeaderboardType)) {
@@ -137,6 +146,46 @@ function calculateOverallScore(
   return skillScore + personalityScore + rankScore + winrateScore;
 }
 
+async function fetchMainAccountRows(fastify: any): Promise<MainAccountRow[]> {
+  try {
+    return await prisma.$queryRaw<MainAccountRow[]>`
+      SELECT DISTINCT ON ("userId")
+        "userId",
+        "rank"::text AS "rank",
+        "division",
+        "lp",
+        "winrate",
+        "region"::text AS "region"
+      FROM "RiotAccount"
+      WHERE "isMain" = true AND "userId" IS NOT NULL
+      ORDER BY "userId", "createdAt" DESC
+    `;
+  } catch (error: any) {
+    fastify.log.warn({ err: error }, 'Casted raw main-account leaderboard query failed; falling back to Prisma query');
+
+    return prisma.riotAccount.findMany({
+      where: {
+        isMain: true,
+        userId: {
+          not: null,
+        },
+      },
+      orderBy: [
+        { userId: 'asc' },
+        { createdAt: 'desc' },
+      ],
+      select: {
+        userId: true,
+        rank: true,
+        division: true,
+        lp: true,
+        winrate: true,
+        region: true,
+      },
+    });
+  }
+}
+
 export default async function leaderboardRoutes(fastify: any) {
   fastify.get('/leaderboards', async (request: any, reply: any) => {
     try {
@@ -174,37 +223,11 @@ export default async function leaderboardRoutes(fastify: any) {
             },
           },
         }),
-        prisma.riotAccount.findMany({
-          where: {
-            isMain: true,
-            userId: {
-              not: null,
-            },
-          },
-          orderBy: [
-            { userId: 'asc' },
-            { createdAt: 'desc' },
-          ],
-          select: {
-            userId: true,
-            rank: true,
-            division: true,
-            lp: true,
-            winrate: true,
-            region: true,
-          },
-        }),
+        fetchMainAccountRows(fastify),
       ]);
 
       const mainAccountByUserId = new Map<string, MainAccountSnapshot>();
-      mainAccountRows.forEach((row: {
-        userId: string | null;
-        rank: string | null;
-        division: string | null;
-        lp: number | null;
-        winrate: number | null;
-        region: string | null;
-      }) => {
+      mainAccountRows.forEach((row: MainAccountRow) => {
         if (!row.userId) return;
         if (mainAccountByUserId.has(row.userId)) return;
         mainAccountByUserId.set(row.userId, {
