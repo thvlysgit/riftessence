@@ -6,7 +6,34 @@ function createNonce(): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
+function getConfiguredApiOrigin(): string | null {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl) return null;
+
+  try {
+    return new URL(apiUrl).origin;
+  } catch {
+    return null;
+  }
+}
+
 function buildContentSecurityPolicy(nonce: string): string {
+  const connectSources = [
+    "'self'",
+    'http://localhost:3333',
+    'https://riftessence.app',
+    'https://www.riftessence.app',
+    'https://api.riftessence.app',
+    'https://ddragon.leagueoflegends.com',
+    'https://challenges.cloudflare.com',
+    'https://vitals.vercel-insights.com',
+  ];
+  const configuredApiOrigin = getConfiguredApiOrigin();
+
+  if (configuredApiOrigin && !connectSources.includes(configuredApiOrigin)) {
+    connectSources.push(configuredApiOrigin);
+  }
+
   return [
     "default-src 'self'",
     "base-uri 'self'",
@@ -20,7 +47,7 @@ function buildContentSecurityPolicy(nonce: string): string {
     "style-src-attr 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self' http://localhost:3333 https://riftessence.app https://www.riftessence.app https://api.riftessence.app https://ddragon.leagueoflegends.com https://challenges.cloudflare.com https://vitals.vercel-insights.com",
+    `connect-src ${connectSources.join(' ')}`,
     "frame-src https://challenges.cloudflare.com https://www.youtube.com",
     "form-action 'self'",
     "upgrade-insecure-requests",
