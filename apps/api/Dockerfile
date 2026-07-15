@@ -30,7 +30,7 @@ WORKDIR /app
 
 # generate Prisma client at repository root so pnpm's hoisted layout
 # places the generated files where @prisma/client expects them
-RUN npx prisma generate --schema=./prisma/schema.prisma
+RUN pnpm exec prisma generate --schema=./prisma/schema.prisma
 
 # ensure package-local node_modules exist so tsc can resolve types/modules
 ENV CI=true
@@ -41,7 +41,7 @@ RUN pnpm -C apps/api install --no-frozen-lockfile
 RUN pnpm exec tsc -p apps/api/tsconfig.json
 
 # Generate Prisma client again after build to ensure it's in the right location
-RUN npx prisma generate --schema=./prisma/schema.prisma
+RUN pnpm exec prisma generate --schema=./prisma/schema.prisma
 
 WORKDIR /app/apps/api
 
