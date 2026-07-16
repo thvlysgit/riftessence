@@ -2,9 +2,25 @@ import { z } from 'zod';
 import prisma from '../prisma';
 import { getUserIdFromRequest, requireAdmin } from '../middleware/auth';
 import { logAdminAction } from '../utils/auditLog';
-import { invalidateInputControlRulesCache } from '../utils/inputControl';
+import { getInputControlSurfaceCatalog, invalidateInputControlRulesCache } from '../utils/inputControl';
 
-const VALID_SURFACES = ['DUO_POST'] as const;
+const VALID_SURFACES = [
+  'GLOBAL',
+  'DUO_POST',
+  'LFT_POST',
+  'COACHING_POST',
+  'CHAT_MESSAGE',
+  'PROFILE',
+  'FEEDBACK',
+  'REPORT',
+  'TEAM',
+  'SCRIM',
+  'MATCHUP',
+  'COMMUNITY',
+  'AD_REQUEST',
+  'DEVELOPER_API_REQUEST',
+  'BUG_REPORT',
+] as const;
 const VALID_KINDS = ['WORD', 'PHRASE', 'PREFIX', 'REGEX'] as const;
 
 const RuleBodySchema = z.object({
@@ -13,7 +29,7 @@ const RuleBodySchema = z.object({
   pattern: z.string().trim().min(1).max(500),
   reason: z.string().trim().max(200).optional().nullable(),
   blockMessage: z.string().trim().max(200).optional().nullable(),
-  surfaces: z.array(z.enum(VALID_SURFACES)).min(1).default(['DUO_POST']),
+  surfaces: z.array(z.enum(VALID_SURFACES)).min(1).default(['GLOBAL']),
   enabled: z.boolean().default(true),
 });
 
@@ -72,7 +88,7 @@ export default async function inputControlRoutes(fastify: any) {
 
       return reply.send({
         rules: rules.map(summarizeRule),
-        surfaces: VALID_SURFACES,
+        surfaces: getInputControlSurfaceCatalog(),
         kinds: VALID_KINDS,
       });
     } catch (error: any) {

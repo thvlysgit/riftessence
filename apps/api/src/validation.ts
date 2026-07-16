@@ -41,17 +41,22 @@ export const ResetPasswordSchema = z.object({
 // POST SCHEMAS
 // ============================================================
 
+const emptyStringToUndefined = (value: unknown) => value === '' ? undefined : value;
+
 export const CreatePostSchema = z.object({
   userId: z.string().min(1),
   postingRiotAccountId: z.string().min(1),
   region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'UNKNOWN']),
   role: z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FILL']),
-  secondRole: z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FILL']).optional(),
+  secondRole: z.preprocess(
+    emptyStringToUndefined,
+    z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FILL']).optional()
+  ),
   message: z.string().max(500, 'Message too long (max 500 characters)').transform(val => val === '' ? undefined : val).optional(),
   languages: z.array(z.string()).default([]),
   vcPreference: z.enum(['ALWAYS', 'SOMETIMES', 'NEVER']),
   duoType: z.enum(['SHORT_TERM', 'LONG_TERM', 'BOTH']),
-  communityId: z.string().optional(),
+  communityId: z.preprocess(emptyStringToUndefined, z.string().optional()),
 });
 
 // ============================================================

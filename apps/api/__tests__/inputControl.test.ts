@@ -8,7 +8,7 @@ jest.mock('../src/prisma', () => ({
 }));
 
 import prisma from '../src/prisma';
-import { inspectInputControl, invalidateInputControlRulesCache } from '../src/utils/inputControl';
+import { collectInputControlTextFields, inspectInputControl, invalidateInputControlRulesCache } from '../src/utils/inputControl';
 
 const findMany = prisma.inputControlRule.findMany as jest.Mock;
 
@@ -88,5 +88,40 @@ describe('input control matcher', () => {
     });
 
     expect(result).toBeNull();
+  });
+
+  test('applies global rules to any requested surface', async () => {
+    findMany.mockResolvedValue([
+      rule({
+        id: 'global-rule',
+        kind: 'PHRASE',
+        pattern: 'boosting service',
+        surfaces: ['GLOBAL'],
+      }),
+    ]);
+
+    const result = await inspectInputControl({
+      surfaces: ['CHAT_MESSAGE'],
+      fields: ['cheap boosting service'],
+    });
+
+    expect(result).toMatchObject({
+      code: 'INPUT_CONTROL_BLOCKED',
+      ruleId: 'global-rule',
+      surface: 'CHAT_MESSAGE',
+    });
+  });
+
+  test('collects nested user text while skipping sensitive fields', () => {
+    const fields = collectInputControlTextFields({
+      password: 'discord.gg/secret-password',
+      profile: {
+        bio: 'Looking for duo',
+        nested: ['twitch.tv/channel'],
+      },
+      authToken: 'discord.gg/token',
+    });
+
+    expect(fields).toEqual(['Looking for duo', 'twitch.tv/channel']);
   });
 });

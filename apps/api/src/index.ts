@@ -39,6 +39,7 @@ import { Errors } from './middleware/errors';
 import { logAdminAction, AuditActions } from './utils/auditLog';
 import { normalizeDiscordWebhookUrl } from './utils/discord-webhook';
 import { getSessionCookieToken } from './utils/sessionCookie';
+import { collectInputControlTextFields, inspectInputControl } from './utils/inputControl';
 
 const COOKIE_SESSION_AUTH_PLACEHOLDER = '__cookie_session__';
 
@@ -76,6 +77,47 @@ function isBypassBanCheckRoute(pathname: string): boolean {
     || pathname === '/health/db'
     || pathname === '/health/deep'
     || pathname.startsWith('/docs');
+}
+
+function isInputControlBypassRoute(pathname: string): boolean {
+  if (!pathname) return true;
+  return isBypassBanCheckRoute(pathname)
+    || pathname.startsWith('/api/admin')
+    || pathname.startsWith('/api/auth/discord')
+    || pathname.startsWith('/api/auth/riot')
+    || pathname === '/api/auth/login'
+    || pathname === '/api/auth/set-password'
+    || pathname === '/api/auth/forgot-password'
+    || pathname === '/api/auth/reset-password'
+    || pathname === '/api/auth/refresh'
+    || pathname === '/api/auth/logout'
+    || pathname.startsWith('/docs')
+    || pathname.startsWith('/api/analytics')
+    || pathname.startsWith('/api/wallet/admin')
+    || pathname === '/api/ads/impression'
+    || pathname === '/api/ads/click';
+}
+
+function inputControlSurfacesForPath(pathname: string): string[] {
+  const surfaces = ['USER_INPUT'];
+
+  if (pathname.startsWith('/api/posts')) surfaces.push('DUO_POST');
+  if (pathname.startsWith('/api/auth/register')) surfaces.push('PROFILE');
+  if (pathname.startsWith('/api/lft')) surfaces.push('LFT_POST');
+  if (pathname.startsWith('/api/coaching')) surfaces.push('COACHING_POST');
+  if (pathname.startsWith('/api/chat/messages')) surfaces.push('CHAT_MESSAGE');
+  if (pathname.startsWith('/api/user')) surfaces.push('PROFILE');
+  if (pathname.startsWith('/api/feedback')) surfaces.push('FEEDBACK');
+  if (pathname.startsWith('/api/report')) surfaces.push('REPORT');
+  if (pathname.startsWith('/api/teams')) surfaces.push('TEAM');
+  if (pathname.startsWith('/api/scrims')) surfaces.push('SCRIM');
+  if (pathname.startsWith('/api/matchups')) surfaces.push('MATCHUP');
+  if (pathname.startsWith('/api/communities')) surfaces.push('COMMUNITY');
+  if (pathname.startsWith('/api/ads/request-slot')) surfaces.push('AD_REQUEST');
+  if (pathname.startsWith('/api/developer-api/requests')) surfaces.push('DEVELOPER_API_REQUEST');
+  if (pathname.startsWith('/api/bug-report')) surfaces.push('BUG_REPORT');
+
+  return surfaces;
 }
 
 type TimedCacheEntry<T> = {
@@ -385,6 +427,46 @@ async function build() {
       error: 'Too many requests. Please slow down and try again later.',
       code: 'RATE_LIMITED',
     }),
+  });
+
+  server.addHook('preHandler', async (request: any, reply: any) => {
+    const method = String(request.method || '').toUpperCase();
+    if (!['POST', 'PUT', 'PATCH'].includes(method)) {
+      return;
+    }
+
+    const pathname = String(request.url || '').split('?')[0] || '';
+    if (isInputControlBypassRoute(pathname)) {
+      return;
+    }
+
+    const fields = collectInputControlTextFields(request.body);
+    if (fields.length === 0) {
+      return;
+    }
+
+    const violation = await inspectInputControl({
+      surfaces: inputControlSurfacesForPath(pathname),
+      fields,
+    });
+    if (!violation) {
+      return;
+    }
+
+    request.log.warn({
+      code: violation.code,
+      surface: violation.surface,
+      ruleId: violation.ruleId,
+      ruleLabel: violation.ruleLabel,
+      path: pathname,
+      userId: request.userId || null,
+    }, 'Request blocked by input control');
+
+    return reply.code(422).send({
+      error: violation.message,
+      code: violation.code,
+      reason: violation.reason,
+    });
   });
 
   if (env.NODE_ENV !== 'production') {

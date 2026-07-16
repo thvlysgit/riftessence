@@ -23,12 +23,18 @@ type InputControlRule = {
   updatedAt: string;
 };
 
+type SurfaceOption = {
+  key: string;
+  label: string;
+};
+
 type RuleForm = {
   label: string;
   kind: RuleKind;
   pattern: string;
   reason: string;
   blockMessage: string;
+  surfaces: string[];
   enabled: boolean;
 };
 
@@ -38,6 +44,7 @@ const emptyForm: RuleForm = {
   pattern: '',
   reason: '',
   blockMessage: 'This content is not allowed by the current input rules.',
+  surfaces: ['GLOBAL'],
   enabled: true,
 };
 
@@ -48,6 +55,7 @@ export default function InputControlAdmin() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [rules, setRules] = useState<InputControlRule[]>([]);
+  const [surfaceOptions, setSurfaceOptions] = useState<SurfaceOption[]>([]);
   const [form, setForm] = useState<RuleForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -98,6 +106,7 @@ export default function InputControlAdmin() {
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error || 'Failed to load rules');
       setRules(body.rules || []);
+      setSurfaceOptions(body.surfaces || []);
     } catch (err: any) {
       console.error(err);
       showToast(err?.message || 'Failed to load input control rules', 'error');
@@ -118,6 +127,7 @@ export default function InputControlAdmin() {
       pattern: rule.pattern,
       reason: rule.reason || '',
       blockMessage: rule.blockMessage || '',
+      surfaces: rule.surfaces?.length ? rule.surfaces : ['GLOBAL'],
       enabled: rule.enabled,
     });
   }
@@ -133,7 +143,7 @@ export default function InputControlAdmin() {
     try {
       const payload = {
         ...form,
-        surfaces: ['DUO_POST'],
+        surfaces: form.surfaces.length > 0 ? form.surfaces : ['GLOBAL'],
         reason: form.reason.trim() || null,
         blockMessage: form.blockMessage.trim() || null,
       };
@@ -208,6 +218,7 @@ export default function InputControlAdmin() {
   if (!isAdmin) return null;
 
   const enabledCount = rules.filter((rule) => rule.enabled).length;
+  const selectedSurfaces = new Set(form.surfaces);
 
   return (
     <>
@@ -220,7 +231,7 @@ export default function InputControlAdmin() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex items-center justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>Input Control</h1>
-              <p style={{ color: 'var(--color-text-secondary)' }}>Block duo posts before they can be published.</p>
+              <p style={{ color: 'var(--color-text-secondary)' }}>Block unsafe text before it can be saved anywhere user input is accepted.</p>
             </div>
             <Link href="/admin" className="px-4 py-2 rounded-lg shrink-0" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}>
               Back to Admin
@@ -232,7 +243,7 @@ export default function InputControlAdmin() {
           <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <SummaryCard label="Rules" value={rules.length} />
             <SummaryCard label="Enabled" value={enabledCount} />
-            <SummaryCard label="Surface" value="Duo posts" />
+            <SummaryCard label="Coverage" value="Global + targeted" />
           </section>
 
           <section className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
@@ -297,6 +308,42 @@ export default function InputControlAdmin() {
                 />
               </Field>
 
+              <Field label="Surfaces">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {surfaceOptions.map((surface) => (
+                    <label
+                      key={surface.key}
+                      className="flex items-center gap-2 text-sm p-2 rounded"
+                      style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedSurfaces.has(surface.key)}
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setForm((current) => {
+                            const next = new Set(current.surfaces);
+                            if (checked) {
+                              if (surface.key === 'GLOBAL') {
+                                next.clear();
+                              } else {
+                                next.delete('GLOBAL');
+                              }
+                              next.add(surface.key);
+                            } else {
+                              next.delete(surface.key);
+                            }
+                            const surfaces = Array.from(next);
+                            return { ...current, surfaces: surfaces.length > 0 ? surfaces : ['GLOBAL'] };
+                          });
+                        }}
+                      />
+                      {surface.label}
+                    </label>
+                  ))}
+                </div>
+              </Field>
+
               <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 <input
                   type="checkbox"
@@ -356,6 +403,13 @@ export default function InputControlAdmin() {
                           <code className="block mt-2 text-sm break-all" style={{ color: 'var(--color-accent-1)' }}>{rule.pattern}</code>
                           <div className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                             {rule.reason || 'No reason set.'}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {(rule.surfaces || []).map((surface) => (
+                              <span key={surface} className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
+                                {surfaceOptions.find((option) => option.key === surface)?.label || surface}
+                              </span>
+                            ))}
                           </div>
                           <div className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                             Updated {new Date(rule.updatedAt).toLocaleString()}

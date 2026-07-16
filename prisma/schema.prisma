@@ -560,7 +560,7 @@ model InputControlRule {
   pattern      String
   reason       String?
   blockMessage String?
-  surfaces     String[]             @default(["DUO_POST"])
+  surfaces     String[]             @default(["GLOBAL"])
   enabled      Boolean              @default(true)
   createdById  String?
   updatedById  String?
