@@ -9,6 +9,15 @@ const MAX_PUBLIC_LIMIT = 50;
 const DEFAULT_PUBLIC_LIMIT = 20;
 const limiterState = new Map<string, number[]>();
 
+function sendDeveloperApiError(reply: any, statusCode: number, error: string, code: string, details?: any) {
+  return reply.code(statusCode).send({
+    error,
+    code,
+    timestamp: new Date().toISOString(),
+    ...(details ? { details } : {}),
+  });
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -171,19 +180,19 @@ function summarizeUsage(usage: any) {
   };
 }
 
-function parsePrismaError(error: any): { statusCode: number; message: string } | null {
+function parsePrismaError(error: any): { statusCode: number; message: string; code: string } | null {
   const code = String(error?.code || '');
 
   if (code === 'P2002') {
-    return { statusCode: 409, message: 'A duplicate key conflict occurred. Please retry your request.' };
+    return { statusCode: 409, message: 'A duplicate key conflict occurred. Please retry your request.', code: 'DEVELOPER_API_DUPLICATE_CONFLICT' };
   }
 
   if (code === 'P2021' || code === 'P2022') {
-    return { statusCode: 503, message: 'Developer API provisioning is temporarily unavailable. Please try again shortly.' };
+    return { statusCode: 503, message: 'Developer API provisioning is temporarily unavailable. Please try again shortly.', code: 'DEVELOPER_API_PROVISIONING_UNAVAILABLE' };
   }
 
   if (code === 'P2003') {
-    return { statusCode: 400, message: 'Invalid linked data while creating your API request.' };
+    return { statusCode: 400, message: 'Invalid linked data while creating your API request.', code: 'DEVELOPER_API_INVALID_LINKED_DATA' };
   }
 
   return null;
@@ -192,13 +201,13 @@ function parsePrismaError(error: any): { statusCode: number; message: string } |
 async function resolveApiKey(request: any, reply: any) {
   const providedKey = parseApiKey(request.headers['x-api-key'] || request.headers['authorization']);
   if (!providedKey) {
-    reply.code(401).send({ error: 'API key required' });
+    sendDeveloperApiError(reply, 401, 'API key required', 'DEVELOPER_API_KEY_REQUIRED');
     return null;
   }
 
   const parts = providedKey.split('_');
   if (parts.length < 3 || parts[0] !== 're') {
-    reply.code(401).send({ error: 'Invalid API key format' });
+    sendDeveloperApiError(reply, 401, 'Invalid API key format', 'DEVELOPER_API_KEY_INVALID_FORMAT');
     return null;
   }
 
@@ -209,12 +218,12 @@ async function resolveApiKey(request: any, reply: any) {
   });
 
   if (!apiKey || !apiKey.isActive || apiKey.revokedAt) {
-    reply.code(401).send({ error: 'Invalid or revoked API key' });
+    sendDeveloperApiError(reply, 401, 'Invalid or revoked API key', 'DEVELOPER_API_KEY_REVOKED');
     return null;
   }
 
   if (apiKey.keyHash !== hashApiKey(providedKey)) {
-    reply.code(401).send({ error: 'Invalid API key' });
+    sendDeveloperApiError(reply, 401, 'Invalid API key', 'DEVELOPER_API_KEY_INVALID');
     return null;
   }
 
@@ -346,11 +355,11 @@ export default async function developerApiRoutes(fastify: any) {
       });
 
       if (!requester) {
-        return reply.code(404).send({ error: 'User account not found' });
+        return sendDeveloperApiError(reply, 404, 'User account not found', 'DEVELOPER_API_USER_NOT_FOUND');
       }
 
       if (!requester.riotAccounts || requester.riotAccounts.length === 0) {
-        return reply.code(400).send({ error: 'Link at least one Riot account before requesting a developer API key' });
+        return sendDeveloperApiError(reply, 400, 'Link at least one Riot account before requesting a developer API key', 'DEVELOPER_API_RIOT_ACCOUNT_REQUIRED');
       }
 
       const body = request.body || {};
@@ -365,11 +374,11 @@ export default async function developerApiRoutes(fastify: any) {
       };
 
       if (!formData.name || formData.name.length < 3) {
-        return reply.code(400).send({ error: 'Application name is required' });
+        return sendDeveloperApiError(reply, 400, 'Application name is required', 'DEVELOPER_API_APPLICATION_NAME_REQUIRED');
       }
 
       if (!formData.useCase || formData.useCase.length < 20) {
-        return reply.code(400).send({ error: 'Please describe your intended use case' });
+        return sendDeveloperApiError(reply, 400, 'Please describe your intended use case', 'DEVELOPER_API_USE_CASE_REQUIRED');
       }
 
       const keyBundle = buildApiKey();
@@ -442,10 +451,10 @@ export default async function developerApiRoutes(fastify: any) {
 
       const parsed = parsePrismaError(error);
       if (parsed) {
-        return reply.code(parsed.statusCode).send({ error: parsed.message });
+        return sendDeveloperApiError(reply, parsed.statusCode, parsed.message, parsed.code);
       }
 
-      return reply.code(500).send({ error: 'Failed to submit developer API request. Please try again.' });
+      return sendDeveloperApiError(reply, 500, 'Failed to submit developer API request. Please try again.', 'DEVELOPER_API_REQUEST_FAILED');
     }
   });
 
@@ -465,7 +474,7 @@ export default async function developerApiRoutes(fastify: any) {
         ipHash: clientIpHash,
         latencyMs: Date.now() - startedAt,
       });
-      return reply.code(429).send({ error: 'Public API temporarily overloaded. Please retry shortly.' });
+      return sendDeveloperApiError(reply, 429, 'Public API temporarily overloaded. Please retry shortly.', 'DEVELOPER_API_RATE_LIMITED');
     }
 
     try {
@@ -531,7 +540,7 @@ export default async function developerApiRoutes(fastify: any) {
         ipHash: clientIpHash,
         latencyMs: Date.now() - startedAt,
       });
-      return reply.code(500).send({ error: 'Failed to fetch public duo posts' });
+      return sendDeveloperApiError(reply, 500, 'Failed to fetch public duo posts', 'DEVELOPER_API_DUO_POSTS_FAILED');
     }
   });
 
@@ -551,7 +560,7 @@ export default async function developerApiRoutes(fastify: any) {
         ipHash: clientIpHash,
         latencyMs: Date.now() - startedAt,
       });
-      return reply.code(429).send({ error: 'Public API temporarily overloaded. Please retry shortly.' });
+      return sendDeveloperApiError(reply, 429, 'Public API temporarily overloaded. Please retry shortly.', 'DEVELOPER_API_RATE_LIMITED');
     }
 
     try {
@@ -624,7 +633,7 @@ export default async function developerApiRoutes(fastify: any) {
         ipHash: clientIpHash,
         latencyMs: Date.now() - startedAt,
       });
-      return reply.code(500).send({ error: 'Failed to fetch public LFT posts' });
+      return sendDeveloperApiError(reply, 500, 'Failed to fetch public LFT posts', 'DEVELOPER_API_LFT_POSTS_FAILED');
     }
   });
 
@@ -695,7 +704,7 @@ export default async function developerApiRoutes(fastify: any) {
       });
     } catch (error: any) {
       fastify.log.error(error);
-      return reply.code(500).send({ error: 'Failed to load developer API dashboard' });
+      return sendDeveloperApiError(reply, 500, 'Failed to load developer API dashboard', 'DEVELOPER_API_DASHBOARD_FAILED');
     }
   });
 
@@ -717,11 +726,11 @@ export default async function developerApiRoutes(fastify: any) {
       });
 
       if (!requestRecord) {
-        return reply.code(404).send({ error: 'Developer API request not found' });
+        return sendDeveloperApiError(reply, 404, 'Developer API request not found', 'DEVELOPER_API_REQUEST_NOT_FOUND');
       }
 
       if (!requestRecord.apiKeyId) {
-        return reply.code(400).send({ error: 'No API key is attached to this request' });
+        return sendDeveloperApiError(reply, 400, 'No API key is attached to this request', 'DEVELOPER_API_REQUEST_HAS_NO_KEY');
       }
 
       await prisma.$transaction(async (tx: any) => {
@@ -759,7 +768,7 @@ export default async function developerApiRoutes(fastify: any) {
       return reply.send({ success: true, message: 'Priority access granted' });
     } catch (error: any) {
       fastify.log.error(error);
-      return reply.code(500).send({ error: 'Failed to grant priority access' });
+      return sendDeveloperApiError(reply, 500, 'Failed to grant priority access', 'DEVELOPER_API_PRIORITY_FAILED');
     }
   });
 }

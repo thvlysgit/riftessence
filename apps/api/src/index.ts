@@ -29,6 +29,7 @@ import rateRoutes from './routes/rate';
 import teamsRoutes from './routes/teams';
 import scrimRoutes from './routes/scrims';
 import walletRoutes from './routes/wallet';
+import inputControlRoutes from './routes/inputControl';
 import bcrypt from 'bcryptjs';
 import { env } from './env';
 import { RegisterSchema, LoginSchema, SetPasswordSchema, validateRequest, TurnstileVerifySchema, RatingSchema, BroadcastMessageSchema } from './validation';
@@ -428,6 +429,7 @@ async function build() {
   await server.register(teamsRoutes, { prefix: '/api' });
   await server.register(scrimRoutes, { prefix: '/api' });
   await server.register(walletRoutes, { prefix: '/api' });
+  await server.register(inputControlRoutes, { prefix: '/api' });
 
   server.post('/api/bug-report', {
     config: {

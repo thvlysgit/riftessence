@@ -170,6 +170,12 @@ export default function AdminDashboard() {
       description: 'Review API requests, keys, and usage',
     },
     {
+      label: 'Input Control',
+      href: '/admin/input-control',
+      icon: 'IC',
+      description: 'Manage blocked words, phrases, and ad prefixes',
+    },
+    {
       label: 'Discord DM Broadcast',
       href: '/admin/broadcast',
       icon: '📡',
@@ -299,6 +305,11 @@ export default function AdminDashboard() {
                 label="Grant Prismatic Essence"
                 description="Issue PE rewards to any user account"
                 onClick={() => router.push('/admin/prismatic')}
+              />
+              <QuickActionButton
+                label="Manage Input Rules"
+                description="Update duo post blocking rules"
+                onClick={() => router.push('/admin/input-control')}
               />
               <QuickActionButton
                 label="System Logs"

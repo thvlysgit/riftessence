@@ -5,6 +5,7 @@ import { cacheDel } from '../utils/cache';
 import { enqueueMirrorDeletion } from '../services/discordMirrorDeletionQueue';
 import { formatDuoPost, getDuoVerificationAuthorWhere, parseBooleanQuery } from '../utils/developerFeed';
 import { getUserIdFromRequest } from '../middleware/auth';
+import { inspectInputControl } from '../utils/inputControl';
 
 function toPositiveInt(value: string | undefined, fallback: number) {
   const parsed = Number(value);
@@ -236,6 +237,25 @@ export default async function postsRoutes(fastify: any) {
       if (!riotAcc) return reply.status(404).send({ error: 'Riot account not found' });
       if (riotAcc.userId !== userId) {
         return reply.status(403).send({ error: 'You do not own this Riot account' });
+      }
+
+      const inputViolation = await inspectInputControl({
+        surface: 'DUO_POST',
+        fields: [message],
+      });
+      if (inputViolation) {
+        request.log.warn({
+          code: inputViolation.code,
+          surface: inputViolation.surface,
+          ruleId: inputViolation.ruleId,
+          ruleLabel: inputViolation.ruleLabel,
+          userId,
+        }, 'Duo post blocked by input control');
+        return reply.status(422).send({
+          error: inputViolation.message,
+          code: inputViolation.code,
+          reason: inputViolation.reason,
+        });
       }
 
       const oldMirroredPosts = await prisma.post.findMany({

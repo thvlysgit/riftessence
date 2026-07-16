@@ -530,6 +530,13 @@ enum ReportStatus {
   DISMISSED
 }
 
+enum InputControlRuleKind {
+  WORD
+  PHRASE
+  PREFIX
+  REGEX
+}
+
 model Report {
   id         String       @id @default(cuid())
   reporter   User         @relation("Reporter", fields: [reporterId], references: [id])
@@ -544,6 +551,24 @@ model Report {
 
   @@index([reportedId, status])
   @@index([status, createdAt])
+}
+
+model InputControlRule {
+  id           String               @id @default(cuid())
+  label        String
+  kind         InputControlRuleKind @default(PHRASE)
+  pattern      String
+  reason       String?
+  blockMessage String?
+  surfaces     String[]             @default(["DUO_POST"])
+  enabled      Boolean              @default(true)
+  createdById  String?
+  updatedById  String?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([enabled, kind])
+  @@index([createdAt])
 }
 
 // LFT (Looking For Team) Models
