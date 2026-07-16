@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAuthHeader, getAuthToken } from '../utils/auth';
+import { Checkbox } from './Checkbox';
 
 interface UserTeam {
   id: string;
@@ -578,17 +579,16 @@ export const CreateTeamLftModal: React.FC<CreateTeamLftModalProps> = ({ open, on
           )}
 
           {/* Scrims */}
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
+          <div>
+            <Checkbox
               id="scrims"
               checked={scrims}
               onChange={(e) => setScrims(e.target.checked)}
-              className="w-5 h-5"
-            />
-            <label htmlFor="scrims" className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+              className="text-sm font-medium"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
               Scrims Available
-            </label>
+            </Checkbox>
           </div>
 
           {/* Minimum Availability */}

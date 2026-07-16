@@ -13,6 +13,7 @@ import { DiscordIcon } from '../src/components/DiscordBrand';
 import NoAccess from '@components/NoAccess';
 import { AdSpot, useAds, getAdForPosition } from '@components/AdSpot';
 import AccessRequirementModal from '@components/AccessRequirementModal';
+import { Checkbox } from '@components/Checkbox';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 const REGIONS = ['ALL', 'NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
@@ -939,17 +940,18 @@ export default function LFTPage() {
                   ))}
                 </select>
 
-                <label
+                <Checkbox
                   className="flex items-center gap-2 px-3 py-2 rounded border text-sm"
                   style={{
                     backgroundColor: 'var(--color-bg-tertiary)',
                     borderColor: 'var(--color-border)',
                     color: 'var(--color-text-primary)',
                   }}
+                  checked={scrimsOnly}
+                  onChange={(e) => setScrimsOnly(e.target.checked)}
                 >
-                  <input type="checkbox" checked={scrimsOnly} onChange={(e) => setScrimsOnly(e.target.checked)} />
                   ⚔️ Scrims-only teams
-                </label>
+                </Checkbox>
               </div>
             )}
           </div>

@@ -14,6 +14,7 @@ import { getFriendlyErrorMessage, extractErrorMessage } from '../utils/errorMess
 import { AdSpot, useAds, getAdForPosition } from '@components/AdSpot';
 import { DiscordIcon } from '../src/components/DiscordBrand';
 import { useLanguage } from '../contexts/LanguageContext';
+import { Checkbox } from '@components/Checkbox';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -1023,39 +1024,28 @@ export default function Feed() {
           border-color: var(--color-accent-1);
           color: var(--color-text-primary);
         }
-        .filter-chip input {
+        .filter-chip .themed-checkbox-control {
           width: 1rem;
           height: 1rem;
           flex: 0 0 auto;
-          appearance: none;
-          display: grid;
-          place-content: center;
           border: 1.5px solid var(--color-border-hover);
           border-radius: 0.25rem;
           background: color-mix(in srgb, var(--color-bg-primary) 72%, var(--color-bg-tertiary));
           box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28);
-          cursor: pointer;
           transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
         }
-        .filter-chip input::after {
-          content: "";
+        .filter-chip .themed-checkbox-control::after {
           width: 0.32rem;
           height: 0.58rem;
           border: solid var(--color-bg-primary);
           border-width: 0 2px 2px 0;
-          transform: translateY(-0.04rem) rotate(45deg) scale(0);
-          transform-origin: center;
-          transition: transform 120ms ease;
         }
-        .filter-chip input:checked {
+        .filter-chip .themed-checkbox-input:checked + .themed-checkbox-control {
           border-color: var(--color-accent-1);
           background: var(--color-accent-1);
           box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent-1) 26%, transparent);
         }
-        .filter-chip input:checked::after {
-          transform: translateY(-0.04rem) rotate(45deg) scale(1);
-        }
-        .filter-chip input:focus-visible {
+        .filter-chip .themed-checkbox-input:focus-visible + .themed-checkbox-control {
           outline: 2px solid var(--color-accent-2);
           outline-offset: 2px;
         }
@@ -1315,33 +1305,25 @@ export default function Feed() {
                 }}
               >
                 {REGION_OPTIONS.map(r => (
-                  <label 
-                    key={r} 
+                  <Checkbox
+                    key={r}
+                    size="sm"
                     className="filter-chip cursor-pointer"
-                    data-selected={filters.regions.includes(r)}
+                    selected={filters.regions.includes(r)}
+                    checked={filters.regions.includes(r)}
+                    onChange={e => {
+                      if (e.target.checked) {
+                        setFilters(prev => ({ ...prev, regions: [...prev.regions, r] }));
+                      } else {
+                        setFilters(prev => ({ ...prev, regions: prev.regions.filter(reg => reg !== r) }));
+                      }
+                    }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={filters.regions.includes(r)}
-                      onChange={e => {
-                        if (e.target.checked) {
-                          setFilters(prev => ({ ...prev, regions: [...prev.regions, r] }));
-                        } else {
-                          setFilters(prev => ({ ...prev, regions: prev.regions.filter(reg => reg !== r) }));
-                        }
-                      }}
-                      className="w-4 h-4 rounded border-2 cursor-pointer"
-                      style={{
-                        borderColor: 'var(--color-border)',
-                        accentColor: 'var(--color-accent-1)',
-                        backgroundColor: 'var(--color-bg-tertiary)',
-                      }}
-                    />
                     <span className="text-sm font-medium transition-colors inline-flex items-center gap-2" style={{ color: 'var(--color-text-secondary)' }}>
                       <FilterImageIcon src={REGION_META[r].icon} alt={`${REGION_META[r].label} icon`} />
                       {r}
                     </span>
-                  </label>
+                  </Checkbox>
                 ))}
               </div>
             </div>
@@ -1356,33 +1338,25 @@ export default function Feed() {
                 }}
               >
                 {ROLE_OPTIONS.map(r => (
-                  <label 
-                    key={r} 
+                  <Checkbox
+                    key={r}
+                    size="sm"
                     className="filter-chip cursor-pointer"
-                    data-selected={filters.roles.includes(r)}
+                    selected={filters.roles.includes(r)}
+                    checked={filters.roles.includes(r)}
+                    onChange={e => {
+                      if (e.target.checked) {
+                        setFilters(prev => ({ ...prev, roles: [...prev.roles, r] }));
+                      } else {
+                        setFilters(prev => ({ ...prev, roles: prev.roles.filter(role => role !== r) }));
+                      }
+                    }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={filters.roles.includes(r)}
-                      onChange={e => {
-                        if (e.target.checked) {
-                          setFilters(prev => ({ ...prev, roles: [...prev.roles, r] }));
-                        } else {
-                          setFilters(prev => ({ ...prev, roles: prev.roles.filter(role => role !== r) }));
-                        }
-                      }}
-                      className="w-4 h-4 rounded border-2 cursor-pointer"
-                      style={{
-                        borderColor: 'var(--color-border)',
-                        accentColor: 'var(--color-accent-1)',
-                        backgroundColor: 'var(--color-bg-tertiary)',
-                      }}
-                    />
                     <span className="text-sm font-medium transition-colors inline-flex items-center gap-2" style={{ color: 'var(--color-text-secondary)' }}>
                       {getFilterRoleIcon(r)}
                       {r}
                     </span>
-                  </label>
+                  </Checkbox>
                 ))}
               </div>
             </div>
@@ -1397,33 +1371,25 @@ export default function Feed() {
                 }}
               >
                 {LANGUAGE_OPTIONS.map(lang => (
-                  <label 
-                    key={lang} 
+                  <Checkbox
+                    key={lang}
+                    size="sm"
                     className="filter-chip cursor-pointer"
-                    data-selected={filters.languages.includes(lang)}
+                    selected={filters.languages.includes(lang)}
+                    checked={filters.languages.includes(lang)}
+                    onChange={e => {
+                      if (e.target.checked) {
+                        setFilters(prev => ({ ...prev, languages: [...prev.languages, lang] }));
+                      } else {
+                        setFilters(prev => ({ ...prev, languages: prev.languages.filter(l => l !== lang) }));
+                      }
+                    }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={filters.languages.includes(lang)}
-                      onChange={e => {
-                        if (e.target.checked) {
-                          setFilters(prev => ({ ...prev, languages: [...prev.languages, lang] }));
-                        } else {
-                          setFilters(prev => ({ ...prev, languages: prev.languages.filter(l => l !== lang) }));
-                        }
-                      }}
-                      className="w-4 h-4 rounded border-2 cursor-pointer"
-                      style={{
-                        borderColor: 'var(--color-border)',
-                        accentColor: 'var(--color-accent-1)',
-                        backgroundColor: 'var(--color-bg-tertiary)',
-                      }}
-                    />
                     <span className="text-sm font-medium transition-colors inline-flex items-center gap-2" style={{ color: 'var(--color-text-secondary)' }}>
                       <FilterImageIcon src={LANGUAGE_FLAG_URLS[lang]} alt={`${lang} flag`} />
                       {lang}
                     </span>
-                  </label>
+                  </Checkbox>
                 ))}
               </div>
             </div>

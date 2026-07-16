@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { getAuthHeader } from '../../utils/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalUI } from '@components/GlobalUI';
+import { Checkbox } from '@components/Checkbox';
 import { DiscordIcon } from '../../src/components/DiscordBrand';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -557,14 +558,14 @@ export default function CommunityDetailPage() {
                       borderRadius: 'var(--border-radius)',
                     }}
                   >
-                    <label className="flex items-center gap-3 text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
-                      <input
-                        type="checkbox"
-                        checked={editData.isPartner}
-                        onChange={(e) => setEditData({ ...editData, isPartner: e.target.checked })}
-                      />
+                    <Checkbox
+                      checked={editData.isPartner}
+                      onChange={(e) => setEditData({ ...editData, isPartner: e.target.checked })}
+                      className="text-sm font-semibold"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                    >
                       Mark this community as a partner community
-                    </label>
+                    </Checkbox>
                     <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
                       App-admin only: partner communities receive the partner badge in discovery and detail views.
                     </p>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalUI } from '@components/GlobalUI';
+import { Checkbox } from '@components/Checkbox';
 import { getAuthHeader } from '../../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -311,47 +312,45 @@ export default function InputControlAdmin() {
               <Field label="Surfaces">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {surfaceOptions.map((surface) => (
-                    <label
+                    <Checkbox
                       key={surface.key}
                       className="flex items-center gap-2 text-sm p-2 rounded"
                       style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedSurfaces.has(surface.key)}
-                        onChange={(event) => {
-                          const checked = event.target.checked;
-                          setForm((current) => {
-                            const next = new Set(current.surfaces);
-                            if (checked) {
-                              if (surface.key === 'GLOBAL') {
-                                next.clear();
-                              } else {
-                                next.delete('GLOBAL');
-                              }
-                              next.add(surface.key);
+                      size="sm"
+                      checked={selectedSurfaces.has(surface.key)}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setForm((current) => {
+                          const next = new Set(current.surfaces);
+                          if (checked) {
+                            if (surface.key === 'GLOBAL') {
+                              next.clear();
                             } else {
-                              next.delete(surface.key);
+                              next.delete('GLOBAL');
                             }
-                            const surfaces = Array.from(next);
-                            return { ...current, surfaces: surfaces.length > 0 ? surfaces : ['GLOBAL'] };
-                          });
-                        }}
-                      />
+                            next.add(surface.key);
+                          } else {
+                            next.delete(surface.key);
+                          }
+                          const surfaces = Array.from(next);
+                          return { ...current, surfaces: surfaces.length > 0 ? surfaces : ['GLOBAL'] };
+                        });
+                      }}
+                    >
                       {surface.label}
-                    </label>
+                    </Checkbox>
                   ))}
                 </div>
               </Field>
 
-              <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                <input
-                  type="checkbox"
-                  checked={form.enabled}
-                  onChange={(event) => updateForm('enabled', event.target.checked)}
-                />
+              <Checkbox
+                checked={form.enabled}
+                onChange={(event) => updateForm('enabled', event.target.checked)}
+                className="text-sm"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
                 Enabled
-              </label>
+              </Checkbox>
 
               <div className="flex gap-2">
                 <button

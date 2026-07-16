@@ -10,6 +10,7 @@ import { MatchupCard, Matchup } from '@components/MatchupCard';
 import { MatchupWorkspaceTabs } from '@components/MatchupWorkspaceTabs';
 import { MatchupButton } from '@components/MatchupButton';
 import { ChampionAutocomplete } from '@components/ChampionAutocomplete';
+import { Checkbox } from '@components/Checkbox';
 import { getAuthHeader } from '../../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -669,18 +670,14 @@ const MatchupsPage: React.FC = () => {
                   />
                 </div>
 
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={collectionIsPublic}
-                    onChange={(e) => setCollectionIsPublic(e.target.checked)}
-                    className="w-5 h-5 rounded cursor-pointer"
-                    style={{ accentColor: 'var(--color-accent-1)' }}
-                  />
-                  <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {t('matchups.collectionPublic')}
-                  </span>
-                </label>
+                <Checkbox
+                  checked={collectionIsPublic}
+                  onChange={(e) => setCollectionIsPublic(e.target.checked)}
+                  className="text-sm font-medium"
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  {t('matchups.collectionPublic')}
+                </Checkbox>
 
                 <div className="flex justify-end gap-3">
                   <MatchupButton

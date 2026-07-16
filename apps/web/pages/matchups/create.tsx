@@ -13,6 +13,7 @@ import { MatchupWorkspaceTabs } from '@components/MatchupWorkspaceTabs';
 import { MatchupButton } from '@components/MatchupButton';
 import { MatchupRuneBuilder, MatchupRunePage } from '@components/MatchupRuneBuilder';
 import { MatchupBuildPlanner, MatchupItemBuild } from '@components/MatchupBuildPlanner';
+import { Checkbox } from '@components/Checkbox';
 import { getAuthHeader } from '../../utils/auth';
 import { getChampionIconUrl } from '../../utils/championData';
 
@@ -525,15 +526,13 @@ const CreateMatchupPage: React.FC = () => {
                 boxShadow: 'var(--shadow-lg)',
               }}
             >
-              <label className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={isPublic}
-                  onChange={(e) => setIsPublic(e.target.checked)}
-                  className="mt-1 h-5 w-5 rounded"
-                  style={{ accentColor: 'var(--color-accent-1)' }}
-                />
-                <span>
+              <Checkbox
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+                className="items-start"
+                indicatorClassName="mt-1"
+              >
+                <span className="block">
                   <span className="block text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>
                     {t('matchups.makePublic')}
                   </span>
@@ -541,7 +540,7 @@ const CreateMatchupPage: React.FC = () => {
                     Public cards appear in Discover and can be saved into collections.
                   </span>
                 </span>
-              </label>
+              </Checkbox>
 
               {isPublic && (
                 <div className="mt-5 space-y-4">

@@ -7,6 +7,7 @@ import { getAuthToken } from '../../utils/auth';
 import NoAccess from '@components/NoAccess';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useRememberedTeamSelection } from '../../utils/useRememberedTeamSelection';
+import { Checkbox } from '@components/Checkbox';
 
 interface TeamMember {
   userId: string;
@@ -2327,7 +2328,7 @@ const TeamSchedulePage: React.FC = () => {
                   {getTeamCoaches().length > 0 ? (
                     <div className="space-y-2">
                       {getTeamCoaches().map((coach) => (
-                        <label 
+                        <Checkbox
                           key={coach.userId} 
                           className="flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all hover:scale-[1.02]"
                           style={{ 
@@ -2336,19 +2337,17 @@ const TeamSchedulePage: React.FC = () => {
                               : 'var(--color-bg-tertiary)',
                             border: `1px solid ${eventForm.assignedCoachIds.includes(coach.userId) ? 'rgba(245, 158, 11, 0.4)' : 'var(--color-border)'}`
                           }}
+                          size="sm"
+                          tone="amber"
+                          checked={eventForm.assignedCoachIds.includes(coach.userId)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEventForm({ ...eventForm, assignedCoachIds: [...eventForm.assignedCoachIds, coach.userId] });
+                            } else {
+                              setEventForm({ ...eventForm, assignedCoachIds: eventForm.assignedCoachIds.filter(id => id !== coach.userId) });
+                            }
+                          }}
                         >
-                          <input
-                            type="checkbox"
-                            checked={eventForm.assignedCoachIds.includes(coach.userId)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setEventForm({ ...eventForm, assignedCoachIds: [...eventForm.assignedCoachIds, coach.userId] });
-                              } else {
-                                setEventForm({ ...eventForm, assignedCoachIds: eventForm.assignedCoachIds.filter(id => id !== coach.userId) });
-                              }
-                            }}
-                            className="w-4 h-4 rounded accent-amber-500"
-                          />
                           <span className="flex-1 font-medium" style={{ color: 'var(--color-text-primary)' }}>{coach.username}</span>
                           <span 
                             className="text-xs px-2 py-0.5 rounded-full"
@@ -2356,7 +2355,7 @@ const TeamSchedulePage: React.FC = () => {
                           >
                             {text.coach}
                           </span>
-                        </label>
+                        </Checkbox>
                       ))}
                     </div>
                   ) : (
@@ -2415,37 +2414,35 @@ const TeamSchedulePage: React.FC = () => {
                     {(selectedTeam?.members || []).map((member) => {
                       const checked = eventForm.concernedMemberIds.includes(member.userId);
                       return (
-                        <label
+                        <Checkbox
                           key={member.userId}
                           className="flex items-center gap-3 p-2 rounded-lg cursor-pointer"
                           style={{
                             backgroundColor: checked ? 'rgba(59, 130, 246, 0.16)' : 'var(--color-bg-tertiary)',
                             border: `1px solid ${checked ? 'rgba(59, 130, 246, 0.3)' : 'var(--color-border)'}`,
                           }}
+                          size="sm"
+                          tone="blue"
+                          checked={checked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEventForm({
+                                ...eventForm,
+                                concernedMemberIds: [...eventForm.concernedMemberIds, member.userId],
+                              });
+                            } else {
+                              const nextIds = eventForm.concernedMemberIds.filter((id) => id !== member.userId);
+                              setEventForm({ ...eventForm, concernedMemberIds: nextIds });
+                            }
+                          }}
                         >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setEventForm({
-                                  ...eventForm,
-                                  concernedMemberIds: [...eventForm.concernedMemberIds, member.userId],
-                                });
-                              } else {
-                                const nextIds = eventForm.concernedMemberIds.filter((id) => id !== member.userId);
-                                setEventForm({ ...eventForm, concernedMemberIds: nextIds });
-                              }
-                            }}
-                            className="w-4 h-4 accent-blue-500"
-                          />
                           <span className="flex-1 text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
                             {member.username}
                           </span>
                           <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#3B82F6' }}>
                             {member.role}
                           </span>
-                        </label>
+                        </Checkbox>
                       );
                     })}
                   </div>

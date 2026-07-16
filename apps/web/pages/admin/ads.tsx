@@ -8,6 +8,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../../utils/auth';
 import { useGlobalUI } from '@components/GlobalUI';
+import { Checkbox } from '@components/Checkbox';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -840,20 +841,21 @@ export default function AdsManagementPage() {
                 </label>
                 <div className="flex gap-4">
                   {feeds.map((feed) => (
-                    <label key={feed} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={formData.targetFeeds.includes(feed)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData({ ...formData, targetFeeds: [...formData.targetFeeds, feed] });
-                          } else {
-                            setFormData({ ...formData, targetFeeds: formData.targetFeeds.filter((f) => f !== feed) });
-                          }
-                        }}
-                      />
+                    <Checkbox
+                      key={feed}
+                      checked={formData.targetFeeds.includes(feed)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({ ...formData, targetFeeds: [...formData.targetFeeds, feed] });
+                        } else {
+                          setFormData({ ...formData, targetFeeds: formData.targetFeeds.filter((f) => f !== feed) });
+                        }
+                      }}
+                      className="text-sm"
+                      labelClassName="font-medium"
+                    >
                       <span style={{ color: 'var(--color-text-primary)' }}>{feed}</span>
-                    </label>
+                    </Checkbox>
                   ))}
                 </div>
               </div>
@@ -864,20 +866,22 @@ export default function AdsManagementPage() {
                 </label>
                 <div className="grid grid-cols-5 gap-2">
                   {regions.map((region) => (
-                    <label key={region} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={formData.targetRegions.includes(region)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData({ ...formData, targetRegions: [...formData.targetRegions, region] });
-                          } else {
-                            setFormData({ ...formData, targetRegions: formData.targetRegions.filter((r) => r !== region) });
-                          }
-                        }}
-                      />
-                      <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{region}</span>
-                    </label>
+                    <Checkbox
+                      key={region}
+                      size="sm"
+                      checked={formData.targetRegions.includes(region)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({ ...formData, targetRegions: [...formData.targetRegions, region] });
+                        } else {
+                          setFormData({ ...formData, targetRegions: formData.targetRegions.filter((r) => r !== region) });
+                        }
+                      }}
+                      className="text-sm"
+                      labelClassName="font-medium"
+                    >
+                      <span style={{ color: 'var(--color-text-primary)' }}>{region}</span>
+                    </Checkbox>
                   ))}
                 </div>
               </div>
@@ -899,14 +903,14 @@ export default function AdsManagementPage() {
                   <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
                     Active
                   </label>
-                  <label className="flex items-center gap-2 mt-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.isActive}
-                      onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                    />
+                  <Checkbox
+                    checked={formData.isActive}
+                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                    className="mt-2"
+                    labelClassName="font-medium"
+                  >
                     <span style={{ color: 'var(--color-text-primary)' }}>Ad is active</span>
-                  </label>
+                  </Checkbox>
                 </div>
               </div>
 
