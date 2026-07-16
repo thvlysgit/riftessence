@@ -14,6 +14,43 @@ type RiotAccount = {
   region: string;
 };
 
+type InputControlMatch = {
+  field?: string | null;
+  start: number;
+  end: number;
+  text: string;
+};
+
+function HighlightedInputPreview({ text, match }: { text: string; match: InputControlMatch }) {
+  const start = Math.max(0, Math.min(text.length, match.start));
+  const end = Math.max(start, Math.min(text.length, match.end));
+
+  if (start === end) return null;
+
+  return (
+    <div
+      className="mt-2 rounded border p-3 text-sm whitespace-pre-wrap break-words"
+      style={{
+        backgroundColor: 'rgba(239, 68, 68, 0.08)',
+        borderColor: 'rgba(248, 113, 113, 0.45)',
+        color: 'var(--color-text-primary)',
+      }}
+    >
+      <span>{text.slice(0, start)}</span>
+      <mark
+        className="rounded px-1"
+        style={{
+          backgroundColor: 'rgba(248, 113, 113, 0.35)',
+          color: 'var(--color-text-primary)',
+        }}
+      >
+        {text.slice(start, end)}
+      </mark>
+      <span>{text.slice(end)}</span>
+    </div>
+  );
+}
+
 export default function CreatePostPage() {
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
@@ -122,6 +159,7 @@ export default function CreatePostPage() {
       if (!res.ok) {
         const err: any = new Error(data.error || 'Failed to create post');
         err.code = data.code;
+        err.inputControl = data.details?.inputControl || null;
         throw err;
       }
       return data;
@@ -172,6 +210,14 @@ export default function CreatePostPage() {
 
     mutation.mutate();
   };
+
+  const mutationError: any = mutation.error;
+  const inputControlMatch: InputControlMatch | null = mutationError?.inputControl?.match || null;
+  const messageInputMatch = mutationError?.code === 'INPUT_CONTROL_BLOCKED'
+    && inputControlMatch
+    && (!inputControlMatch.field || inputControlMatch.field === 'message')
+      ? inputControlMatch
+      : null;
 
   return (
     <div className="min-h-screen py-8 px-4" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
@@ -305,6 +351,9 @@ export default function CreatePostPage() {
               value={form.message} 
               onChange={e => update('message', e.target.value)} 
             />
+            {messageInputMatch && (
+              <HighlightedInputPreview text={form.message} match={messageInputMatch} />
+            )}
           </div>
 
           <div>

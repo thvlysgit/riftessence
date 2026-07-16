@@ -42,6 +42,19 @@ export type InputControlViolation = {
   ruleLabel: string;
   reason: string | null;
   message: string;
+  match: InputControlMatch | null;
+};
+
+export type InputControlTextField = {
+  field: string | null;
+  value: string;
+};
+
+export type InputControlMatch = {
+  field: string | null;
+  start: number;
+  end: number;
+  text: string;
 };
 
 const DEFAULT_RULES: InputControlRuleSnapshot[] = [
@@ -93,6 +106,12 @@ function normalizeUrlishPrefix(value: string): string {
     .replace(/^www\./, '');
 }
 
+function normalizeScannedField(value: unknown): string {
+  return String(value || '')
+    .normalize('NFKC')
+    .slice(0, MAX_SCANNED_TEXT_LENGTH);
+}
+
 function normalizeSurfaces(surfaces: InputControlSurface | InputControlSurface[] | undefined): InputControlSurface[] {
   const values = Array.isArray(surfaces) ? surfaces : [surfaces || INPUT_CONTROL_USER_INPUT_SURFACE];
   const normalized = values.map((surface) => normalizeText(surface).toUpperCase()).filter(Boolean);
@@ -108,33 +127,58 @@ function ruleAppliesToSurface(rule: InputControlRuleSnapshot, surfaces: InputCon
     || surfaces.some((surface) => ruleSurfaces.includes(surface));
 }
 
-function matchesRule(text: string, rule: InputControlRuleSnapshot): boolean {
+function findRuleMatch(text: string, rule: InputControlRuleSnapshot): InputControlMatch | null {
   const pattern = normalizeText(rule.pattern);
-  if (!pattern) return false;
+  if (!pattern) return null;
 
   const lowerText = text.toLowerCase();
   const lowerPattern = pattern.toLowerCase();
 
   if (rule.kind === 'WORD') {
-    const matcher = new RegExp(`(^|[^a-z0-9_])${escapeRegex(lowerPattern)}($|[^a-z0-9_])`, 'i');
-    return matcher.test(lowerText);
+    const matcher = new RegExp(`(^|[^a-z0-9_])(${escapeRegex(lowerPattern)})(?=$|[^a-z0-9_])`, 'i');
+    const match = matcher.exec(text);
+    if (!match) return null;
+    const boundaryLength = match[1]?.length || 0;
+    const start = match.index + boundaryLength;
+    const end = start + (match[2]?.length || pattern.length);
+    return { field: null, start, end, text: text.slice(start, end) };
   }
 
   if (rule.kind === 'PREFIX') {
-    return normalizeUrlishPrefix(text).startsWith(normalizeUrlishPrefix(lowerPattern));
+    if (!normalizeUrlishPrefix(text).startsWith(normalizeUrlishPrefix(lowerPattern))) {
+      return null;
+    }
+
+    const prefixCandidates = [
+      pattern,
+      `www.${pattern}`,
+      `http://${pattern}`,
+      `https://${pattern}`,
+      `http://www.${pattern}`,
+      `https://www.${pattern}`,
+    ];
+    const candidate = prefixCandidates.find((prefix) => lowerText.startsWith(prefix.toLowerCase())) || text.slice(0, pattern.length);
+    return { field: null, start: 0, end: candidate.length, text: text.slice(0, candidate.length) };
   }
 
   if (rule.kind === 'REGEX') {
-    if (pattern.length > MAX_REGEX_PATTERN_LENGTH) return false;
+    if (pattern.length > MAX_REGEX_PATTERN_LENGTH) return null;
 
     try {
-      return new RegExp(pattern, 'i').test(text);
+      const match = new RegExp(pattern, 'i').exec(text);
+      if (!match) return null;
+      const start = match.index;
+      const end = start + match[0].length;
+      return { field: null, start, end, text: match[0] };
     } catch {
-      return false;
+      return null;
     }
   }
 
-  return lowerText.includes(lowerPattern);
+  const start = lowerText.indexOf(lowerPattern);
+  if (start < 0) return null;
+  const end = start + pattern.length;
+  return { field: null, start, end, text: text.slice(start, end) };
 }
 
 async function loadRules(): Promise<InputControlRuleSnapshot[]> {
@@ -190,16 +234,16 @@ export function isKnownInputControlSurface(surface: unknown): boolean {
   return INPUT_CONTROL_SURFACES.some((item) => item.key === normalized);
 }
 
-export function collectInputControlTextFields(value: unknown, path: string[] = [], fields: string[] = []): string[] {
+export function collectInputControlTextFields(value: unknown, path: string[] = [], fields: InputControlTextField[] = []): InputControlTextField[] {
   if (fields.length >= MAX_COLLECTED_FIELDS || value === null || typeof value === 'undefined') {
     return fields;
   }
 
   if (typeof value === 'string') {
     const key = path[path.length - 1] || '';
-    const normalized = normalizeText(value);
+    const normalized = normalizeScannedField(value);
     if (normalized && !SENSITIVE_FIELD_PATTERN.test(key)) {
-      fields.push(normalized);
+      fields.push({ field: path.join('.') || null, value: normalized });
     }
     return fields;
   }
@@ -226,14 +270,43 @@ export function collectInputControlTextFields(value: unknown, path: string[] = [
 export async function inspectInputControl(input: {
   surface?: InputControlSurface;
   surfaces?: InputControlSurface[];
-  fields: Array<unknown>;
+  fields: Array<unknown | InputControlTextField>;
 }): Promise<InputControlViolation | null> {
-  const text = normalizeText(input.fields.filter(Boolean).join(' '));
-  if (!text) return null;
+  const fields: InputControlTextField[] = input.fields
+    .map((field: any) => {
+      if (field && typeof field === 'object' && 'value' in field) {
+        return {
+          field: typeof field.field === 'string' ? field.field : null,
+          value: normalizeScannedField(field.value),
+        };
+      }
+
+      return { field: null, value: normalizeScannedField(field) };
+    })
+    .filter((field) => field.value.trim().length > 0);
+
+  if (fields.length === 0) return null;
 
   const rules = await loadRules();
   const surfaces = normalizeSurfaces(input.surfaces || input.surface);
-  const matchingRule = rules.find((rule) => ruleAppliesToSurface(rule, surfaces) && matchesRule(text, rule));
+  let matchingRule: InputControlRuleSnapshot | null = null;
+  let match: InputControlMatch | null = null;
+
+  for (const rule of rules) {
+    if (!ruleAppliesToSurface(rule, surfaces)) continue;
+
+    for (const field of fields) {
+      const fieldMatch = findRuleMatch(field.value, rule);
+      if (fieldMatch) {
+        matchingRule = rule;
+        match = { ...fieldMatch, field: field.field };
+        break;
+      }
+    }
+
+    if (matchingRule) break;
+  }
+
   if (!matchingRule) return null;
 
   return {
@@ -243,5 +316,6 @@ export async function inspectInputControl(input: {
     ruleLabel: matchingRule.label,
     reason: matchingRule.reason,
     message: matchingRule.blockMessage || 'This content is not allowed by the current input rules.',
+    match,
   };
 }

@@ -53,6 +53,12 @@ describe('input control matcher', () => {
       code: 'INPUT_CONTROL_BLOCKED',
       ruleId: 'discord-rule',
       message: 'Advertising is blocked.',
+      match: {
+        field: null,
+        start: 0,
+        end: 11,
+        text: 'discord.gg/',
+      },
     });
   });
 
@@ -109,6 +115,11 @@ describe('input control matcher', () => {
       code: 'INPUT_CONTROL_BLOCKED',
       ruleId: 'global-rule',
       surface: 'CHAT_MESSAGE',
+      match: {
+        start: 6,
+        end: 22,
+        text: 'boosting service',
+      },
     });
   });
 
@@ -122,6 +133,35 @@ describe('input control matcher', () => {
       authToken: 'discord.gg/token',
     });
 
-    expect(fields).toEqual(['Looking for duo', 'twitch.tv/channel']);
+    expect(fields).toEqual([
+      { field: 'profile.bio', value: 'Looking for duo' },
+      { field: 'profile.nested', value: 'twitch.tv/channel' },
+    ]);
+  });
+
+  test('returns the offending nested field when one is provided', async () => {
+    findMany.mockResolvedValue([
+      rule({
+        id: 'phrase-rule',
+        kind: 'PHRASE',
+        pattern: 'bad phrase',
+        surfaces: ['GLOBAL'],
+      }),
+    ]);
+
+    const result = await inspectInputControl({
+      surfaces: ['DUO_POST'],
+      fields: [{ field: 'message', value: 'Please remove bad phrase here' }],
+    });
+
+    expect(result).toMatchObject({
+      ruleId: 'phrase-rule',
+      match: {
+        field: 'message',
+        start: 14,
+        end: 24,
+        text: 'bad phrase',
+      },
+    });
   });
 });

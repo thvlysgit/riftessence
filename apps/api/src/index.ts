@@ -466,6 +466,14 @@ async function build() {
       error: violation.message,
       code: violation.code,
       reason: violation.reason,
+      details: {
+        inputControl: {
+          surface: violation.surface,
+          ruleId: violation.ruleId,
+          ruleLabel: violation.ruleLabel,
+          match: violation.match,
+        },
+      },
     });
   });
 
