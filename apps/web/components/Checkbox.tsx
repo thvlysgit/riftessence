@@ -73,15 +73,17 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
       htmlFor={inputId}
       data-selected={selected ? 'true' : undefined}
     >
-      <input
-        {...props}
-        ref={ref}
-        id={inputId}
-        type="checkbox"
-        disabled={disabled}
-        className={['themed-checkbox-input', inputClassName].join(' ')}
-      />
-      <span className={['themed-checkbox-control', indicatorClassName].join(' ')} aria-hidden="true" />
+      <span className={['themed-checkbox-field', indicatorClassName].join(' ')}>
+        <input
+          {...props}
+          ref={ref}
+          id={inputId}
+          type="checkbox"
+          disabled={disabled}
+          className={['themed-checkbox-input', inputClassName].join(' ')}
+        />
+        <span className="themed-checkbox-control" aria-hidden="true" />
+      </span>
       {hasCustomChildren ? children : (label || description) && (
         <span className={['themed-checkbox-copy', labelClassName].join(' ')}>
           {label && <span className="themed-checkbox-label">{label}</span>}
