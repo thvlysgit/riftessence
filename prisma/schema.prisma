@@ -102,6 +102,12 @@ model User {
   password                 String? // Hashed password (bcrypt) - null if only using Riot login
   name                     String?
   bio                      String?
+  bioSlug                  String?      @unique
+  profileBackgroundType    String       @default("DEFAULT")
+  profileBackgroundValue   String?
+  profileSongUrl           String?
+  profileSongTitle         String?
+  profileSocialLinks       Json?
   createdAt                DateTime     @default(now())
   updatedAt                DateTime     @updatedAt
   anonymous                Boolean      @default(false)
@@ -191,6 +197,7 @@ model User {
 
   @@index([region, primaryRole, createdAt])
   @@index([isBanned, createdAt])
+  @@index([bioSlug])
 }
 
 model RiotAccount {

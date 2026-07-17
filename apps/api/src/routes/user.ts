@@ -47,6 +47,71 @@ function toIsoDateString(value: unknown): string | null {
   return parsed.toISOString();
 }
 
+const PROFILE_BACKGROUND_TYPES = new Set(['DEFAULT', 'IMAGE', 'GRADIENT']);
+const PROFILE_BACKGROUND_GRADIENTS = new Set(['rift', 'ionia', 'piltover', 'shadow-isles']);
+const PROFILE_SOCIAL_KEYS = ['x', 'twitch', 'youtube', 'instagram', 'discord', 'opgg'] as const;
+
+function normalizeBioSlug(value: unknown) {
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+  const normalized = String(value).trim().toLowerCase();
+  if (!/^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])?$/.test(normalized)) {
+    throw new Error('Bio URL must be 3-30 characters and use only lowercase letters, numbers, and hyphens.');
+  }
+  return normalized;
+}
+
+function normalizeOptionalUrl(value: unknown, label: string, allowedProtocols = ['https:', 'http:']) {
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+  const raw = String(value).trim();
+  if (raw.length > 500) throw new Error(`${label} URL is too long.`);
+
+  try {
+    const parsed = new URL(raw);
+    if (!allowedProtocols.includes(parsed.protocol)) {
+      throw new Error(`${label} must use ${allowedProtocols.map((protocol) => protocol.replace(':', '')).join(' or ')}.`);
+    }
+    return parsed.toString();
+  } catch (error: any) {
+    if (error?.message?.startsWith(label)) throw error;
+    throw new Error(`${label} must be a valid URL.`);
+  }
+}
+
+function normalizeProfileBackground(typeValue: unknown, value: unknown) {
+  const type = typeof typeValue === 'string' ? typeValue.trim().toUpperCase() : 'DEFAULT';
+  if (!PROFILE_BACKGROUND_TYPES.has(type)) {
+    throw new Error('Invalid profile background type.');
+  }
+
+  if (type === 'DEFAULT') {
+    return { type, value: null };
+  }
+
+  if (type === 'IMAGE') {
+    return { type, value: normalizeOptionalUrl(value, 'Background image', ['https:']) };
+  }
+
+  const gradient = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (!PROFILE_BACKGROUND_GRADIENTS.has(gradient)) {
+    throw new Error('Invalid profile background gradient.');
+  }
+
+  return { type, value: gradient };
+}
+
+function normalizeProfileSocialLinks(value: unknown) {
+  const input = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const socialLinks: Record<string, string> = {};
+
+  for (const key of PROFILE_SOCIAL_KEYS) {
+    const raw = input[key];
+    if (raw === null || raw === undefined || String(raw).trim() === '') continue;
+    socialLinks[key] = normalizeOptionalUrl(raw, `${key} social`, ['https:']) as string;
+  }
+
+  return socialLinks;
+}
+
 function resolveRiotIdentityParts(account: {
   summonerName?: string | null;
   gameName?: string | null;
@@ -385,14 +450,14 @@ export default async function userRoutes(fastify: any) {
   // Supports searching by userId or username via query parameters
   fastify.get('/profile', async (request: any, reply: any) => {
     try {
-      const { userId, username, includeHidden } = (request.query as { userId?: string; username?: string; includeHidden?: string }) || {};
+      const { userId, username, bioSlug, includeHidden } = (request.query as { userId?: string; username?: string; bioSlug?: string; includeHidden?: string }) || {};
       const requestedIncludeHidden = includeHidden === 'true';
 
       const authenticatedUserId = await getUserIdFromRequest(request as any, reply as any, false);
       let targetUserId = userId;
       
       // If no userId or username provided, try to get from JWT token
-      if (!userId && !username) {
+      if (!userId && !username && !bioSlug) {
         targetUserId = authenticatedUserId || undefined;
 
         // Never fall back to arbitrary users when no explicit profile target is provided.
@@ -403,7 +468,9 @@ export default async function userRoutes(fastify: any) {
 
       const profileTargetKey = targetUserId
         ? `id:${targetUserId}`
-        : `username:${String(username || '').trim().toLowerCase()}`;
+        : bioSlug
+          ? `bioSlug:${String(bioSlug || '').trim().toLowerCase()}`
+          : `username:${String(username || '').trim().toLowerCase()}`;
       const profileResponseCacheKey = [
         'api:user:profile:response:v1',
         profileTargetKey,
@@ -433,6 +500,23 @@ export default async function userRoutes(fastify: any) {
         if (targetUserId) {
           return await prisma.user.findUnique({
             where: { id: targetUserId },
+            include: profileInclude,
+          });
+        }
+
+        if (bioSlug) {
+          const normalizedSlug = String(bioSlug).trim().toLowerCase();
+          const userByBioSlug = await prisma.user.findUnique({
+            where: { bioSlug: normalizedSlug },
+            include: profileInclude,
+          });
+
+          if (userByBioSlug) {
+            return userByBioSlug;
+          }
+
+          return await prisma.user.findUnique({
+            where: { username: normalizedSlug },
             include: profileInclude,
           });
         }
@@ -631,6 +715,12 @@ export default async function userRoutes(fastify: any) {
         id: user.id,
         username: user.username,
         bio: user.bio,
+        bioSlug: user.bioSlug || null,
+        profileBackgroundType: user.profileBackgroundType || 'DEFAULT',
+        profileBackgroundValue: user.profileBackgroundValue || null,
+        profileSongUrl: user.profileSongUrl || null,
+        profileSongTitle: user.profileSongTitle || null,
+        profileSocialLinks: user.profileSocialLinks || {},
         anonymous: user.anonymous,
         playstyles: user.playstyles,
         primaryRole: user.primaryRole,
@@ -881,6 +971,76 @@ export default async function userRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to update bio' });
+    }
+  });
+
+  // Update profile presentation settings
+  fastify.patch('/profile-customization', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const {
+        bioSlug,
+        profileBackgroundType,
+        profileBackgroundValue,
+        profileSongUrl,
+        profileSongTitle,
+        profileSocialLinks,
+      } = request.body || {};
+
+      const normalizedBioSlug = normalizeBioSlug(bioSlug);
+      const background = normalizeProfileBackground(profileBackgroundType, profileBackgroundValue);
+      const normalizedSongUrl = normalizeOptionalUrl(profileSongUrl, 'Profile song', ['https:']);
+      const normalizedSongTitle = typeof profileSongTitle === 'string' ? profileSongTitle.trim() : '';
+      const normalizedSocialLinks = normalizeProfileSocialLinks(profileSocialLinks);
+
+      if (normalizedSongTitle.length > 80) {
+        return reply.status(400).send({ error: 'Song title must be 80 characters or fewer.' });
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        return reply.status(404).send({ error: 'User not found' });
+      }
+
+      const updated = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          bioSlug: normalizedBioSlug,
+          profileBackgroundType: background.type,
+          profileBackgroundValue: background.value,
+          profileSongUrl: normalizedSongUrl,
+          profileSongTitle: normalizedSongTitle.length > 0 ? normalizedSongTitle : null,
+          profileSocialLinks: normalizedSocialLinks,
+        },
+      });
+
+      return reply.send({
+        success: true,
+        bioSlug: updated.bioSlug || null,
+        profileBackgroundType: updated.profileBackgroundType,
+        profileBackgroundValue: updated.profileBackgroundValue,
+        profileSongUrl: updated.profileSongUrl,
+        profileSongTitle: updated.profileSongTitle,
+        profileSocialLinks: updated.profileSocialLinks || {},
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        return reply.status(409).send({ error: 'That bio URL is already taken.' });
+      }
+
+      if (error instanceof Error && (
+        error.message.includes('Bio URL')
+        || error.message.includes('URL')
+        || error.message.includes('background')
+        || error.message.includes('social')
+      )) {
+        return reply.status(400).send({ error: error.message });
+      }
+
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to update profile customization' });
     }
   });
 

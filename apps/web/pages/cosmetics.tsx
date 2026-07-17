@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   FaBullhorn,
-  FaBolt,
   FaCheckCircle,
   FaFont,
   FaGem,
@@ -16,7 +15,7 @@ import LivingBadge from '../src/components/LivingBadge';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
-type CosmeticCategory = 'BADGE' | 'USERNAME_DECORATION' | 'VISUAL_EFFECT' | 'FONT';
+type CosmeticCategory = 'BADGE' | 'USERNAME_DECORATION' | 'FONT';
 
 type CosmeticItem = {
   key: string;
@@ -64,7 +63,6 @@ const EMPTY_SHOP: ShopState = {
 const CATEGORY_ORDER: CosmeticCategory[] = [
   'BADGE',
   'USERNAME_DECORATION',
-  'VISUAL_EFFECT',
   'FONT',
 ];
 
@@ -79,11 +77,6 @@ const CATEGORY_META: Record<CosmeticCategory, { label: string; icon: React.React
     icon: <FaPalette />,
     color: '#60A5FA',
   },
-  VISUAL_EFFECT: {
-    label: 'Profile Background Effects',
-    icon: <FaBolt />,
-    color: '#A78BFA',
-  },
   FONT: {
     label: 'Fonts',
     icon: <FaFont />,
@@ -93,7 +86,6 @@ const CATEGORY_META: Record<CosmeticCategory, { label: string; icon: React.React
 
 const ACTIVATABLE_CATEGORIES = new Set<CosmeticCategory>([
   'USERNAME_DECORATION',
-  'VISUAL_EFFECT',
   'FONT',
 ]);
 
@@ -132,12 +124,6 @@ const FONT_PREVIEW_FAMILIES: Record<string, string> = {
   FONT_AUDIOWIDE: 'Audiowide, "Segoe UI", sans-serif',
   FONT_UNBOUNDED: 'Unbounded, "Segoe UI", sans-serif',
   FONT_BEBAS_NEUE: '"Bebas Neue", "Segoe UI", sans-serif',
-};
-
-const VISUAL_EFFECT_PREVIEW_CLASSES: Record<string, string> = {
-  VISUAL_STARDUST: 'profile-visual-stardust',
-  VISUAL_SCANLINES: 'profile-visual-scanlines',
-  VISUAL_NEBULA_PULSE: 'profile-visual-nebula-pulse',
 };
 
 type PrestigeBadgePreviewConfig = {
@@ -277,7 +263,6 @@ export default function CosmeticsPage() {
     const groups: Record<CosmeticCategory, CosmeticItem[]> = {
       BADGE: [],
       USERNAME_DECORATION: [],
-      VISUAL_EFFECT: [],
       FONT: [],
     };
 
@@ -360,20 +345,6 @@ export default function CosmeticsPage() {
       );
     }
 
-    if (item.category === 'VISUAL_EFFECT') {
-      const effectClass = VISUAL_EFFECT_PREVIEW_CLASSES[item.key] || '';
-      return (
-        <div className="rounded-lg border p-2" style={{ borderColor: 'var(--border-card)', background: 'rgba(15,23,42,0.55)' }}>
-          <div
-            className={`profile-card-shell rounded-lg h-16 flex items-center justify-center ${effectClass}`.trim()}
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-card)' }}
-          >
-            <span className="text-xs font-semibold" style={{ color: 'var(--text-main)' }}>Profile Background Preview</span>
-          </div>
-        </div>
-      );
-    }
-
     if (item.category === 'FONT') {
       const fontFamily = FONT_PREVIEW_FAMILIES[item.key] || undefined;
       return (
@@ -448,7 +419,7 @@ export default function CosmeticsPage() {
     }
   };
 
-  const handleDeactivate = async (category: 'ALL' | 'USERNAME_DECORATION' | 'VISUAL_EFFECT' | 'FONT') => {
+  const handleDeactivate = async (category: 'ALL' | 'USERNAME_DECORATION' | 'FONT') => {
     if (!user) return;
 
     setDeactivateLoading((prev) => ({ ...prev, [category]: true }));
@@ -619,7 +590,7 @@ export default function CosmeticsPage() {
                 {ACTIVATABLE_CATEGORIES.has(categoryKey) && (
                   <button
                     type="button"
-                    onClick={() => handleDeactivate(categoryKey as 'USERNAME_DECORATION' | 'VISUAL_EFFECT' | 'FONT')}
+                    onClick={() => handleDeactivate(categoryKey as 'USERNAME_DECORATION' | 'FONT')}
                     disabled={!items.some((entry) => entry.active) || Boolean(deactivateLoading[categoryKey])}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold"
                     style={{

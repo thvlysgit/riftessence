@@ -2,7 +2,7 @@
 // Built with Next.js, TypeScript, and Tailwind CSS
 // Styled to match the Riot "Summoner Hub" dark theme
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -326,10 +326,20 @@ type Feedback = {
   raterUsername: string;
 };
 
+type ProfileBackgroundType = 'DEFAULT' | 'IMAGE' | 'GRADIENT';
+type ProfileSocialKey = 'x' | 'twitch' | 'youtube' | 'instagram' | 'discord' | 'opgg';
+type ProfileSocialLinks = Partial<Record<ProfileSocialKey, string>>;
+
 type UserProfile = {
   id: string;
   username: string;
   bio: string | null;
+  bioSlug: string | null;
+  profileBackgroundType: ProfileBackgroundType;
+  profileBackgroundValue: string | null;
+  profileSongUrl: string | null;
+  profileSongTitle: string | null;
+  profileSocialLinks: ProfileSocialLinks;
   anonymous: boolean;
   playstyles: string[];
   primaryRole: string | null;
@@ -871,10 +881,45 @@ const USERNAME_HOVER_EFFECT_CLASSES: Record<string, string> = {
   hover_eclipse_gleam: 'username-hover-eclipse-gleam',
 };
 
-const PROFILE_VISUAL_EFFECT_CLASSES: Record<string, string> = {
-  visual_stardust: 'profile-visual-stardust',
-  visual_scanlines: 'profile-visual-scanlines',
-  visual_nebula_pulse: 'profile-visual-nebula-pulse',
+const PROFILE_BACKGROUND_GRADIENTS: Record<string, { label: string; background: string }> = {
+  rift: {
+    label: 'Rift aurora',
+    background: 'radial-gradient(circle at 18% 12%, rgba(34,211,238,0.32), transparent 28%), radial-gradient(circle at 86% 20%, rgba(167,139,250,0.28), transparent 30%), linear-gradient(135deg, rgba(12,18,32,0.98), rgba(20,83,45,0.42) 52%, rgba(2,6,23,0.98))',
+  },
+  ionia: {
+    label: 'Ionia dusk',
+    background: 'radial-gradient(circle at 18% 20%, rgba(244,114,182,0.34), transparent 28%), radial-gradient(circle at 72% 18%, rgba(129,140,248,0.28), transparent 32%), linear-gradient(140deg, rgba(39,39,42,0.98), rgba(88,28,135,0.46) 48%, rgba(2,6,23,0.98))',
+  },
+  piltover: {
+    label: 'Piltover brass',
+    background: 'radial-gradient(circle at 22% 16%, rgba(251,191,36,0.3), transparent 26%), radial-gradient(circle at 78% 24%, rgba(59,130,246,0.26), transparent 30%), linear-gradient(135deg, rgba(15,23,42,0.98), rgba(120,53,15,0.42) 50%, rgba(8,47,73,0.92))',
+  },
+  'shadow-isles': {
+    label: 'Shadow Isles',
+    background: 'radial-gradient(circle at 20% 18%, rgba(16,185,129,0.32), transparent 30%), radial-gradient(circle at 78% 18%, rgba(20,184,166,0.22), transparent 34%), linear-gradient(135deg, rgba(2,6,23,0.98), rgba(6,78,59,0.48) 46%, rgba(15,23,42,0.98))',
+  },
+};
+
+const PROFILE_SOCIAL_META: Record<ProfileSocialKey, { label: string; placeholder: string }> = {
+  x: { label: 'X / Twitter', placeholder: 'https://x.com/yourhandle' },
+  twitch: { label: 'Twitch', placeholder: 'https://twitch.tv/yourhandle' },
+  youtube: { label: 'YouTube', placeholder: 'https://youtube.com/@yourhandle' },
+  instagram: { label: 'Instagram', placeholder: 'https://instagram.com/yourhandle' },
+  discord: { label: 'Discord', placeholder: 'https://discord.gg/yourserver' },
+  opgg: { label: 'OP.GG', placeholder: 'https://op.gg/summoners/euw/name-tag' },
+};
+
+const PROFILE_SOCIAL_KEYS = Object.keys(PROFILE_SOCIAL_META) as ProfileSocialKey[];
+
+const makeDefaultBioSlug = (value: string) => {
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 30)
+    .replace(/-+$/g, '');
+
+  return slug.length >= 3 ? slug : 'profile';
 };
 
 // Popular League champions for quick selection
@@ -926,10 +971,45 @@ const RANK_ORDER = [
   'CHALLENGER',
 ];
 
+const buildProfileBackgroundStyle = (
+  type: ProfileBackgroundType | null | undefined,
+  value: string | null | undefined,
+): React.CSSProperties => {
+  if (type === 'IMAGE' && value) {
+    return {
+      backgroundImage: `linear-gradient(180deg, rgba(2,6,23,0.42), rgba(2,6,23,0.82)), url(${JSON.stringify(value)})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+    };
+  }
+
+  if (type === 'GRADIENT' && value && PROFILE_BACKGROUND_GRADIENTS[value]) {
+    return { background: PROFILE_BACKGROUND_GRADIENTS[value].background };
+  }
+
+  return {
+    background: 'radial-gradient(circle at 16% 14%, rgba(59,130,246,0.28), transparent 30%), radial-gradient(circle at 86% 16%, rgba(200,170,110,0.22), transparent 34%), linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,41,59,0.92))',
+  };
+};
+
+const isHttpsUrl = (value: string) => {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 export default function ProfilePage() {
   const router = useRouter();
   const routeUsername = typeof router.query?.username === 'string' ? router.query.username : null;
-  const isViewingOther = !!routeUsername;
+  const routeBioSlug = typeof router.query?.bioSlug === 'string'
+    ? router.query.bioSlug
+    : router.pathname.startsWith('/bio/') && typeof router.query?.slug === 'string'
+      ? router.query.slug
+      : null;
+  const isViewingOther = !!routeUsername || !!routeBioSlug;
   const rankColor = useRankColor();
   const { t } = useLanguage();
   const { openConversation } = useChat();
@@ -942,6 +1022,12 @@ export default function ProfilePage() {
   const [anonymousMode, setAnonymousMode] = useState(false);
   const [editedUsername, setEditedUsername] = useState<string>('');
   const [editedBio, setEditedBio] = useState<string>('');
+  const [editedBioSlug, setEditedBioSlug] = useState<string>('');
+  const [editedBackgroundType, setEditedBackgroundType] = useState<ProfileBackgroundType>('DEFAULT');
+  const [editedBackgroundValue, setEditedBackgroundValue] = useState<string>('');
+  const [editedSongUrl, setEditedSongUrl] = useState<string>('');
+  const [editedSongTitle, setEditedSongTitle] = useState<string>('');
+  const [editedSocialLinks, setEditedSocialLinks] = useState<ProfileSocialLinks>({});
   const [editedLanguages, setEditedLanguages] = useState<string[]>([]);
   const [pendingMainAccountId, setPendingMainAccountId] = useState<string | null>(null);
   const [_championPoolMode, setChampionPoolMode] = useState<'LIST' | 'TIERLIST'>('TIERLIST');
@@ -1053,6 +1139,14 @@ export default function ProfilePage() {
       return ad > bd ? a : best;
     }, accounts[0]);
   };
+  const syncCustomizationEditor = useCallback((profile: UserProfile) => {
+    setEditedBioSlug(makeDefaultBioSlug(profile.bioSlug || profile.username || 'profile'));
+    setEditedBackgroundType(profile.profileBackgroundType || 'DEFAULT');
+    setEditedBackgroundValue(profile.profileBackgroundValue || '');
+    setEditedSongUrl(profile.profileSongUrl || '');
+    setEditedSongTitle(profile.profileSongTitle || '');
+    setEditedSocialLinks(profile.profileSocialLinks || {});
+  }, []);
 
   // Update browser tab title when user data loads
   useEffect(() => {
@@ -1073,7 +1167,9 @@ export default function ProfilePage() {
         let profileUrl: string;
         const fetchOptions: RequestInit = {};
         
-        if (isViewingOther && routeUsername) {
+        if (isViewingOther && routeBioSlug) {
+          profileUrl = `${API_URL}/api/user/profile?bioSlug=${encodeURIComponent(routeBioSlug)}`;
+        } else if (isViewingOther && routeUsername) {
           // When viewing others, don't include hidden accounts
           profileUrl = `${API_URL}/api/user/profile?username=${encodeURIComponent(routeUsername)}`;
         } else {
@@ -1099,6 +1195,7 @@ export default function ProfilePage() {
         setAnonymousMode(data.anonymous || false);
         setEditedUsername(data.username || '');
         setEditedBio(data.bio || '');
+        syncCustomizationEditor(data);
         setEditedLanguages(data.languages || []);
         setChampionPoolMode(data.championPoolMode || 'TIERLIST');
         setChampionTierlist(
@@ -1128,6 +1225,7 @@ export default function ProfilePage() {
               if (refreshedData) {
                 setUser(refreshedData);
                 setEditedBio(refreshedData.bio || '');
+                syncCustomizationEditor(refreshedData);
                 const updatedMainAccount = refreshedData.riotAccounts.find((acc: RiotAccount) => acc.isMain);
                 setPendingMainAccountId(updatedMainAccount?.id || refreshedData.riotAccounts[0]?.id || null);
               }
@@ -1140,7 +1238,7 @@ export default function ProfilePage() {
       }
     }
     fetchProfile();
-  }, [routeUsername, isViewingOther, t]);
+  }, [routeUsername, routeBioSlug, isViewingOther, syncCustomizationEditor, t]);
 
   // Handle Discord OAuth callback
   useEffect(() => {
@@ -1328,6 +1426,56 @@ export default function ProfilePage() {
         return;
       }
 
+      // Save profile customization if changed (only when viewing own profile)
+      try {
+        if (!isViewingOther) {
+          const trimmedBackgroundValue = editedBackgroundValue.trim();
+          const trimmedSongUrl = editedSongUrl.trim();
+          const trimmedSongTitle = editedSongTitle.trim();
+          const cleanedSocialLinks = PROFILE_SOCIAL_KEYS.reduce<ProfileSocialLinks>((acc, key) => {
+            const value = editedSocialLinks[key]?.trim();
+            if (value) acc[key] = value;
+            return acc;
+          }, {});
+
+          if (editedBackgroundType === 'IMAGE' && (!trimmedBackgroundValue || !isHttpsUrl(trimmedBackgroundValue))) {
+            showToast('Background image must be a valid HTTPS hosted image URL.', 'error');
+            setIsSaving(false);
+            return;
+          }
+
+          if (trimmedSongUrl && !isHttpsUrl(trimmedSongUrl)) {
+            showToast('Profile song must be a valid HTTPS direct audio URL.', 'error');
+            setIsSaving(false);
+            return;
+          }
+
+          const customizationRes = await fetch(`${API_URL}/api/user/profile-customization`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            credentials: 'include',
+            body: JSON.stringify({
+              bioSlug: editedBioSlug,
+              profileBackgroundType: editedBackgroundType,
+              profileBackgroundValue: editedBackgroundType === 'DEFAULT' ? null : trimmedBackgroundValue,
+              profileSongUrl: trimmedSongUrl,
+              profileSongTitle: trimmedSongTitle,
+              profileSocialLinks: cleanedSocialLinks,
+            }),
+          });
+
+          if (!customizationRes.ok) {
+            const err = await customizationRes.json().catch(() => ({ error: 'Failed to update profile customization' }));
+            throw new Error(err.error || 'Failed to update profile customization');
+          }
+        }
+      } catch (err: any) {
+        console.error('Profile customization save error:', err);
+        showToast(`Failed to update profile customization: ${err.message}`, 'error');
+        setIsSaving(false);
+        return;
+      }
+
       // Save languages if changed (only when viewing own profile)
       try {
         const sortedEditedLangs = [...editedLanguages].sort();
@@ -1442,7 +1590,9 @@ export default function ProfilePage() {
         }).catch(err => console.error('Failed to refresh stats:', err));
       }
       const url = isViewingOther
-        ? `${API_URL}/api/user/profile?username=${encodeURIComponent(routeUsername as string)}`
+        ? routeBioSlug
+          ? `${API_URL}/api/user/profile?bioSlug=${encodeURIComponent(routeBioSlug)}`
+          : `${API_URL}/api/user/profile?username=${encodeURIComponent(routeUsername as string)}`
         : `${API_URL}/api/user/profile?includeHidden=true`;
       const profileResponse = await fetch(url, {
         headers: isViewingOther ? {} : getAuthHeader(),
@@ -1454,6 +1604,7 @@ export default function ProfilePage() {
         setSelectedPlaystyles(data.playstyles || []);
         setEditedUsername(data.username || '');
         setEditedBio(data.bio || '');
+        syncCustomizationEditor(data);
         setEditedLanguages(data.languages || []);
         setChampionPoolMode(data.championPoolMode || 'TIERLIST');
         setChampionTierlist(
@@ -1741,14 +1892,22 @@ export default function ProfilePage() {
   const usernameHoverEffectClass = user.activeHoverEffect
     ? USERNAME_HOVER_EFFECT_CLASSES[user.activeHoverEffect] || ''
     : '';
-  const profileVisualEffectClass = user.activeVisualEffect
-    ? PROFILE_VISUAL_EFFECT_CLASSES[user.activeVisualEffect] || ''
-    : '';
+  const profileBackgroundStyle = buildProfileBackgroundStyle(user.profileBackgroundType, user.profileBackgroundValue);
   const profileTitle = isViewingOther ? `${user.username}'s Profile | RiftEssence` : 'My Profile | RiftEssence';
   const profileDescription = isViewingOther
     ? `View ${user.username}'s League of Legends profile on RiftEssence, including Riot account context, rank, roles, champion pool, and community feedback.`
     : 'Manage your RiftEssence League of Legends profile, Riot accounts, roles, languages, and champion pool.';
-  const profileCanonical = isViewingOther ? `https://riftessence.app/profile/${encodeURIComponent(user.username)}` : undefined;
+  const profileCanonical = isViewingOther
+    ? routeBioSlug
+      ? `https://riftessence.app/bio/${encodeURIComponent(makeDefaultBioSlug(user.bioSlug || routeBioSlug))}`
+      : `https://riftessence.app/profile/${encodeURIComponent(user.username)}`
+    : undefined;
+  const bioPath = user.bioSlug
+    ? `/bio/${encodeURIComponent(user.bioSlug)}`
+    : `/profile/${encodeURIComponent(user.username)}`;
+  const publicSocialLinks = PROFILE_SOCIAL_KEYS
+    .map((key) => ({ key, url: user.profileSocialLinks?.[key] }))
+    .filter((entry): entry is { key: ProfileSocialKey; url: string } => Boolean(entry.url));
   
   return (
     <>
@@ -1844,6 +2003,7 @@ export default function ProfilePage() {
                 setSelectedPlaystyles(user.playstyles || []);
                 setEditedUsername(user.username || '');
                 setEditedBio(user.bio || '');
+                syncCustomizationEditor(user);
                 setEditedLanguages(user.languages || []);
                 const mainAccount = user.riotAccounts.find(acc => acc.isMain);
                 setPendingMainAccountId(mainAccount?.id || user.riotAccounts[0]?.id || null);
@@ -1866,7 +2026,8 @@ export default function ProfilePage() {
 
         {/* Profile Header */}
         <div
-          className={`theme-premium-surface rounded-2xl p-4 sm:p-6 profile-card-shell ${profileVisualEffectClass}`.trim()}
+          className="theme-premium-surface rounded-2xl p-4 sm:p-6 profile-card-shell"
+          style={profileBackgroundStyle}
         >
           <div className="space-y-6">
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
@@ -2301,6 +2462,195 @@ export default function ProfilePage() {
                 )}
               </div>
             </div>
+
+            {(isEditMode || user.profileSongUrl || publicSocialLinks.length > 0 || user.bioSlug) && (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div
+                  className="rounded-xl border p-4 sm:p-5"
+                  style={{
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--accent-primary-border)',
+                    boxShadow: 'var(--shadow)',
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: 'var(--text-main)' }}>
+                      Profile links
+                    </p>
+                    <Link href={bioPath} className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-primary)' }}>
+                      {bioPath}
+                    </Link>
+                  </div>
+
+                  {isEditMode ? (
+                    <div className="space-y-4">
+                      <label className="block">
+                        <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Custom bio URL</span>
+                        <div className="mt-1 flex rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-card)', background: 'var(--bg-card)' }}>
+                          <span className="px-3 py-2 text-sm border-r" style={{ color: 'var(--text-muted)', borderColor: 'var(--border-card)' }}>/bio/</span>
+                          <input
+                            type="text"
+                            value={editedBioSlug}
+                            onChange={(event) => setEditedBioSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30))}
+                            className="min-w-0 flex-1 px-3 py-2 text-sm focus:outline-none"
+                            style={{ background: 'transparent', color: 'var(--text-main)' }}
+                            placeholder="example"
+                          />
+                        </div>
+                      </label>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {PROFILE_SOCIAL_KEYS.map((key) => (
+                          <label key={key} className="block">
+                            <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{PROFILE_SOCIAL_META[key].label}</span>
+                            <input
+                              type="url"
+                              value={editedSocialLinks[key] || ''}
+                              onChange={(event) => setEditedSocialLinks((prev) => ({ ...prev, [key]: event.target.value }))}
+                              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                              style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)', color: 'var(--text-main)' }}
+                              placeholder={PROFILE_SOCIAL_META[key].placeholder}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : publicSocialLinks.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {publicSocialLinks.map(({ key, url }) => (
+                        <a
+                          key={key}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-2 rounded-lg text-sm font-semibold hover:opacity-85"
+                          style={{
+                            background: 'var(--bg-card)',
+                            color: 'var(--text-main)',
+                            border: '1px solid var(--border-card)',
+                          }}
+                        >
+                          {PROFILE_SOCIAL_META[key].label}
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No socials linked yet.</p>
+                  )}
+                </div>
+
+                <div
+                  className="rounded-xl border p-4 sm:p-5"
+                  style={{
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--accent-primary-border)',
+                    boxShadow: 'var(--shadow)',
+                  }}
+                >
+                  <p className="text-xs uppercase tracking-wide font-semibold mb-3" style={{ color: 'var(--text-main)' }}>
+                    Profile atmosphere
+                  </p>
+
+                  {isEditMode ? (
+                    <div className="space-y-4">
+                      <div>
+                        <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Background</span>
+                        <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditedBackgroundType('DEFAULT');
+                              setEditedBackgroundValue('');
+                            }}
+                            className="h-16 rounded-lg border text-xs font-semibold"
+                            style={{
+                              ...buildProfileBackgroundStyle('DEFAULT', null),
+                              color: '#f8fafc',
+                              borderColor: editedBackgroundType === 'DEFAULT' ? 'var(--accent-primary)' : 'var(--border-card)',
+                            }}
+                          >
+                            Default
+                          </button>
+                          {Object.entries(PROFILE_BACKGROUND_GRADIENTS).map(([key, meta]) => (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => {
+                                setEditedBackgroundType('GRADIENT');
+                                setEditedBackgroundValue(key);
+                              }}
+                              className="h-16 rounded-lg border px-2 text-xs font-semibold"
+                              style={{
+                                background: meta.background,
+                                color: '#f8fafc',
+                                borderColor: editedBackgroundType === 'GRADIENT' && editedBackgroundValue === key ? 'var(--accent-primary)' : 'var(--border-card)',
+                              }}
+                            >
+                              {meta.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <label className="block">
+                        <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Hosted background image URL</span>
+                        <input
+                          type="url"
+                          value={editedBackgroundType === 'IMAGE' ? editedBackgroundValue : ''}
+                          onChange={(event) => {
+                            setEditedBackgroundType('IMAGE');
+                            setEditedBackgroundValue(event.target.value);
+                          }}
+                          className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)', color: 'var(--text-main)' }}
+                          placeholder="https://example.com/profile-cover.jpg"
+                        />
+                      </label>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="block">
+                          <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Song title</span>
+                          <input
+                            type="text"
+                            value={editedSongTitle}
+                            onChange={(event) => setEditedSongTitle(event.target.value.slice(0, 80))}
+                            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)', color: 'var(--text-main)' }}
+                            placeholder="Champion select anthem"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Direct audio URL</span>
+                          <input
+                            type="url"
+                            value={editedSongUrl}
+                            onChange={(event) => setEditedSongUrl(event.target.value)}
+                            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)', color: 'var(--text-main)' }}
+                            placeholder="https://example.com/song.mp3"
+                          />
+                        </label>
+                      </div>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        Use a direct HTTPS MP3, OGG, or WAV link. Browsers may ask visitors to press play before sound starts.
+                      </p>
+                    </div>
+                  ) : user.profileSongUrl ? (
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
+                          {user.profileSongTitle || 'Profile song'}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Best-effort autoplay with visitor controls</p>
+                      </div>
+                      <audio src={user.profileSongUrl} controls autoPlay preload="metadata" className="w-full" />
+                    </div>
+                  ) : (
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No profile song selected.</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
