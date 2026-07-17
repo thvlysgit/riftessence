@@ -33,6 +33,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function isFetchNetworkError(error: unknown) {
+  return error instanceof TypeError && String(error.message || '').toLowerCase().includes('failed to fetch');
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,6 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const loadUser = async () => {
       try {
         const token = getAuthToken();
+        if (!token) {
+          setUser(null);
+          return;
+        }
+
         if (token) {
           // Try refresh when nearing expiry, but do not force logout on transient failures.
           if (isTokenExpiringSoon(token) && !isTokenExpired(token)) {
@@ -123,7 +132,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (err) {
-        console.error('Failed to load user:', err);
+        if (!isFetchNetworkError(err)) {
+          console.warn('Auth bootstrap failed without auth invalidation.', err);
+        }
       } finally {
         setLoading(false);
       }
@@ -333,7 +344,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (err) {
-      console.error('Failed to refresh user:', err);
+      if (!isFetchNetworkError(err)) {
+        console.warn('Failed to refresh user:', err);
+      }
     }
   };
 

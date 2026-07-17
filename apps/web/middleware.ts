@@ -18,6 +18,14 @@ function getConfiguredApiOrigin(): string | null {
 }
 
 function buildContentSecurityPolicy(nonce: string): string {
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  const scriptSources = [
+    "'self'",
+    `'nonce-${nonce}'`,
+    ...(isDevelopment ? ["'unsafe-eval'"] : []),
+    'https://challenges.cloudflare.com',
+    'https://va.vercel-scripts.com',
+  ];
   const connectSources = [
     "'self'",
     'http://localhost:3333',
@@ -39,8 +47,8 @@ function buildContentSecurityPolicy(nonce: string): string {
     "base-uri 'self'",
     "frame-ancestors 'none'",
     "object-src 'none'",
-    `script-src 'self' 'nonce-${nonce}' https://challenges.cloudflare.com https://va.vercel-scripts.com`,
-    `script-src-elem 'self' 'nonce-${nonce}' https://challenges.cloudflare.com https://va.vercel-scripts.com`,
+    `script-src ${scriptSources.join(' ')}`,
+    `script-src-elem ${scriptSources.join(' ')}`,
     "script-src-attr 'none'",
     "style-src 'self'",
     "style-src-elem 'self' 'unsafe-inline'",

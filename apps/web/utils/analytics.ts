@@ -22,7 +22,7 @@ export async function trackNewVisitor() {
 
     // Mark as tracked so we don't send multiple notifications
     localStorage.setItem('visitor_tracked', 'true');
-  } catch (error) {
-    console.error('[Analytics] Failed to track visitor:', error);
+  } catch {
+    // Visitor tracking is best-effort and should not make local/API-down sessions look broken.
   }
 }

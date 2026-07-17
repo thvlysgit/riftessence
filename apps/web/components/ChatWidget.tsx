@@ -5,14 +5,18 @@ import { getAuthHeader } from '../utils/auth';
 import { getProfileIconUrl } from '../utils/championData';
 import AccessRequirementModal from './AccessRequirementModal';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useGlobalUI } from './GlobalUI';
+import { ReportModal } from './ReportModal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+const MESSAGE_PAGE_SIZE = 50;
 
 interface Message {
   id: string;
   content: string;
   senderId: string;
   createdAt: string;
+  status?: 'sending' | 'failed';
   sender: {
     id: string;
     username: string;
@@ -175,6 +179,7 @@ export default function ChatWidget() {
   const { user } = useAuth();
   const { conversationToOpen, clearConversationToOpen } = useChat();
   const { t } = useLanguage();
+  const { showToast, confirm } = useGlobalUI();
   const [isOpen, setIsOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -182,13 +187,20 @@ export default function ChatWidget() {
   const [messageInput, setMessageInput] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [nextMessageCursor, setNextMessageCursor] = useState<string | null>(null);
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [dmBannerDismissed, setDmBannerDismissed] = useState(false);
   const [discordDmEnabled, setDiscordDmEnabled] = useState(false);
   const [togglingDm, setTogglingDm] = useState(false);
   const [showGuestRestriction, setShowGuestRestriction] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<Message[]>([]);
+  const skipNextAutoScrollRef = useRef(false);
 
   const formatRelativeTime = useCallback((dateString: string) => {
     const date = new Date(dateString);
@@ -208,6 +220,8 @@ export default function ChatWidget() {
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  const currentUserProfileIconId = user?.profileIconId || undefined;
 
   // Scroll to bottom of messages - more robust for different browsers
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
@@ -234,6 +248,11 @@ export default function ChatWidget() {
 
   // Scroll to bottom when messages change
   useEffect(() => {
+    if (skipNextAutoScrollRef.current) {
+      skipNextAutoScrollRef.current = false;
+      return;
+    }
+
     // Multiple attempts with increasing delays for reliability
     const timeout1 = setTimeout(() => scrollToBottom(), 50);
     const timeout2 = setTimeout(() => scrollToBottom('auto'), 150);
@@ -319,6 +338,10 @@ export default function ChatWidget() {
   // Fetch messages when conversation is selected
   useEffect(() => {
     if (selectedConversation) {
+      setMessages([]);
+      setHasMoreMessages(false);
+      setNextMessageCursor(null);
+      setActionsOpen(false);
       fetchMessages(selectedConversation.id);
     }
   }, [selectedConversation]);
@@ -326,50 +349,27 @@ export default function ChatWidget() {
   useAdaptivePolling(Boolean(selectedConversation && user), async () => {
     if (!selectedConversation) return false;
 
-    const headers = getAuthHeader();
-    if (!headers || !('Authorization' in headers)) return false;
-
-    const res = await fetch(`${API_URL}/api/chat/conversations/${selectedConversation.id}/messages`, {
-      headers,
-    });
-    if (!res.ok) return false;
-
-    const data = await res.json();
-    const newMessages = data.messages;
-    const currentMessages = messagesRef.current;
-
-    if (newMessages.length !== currentMessages.length ||
-        (newMessages.length > 0 && currentMessages.length > 0 &&
-         newMessages[newMessages.length - 1]?.id !== currentMessages[currentMessages.length - 1]?.id)) {
-      setMessages(newMessages);
-      await fetchConversations();
-    }
-
+    await fetchMessages(selectedConversation.id, 'replace', { silent: true });
     return true;
   }, { initialMs: 4000, baseMs: 4000, hiddenMs: 60000, maxMs: 30000 });
 
   // Wrap openConversationWithUser in useCallback to prevent stale closures
   const openConversationWithUser = useCallback(async (userId: string) => {
-    console.log('[ChatWidget] openConversationWithUser called for userId:', userId);
     try {
       const headers = getAuthHeader();
       // Don't attempt if no auth token available
       if (!headers || !('Authorization' in headers)) {
-        console.warn('[ChatWidget] Cannot open conversation: not authenticated');
         return;
       }
       
-      console.log('[ChatWidget] Creating/fetching conversation with user...');
       // Create or get conversation with this user
       const res = await fetch(`${API_URL}/api/chat/conversations/with/${userId}`, {
         method: 'POST',
         headers,
       });
       
-      console.log('[ChatWidget] Conversation API response status:', res.status);
       if (res.ok) {
         const data = await res.json();
-        console.log('[ChatWidget] Conversation created/fetched:', data);
         // Open chat
         setIsOpen(true);
         // Fetch conversations to get the full conversation object with otherUser data
@@ -378,37 +378,26 @@ export default function ChatWidget() {
         });
         if (convRes.ok) {
           const convData = await convRes.json();
-          console.log('[ChatWidget] Fetched all conversations:', convData.conversations.length);
           setConversations(convData.conversations);
           // Find and select the conversation
           const conv = convData.conversations.find(
             (c: Conversation) => c.otherUser.id === userId
           );
           if (conv) {
-            console.log('[ChatWidget] Selected conversation:', conv);
             setSelectedConversation(conv);
-          } else {
-            console.warn('[ChatWidget] Could not find conversation for userId:', userId);
           }
-        } else {
-          console.error('[ChatWidget] Failed to fetch conversations, status:', convRes.status);
         }
-      } else {
-        const errorData = await res.json().catch(() => ({}));
-        console.error('[ChatWidget] Failed to create/fetch conversation:', res.status, errorData);
       }
     } catch (err) {
-      console.error('[ChatWidget] Error opening conversation:', err);
+      showToast(t('chat.openFailed'), 'error');
     }
-  }, []); // Empty deps: uses only stable setState functions and imported utilities
+  }, [showToast, t]);
 
   // Handle external requests to open conversations
   useEffect(() => {
     if (conversationToOpen && user) {
-      console.log('[ChatWidget] conversationToOpen detected:', conversationToOpen);
       // Small delay to ensure auth token is fully set
       const timeout = setTimeout(() => {
-        console.log('[ChatWidget] Opening conversation with userId:', conversationToOpen.userId);
         openConversationWithUser(conversationToOpen.userId);
         clearConversationToOpen();
       }, 100);
@@ -430,31 +419,113 @@ export default function ChatWidget() {
     }
   };
 
-  const fetchMessages = async (conversationId: string) => {
-    setLoading(true);
+  const markConversationRead = async (conversationId: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/chat/conversations/${conversationId}/messages`, {
+      const res = await fetch(`${API_URL}/api/chat/conversations/${conversationId}/read`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+      });
+      if (res.ok) {
+        setConversations((current) => current.map((conv) => (
+          conv.id === conversationId ? { ...conv, unreadCount: 0 } : conv
+        )));
+        setUnreadCount((count) => Math.max(count - (selectedConversation?.unreadCount || 0), 0));
+      }
+    } catch (err) {
+      // Read receipts are best-effort; the next poll will recover.
+    }
+  };
+
+  const fetchMessages = async (
+    conversationId: string,
+    mode: 'replace' | 'older' = 'replace',
+    options: { silent?: boolean } = {}
+  ) => {
+    const isOlder = mode === 'older';
+    const cursor = isOlder ? nextMessageCursor : null;
+    if (isOlder && (!cursor || loadingOlder)) return;
+
+    if (isOlder) {
+      setLoadingOlder(true);
+    } else if (!options.silent) {
+      setLoading(true);
+    }
+
+    const previousScrollHeight = messagesContainerRef.current?.scrollHeight || 0;
+    try {
+      const params = new URLSearchParams({ limit: String(MESSAGE_PAGE_SIZE) });
+      if (cursor) params.set('before', cursor);
+
+      const res = await fetch(`${API_URL}/api/chat/conversations/${conversationId}/messages?${params.toString()}`, {
         headers: getAuthHeader(),
       });
       if (res.ok) {
         const data = await res.json();
-        setMessages(data.messages);
+        setHasMoreMessages(Boolean(data.pagination?.hasMore));
+        setNextMessageCursor(data.pagination?.nextCursor || null);
+
+        if (isOlder) {
+          skipNextAutoScrollRef.current = true;
+          setMessages((current) => {
+            const seen = new Set(current.map((msg) => msg.id));
+            const olderMessages = (data.messages || []).filter((msg: Message) => !seen.has(msg.id));
+            return [...olderMessages, ...current];
+          });
+          requestAnimationFrame(() => {
+            const container = messagesContainerRef.current;
+            if (!container) return;
+            container.scrollTop = container.scrollHeight - previousScrollHeight + container.scrollTop;
+          });
+        } else {
+          setMessages((current) => {
+            const serverMessages: Message[] = data.messages || [];
+            const serverIds = new Set(serverMessages.map((msg) => msg.id));
+            const pendingMessages = current.filter((msg) => msg.status && !serverIds.has(msg.id));
+            return [...serverMessages, ...pendingMessages];
+          });
+          await markConversationRead(conversationId);
+        }
+
         // Update conversations to reflect read status
         await fetchConversations();
       }
     } catch (err) {
       console.error('Error fetching messages:', err);
     } finally {
-      setLoading(false);
+      if (isOlder) {
+        setLoadingOlder(false);
+      } else if (!options.silent) {
+        setLoading(false);
+      }
     }
   };
 
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!messageInput.trim() || !selectedConversation) return;
+  const sendMessageContent = async (content: string, retryMessageId?: string) => {
+    if (!content.trim() || !selectedConversation || !user) return;
 
-    const content = messageInput.trim();
-    setMessageInput('');
+    const trimmedContent = content.trim();
+    const tempId = retryMessageId || `temp-${Date.now()}`;
+    setSendingMessage(true);
+    if (retryMessageId) {
+      setMessages((current) => current.map((msg) => (
+        msg.id === retryMessageId ? { ...msg, status: 'sending' } : msg
+      )));
+    } else {
+      const optimisticMessage: Message = {
+        id: tempId,
+        content: trimmedContent,
+        senderId: user.id,
+        createdAt: new Date().toISOString(),
+        status: 'sending',
+        sender: {
+          id: user.id,
+          username: user.username,
+          profileIconId: currentUserProfileIconId,
+        },
+      };
+      setMessages((current) => [...current, optimisticMessage]);
+      setMessageInput('');
+    }
 
     try {
       const res = await fetch(`${API_URL}/api/chat/messages`, {
@@ -465,18 +536,42 @@ export default function ChatWidget() {
         },
         body: JSON.stringify({
           recipientId: selectedConversation.otherUser.id,
-          content,
+          content: trimmedContent,
         }),
       });
 
       if (res.ok) {
         const data = await res.json();
-        setMessages([...messages, data.message]);
+        setMessages((current) => {
+          let replaced = false;
+          const next = current.map((msg) => {
+            if (msg.id !== tempId) return msg;
+            replaced = true;
+            return data.message;
+          });
+          return replaced ? next : [...next, data.message];
+        });
         await fetchConversations(); // Refresh conversation list
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setMessages((current) => current.map((msg) => (
+          msg.id === tempId ? { ...msg, status: 'failed' } : msg
+        )));
+        showToast(data.error || t('chat.sendFailed'), 'error');
       }
     } catch (err) {
-      console.error('Error sending message:', err);
+      setMessages((current) => current.map((msg) => (
+        msg.id === tempId ? { ...msg, status: 'failed' } : msg
+      )));
+      showToast(t('chat.sendFailed'), 'error');
+    } finally {
+      setSendingMessage(false);
     }
+  };
+
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await sendMessageContent(messageInput);
   };
 
   const handleEnableDiscordDm = async () => {
@@ -505,6 +600,78 @@ export default function ChatWidget() {
   const handleDismissBanner = () => {
     setDmBannerDismissed(true);
     localStorage.setItem('riftessence_dm_banner_dismissed', 'true');
+  };
+
+  const handleRetryMessage = (message: Message) => {
+    if (message.status !== 'failed') return;
+    sendMessageContent(message.content, message.id);
+  };
+
+  const handleSubmitReport = async (reason: string) => {
+    if (!selectedConversation) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          reportedUserId: selectedConversation.otherUser.id,
+          reason,
+        }),
+      });
+
+      if (res.ok) {
+        showToast(t('chat.reportSubmitted'), 'success');
+        setShowReportModal(false);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || t('chat.reportFailed'), 'error');
+      }
+    } catch (err) {
+      showToast(t('chat.reportFailed'), 'error');
+    }
+  };
+
+  const handleBlockUser = async () => {
+    if (!selectedConversation) return;
+
+    const confirmed = await confirm({
+      title: t('chat.blockUser'),
+      message: t('chat.blockConfirm', { username: selectedConversation.otherUser.username }),
+      confirmText: t('chat.block'),
+      cancelText: t('common.cancel'),
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/user/block`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ targetUserId: selectedConversation.otherUser.id }),
+      });
+
+      if (res.ok || res.status === 400) {
+        showToast(t('chat.blockedUser', { username: selectedConversation.otherUser.username }), 'success');
+        setConversations((current) => current.filter((conv) => conv.id !== selectedConversation.id));
+        setMessages([]);
+        setSelectedConversation(null);
+        setActionsOpen(false);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || t('chat.blockFailed'), 'error');
+      }
+    } catch (err) {
+      showToast(t('chat.blockFailed'), 'error');
+    }
   };
 
   // Show banner if: user has Discord linked, hasn't enabled DM notifications, and hasn't dismissed
@@ -560,7 +727,7 @@ export default function ChatWidget() {
       {/* Chat window */}
       {isOpen && user && (
         <div
-          className="fixed bottom-24 right-6 z-50 w-96 h-[500px] rounded-lg shadow-2xl flex flex-col overflow-hidden"
+          className="fixed inset-x-0 bottom-0 z-50 h-[100dvh] w-full rounded-none shadow-2xl flex flex-col overflow-hidden sm:inset-auto sm:bottom-24 sm:right-6 sm:h-[500px] sm:w-96 sm:rounded-lg"
           style={{
             backgroundColor: 'var(--color-bg-secondary)',
             borderColor: 'var(--color-border)',
@@ -622,8 +789,57 @@ export default function ChatWidget() {
             )}
             <div className="flex items-center gap-1">
               {selectedConversation && (
+                <div className="relative">
+                  <button
+                    onClick={() => setActionsOpen((open) => !open)}
+                    className="w-8 h-8 rounded-md flex items-center justify-center transition-all"
+                    style={{
+                      color: 'var(--color-text-primary)',
+                      backgroundColor: actionsOpen ? 'var(--color-bg-secondary)' : 'transparent',
+                    }}
+                    title={t('chat.conversationActions')}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
+                    </svg>
+                  </button>
+                  {actionsOpen && (
+                    <div
+                      className="absolute right-0 top-10 z-10 w-44 overflow-hidden rounded-md border shadow-xl"
+                      style={{
+                        backgroundColor: 'var(--color-bg-secondary)',
+                        borderColor: 'var(--color-border)',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowReportModal(true);
+                          setActionsOpen(false);
+                        }}
+                        className="w-full px-3 py-2 text-left text-sm transition-colors"
+                        style={{ color: 'var(--color-text-primary)' }}
+                      >
+                        {t('chat.reportUser')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleBlockUser}
+                        className="w-full px-3 py-2 text-left text-sm transition-colors"
+                        style={{ color: 'var(--color-error)' }}
+                      >
+                        {t('chat.blockUser')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {selectedConversation && (
                 <button
-                  onClick={() => setSelectedConversation(null)}
+                  onClick={() => {
+                    setSelectedConversation(null);
+                    setActionsOpen(false);
+                  }}
                   className="w-8 h-8 rounded-md flex items-center justify-center transition-all"
                   style={{ 
                     color: 'var(--color-text-primary)',
@@ -844,70 +1060,102 @@ export default function ChatWidget() {
                     <p className="text-sm">{t('chat.startConversation')}</p>
                   </div>
                 ) : (
-                  messages.map((msg) => {
-                    const isOwnMessage = msg.senderId === user.id;
-                    return (
-                      <div
-                        key={msg.id}
-                        className={`flex gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'} items-start`}
-                      >
-                        {!isOwnMessage && (
-                          <div className="flex-shrink-0">
-                            <UserAvatar 
-                              profileIconId={msg.sender.profileIconId} 
-                              username={msg.sender.username}
-                              size="sm"
-                            />
-                          </div>
-                        )}
-                        
-                        <div 
-                          className={`flex flex-col gap-1 ${isOwnMessage ? 'items-end' : 'items-start'}`}
-                          style={{ maxWidth: isOwnMessage ? '85%' : 'calc(85% - 40px)' }}
+                  <>
+                    {hasMoreMessages && (
+                      <div className="flex justify-center pb-1">
+                        <button
+                          type="button"
+                          onClick={() => selectedConversation && fetchMessages(selectedConversation.id, 'older')}
+                          disabled={loadingOlder}
+                          className="px-3 py-1.5 rounded-md text-xs font-semibold border disabled:opacity-60"
+                          style={{
+                            color: 'var(--color-text-secondary)',
+                            borderColor: 'var(--color-border)',
+                            backgroundColor: 'var(--color-bg-tertiary)',
+                          }}
+                        >
+                          {loadingOlder ? t('chat.loadingOlder') : t('chat.loadOlder')}
+                        </button>
+                      </div>
+                    )}
+                    {messages.map((msg) => {
+                      const isOwnMessage = msg.senderId === user.id;
+                      return (
+                        <div
+                          key={msg.id}
+                          className={`flex gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'} items-start`}
                         >
                           {!isOwnMessage && (
-                            <span 
-                              className="text-xs font-medium px-1"
-                              style={{ color: 'var(--color-text-secondary)' }}
-                            >
-                              {msg.sender.username}
-                            </span>
+                            <div className="flex-shrink-0">
+                              <UserAvatar
+                                profileIconId={msg.sender.profileIconId}
+                                username={msg.sender.username}
+                                size="sm"
+                              />
+                            </div>
                           )}
-                          
+
                           <div
-                            className="rounded-lg px-3 py-2 w-full"
-                            style={{
-                              backgroundColor: isOwnMessage
-                                ? 'var(--color-accent-1)'
-                                : 'var(--color-bg-tertiary)',
-                              color: isOwnMessage
-                                ? 'var(--color-bg-primary)'
-                                : 'var(--color-text-primary)',
-                              boxShadow: isOwnMessage 
-                                ? '0 2px 4px rgba(0, 0, 0, 0.2)' 
-                                : '0 1px 2px rgba(0, 0, 0, 0.1)',
-                              wordBreak: 'break-word',
-                              overflowWrap: 'break-word',
-                            }}
+                            className={`flex flex-col gap-1 ${isOwnMessage ? 'items-end' : 'items-start'}`}
+                            style={{ maxWidth: isOwnMessage ? '85%' : 'calc(85% - 40px)' }}
                           >
-                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                            <p
-                              className="text-xs mt-1 opacity-75"
+                            {!isOwnMessage && (
+                              <span
+                                className="text-xs font-medium px-1"
+                                style={{ color: 'var(--color-text-secondary)' }}
+                              >
+                                {msg.sender.username}
+                              </span>
+                            )}
+
+                            <div
+                              className="rounded-lg px-3 py-2 w-full"
+                              style={{
+                                backgroundColor: msg.status === 'failed'
+                                  ? 'rgba(239, 68, 68, 0.14)'
+                                  : isOwnMessage
+                                    ? 'var(--color-accent-1)'
+                                    : 'var(--color-bg-tertiary)',
+                                border: msg.status === 'failed' ? '1px solid var(--color-error)' : '1px solid transparent',
+                                color: isOwnMessage && msg.status !== 'failed'
+                                  ? 'var(--color-bg-primary)'
+                                  : 'var(--color-text-primary)',
+                                boxShadow: isOwnMessage
+                                  ? '0 2px 4px rgba(0, 0, 0, 0.2)'
+                                  : '0 1px 2px rgba(0, 0, 0, 0.1)',
+                                wordBreak: 'break-word',
+                                overflowWrap: 'break-word',
+                              }}
                             >
-                              {new Date(msg.createdAt).toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </p>
+                              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                              <div className="mt-1 flex items-center justify-between gap-2 text-xs opacity-75">
+                                <span>
+                                  {new Date(msg.createdAt).toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                                {msg.status === 'sending' && <span>{t('chat.sending')}</span>}
+                                {msg.status === 'failed' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRetryMessage(msg)}
+                                    className="font-semibold underline"
+                                  >
+                                    {t('chat.retry')}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
+
+                          {isOwnMessage && (
+                            <div className="flex-shrink-0 w-8" />
+                          )}
                         </div>
-                        
-                        {isOwnMessage && (
-                          <div className="flex-shrink-0 w-8" />
-                        )}
-                      </div>
-                    );
-                  })
+                      );
+                    })}
+                  </>
                 )}
                 <div ref={messagesEndRef} />
               </div>
@@ -918,13 +1166,18 @@ export default function ChatWidget() {
                 className="p-4 border-t"
                 style={{ borderColor: 'var(--color-border)' }}
               >
-                <div className="flex gap-2">
-                  <input
-                    type="text"
+                <div className="flex items-end gap-2">
+                  <textarea
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
-                    placeholder="Type a message..."
-                    className="flex-1 px-3 py-2 rounded text-sm"
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        sendMessageContent(messageInput);
+                      }
+                    }}
+                    placeholder={t('chat.typeMessage')}
+                    className="max-h-28 min-h-[40px] flex-1 resize-none rounded px-3 py-2 text-sm"
                     style={{
                       backgroundColor: 'var(--color-bg-tertiary)',
                       borderColor: 'var(--color-border)',
@@ -932,18 +1185,23 @@ export default function ChatWidget() {
                       border: '1px solid',
                     }}
                     maxLength={2000}
+                    rows={1}
                   />
                   <button
                     type="submit"
-                    disabled={!messageInput.trim()}
-                    className="px-4 py-2 rounded font-semibold text-sm transition-opacity disabled:opacity-50"
+                    disabled={!messageInput.trim() || sendingMessage}
+                    className="h-10 px-4 py-2 rounded font-semibold text-sm transition-opacity disabled:opacity-50"
                     style={{
                       backgroundColor: 'var(--color-accent-1)',
                       color: 'var(--color-bg-primary)',
                     }}
                   >
-                    Send
+                    {sendingMessage ? t('chat.sending') : t('chat.send')}
                   </button>
+                </div>
+                <div className="mt-1 flex justify-between text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                  <span>{t('chat.shiftEnterHint')}</span>
+                  <span>{messageInput.length}/2000</span>
                 </div>
               </form>
             </>
@@ -954,8 +1212,17 @@ export default function ChatWidget() {
       {showGuestRestriction && (
         <AccessRequirementModal
           type="account-required"
-          reason="You need to have an account to use chat."
+          reason={t('chat.accountRequired')}
           onClose={() => setShowGuestRestriction(false)}
+        />
+      )}
+
+      {selectedConversation && (
+        <ReportModal
+          username={selectedConversation.otherUser.username}
+          open={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          onSubmit={handleSubmitReport}
         />
       )}
     </>

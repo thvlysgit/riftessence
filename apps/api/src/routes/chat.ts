@@ -5,6 +5,7 @@ import { Errors } from '../middleware/errors';
 import { z } from 'zod';
 import { validateRequest } from '../validation';
 import { getOrSetCache } from '../utils/requestCache';
+import { cacheDel } from '../utils/cache';
 
 function toPositiveInt(value: string | undefined, fallback: number) {
   const parsed = Number(value);
@@ -16,6 +17,29 @@ function toPositiveInt(value: string | undefined, fallback: number) {
 }
 
 const CHAT_UNREAD_COUNT_CACHE_TTL_SECONDS = toPositiveInt(process.env.CHAT_UNREAD_COUNT_CACHE_TTL_SECONDS, 3);
+const DEFAULT_MESSAGE_PAGE_SIZE = 50;
+const MAX_MESSAGE_PAGE_SIZE = 100;
+
+function clampMessageLimit(value: string | undefined) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_MESSAGE_PAGE_SIZE;
+  }
+
+  return Math.min(Math.floor(parsed), MAX_MESSAGE_PAGE_SIZE);
+}
+
+function unreadCountCacheKey(userId: string) {
+  return `api:chat:unread-count:v1:user:${userId}`;
+}
+
+async function invalidateUnreadCount(userId: string) {
+  await cacheDel(unreadCountCacheKey(userId));
+}
+
+function sortedConversationUserIds(userId: string, otherUserId: string) {
+  return [userId, otherUserId].sort() as [string, string];
+}
 
 // Validation schemas
 const SendMessageSchema = z.object({
@@ -115,6 +139,8 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       if (!userId) return;
 
       const { conversationId } = request.params;
+      const { before, limit: rawLimit } = request.query as { before?: string; limit?: string };
+      const limit = clampMessageLimit(rawLimit);
 
       // Verify user is participant in this conversation
       const conversation = await prisma.conversation.findFirst({
@@ -131,11 +157,29 @@ export default async function chatRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({ error: 'Conversation not found or access denied' });
       }
 
-      // Get messages
+      const cursor = before && typeof before === 'string'
+        ? { id: before }
+        : undefined;
+
+      if (cursor) {
+        const cursorMessage = await prisma.message.findFirst({
+          where: {
+            id: cursor.id,
+            conversationId,
+          },
+          select: { id: true },
+        });
+
+        if (!cursorMessage) {
+          return reply.code(400).send({ error: 'Invalid message cursor' });
+        }
+      }
+
       const messages = await prisma.message.findMany({
         where: { conversationId },
-        orderBy: { createdAt: 'asc' },
-        take: 100, // Limit to last 100 messages
+        orderBy: { createdAt: 'desc' },
+        take: limit + 1,
+        ...(cursor ? { cursor, skip: 1 } : {}),
         include: {
           sender: {
             select: {
@@ -153,29 +197,11 @@ export default async function chatRoutes(fastify: FastifyInstance) {
         },
       });
 
-      // Mark all messages as read for this user
-      const isUser1 = conversation.user1Id === userId;
-      await prisma.$transaction([
-        // Update message read status
-        prisma.message.updateMany({
-          where: {
-            conversationId,
-            senderId: { not: userId },
-            read: false,
-          },
-          data: { read: true },
-        }),
-        // Reset unread count for this user
-        prisma.conversation.update({
-          where: { id: conversationId },
-          data: isUser1 
-            ? { user1UnreadCount: 0 }
-            : { user2UnreadCount: 0 },
-        }),
-      ]);
+      const hasMore = messages.length > limit;
+      const pageMessages = messages.slice(0, limit).reverse();
 
       // Format messages to flatten profileIconId
-      const formattedMessages = messages.map((msg: any) => ({
+      const formattedMessages = pageMessages.map((msg: any) => ({
         ...msg,
         sender: {
           id: msg.sender.id,
@@ -184,9 +210,67 @@ export default async function chatRoutes(fastify: FastifyInstance) {
         },
       }));
 
-      return reply.send({ messages: formattedMessages });
+      return reply.send({
+        messages: formattedMessages,
+        pagination: {
+          limit,
+          hasMore,
+          nextCursor: hasMore ? pageMessages[0]?.id || null : null,
+        },
+      });
     } catch (error: any) {
       Errors.serverError(reply, request, 'get messages', error);
+    }
+  });
+
+  // Mark a conversation as read for the current user
+  fastify.post('/conversations/:conversationId/read', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const { conversationId } = request.params;
+
+      const conversation = await prisma.conversation.findFirst({
+        where: {
+          id: conversationId,
+          OR: [
+            { user1Id: userId },
+            { user2Id: userId },
+          ],
+        },
+      });
+
+      if (!conversation) {
+        return reply.code(404).send({ error: 'Conversation not found or access denied' });
+      }
+
+      const isUser1 = conversation.user1Id === userId;
+      const result = await prisma.$transaction(async (tx: any) => {
+        const messageUpdate = await tx.message.updateMany({
+          where: {
+            conversationId,
+            senderId: { not: userId },
+            read: false,
+          },
+          data: { read: true },
+        });
+
+        await tx.conversation.update({
+          where: { id: conversationId },
+          data: isUser1
+            ? { user1UnreadCount: 0 }
+            : { user2UnreadCount: 0 },
+        });
+
+        return { readCount: messageUpdate.count };
+      });
+
+      await invalidateUnreadCount(userId);
+
+      return reply.send({ success: true, ...result });
+    } catch (error: any) {
+      Errors.serverError(reply, request, 'mark conversation read', error);
     }
   });
 
@@ -201,7 +285,12 @@ export default async function chatRoutes(fastify: FastifyInstance) {
         return reply.code(400).send({ error: 'Invalid input', details: validation.errors });
       }
 
-      const { recipientId, content } = validation.data;
+      const { recipientId } = validation.data;
+      const content = validation.data.content.trim();
+
+      if (!content) {
+        return reply.code(400).send({ error: 'Message cannot be empty' });
+      }
 
       // Check if user is trying to message themselves
       if (userId === recipientId) {
@@ -233,25 +322,22 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       }
 
       // Find or create conversation (ensure user1Id < user2Id for consistency)
-      const [smallerId, largerId] = [userId, recipientId].sort();
-      
-      let conversation = await prisma.conversation.findFirst({
+      const [smallerId, largerId] = sortedConversationUserIds(userId, recipientId);
+      const conversation = await prisma.conversation.upsert({
         where: {
-          user1Id: smallerId,
-          user2Id: largerId,
-        },
-      });
-
-      if (!conversation) {
-        conversation = await prisma.conversation.create({
-          data: {
+          user1Id_user2Id: {
             user1Id: smallerId,
             user2Id: largerId,
-            lastMessageAt: new Date(),
-            lastMessagePreview: content.substring(0, 100),
           },
-        });
-      }
+        },
+        create: {
+          user1Id: smallerId,
+          user2Id: largerId,
+          lastMessageAt: new Date(),
+          lastMessagePreview: content.substring(0, 100),
+        },
+        update: {},
+      });
 
       // Create message and update conversation in a transaction
       const isUser1 = conversation.user1Id === userId;
@@ -306,6 +392,8 @@ export default async function chatRoutes(fastify: FastifyInstance) {
         },
       };
 
+      await invalidateUnreadCount(recipientId);
+
       // Check if the recipient has Discord DM notifications enabled
       // and forward the message preview to their Discord DM (fire-and-forget)
       try {
@@ -352,7 +440,7 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       if (!userId) return;
 
       const payload = await getOrSetCache(
-        `api:chat:unread-count:v1:user:${userId}`,
+        unreadCountCacheKey(userId),
         CHAT_UNREAD_COUNT_CACHE_TTL_SECONDS,
         async () => {
           const [user1Aggregate, user2Aggregate] = await Promise.all([
@@ -416,23 +504,20 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       }
 
       // Find or create conversation
-      const [smallerId, largerId] = [currentUserId, otherUserId].sort();
-      
-      let conversation = await prisma.conversation.findFirst({
+      const [smallerId, largerId] = sortedConversationUserIds(currentUserId, otherUserId);
+      const conversation = await prisma.conversation.upsert({
         where: {
-          user1Id: smallerId,
-          user2Id: largerId,
-        },
-      });
-
-      if (!conversation) {
-        conversation = await prisma.conversation.create({
-          data: {
+          user1Id_user2Id: {
             user1Id: smallerId,
             user2Id: largerId,
           },
-        });
-      }
+        },
+        create: {
+          user1Id: smallerId,
+          user2Id: largerId,
+        },
+        update: {},
+      });
 
       return reply.send({ conversationId: conversation.id });
     } catch (error: any) {

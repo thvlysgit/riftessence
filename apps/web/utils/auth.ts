@@ -105,7 +105,11 @@ export async function refreshAuthToken(apiUrl: string): Promise<string | null> {
       }
       return null;
     } catch (e) {
-      console.error('Failed to refresh token:', e);
+      const isNetworkFetchError = e instanceof TypeError
+        && String(e.message || '').toLowerCase().includes('failed to fetch');
+      if (!isNetworkFetchError) {
+        console.error('Failed to refresh token:', e);
+      }
       return null;
     } finally {
       // Clear promise after completion

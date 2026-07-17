@@ -555,8 +555,9 @@ Fetch all conversations for the authenticated user.
 ```
 
 ### GET `/api/chat/conversations/:conversationId/messages`
-Get messages for a specific conversation (last 100 messages, newest first).  
-**Side effect**: Marks all messages as read and resets unread count for current user.
+Get the latest messages for a specific conversation, returned in chronological display order.
+Supports cursor pagination for older history with `?limit=50&before=<oldestMessageId>`.
+This endpoint does not mark messages as read.
 
 **Auth**: Required  
 **Response**:
@@ -570,7 +571,24 @@ Get messages for a specific conversation (last 100 messages, newest first).
       "createdAt": "2026-02-12T10:30:00.000Z",
       "read": true
     }
-  ]
+  ],
+  "pagination": {
+    "limit": 50,
+    "hasMore": true,
+    "nextCursor": "oldest-message-id-in-page"
+  }
+}
+```
+
+### POST `/api/chat/conversations/:conversationId/read`
+Mark incoming unread messages in a conversation as read for the authenticated user and reset that user's conversation unread count.
+
+**Auth**: Required
+**Response**:
+```json
+{
+  "success": true,
+  "readCount": 3
 }
 ```
 

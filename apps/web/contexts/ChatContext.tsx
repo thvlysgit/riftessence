@@ -13,7 +13,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [conversationToOpen, setConversationToOpen] = useState<{ userId: string; timestamp: number } | null>(null);
 
   const openConversation = (userId: string) => {
-    console.log('[ChatContext] openConversation called with userId:', userId);
     // Always create a new object with timestamp to force re-trigger even for same user
     setConversationToOpen({ userId, timestamp: Date.now() });
   };

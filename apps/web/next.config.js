@@ -9,6 +9,7 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  devIndicators: false,
   // Disable native ESM externals: force ALL packages through webpack bundler during SSR.
   // Without this, .mjs packages (e.g. @vercel/analytics, @tanstack/react-query) are loaded
   // by Node's native ESM loader which cannot interop with CJS React → SyntaxError in Lambda.
