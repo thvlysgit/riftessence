@@ -2,7 +2,7 @@ import prisma from '../prisma';
 import * as riotClient from '../riotClient';
 import { createHash } from 'crypto';
 import { VerifyRiotSchema, validateRequest } from '../validation';
-import { cacheGet, cacheSet } from '../utils/cache';
+import { cacheDel, cacheGet, cacheSet } from '../utils/cache';
 import { getOrSetCache } from '../utils/requestCache';
 import { getUserIdFromRequest } from '../middleware/auth';
 import { setAuthSessionCookie } from '../utils/sessionCookie';
@@ -1457,8 +1457,7 @@ export default async function userRoutes(fastify: any) {
         return reply.status(400).send({ error: 'userId and badgeKey are required' });
       }
 
-      // Find or create badge
-      let badge = await prisma.badge.findUnique({ where: { key: badgeKey } });
+      const badge = await prisma.badge.findUnique({ where: { key: badgeKey } });
       if (!badge) {
         return reply.status(404).send({ error: 'Badge not found. Create it first in the database.' });
       }
@@ -1487,6 +1486,8 @@ export default async function userRoutes(fastify: any) {
           },
         },
       });
+
+      await cacheDel('api:badges:list:v2');
 
       return reply.send({ success: true, message: 'Badge assigned successfully' });
     } catch (error: any) {
@@ -1531,6 +1532,8 @@ export default async function userRoutes(fastify: any) {
         },
       });
 
+      await cacheDel('api:badges:list:v2');
+
       return reply.send({ success: true, message: 'Badge removed successfully' });
     } catch (error: any) {
       fastify.log.error(error);
@@ -1548,45 +1551,6 @@ export default async function userRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch badges' });
-    }
-  });
-
-  // Update badge description (admin only)
-  fastify.patch('/badge/:key', async (request: any, reply: any) => {
-    try {
-      const { key } = request.params as { key: string };
-      const { description } = request.body as { description: string };
-      const userId = await getUserIdFromRequest(request as any, reply as any);
-
-      if (!userId) {
-        return;
-      }
-
-      // Check if user has admin badge
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: { badges: true },
-      });
-
-      if (!user) {
-        return reply.status(404).send({ error: 'User not found' });
-      }
-
-      const isAdmin = user.badges?.some((badge: any) => badge.key === 'admin');
-      if (!isAdmin) {
-        return reply.status(403).send({ error: 'Admin privileges required' });
-      }
-
-      // Update badge description
-      const badge = await prisma.badge.update({
-        where: { key },
-        data: { description },
-      });
-
-      return reply.send({ success: true, badge });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to update badge' });
     }
   });
 
@@ -1743,4 +1707,3 @@ export default async function userRoutes(fastify: any) {
     }
   });
 }
-
