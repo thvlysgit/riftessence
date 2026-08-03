@@ -92,14 +92,14 @@ type BadgeIconProps = {
   title?: string;
 };
 
-export function BadgeIcon({ badgeKey, icon, className = 'w-7 h-7', title }: BadgeIconProps) {
+export function BadgeIcon({ badgeKey, icon, className = 'w-9 h-9', title }: BadgeIconProps) {
   const visual = resolveBadgeArtwork(badgeKey, icon);
 
   return (
     <Image
       src={visual.src}
-      width={28}
-      height={28}
+      width={36}
+      height={36}
       alt={title || ''}
       title={title}
       className={className}
