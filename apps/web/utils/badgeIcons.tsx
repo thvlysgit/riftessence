@@ -1,177 +1,88 @@
-import React from 'react';
+import Image from 'next/image';
 
 export type BadgeArtworkKey =
   | 'admin'
-  | 'bot'
   | 'bug-hunter'
   | 'developer'
-  | 'founder'
-  | 'gem'
-  | 'prestige'
-  | 'staff'
-  | 'verified'
-  | 'veteran';
+  | 'early-supporter'
+  | 'moderator'
+  | 'prestige-1'
+  | 'prestige-2'
+  | 'prestige-3'
+  | 'prestige-4'
+  | 'verified';
 
 export const BADGE_ICON_OPTIONS = [
-  { key: 'admin', label: 'Admin shield', category: 'Core' },
-  { key: 'staff', label: 'Staff gavel', category: 'Core' },
+  { key: 'admin', label: 'Admin', category: 'Core' },
+  { key: 'moderator', label: 'Moderator', category: 'Core' },
   { key: 'developer', label: 'Developer', category: 'Core' },
   { key: 'verified', label: 'Verified', category: 'Core' },
-  { key: 'founder', label: 'Founder crown', category: 'Recognition' },
-  { key: 'veteran', label: 'Veteran laurel', category: 'Recognition' },
+  { key: 'early-supporter', label: 'Early supporter', category: 'Recognition' },
   { key: 'bug-hunter', label: 'Bug hunter', category: 'Recognition' },
-  { key: 'bot', label: 'Bot', category: 'Utility' },
-  { key: 'prestige', label: 'Prestige diamond', category: 'Recognition' },
-  { key: 'gem', label: 'Gem', category: 'Recognition' },
+  { key: 'prestige-1', label: 'Prestige I', category: 'Prestige' },
+  { key: 'prestige-2', label: 'Prestige II', category: 'Prestige' },
+  { key: 'prestige-3', label: 'Prestige III', category: 'Prestige' },
+  { key: 'prestige-4', label: 'Prestige IV', category: 'Prestige' },
 ] as const;
 
 type BadgeVisual = {
   artwork: BadgeArtworkKey;
   color: string;
+  src: string;
 };
 
 const BADGE_VISUALS: Record<BadgeArtworkKey, BadgeVisual> = {
-  admin: { artwork: 'admin', color: '#ED4245' },
-  staff: { artwork: 'staff', color: '#B5BAC1' },
-  developer: { artwork: 'developer', color: '#A970FF' },
-  verified: { artwork: 'verified', color: '#23A6A6' },
-  founder: { artwork: 'founder', color: '#F0B232' },
-  veteran: { artwork: 'veteran', color: '#D6A756' },
-  'bug-hunter': { artwork: 'bug-hunter', color: '#57F287' },
-  bot: { artwork: 'bot', color: '#4CC9F0' },
-  prestige: { artwork: 'prestige', color: '#F8C44F' },
-  gem: { artwork: 'gem', color: '#F0B232' },
+  admin: { artwork: 'admin', color: '#ff4545', src: '/badges/admin.png' },
+  moderator: { artwork: 'moderator', color: '#d7dce5', src: '/badges/moderator.png' },
+  developer: { artwork: 'developer', color: '#c977ff', src: '/badges/developer.png' },
+  verified: { artwork: 'verified', color: '#65eee7', src: '/badges/verified.png' },
+  'early-supporter': { artwork: 'early-supporter', color: '#52d9ff', src: '/badges/early-supporter.png' },
+  'bug-hunter': { artwork: 'bug-hunter', color: '#79ff3c', src: '/badges/bug-hunter.png' },
+  'prestige-1': { artwork: 'prestige-1', color: '#ffd83d', src: '/badges/prestige-1.png' },
+  'prestige-2': { artwork: 'prestige-2', color: '#ffd052', src: '/badges/prestige-2.png' },
+  'prestige-3': { artwork: 'prestige-3', color: '#ffc22f', src: '/badges/prestige-3.png' },
+  'prestige-4': { artwork: 'prestige-4', color: '#ffc433', src: '/badges/prestige-4.png' },
 };
 
 const normalize = (value: string | null | undefined) =>
   String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
+const matches = (value: string, pattern: RegExp) => pattern.test(value);
+
 export function resolveBadgeArtwork(badgeKey?: string | null, icon?: string | null): BadgeVisual {
-  const haystack = `${normalize(badgeKey)} ${normalize(icon)}`;
+  const key = normalize(badgeKey);
+  const iconKey = normalize(icon);
+  const value = `${key} ${iconKey}`;
 
-  if (/\badmin\b/.test(haystack)) return BADGE_VISUALS.admin;
-  if (/\b(staff|moderator|mod|support)\b/.test(haystack)) return BADGE_VISUALS.staff;
-  if (/\b(developer|dev|code)\b/.test(haystack)) return BADGE_VISUALS.developer;
-  if (/\b(verified|partner|official)\b/.test(haystack)) return BADGE_VISUALS.verified;
-  if (/\b(founder|owner|creator|goat)\b/.test(haystack)) return BADGE_VISUALS.founder;
-  if (/\b(veteran|early-supporter|early|mvp)\b/.test(haystack)) return BADGE_VISUALS.veteran;
-  if (/\b(bug-hunter|bughunter|bug)\b/.test(haystack)) return BADGE_VISUALS['bug-hunter'];
-  if (/\b(bot|robot|ai)\b/.test(haystack)) return BADGE_VISUALS.bot;
-  if (/\b(shop-|fortune|prestige|ascendant|expert|advanced|novice|vip)\b/.test(haystack)) {
-    return BADGE_VISUALS.prestige;
+  if (matches(value, /shop-fortune-coin|fortune-badge-i(?:\s|$)|fortune-sigil-i(?:\s|$)|\bnovice\b|prestige-1/)) {
+    return BADGE_VISUALS['prestige-1'];
   }
+  if (matches(value, /shop-oracle-dice|fortune-badge-ii(?:\s|$)|fortune-sigil-ii(?:\s|$)|\badvanced\b|prestige-2/)) {
+    return BADGE_VISUALS['prestige-2'];
+  }
+  if (matches(value, /shop-jackpot-crown|fortune-badge-iii(?:\s|$)|fortune-sigil-iii(?:\s|$)|\bexpert\b|prestige-3/)) {
+    return BADGE_VISUALS['prestige-3'];
+  }
+  if (matches(value, /shop-vault-ascendant|fortune-badge-iv(?:\s|$)|fortune-sigil-iv(?:\s|$)|\bascendant\b|prestige-4/)) {
+    return BADGE_VISUALS['prestige-4'];
+  }
+  if (matches(value, /\badmin\b/)) return BADGE_VISUALS.admin;
+  if (matches(value, /\b(developer|dev|code)\b/)) return BADGE_VISUALS.developer;
+  if (matches(value, /\b(bug-hunter|bughunter|bug)\b/)) return BADGE_VISUALS['bug-hunter'];
+  if (matches(value, /\b(early-supporter|early|bot|robot|ai)\b/)) return BADGE_VISUALS['early-supporter'];
+  if (matches(value, /\b(staff|moderator|mod|support)\b/)) return BADGE_VISUALS.moderator;
+  if (matches(value, /\b(verified|partner|official)\b/)) return BADGE_VISUALS.verified;
+  if (matches(value, /\b(founder|owner|creator|goat|vip)\b/)) return BADGE_VISUALS['prestige-4'];
+  if (matches(value, /\b(veteran|mvp)\b/)) return BADGE_VISUALS['prestige-3'];
+  if (matches(value, /\b(prestige|fortune|gem)\b/)) return BADGE_VISUALS['prestige-1'];
 
-  return BADGE_VISUALS.gem;
+  return BADGE_VISUALS.verified;
 }
 
 export function getBadgeIconDisplayLabel(icon: string | null | undefined): string {
   const normalized = normalize(icon);
   return BADGE_ICON_OPTIONS.find((option) => option.key === normalized)?.label || 'Badge';
 }
-
-type MarkProps = { className?: string; title?: string };
-
-const Svg = ({ children, className, title }: MarkProps & { children: React.ReactNode }) => (
-  <svg
-    viewBox="0 0 24 24"
-    className={className}
-    role={title ? 'img' : undefined}
-    aria-hidden={title ? undefined : true}
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    {title ? <title>{title}</title> : null}
-    {children}
-  </svg>
-);
-
-const AdminMark = (props: MarkProps) => (
-  <Svg {...props}>
-    <path d="M12 2.8 19 5.6v5.3c0 4.5-2.8 8.3-7 10.3-4.2-2-7-5.8-7-10.3V5.6L12 2.8Z" fill="currentColor" fillOpacity=".16" />
-    <path d="m8.7 12 2.1 2.1 4.6-4.7" />
-  </Svg>
-);
-
-const StaffMark = (props: MarkProps) => (
-  <Svg {...props}>
-    <path d="m9.2 7.1 3.3 3.3M7.4 8.9l3.3 3.3M10.7 5.6l4 4-3 3-4-4 3-3Z" fill="currentColor" fillOpacity=".16" />
-    <path d="m12.2 11.7 6.1 6.1M15.8 15.3l-2.4 2.4M5 19.6h8" />
-  </Svg>
-);
-
-const DeveloperMark = (props: MarkProps) => (
-  <Svg {...props}>
-    <path d="m8.2 7-4.5 5 4.5 5M15.8 7l4.5 5-4.5 5M13.7 4.5l-3.4 15" />
-  </Svg>
-);
-
-const VerifiedMark = (props: MarkProps) => (
-  <Svg {...props}>
-    <path d="m12 2.8 2.1 1.5 2.6-.1.7 2.5 2.2 1.4-.9 2.4.9 2.4-2.2 1.4-.7 2.5-2.6-.1L12 18.2l-2.1-1.5-2.6.1-.7-2.5-2.2-1.4.9-2.4-.9-2.4 2.2-1.4.7-2.5 2.6.1L12 2.8Z" fill="currentColor" fillOpacity=".18" />
-    <path d="m8.4 10.7 2.3 2.3 4.9-5" />
-  </Svg>
-);
-
-const FounderMark = (props: MarkProps) => (
-  <Svg {...props}>
-    <path d="m4 8 4.4 3.1L12 5l3.6 6.1L20 8l-1.4 9H5.4L4 8Z" fill="currentColor" fillOpacity=".18" />
-    <path d="M6 20h12M8.6 14.2h6.8" />
-  </Svg>
-);
-
-const VeteranMark = (props: MarkProps) => (
-  <Svg {...props}>
-    <path d="M7.4 18.7C4.8 16.9 3.5 14.5 3.5 11M16.6 18.7c2.6-1.8 3.9-4.2 3.9-7.7M5 15.8l-2.2.2M6.3 12.8 4 12.2M19 15.8l2.2.2M17.7 12.8l2.3-.6" />
-    <path d="m12 5 2.2 3.8L12 13 9.8 8.8 12 5Z" fill="currentColor" fillOpacity=".22" />
-    <path d="M8.8 20h6.4" />
-  </Svg>
-);
-
-const BugHunterMark = (props: MarkProps) => (
-  <Svg {...props}>
-    <circle cx="12" cy="12" r="8.5" opacity=".35" />
-    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-    <path d="M9 10.5h6v4.2a3 3 0 0 1-6 0v-4.2ZM10 10.5V9a2 2 0 0 1 4 0v1.5M7.2 11.3 9 12M16.8 11.3 15 12M7.2 15.8 9 15M16.8 15.8 15 15" fill="currentColor" fillOpacity=".15" />
-  </Svg>
-);
-
-const BotMark = (props: MarkProps) => (
-  <Svg {...props}>
-    <rect x="4" y="7" width="16" height="12" rx="4" fill="currentColor" fillOpacity=".16" />
-    <path d="M12 7V4.5M10.5 3h3M8.5 13h.01M15.5 13h.01M8.5 16h7" />
-  </Svg>
-);
-
-const GemMark = (props: MarkProps) => (
-  <Svg {...props}>
-    <path d="m4 9 3-4h10l3 4-8 10L4 9Z" fill="currentColor" fillOpacity=".2" />
-    <path d="m4 9 8 10 8-10M7 5l2 4 3-4 3 4 2-4M9 9l3 10 3-10H4" />
-  </Svg>
-);
-
-const PrestigeMark = (props: MarkProps) => (
-  <Svg {...props}>
-    <path d="m5 9 3-4h8l3 4-7 9-7-9Z" fill="currentColor" fillOpacity=".22" />
-    <path d="m5 9 7 9 7-9M8 5l2 4 2-4 2 4 2-4M10 9l2 9 2-9" />
-    <path d="M19.5 3.5v3M18 5h3" />
-  </Svg>
-);
-
-const ARTWORK_COMPONENTS: Record<BadgeArtworkKey, React.ComponentType<MarkProps>> = {
-  admin: AdminMark,
-  staff: StaffMark,
-  developer: DeveloperMark,
-  verified: VerifiedMark,
-  founder: FounderMark,
-  veteran: VeteranMark,
-  'bug-hunter': BugHunterMark,
-  bot: BotMark,
-  prestige: PrestigeMark,
-  gem: GemMark,
-};
 
 type BadgeIconProps = {
   badgeKey?: string | null;
@@ -183,8 +94,19 @@ type BadgeIconProps = {
 
 export function BadgeIcon({ badgeKey, icon, className = 'w-5 h-5', title }: BadgeIconProps) {
   const visual = resolveBadgeArtwork(badgeKey, icon);
-  const Icon = ARTWORK_COMPONENTS[visual.artwork];
-  return <Icon className={className} title={title} />;
+
+  return (
+    <Image
+      src={visual.src}
+      width={20}
+      height={20}
+      alt={title || ''}
+      title={title}
+      className={className}
+      draggable={false}
+      unoptimized
+    />
+  );
 }
 
 export function getBadgeArtworkColor(badgeKey?: string | null, icon?: string | null) {
