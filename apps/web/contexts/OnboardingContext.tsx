@@ -116,7 +116,7 @@ const DUO_STEPS: FlowStep[] = [
   {
     id: 'create-account',
     title: 'Create an account',
-    description: 'Recommended: use Riot sign-up in the register flow. Other sign-up methods still work.',
+    description: 'Create your RiftEssence account with email or Discord, then link your Riot account when you are ready.',
     ctaLabel: 'Open Sign Up',
   },
   {

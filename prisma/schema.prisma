@@ -158,6 +158,7 @@ model User {
   matchHistories       MatchHistory[]        @relation("UserMatches")
   badges               Badge[]
   verificationRequests VerificationRequest[]
+  riotVerificationAttempts RiotVerificationAttempt[]
   ratingAppeals        RatingAppeal[]
   blocksSent           Block[]               @relation("Blocker")
   blocksReceived       Block[]               @relation("Blocked")
@@ -233,6 +234,35 @@ model RiotAccount {
   @@unique([puuid, region])
   @@index([region, createdAt])
   @@index([rsoLinked])
+}
+
+// Durable, server-owned schedule for profile-icon ownership verification.
+// A pending attempt is intentionally distinct from a verified RiotAccount.
+model RiotVerificationAttempt {
+  id                 String   @id @default(cuid())
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId             String
+  puuid              String
+  summonerName       String
+  gameName           String
+  tagLine            String
+  region             Region
+  targetIconId       Int
+  status             String   @default("AWAITING_CONFIRMATION") // AWAITING_CONFIRMATION | ACTIVE | VERIFIED | FAILED | CANCELLED
+  riotAccountId      String?
+  startedAt          DateTime?
+  nextCheckAt        DateTime?
+  checkCount         Int      @default(0)
+  observedAt5        DateTime?
+  observedAt15       DateTime?
+  observedAt30       DateTime?
+  failureReason      String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([status, nextCheckAt])
+  @@index([puuid, region, status])
 }
 
 model DiscordAccount {

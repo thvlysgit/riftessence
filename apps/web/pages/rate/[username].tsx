@@ -1,5 +1,5 @@
-// External rating page - allows non-registered users to rate players via shared link
-// UX Flow: Enter Riot ID -> Verify icon -> Check shared games -> Submit rating
+// External rating page. Riot ownership creates a short-lived rating permission,
+// not a RiftEssence sign-in session.
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
@@ -317,6 +317,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
           <form onSubmit={handleLookup} className="space-y-4">
             <div className="rounded-lg p-4 mb-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
               <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--accent-primary)' }}>How it works:</h3>
+              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>This verifies eligibility for this rating only. It does not sign you in to RiftEssence.</p>
               <ol className="space-y-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
                 <li><span className="font-bold" style={{ color: 'var(--accent-primary)' }}>1.</span> Enter your Riot ID</li>
                 <li><span className="font-bold" style={{ color: 'var(--accent-primary)' }}>2.</span> Verify by changing your profile icon briefly</li>

@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { RiotAuthButton } from '@components/RiotBrand';
 import { DiscordIcon } from '../src/components/DiscordBrand';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -146,12 +145,9 @@ export default function LoginPage() {
                 <Link href="/forgot-password" className="text-xs font-semibold" style={{ color: 'var(--color-accent-1)' }}>
                   Password Forgotten?
                 </Link>
-                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  Riot login can recover access too
-                </span>
               </div>
               <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                If your email is linked, you can reset by email. Otherwise, sign in with Riot and set a new password later.
+                Reset access using the email address on your RiftEssence account.
               </p>
             </div>
 
@@ -180,9 +176,6 @@ export default function LoginPage() {
               <span className="px-4" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-muted)' }}>{t('common.or')}</span>
             </div>
           </div>
-
-          {/* Riot Login Option */}
-          <RiotAuthButton label={t('auth.signInWithRiot')} />
 
           <button
             type="button"

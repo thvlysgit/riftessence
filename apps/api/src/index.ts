@@ -40,6 +40,7 @@ import { logAdminAction, AuditActions } from './utils/auditLog';
 import { normalizeDiscordWebhookUrl } from './utils/discord-webhook';
 import { getSessionCookieToken } from './utils/sessionCookie';
 import { collectInputControlTextFields, inspectInputControl } from './utils/inputControl';
+import { startRiotConnectionVerifier } from './services/riotConnectionVerifier';
 
 const COOKIE_SESSION_AUTH_PLACEHOLDER = '__cookie_session__';
 
@@ -1837,6 +1838,7 @@ async function start() {
     const app = await build();
     const port = Number(process.env.PORT) || 3333;
     await app.listen({ port, host: '0.0.0.0' });
+    startRiotConnectionVerifier();
     app.log.info(`Server listening on ${port}`);
   } catch (err) {
     server.log.error(err);

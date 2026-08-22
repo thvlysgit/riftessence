@@ -1,11 +1,13 @@
 import prisma from '../prisma';
 import * as riotClient from '../riotClient';
-import { createHash } from 'crypto';
+import { createHash, randomInt } from 'crypto';
 import { VerifyRiotSchema, validateRequest } from '../validation';
 import { cacheDel, cacheGet, cacheSet } from '../utils/cache';
 import { getOrSetCache } from '../utils/requestCache';
 import { getUserIdFromRequest } from '../middleware/auth';
 import { setAuthSessionCookie } from '../utils/sessionCookie';
+import { syncUserVerification } from '../utils/verification';
+import { z } from 'zod';
 
 // Temporary fallback PUUID generator until real Riot PUUID retrieval is implemented.
 // Creates a deterministic hash so the same summonerName+region maps to same pseudo value.
@@ -170,6 +172,109 @@ export default async function userRoutes(fastify: any) {
       data: { isMain: true },
     });
   };
+
+  const RiotConnectionPrepareSchema = z.object({
+    summonerName: z.string().min(3).max(100),
+    region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU']),
+  });
+  const RiotConnectionConfirmSchema = z.object({ attemptId: z.string().min(1) });
+
+  // Assign an icon server-side, before the player changes it. This is a pending
+  // connection only; it never creates a verified Riot identity.
+  fastify.post('/riot-verification/prepare', async (request: any, reply: any) => {
+    const userId = await getUserIdFromRequest(request, reply);
+    if (!userId) return;
+    const parsed = RiotConnectionPrepareSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Enter a valid Riot ID and region.' });
+
+    const { summonerName, region } = parsed.data;
+    const [gameName, tagLine] = summonerName.trim().split('#');
+    if (!gameName || !tagLine) return reply.code(400).send({ error: 'Use your full Riot ID, for example Player#TAG.' });
+
+    const activeAttempt = await prisma.riotVerificationAttempt.findFirst({
+      where: { userId, status: { in: ['AWAITING_CONFIRMATION', 'ACTIVE'] } },
+    });
+    if (activeAttempt) return reply.code(409).send({ error: 'Finish or cancel your current Riot verification attempt first.' });
+
+    try {
+      const puuid = await riotClient.getPuuid(gameName, tagLine, region);
+      if (!puuid) return reply.code(404).send({ error: 'Riot account not found.' });
+      const [existingAccount, currentIcon] = await Promise.all([
+        prisma.riotAccount.findUnique({ where: { puuid_region: { puuid, region: region as any } } }),
+        riotClient.getProfileIcon({ summonerName, region, puuid }, true),
+      ]);
+      if (existingAccount?.userId && existingAccount.userId !== userId) {
+        return reply.code(409).send({ error: 'This Riot account is already linked to another RiftEssence account.' });
+      }
+      if (existingAccount?.verified) return reply.code(409).send({ error: 'This Riot account is already verified on your profile.' });
+
+      let targetIconId = randomInt(0, 29);
+      if (currentIcon !== null && targetIconId === currentIcon) targetIconId = (targetIconId + 1) % 29;
+      const attempt = await prisma.riotVerificationAttempt.create({
+        data: { userId, puuid, summonerName, gameName, tagLine, region: region as any, targetIconId },
+      });
+      return reply.send({ attempt: { id: attempt.id, targetIconId, status: attempt.status } });
+    } catch (error: any) {
+      request.log.error(error);
+      return reply.code(502).send({ error: 'Riot could not be reached. Please try again shortly.' });
+    }
+  });
+
+  // The explicit player confirmation starts durable checks at +5, +15 and +30.
+  fastify.post('/riot-verification/confirm', async (request: any, reply: any) => {
+    const userId = await getUserIdFromRequest(request, reply);
+    if (!userId) return;
+    const parsed = RiotConnectionConfirmSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid verification attempt.' });
+
+    const attempt = await prisma.riotVerificationAttempt.findFirst({
+      where: { id: parsed.data.attemptId, userId, status: 'AWAITING_CONFIRMATION' },
+    });
+    if (!attempt) return reply.code(404).send({ error: 'This verification attempt is no longer available.' });
+
+    const existing = await prisma.riotAccount.findUnique({ where: { puuid_region: { puuid: attempt.puuid, region: attempt.region } } });
+    if (existing?.userId && existing.userId !== userId) {
+      return reply.code(409).send({ error: 'This Riot account is already linked to another RiftEssence account.' });
+    }
+
+    const startedAt = new Date();
+    const nextCheckAt = new Date(startedAt.getTime() + 5 * 60_000);
+    const account = existing || await prisma.riotAccount.create({
+      data: {
+        puuid: attempt.puuid,
+        summonerName: attempt.summonerName,
+        gameName: attempt.gameName,
+        tagLine: attempt.tagLine,
+        region: attempt.region,
+        verificationIconId: attempt.targetIconId,
+        verified: false,
+        userId,
+        isMain: (await prisma.riotAccount.count({ where: { userId } })) === 0,
+      },
+    });
+
+    await prisma.riotVerificationAttempt.update({
+      where: { id: attempt.id },
+      data: { status: 'ACTIVE', startedAt, nextCheckAt, riotAccountId: account.id },
+    });
+    await syncUserVerification(userId);
+    return reply.send({
+      success: true,
+      attempt: { id: attempt.id, status: 'ACTIVE', targetIconId: attempt.targetIconId, startedAt, finalCheckAt: new Date(startedAt.getTime() + 30 * 60_000) },
+    });
+  });
+
+  fastify.get('/riot-verification/status', async (request: any, reply: any) => {
+    const userId = await getUserIdFromRequest(request, reply);
+    if (!userId) return;
+    const attempts = await prisma.riotVerificationAttempt.findMany({
+      where: { userId, status: { in: ['AWAITING_CONFIRMATION', 'ACTIVE', 'VERIFIED', 'FAILED'] } },
+      orderBy: { updatedAt: 'desc' },
+      take: 5,
+      select: { id: true, targetIconId: true, status: true, startedAt: true, nextCheckAt: true, observedAt5: true, observedAt15: true, observedAt30: true, failureReason: true },
+    });
+    return reply.send({ attempts });
+  });
 
   // Verify Riot account and create/link user
   fastify.post('/verify-riot', async (request: any, reply: any) => {

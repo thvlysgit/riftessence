@@ -90,7 +90,7 @@ export default function ForgotPasswordPage() {
               color: 'var(--color-text-secondary)',
             }}
           >
-            Riot sign-in is the fastest recovery path. Email recovery is also available when your account email is linked.
+            Use the email address associated with your RiftEssence account to recover access.
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">

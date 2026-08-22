@@ -4,7 +4,6 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { setAuthToken } from '../utils/auth';
-import { RiotAuthButton } from '@components/RiotBrand';
 import { DiscordIcon } from '../src/components/DiscordBrand';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -291,9 +290,6 @@ export default function RegisterPage() {
               <span className="px-4" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-muted)' }}>{t('common.or')}</span>
             </div>
           </div>
-
-          {/* Riot Login Option */}
-            <RiotAuthButton label={t('auth.registerWithRiot')} />
 
             <button
               type="button"
