@@ -1,12 +1,10 @@
 import prisma from '../prisma';
 import * as riotClient from '../riotClient';
-import { createHash, randomInt } from 'crypto';
-import { VerifyRiotSchema, validateRequest } from '../validation';
+import { createHash } from 'crypto';
+import { prepareRiotVerification, confirmRiotVerification, publicAttempt, VerificationError } from '../services/riotVerification';
 import { cacheDel, cacheGet, cacheSet } from '../utils/cache';
 import { getOrSetCache } from '../utils/requestCache';
 import { getUserIdFromRequest } from '../middleware/auth';
-import { setAuthSessionCookie } from '../utils/sessionCookie';
-import { syncUserVerification } from '../utils/verification';
 import { z } from 'zod';
 
 // Temporary fallback PUUID generator until real Riot PUUID retrieval is implemented.
@@ -179,89 +177,33 @@ export default async function userRoutes(fastify: any) {
   });
   const RiotConnectionConfirmSchema = z.object({ attemptId: z.string().min(1) });
 
-  // Assign an icon server-side, before the player changes it. This is a pending
-  // connection only; it never creates a verified Riot identity.
-  fastify.post('/riot-verification/prepare', async (request: any, reply: any) => {
+  // Account linking and guest ratings share the same durable challenge service.
+  fastify.post('/riot-verification/prepare', { config: { rateLimit: { max: 10, timeWindow: '1 hour' } } }, async (request: any, reply: any) => {
     const userId = await getUserIdFromRequest(request, reply);
     if (!userId) return;
     const parsed = RiotConnectionPrepareSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'Enter a valid Riot ID and region.' });
-
-    const { summonerName, region } = parsed.data;
-    const [gameName, tagLine] = summonerName.trim().split('#');
-    if (!gameName || !tagLine) return reply.code(400).send({ error: 'Use your full Riot ID, for example Player#TAG.' });
-
-    const activeAttempt = await prisma.riotVerificationAttempt.findFirst({
-      where: { userId, status: { in: ['AWAITING_CONFIRMATION', 'ACTIVE'] } },
-    });
-    if (activeAttempt) return reply.code(409).send({ error: 'Finish or cancel your current Riot verification attempt first.' });
-
     try {
-      const puuid = await riotClient.getPuuid(gameName, tagLine, region);
-      if (!puuid) return reply.code(404).send({ error: 'Riot account not found.' });
-      const [existingAccount, currentIcon] = await Promise.all([
-        prisma.riotAccount.findUnique({ where: { puuid_region: { puuid, region: region as any } } }),
-        riotClient.getProfileIcon({ summonerName, region, puuid }, true),
-      ]);
-      if (existingAccount?.userId && existingAccount.userId !== userId) {
-        return reply.code(409).send({ error: 'This Riot account is already linked to another RiftEssence account.' });
-      }
-      if (existingAccount?.verified) return reply.code(409).send({ error: 'This Riot account is already verified on your profile.' });
-
-      let targetIconId = randomInt(0, 29);
-      if (currentIcon !== null && targetIconId === currentIcon) targetIconId = (targetIconId + 1) % 29;
-      const attempt = await prisma.riotVerificationAttempt.create({
-        data: { userId, puuid, summonerName, gameName, tagLine, region: region as any, targetIconId },
-      });
-      return reply.send({ attempt: { id: attempt.id, targetIconId, status: attempt.status } });
+      const attempt = await prepareRiotVerification(parsed.data.summonerName, parsed.data.region, userId);
+      return reply.send({ attempt: publicAttempt(attempt) });
     } catch (error: any) {
       request.log.error(error);
-      return reply.code(502).send({ error: 'Riot could not be reached. Please try again shortly.' });
+      return reply.code(error instanceof VerificationError ? error.statusCode : 502).send({ error: error instanceof VerificationError ? error.message : 'Riot could not be reached. Please try again shortly.' });
     }
   });
 
-  // The explicit player confirmation starts durable checks at +5, +15 and +30.
   fastify.post('/riot-verification/confirm', async (request: any, reply: any) => {
     const userId = await getUserIdFromRequest(request, reply);
     if (!userId) return;
     const parsed = RiotConnectionConfirmSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'Invalid verification attempt.' });
-
-    const attempt = await prisma.riotVerificationAttempt.findFirst({
-      where: { id: parsed.data.attemptId, userId, status: 'AWAITING_CONFIRMATION' },
-    });
-    if (!attempt) return reply.code(404).send({ error: 'This verification attempt is no longer available.' });
-
-    const existing = await prisma.riotAccount.findUnique({ where: { puuid_region: { puuid: attempt.puuid, region: attempt.region } } });
-    if (existing?.userId && existing.userId !== userId) {
-      return reply.code(409).send({ error: 'This Riot account is already linked to another RiftEssence account.' });
+    try {
+      const attempt = await confirmRiotVerification(parsed.data.attemptId, userId);
+      return reply.send({ success: true, attempt: publicAttempt(attempt) });
+    } catch (error: any) {
+      request.log.error(error);
+      return reply.code(error instanceof VerificationError ? error.statusCode : 500).send({ error: error instanceof VerificationError ? error.message : 'Could not start verification.' });
     }
-
-    const startedAt = new Date();
-    const nextCheckAt = new Date(startedAt.getTime() + 5 * 60_000);
-    const account = existing || await prisma.riotAccount.create({
-      data: {
-        puuid: attempt.puuid,
-        summonerName: attempt.summonerName,
-        gameName: attempt.gameName,
-        tagLine: attempt.tagLine,
-        region: attempt.region,
-        verificationIconId: attempt.targetIconId,
-        verified: false,
-        userId,
-        isMain: (await prisma.riotAccount.count({ where: { userId } })) === 0,
-      },
-    });
-
-    await prisma.riotVerificationAttempt.update({
-      where: { id: attempt.id },
-      data: { status: 'ACTIVE', startedAt, nextCheckAt, riotAccountId: account.id },
-    });
-    await syncUserVerification(userId);
-    return reply.send({
-      success: true,
-      attempt: { id: attempt.id, status: 'ACTIVE', targetIconId: attempt.targetIconId, startedAt, finalCheckAt: new Date(startedAt.getTime() + 30 * 60_000) },
-    });
   });
 
   fastify.get('/riot-verification/status', async (request: any, reply: any) => {
@@ -269,287 +211,15 @@ export default async function userRoutes(fastify: any) {
     if (!userId) return;
     const attempts = await prisma.riotVerificationAttempt.findMany({
       where: { userId, status: { in: ['AWAITING_CONFIRMATION', 'ACTIVE', 'VERIFIED', 'FAILED'] } },
-      orderBy: { updatedAt: 'desc' },
-      take: 5,
-      select: { id: true, targetIconId: true, status: true, startedAt: true, nextCheckAt: true, observedAt5: true, observedAt15: true, observedAt30: true, failureReason: true },
+      orderBy: { updatedAt: 'desc' }, take: 5,
     });
-    return reply.send({ attempts });
+    return reply.send({ attempts: attempts.map(publicAttempt) });
   });
 
-  // Verify Riot account and create/link user
-  fastify.post('/verify-riot', async (request: any, reply: any) => {
-    try {
-      const requestedUserId = typeof request.body?.userId === 'string' && request.body.userId.trim()
-        ? request.body.userId.trim()
-        : null;
-      const authenticatedUserId = await getUserIdFromRequest(request as any, reply as any, false);
-
-      if (requestedUserId && !authenticatedUserId) {
-        return reply.status(401).send({ error: 'Authentication required to link a Riot account to an existing profile' });
-      }
-
-      if (requestedUserId && authenticatedUserId !== requestedUserId) {
-        return reply.status(403).send({ error: 'Cannot link a Riot account to another user profile' });
-      }
-      
-      // Validate request body
-      const validation = validateRequest(VerifyRiotSchema, request.body);
-      if (!validation.success) {
-        fastify.log.error({ errors: validation.errors }, 'Verification validation failed');
-        return reply.status(400).send({ error: 'Invalid input', details: validation.errors });
-      }
-
-      const { summonerName, region, verificationIconId } = validation.data;
-      const userId = authenticatedUserId;
-
-      fastify.log.info({ summonerName, region, verificationIconId, linkingExistingUser: Boolean(userId) }, 'Verify riot request validated');
-
-      // Parse summoner name into gameName and tagLine first
-      let gameName: string;
-      let tagLine: string;
-      
-      if (summonerName.includes('#')) {
-        const parts = summonerName.split('#');
-        gameName = parts[0];
-        tagLine = parts[1];
-      } else {
-        // Fallback if no tag provided
-        gameName = summonerName;
-        tagLine = region;
-      }
-
-      // Fetch PUUID first (required for profile icon lookup)
-      let puuidValue: string;
-      try {
-        const realPuuid = await riotClient.getPuuid(gameName, tagLine, region);
-        if (!realPuuid) {
-          return reply.status(404).send({ error: 'Summoner not found on Riot' });
-        }
-        puuidValue = realPuuid;
-      } catch (err: any) {
-        fastify.log.error(err);
-        return reply.status(502).send({ error: 'Error fetching data from Riot API' });
-      }
-
-      // Rate limiting: prevent brute force icon guessing
-      // Allow max 3 verification attempts per summoner+region per hour
-      const rateLimitKey = `riot:verify:attempts:${summonerName.toLowerCase()}:${region}`;
-      const attempts = await cacheGet<number>(rateLimitKey) || 0;
-      
-      if (attempts >= 3) {
-        return reply.status(429).send({ 
-          error: 'Too many verification attempts. Please try again in 1 hour.',
-          retryAfter: 3600 
-        });
-      }
-
-      // Fetch current icon from Riot API (bypass cache for verification)
-      let currentIcon: number | null;
-      try {
-        currentIcon = await riotClient.getProfileIcon({ summonerName, region, puuid: puuidValue }, true);
-      } catch (err: any) {
-        if (err && err.status === 404) {
-          return reply.status(404).send({ error: 'Summoner not found on Riot' });
-        }
-        fastify.log.error(err);
-        return reply.status(502).send({ error: 'Error fetching data from Riot API' });
-      }
-
-      // Check if current icon matches verification icon
-      if (currentIcon !== verificationIconId) {
-        // Increment failed attempt counter
-        await cacheSet(rateLimitKey, attempts + 1, 3600); // 1 hour TTL
-        
-        return reply.status(400).send({ 
-          error: 'Profile icon does not match verification icon',
-          currentIcon,
-          expectedIcon: verificationIconId,
-          attemptsRemaining: 2 - attempts
-        });
-      }
-
-      // Success! Clear rate limit counter
-      await cacheSet(rateLimitKey, 0, 1);
-
-      // Resolve account by stable Riot identity first, then fall back to legacy summonerName+region lookup.
-      let riotAccount = await prisma.riotAccount.findUnique({
-        where: {
-          puuid_region: {
-            puuid: puuidValue,
-            region: region as any,
-          },
-        },
-        include: { user: true },
-      });
-
-      if (!riotAccount) {
-        riotAccount = await prisma.riotAccount.findFirst({
-          where: { summonerName, region: region as any },
-          include: { user: true },
-        });
-      }
-
-      let user;
-      if (riotAccount && riotAccount.user && !userId) {
-        // Existing account already linked to a user (and no userId override supplied)
-        // Just update verification and use fetched PUUID
-        user = riotAccount.user;
-        await prisma.riotAccount.update({
-          where: { id: riotAccount.id },
-          data: {
-            verified: true,
-            verificationIconId,
-            puuid: puuidValue,
-            summonerName,
-            gameName,
-            tagLine,
-          },
-        });
-      } else if (userId) {
-        // User is adding another account to their existing profile
-        const existingUser = await prisma.user.findUnique({ where: { id: userId } });
-        if (!existingUser) {
-          return reply.status(404).send({ error: 'User not found' });
-        }
-        
-        // Check if user has any existing accounts to determine if this should be main
-        const existingAccountsCount = await prisma.riotAccount.count({
-          where: { userId },
-        });
-        const shouldBeMain = existingAccountsCount === 0;
-        
-        // Link riot account to existing user
-        if (riotAccount) {
-          const previousOwnerUserId = riotAccount.userId && riotAccount.userId !== userId
-            ? riotAccount.userId
-            : null;
-
-          const updateData: any = {
-            userId,
-            verified: true,
-            verificationIconId,
-            puuid: puuidValue,
-            summonerName,
-            gameName,
-            tagLine,
-          };
-
-          // If the account is unlinked or moved from another user, assign main only when needed.
-          if (!riotAccount.userId || previousOwnerUserId) {
-            updateData.isMain = shouldBeMain;
-          }
-
-          if (previousOwnerUserId) {
-            await prisma.$transaction(async (tx: any) => {
-              await tx.riotAccount.update({
-                where: { id: riotAccount.id },
-                data: updateData,
-              });
-
-              await ensureSingleMainAccount(tx, userId);
-              await ensureSingleMainAccount(tx, previousOwnerUserId);
-            });
-          } else {
-            await prisma.riotAccount.update({
-              where: { id: riotAccount.id },
-              data: updateData,
-            });
-
-            await ensureSingleMainAccount(prisma, userId);
-          }
-        } else {
-          // Create new riot account linked to user
-          await prisma.riotAccount.create({
-            data: {
-              puuid: puuidValue,
-              summonerName,
-              gameName,
-              tagLine,
-              region: region as any,
-              verified: true,
-              verificationIconId,
-              userId,
-              isMain: shouldBeMain,
-            },
-          });
-
-          await ensureSingleMainAccount(prisma, userId);
-        }
-        user = existingUser;
-      } else if (riotAccount && !riotAccount.userId) {
-        // Legacy/unlinked Riot account exists: create user and attach this account instead of recreating it.
-        const username = `${summonerName.replace(/[^a-zA-Z0-9]/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
-
-        user = await prisma.user.create({
-          data: {
-            username,
-            region: region as any,
-          },
-        });
-
-        await prisma.riotAccount.update({
-          where: { id: riotAccount.id },
-          data: {
-            userId: user.id,
-            verified: true,
-            verificationIconId,
-            puuid: puuidValue,
-            summonerName,
-            gameName,
-            tagLine,
-            isMain: true,
-          },
-        });
-
-        await ensureSingleMainAccount(prisma, user.id);
-      } else {
-        // New user - create account
-        const username = `${summonerName.replace(/[^a-zA-Z0-9]/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
-        
-        user = await prisma.user.create({
-          data: {
-            username,
-            region: region as any,
-            riotAccounts: {
-              create: {
-                puuid: puuidValue,
-                summonerName,
-                gameName,
-                tagLine,
-                region: region as any,
-                verified: true,
-                verificationIconId,
-                isMain: true, // First account is always main
-              },
-            },
-          },
-          include: {
-            riotAccounts: true,
-          },
-        });
-      }
-
-      // Generate JWT token for the user
-      const token = fastify.jwt.sign({ userId: user.id });
-      setAuthSessionCookie(reply, token);
-
-      return reply.send({
-        success: true,
-        userId: user.id,
-        username: user.username,
-        token,
-        message: 'Verification successful! You can now access your profile.',
-      });
-    } catch (error: any) {
-      fastify.log.error({
-        message: error?.message,
-        code: error?.code,
-        meta: error?.meta,
-        stack: error?.stack,
-      }, 'Riot verification failed');
-      return reply.status(500).send({ error: 'Failed to verify Riot account' });
-    }
-  });
+  // Retire the client-chosen-icon endpoint: it could issue a full login session
+  // from public icon information. Older clients must use the assigned challenge.
+  fastify.post('/verify-riot', async (_request: any, reply: any) =>
+    reply.code(410).send({ error: 'This verification flow has been replaced. Reload the app and use Link your Riot account.' }));
 
   // Get current user profile
   // Supports searching by userId or username via query parameters

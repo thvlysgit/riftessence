@@ -642,11 +642,19 @@ async function build() {
           return reply.code(403).send({ error: 'You must have a verified Riot account to give feedback' });
         }
 
+        const linkedAccounts = await prisma.riotAccount.findMany({
+          where: { userId, verified: true }, select: { puuid: true },
+        });
+        const guestIdentities = await prisma.guestRatingIdentity.findMany({
+          where: { puuid: { in: linkedAccounts.map((account: any) => account.puuid) } }, select: { userId: true },
+        });
+        const ratingIdentityIds = [userId, ...guestIdentities.map((identity: any) => identity.userId)];
+
         // P0 FIX: Check daily rate limit (10 ratings per day) - outside transaction for performance
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const ratingsToday = await prisma.rating.count({
           where: {
-            raterId: userId,
+            raterId: { in: ratingIdentityIds },
             createdAt: { gte: oneDayAgo },
           },
         });
@@ -663,7 +671,7 @@ async function build() {
           await prisma.$transaction(async (tx: any) => {
             // Check if feedback already exists for this user pair (one rating per person, ever)
             const existingFeedback = await tx.rating.findFirst({
-              where: { raterId: userId, receiverId },
+              where: { raterId: { in: ratingIdentityIds }, receiverId },
             });
 
             if (existingFeedback) {
@@ -673,7 +681,7 @@ async function build() {
             // Check 5-minute global cooldown (can only rate anyone once every 5 minutes)
             const recentRating = await tx.rating.findFirst({
               where: {
-                raterId: userId,
+                raterId: { in: ratingIdentityIds },
                 createdAt: { gte: fiveMinutesAgo },
               },
             });
@@ -1673,63 +1681,8 @@ async function build() {
     });
   });
 
-  server.post('/verify/riot', {
-    config: {
-      rateLimit: {
-        max: 10,
-        timeWindow: '15 minutes',
-      },
-    },
-    schema: {
-      description: 'Verify a user\'s Riot account by checking profile icon',
-      body: {
-        type: 'object',
-        required: ['riotAccountId', 'verificationIconId'],
-        properties: {
-          riotAccountId: { type: 'string' },
-          verificationIconId: { type: 'integer' }
-        }
-      },
-      response: {
-        200: { type: 'object', properties: { success: { type: 'boolean' } } },
-        400: { type: 'object', properties: { error: { type: 'string' } } },
-        401: { type: 'object', properties: { error: { type: 'string' } } },
-        403: { type: 'object', properties: { error: { type: 'string' } } },
-        404: { type: 'object', properties: { error: { type: 'string' } } },
-        502: { type: 'object', properties: { error: { type: 'string' } } },
-      }
-    }
-  }, async (req, reply) => {
-    const userId = await getUserIdFromRequest(req as any, reply as any);
-    if (!userId) return;
-    const { riotAccountId, verificationIconId } = req.body as any;
-
-    // fetch the riot account
-    const ra = await prisma.riotAccount.findUnique({ where: { id: riotAccountId } });
-    if (!ra) return reply.status(404).send({ error: 'Riot account not found' });
-    if (ra.userId !== userId) return reply.status(403).send({ error: 'Riot account does not belong to user' });
-
-    // fetch current profile icon via Riot API client
-    let currentIcon: number | null;
-    try {
-      currentIcon = await riotClient.getProfileIcon({ puuid: ra.puuid, summonerName: ra.summonerName, region: ra.region });
-    } catch (err: any) {
-      // If summoner not found, return 404; otherwise 502 for upstream errors
-      if (err && err.status === 404) return reply.status(404).send({ error: 'Summoner not found on Riot' });
-      req.log && req.log.error && req.log.error(err);
-      return reply.status(502).send({ error: 'Error fetching data from Riot API' });
-    }
-
-    if (currentIcon === verificationIconId) {
-      // Prisma client may be generated without the new field during development; cast to any to
-      // avoid type errors in tests and allow runtime update. Ensure you run `prisma generate`
-      // after updating the schema in your environment.
-      await prisma.riotAccount.update({ where: { id: riotAccountId }, data: ( { verified: true } as any ) });
-      return { success: true };
-    }
-
-    return reply.status(400).send({ error: 'Profile icon does not match verification icon' });
-  });
+  server.post('/verify/riot', async (_request, reply) =>
+    reply.code(410).send({ error: 'Reload the app and use the server-assigned Riot verification flow.' }));
 
   // Quick lookup endpoint: return the current profile icon for a given summonerName + region
   server.post('/riot/lookup', {
@@ -1775,51 +1728,8 @@ async function build() {
     }
   });
 
-  // Quick verify by summoner: check that the summoner's current icon matches the provided id
-  server.post('/verify/riot/by-summoner', {
-    schema: {
-      description: 'Verify summoner by checking profile icon (quick mode, no DB)',
-      body: {
-        type: 'object',
-        required: ['summonerName', 'region', 'verificationIconId'],
-        properties: {
-          summonerName: { type: 'string' },
-          region: { type: 'string' },
-          verificationIconId: { type: 'integer' }
-        }
-      }
-    }
-  }, async (req, reply) => {
-    const { summonerName, region, verificationIconId } = req.body as any;
-    try {
-      // Parse summoner name into gameName and tagLine
-      let gameName: string;
-      let tagLine: string;
-      
-      if (summonerName.includes('#')) {
-        const parts = summonerName.split('#');
-        gameName = parts[0];
-        tagLine = parts[1];
-      } else {
-        gameName = summonerName;
-        tagLine = region;
-      }
-
-      // Fetch PUUID first
-      const puuid = await riotClient.getPuuid(gameName, tagLine, region);
-      if (!puuid) {
-        return reply.status(404).send({ error: 'Summoner not found on Riot' });
-      }
-
-      const icon = await riotClient.getProfileIcon({ summonerName, region, puuid }, true);
-      if (icon === verificationIconId) return { success: true };
-      return reply.status(400).send({ error: 'Profile icon does not match verification icon', currentIcon: icon });
-    } catch (err: any) {
-      if (err && err.status === 404) return reply.status(404).send({ error: 'Summoner not found on Riot' });
-      req.log && req.log.error && req.log.error(err);
-      return reply.status(502).send({ error: 'Error fetching data from Riot API' });
-    }
-  });
+  server.post('/verify/riot/by-summoner', async (_request, reply) =>
+    reply.code(410).send({ error: 'Reload the app and use the server-assigned Riot verification flow.' }));
 
   return server;
 }

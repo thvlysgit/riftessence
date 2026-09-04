@@ -5,7 +5,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import type { GetServerSideProps, GetServerSidePropsContext } from 'next';
-import IconPicker from '../../src/components/IconPicker';
+import { RiotIconConfirmation } from '../../components/RiotIconConfirmation';
+import { getAuthHeader } from '../../utils/auth';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { getProfileIconUrl } from '../../utils/championData';
 
@@ -58,18 +59,68 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
   const [region, setRegion] = useState('EUW');
 
   // Icon verification state
-  const [currentIcon, setCurrentIcon] = useState<number | null>(null);
-  const [selectedIconId, setSelectedIconId] = useState<number | null>(null);
+  const [targetIconId, setTargetIconId] = useState<number | null>(null);
+  const [changedIcon, setChangedIcon] = useState(false);
+  const [finalCheckAt, setFinalCheckAt] = useState<string | null>(null);
+  const [ratingStatus, setRatingStatus] = useState('PENDING');
+  const [failureReason, setFailureReason] = useState<string | null>(null);
   const [loadingLookup, setLoadingLookup] = useState(false);
   const [loadingVerify, setLoadingVerify] = useState(false);
 
   // Rating state
   const [raterToken, setRaterToken] = useState<string | null>(null);
-  const [sharedMatchesCount, setSharedMatchesCount] = useState(0);
   const [stars, setStars] = useState(0);
   const [moons, setMoons] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const receiptKey = receiver ? `riftessence:rating-receipt:v1:${receiver.id}` : null;
+
+  // Persist only this scoped receipt, never a full account login.
+  useEffect(() => {
+    if (!receiptKey) return;
+    let cancelled = false;
+    let token: string | null = null;
+    try { token = sessionStorage.getItem(receiptKey); } catch { /* Storage is optional. */ }
+    if (!token) return;
+    void fetch(`${API_URL}/api/rate/status`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raterToken: token }),
+    }).then(async response => {
+      if (!response.ok) return;
+      const data = await response.json();
+      if (cancelled) return;
+      setRaterToken(token); setTargetIconId(data.attempt.targetIconId);
+      setFinalCheckAt(data.attempt.finalCheckAt); setRatingStatus(data.status);
+      setFailureReason(data.failureReason);
+      setStep(data.status === 'DRAFT'
+        ? data.attempt.status === 'AWAITING_CONFIRMATION' ? 'verify_icon' : 'submit_rating'
+        : 'success');
+    }).catch(() => { /* A reload must not discard a saved submission during an outage. */ });
+    return () => { cancelled = true; };
+  }, [receiptKey]);
+
+  useEffect(() => {
+    if (step !== 'success' || ratingStatus !== 'PENDING' || !raterToken) return;
+    const controller = new AbortController();
+    const check = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/rate/status`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ raterToken }), signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!controller.signal.aborted) {
+          setRatingStatus(data.status); setFailureReason(data.failureReason);
+          setFinalCheckAt(data.attempt.finalCheckAt);
+        }
+      } catch { /* Background processing continues independently of this tab. */ }
+    };
+    void check();
+    const interval = window.setInterval(() => void check(), 30_000);
+    return () => { controller.abort(); window.clearInterval(interval); };
+  }, [step, ratingStatus, raterToken]);
 
   // Load receiver profile
   useEffect(() => {
@@ -131,8 +182,9 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
       const lookupName = sanitizeRiotId(riotId);
       const res = await fetch(`${API_URL}/api/rate/lookup`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ summonerName: lookupName, region }),
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        credentials: 'include',
+        body: JSON.stringify({ summonerName: lookupName, region, receiverUsername: username }),
       });
       const data = await res.json();
 
@@ -141,8 +193,11 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
         return;
       }
 
-      setCurrentIcon(data.profileIconId);
-      setStep('verify_icon');
+      setTargetIconId(data.attempt.targetIconId);
+      setRaterToken(data.raterToken); setChangedIcon(false);
+      setFinalCheckAt(data.attempt.finalCheckAt); setRatingStatus(data.status);
+      if (receiptKey) { try { sessionStorage.setItem(receiptKey, data.raterToken); } catch { /* Optional persistence. */ } }
+      setStep(data.status !== 'DRAFT' ? 'success' : data.attempt.status === 'AWAITING_CONFIRMATION' ? 'verify_icon' : 'submit_rating');
     } catch (err: any) {
       setError(err?.message || String(err));
     } finally {
@@ -154,8 +209,8 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
     if (e) e.preventDefault();
     setError(null);
 
-    if (selectedIconId === null) {
-      setError('Please select a verification icon');
+    if (!changedIcon || !raterToken) {
+      setError('Confirm that you changed the assigned icon and will keep it for 30 minutes.');
       return;
     }
 
@@ -163,15 +218,12 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
     setStep('verifying_matches');
 
     try {
-      const verifyName = sanitizeRiotId(riotId);
       const res = await fetch(`${API_URL}/api/rate/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          summonerName: verifyName,
-          region,
-          verificationIconId: selectedIconId,
-          receiverUsername: username,
+          raterToken,
+          keepIconFor30Minutes: true,
         }),
       });
       const data = await res.json();
@@ -182,8 +234,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
         return;
       }
 
-      setRaterToken(data.raterToken);
-      setSharedMatchesCount(data.sharedMatchesCount);
+      setFinalCheckAt(data.attempt.finalCheckAt);
       setStep('submit_rating');
     } catch (err: any) {
       setError(err?.message || String(err));
@@ -228,6 +279,8 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
         return;
       }
 
+      setRatingStatus(data.status);
+      setFinalCheckAt(data.attempt.finalCheckAt);
       setStep('success');
     } catch (err: any) {
       setError(err?.message || String(err));
@@ -272,7 +325,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
           </div>
         </div>
 
-        <div className="flex gap-6 mt-4">
+        <div className="flex flex-wrap gap-4 mt-4">
           <div className="flex items-center gap-2">
             <span style={{ color: 'var(--text-muted)' }}>Skill:</span>
             <div className="flex">
@@ -317,11 +370,11 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
           <form onSubmit={handleLookup} className="space-y-4">
             <div className="rounded-lg p-4 mb-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
               <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--accent-primary)' }}>How it works:</h3>
-              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>This verifies eligibility for this rating only. It does not sign you in to RiftEssence.</p>
+              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Riot Sign-On is not available yet. Change an assigned icon, then rate immediately while we verify in the background. Guest verification does not sign you in to RiftEssence.</p>
               <ol className="space-y-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
                 <li><span className="font-bold" style={{ color: 'var(--accent-primary)' }}>1.</span> Enter your Riot ID</li>
-                <li><span className="font-bold" style={{ color: 'var(--accent-primary)' }}>2.</span> Verify by changing your profile icon briefly</li>
-                <li><span className="font-bold" style={{ color: 'var(--accent-primary)' }}>3.</span> Rate the player (must have shared games)</li>
+                <li><span className="font-bold" style={{ color: 'var(--accent-primary)' }}>2.</span> Change the assigned icon and keep it for at least 30 minutes</li>
+                <li><span className="font-bold" style={{ color: 'var(--accent-primary)' }}>3.</span> Save your rating now; it publishes only after ownership and shared games are confirmed</li>
               </ol>
             </div>
 
@@ -377,93 +430,15 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
         );
 
       case 'verify_icon':
-        return (
-          <div className="space-y-4">
-            <div className="rounded-lg p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="text-sm font-semibold mr-4" style={{ color: 'var(--accent-primary)' }}>Your current icon:</span>
-                  {currentIcon !== null && (
-                    <img
-                      src={getProfileIconUrl(currentIcon)}
-                      alt={`Icon ${currentIcon}`}
-                      className="w-10 h-10 rounded-md"
-                      style={{ boxShadow: 'var(--shadow-md)' }}
-                    />
-                  )}
-                </div>
-                <button
-                  onClick={handleLookup}
-                  disabled={loadingLookup}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
-                  style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)', color: 'var(--text-secondary)' }}
-                  title="Refresh to check if icon changed"
-                >
-                  <svg className={`w-4 h-4 ${loadingLookup ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Refresh
-                </button>
-              </div>
-              <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                Note: Riot's servers may take 1-2 minutes to update after changing your icon. Use Refresh to check.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--accent-primary)' }}>
-                Choose a verification icon
-              </label>
-              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-                Change your profile icon to one of these in your League client, then click Verify.
-              </p>
-              <div className="rounded-lg p-4" style={{ border: '2px solid var(--border-card)', background: 'var(--bg-main)' }}>
-                <IconPicker
-                  selectedId={selectedIconId}
-                  onSelect={(id) => setSelectedIconId(id)}
-                  count={29}
-                  excludeIds={currentIcon !== null ? [currentIcon] : []}
-                />
-              </div>
-            </div>
-
-            {selectedIconId !== null && (
-              <div className="rounded-lg p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
-                <p className="text-sm" style={{ color: 'var(--accent-primary)' }}>
-                  <span className="font-semibold">Selected icon ID:</span> {selectedIconId}
-                </p>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                  Change to this icon in your League client, then click Verify.
-                </p>
-              </div>
-            )}
-
-            <button
-              onClick={handleVerify}
-              disabled={loadingVerify || selectedIconId === null}
-              className="w-full px-6 py-3 font-bold rounded-lg transition-all shadow-lg disabled:cursor-not-allowed flex items-center justify-center uppercase tracking-wide"
-              style={{ background: 'var(--btn-gradient)', color: 'var(--btn-gradient-text)' }}
-            >
-              {loadingVerify ? (
-                <>
-                  <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Verifying...
-                </>
-              ) : 'Verify & Check Shared Games'}
-            </button>
-
-            <button
-              onClick={() => setStep('enter_riot_id')}
-              className="w-full px-4 py-2 text-sm rounded-lg"
-              style={{ background: 'var(--bg-input)', color: 'var(--text-secondary)' }}
-            >
-              Back
-            </button>
-          </div>
-        );
+        return <div className="space-y-4">
+          {targetIconId !== null && <RiotIconConfirmation targetIconId={targetIconId} checked={changedIcon} onChange={setChangedIcon} />}
+          <button onClick={handleVerify} disabled={loadingVerify || !changedIcon}
+            className="w-full px-6 py-3 font-bold rounded-lg disabled:opacity-60"
+            style={{ background: 'var(--btn-gradient)', color: 'var(--btn-gradient-text)' }}>
+            {loadingVerify ? 'Starting checks…' : 'I changed my icon — continue to rating'}
+          </button>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>This challenge expires after 15 minutes if you do not confirm it.</p>
+        </div>;
 
       case 'verifying_matches':
         return (
@@ -472,8 +447,8 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <p className="text-lg font-semibold" style={{ color: 'var(--text-main)' }}>Verifying identity...</p>
-            <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>Checking match history for shared games</p>
+            <p className="text-lg font-semibold" style={{ color: 'var(--text-main)' }}>Starting background verification...</p>
+            <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>You can rate immediately; ownership and shared games will be checked before publishing.</p>
           </div>
         );
 
@@ -482,8 +457,9 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
           <form onSubmit={handleSubmitRating} className="space-y-4">
             <div className="rounded-lg p-4" style={{ background: 'var(--accent-primary-bg)', border: '1px solid var(--accent-primary)' }}>
               <p className="font-semibold" style={{ color: 'var(--accent-primary)' }}>
-                Verified! Found {sharedMatchesCount} shared game{sharedMatchesCount !== 1 ? 's' : ''}
+                Your rating stays private until Riot ownership and shared games are confirmed.
               </p>
+              {finalCheckAt && <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>Keep icon {targetIconId} until at least {new Date(finalCheckAt).toLocaleTimeString()}. If checks are delayed, keep it until verification finishes.</p>}
             </div>
 
             <div>
@@ -492,7 +468,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
               </label>
               <div className="flex gap-2">
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <button type="button" key={i} onClick={() => setStars(i)} className="p-1 transition-transform hover:scale-110">
+                  <button type="button" key={i} aria-label={`Skill: ${i} of 5 stars`} aria-pressed={i === stars} onClick={() => setStars(i)} className="p-1 transition-transform hover:scale-110">
                     <svg className="w-8 h-8" fill={i <= stars ? 'var(--accent-primary)' : 'var(--text-muted)'} viewBox="0 0 20 20">
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
@@ -507,7 +483,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
               </label>
               <div className="flex gap-2">
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <button type="button" key={i} onClick={() => setMoons(i)} className="p-1 transition-transform hover:scale-110">
+                  <button type="button" key={i} aria-label={`Personality: ${i} of 5 moons`} aria-pressed={i === moons} onClick={() => setMoons(i)} className="p-1 transition-transform hover:scale-110">
                     <svg className="w-8 h-8" fill={i <= moons ? 'var(--accent-primary)' : 'var(--text-muted)'} viewBox="0 0 24 24">
                       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                     </svg>
@@ -546,7 +522,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
                   </svg>
                   Submitting...
                 </>
-              ) : 'Submit Rating'}
+              ) : 'Save Rating'}
             </button>
           </form>
         );
@@ -559,10 +535,19 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--accent-primary)' }}>Rating Submitted!</h3>
+            <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--accent-primary)' }}>{ratingStatus === 'PUBLISHED' ? 'Rating published' : ratingStatus === 'REJECTED' ? 'Rating not published' : 'Rating saved — verification pending'}</h3>
             <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
-              Thank you for rating {receiver?.username}. Your feedback helps the community.
+              {ratingStatus === 'PUBLISHED'
+                ? `Your rating for ${receiver?.username} is now public.`
+                : ratingStatus === 'REJECTED'
+                  ? failureReason || 'Verification did not succeed. Your rating did not affect their profile, scores, or notifications.'
+                  : 'Your rating is saved privately. We will publish it only after Riot ownership and shared games are confirmed. You can close this tab; the checks continue automatically.'}
             </p>
+            {ratingStatus === 'PENDING' && finalCheckAt && <p className="text-sm mb-4" style={{ color: 'var(--text-main)' }}>Keep icon {targetIconId} until at least {new Date(finalCheckAt).toLocaleString()}, and longer if verification is delayed.</p>}
+            {ratingStatus === 'REJECTED' && <button className="mb-4 underline" onClick={() => {
+              if (receiptKey) { try { sessionStorage.removeItem(receiptKey); } catch { /* Optional storage. */ } }
+              setRaterToken(null); setChangedIcon(false); setError(null); setStep('enter_riot_id');
+            }}>Try again</button>}
             <div className="space-y-3">
               <a
                 href="/register"

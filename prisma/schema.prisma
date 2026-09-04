@@ -159,6 +159,8 @@ model User {
   badges               Badge[]
   verificationRequests VerificationRequest[]
   riotVerificationAttempts RiotVerificationAttempt[]
+  pendingRatingsReceived PendingRating[]
+  guestRatingIdentity GuestRatingIdentity?
   ratingAppeals        RatingAppeal[]
   blocksSent           Block[]               @relation("Blocker")
   blocksReceived       Block[]               @relation("Blocked")
@@ -240,8 +242,8 @@ model RiotAccount {
 // A pending attempt is intentionally distinct from a verified RiotAccount.
 model RiotVerificationAttempt {
   id                 String   @id @default(cuid())
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId             String
+  user               User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId             String?
   puuid              String
   summonerName       String
   gameName           String
@@ -259,10 +261,41 @@ model RiotVerificationAttempt {
   failureReason      String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+  pendingRatings     PendingRating[]
 
   @@index([userId, status])
   @@index([status, nextCheckAt])
   @@index([puuid, region, status])
+}
+
+// A scoped guest author identity does not reserve a RiotAccount connection.
+model GuestRatingIdentity {
+  puuid  String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+}
+
+// Never read by public feedback, score, reward, or notification queries.
+// A Rating is created only when both ownership and shared games are verified.
+model PendingRating {
+  id            String   @id @default(cuid())
+  attempt       RiotVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  attemptId     String
+  receiver      User     @relation(fields: [receiverId], references: [id], onDelete: Cascade)
+  receiverId    String
+  stars         Int?
+  moons         Int?
+  comment       String?
+  status        String   @default("DRAFT") // DRAFT | PENDING | PUBLISHED | REJECTED
+  failureReason String?
+  ratingId      String?  @unique
+  submittedAt   DateTime?
+  nextPublishAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([attemptId, receiverId])
+  @@index([status, nextPublishAt])
 }
 
 model DiscordAccount {

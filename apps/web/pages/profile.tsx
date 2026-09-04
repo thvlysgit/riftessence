@@ -1040,6 +1040,7 @@ export default function ProfilePage() {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserHasVerifiedRiot, setCurrentUserHasVerifiedRiot] = useState(false);
   const [currentUserBadges, setCurrentUserBadges] = useState<{ key: string; name: string }[]>([]);
   const [isBlocked, setIsBlocked] = useState(false);
   const [isCheckingBlock, setIsCheckingBlock] = useState(false);
@@ -1067,6 +1068,7 @@ export default function ProfilePage() {
         if (res.ok) {
           const data = await res.json();
           setCurrentUserId(data.id || uid);
+          setCurrentUserHasVerifiedRiot(Boolean(data.riotAccounts?.some((account: RiotAccount) => account.verified)));
           if (data.badges) {
             setCurrentUserBadges(data.badges);
           }
@@ -3468,7 +3470,13 @@ export default function ProfilePage() {
           <div className="flex gap-3 mb-4">
             <button
               className="px-4 py-2 rounded bg-[var(--accent-primary)] text-[var(--btn-gradient-text)] font-bold shadow"
-              onClick={() => setShowFeedbackModal(true)}
+              onClick={() => {
+                if (!currentUserHasVerifiedRiot) {
+                  void router.push(`/rate/${encodeURIComponent(user.username)}`);
+                } else {
+                  setShowFeedbackModal(true);
+                }
+              }}
             >
               {t('profile.giveFeedback')}
             </button>

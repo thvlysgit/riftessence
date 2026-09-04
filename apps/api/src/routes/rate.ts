@@ -1,68 +1,19 @@
 import prisma from '../prisma';
-import * as riotClient from '../riotClient';
-import { validateRequest } from '../validation';
-import { cacheGet, cacheSet } from '../utils/cache';
+import { getUserIdFromRequest } from '../middleware/auth';
+import { prepareRiotVerification, confirmRiotVerification, publicAttempt, VerificationError } from '../services/riotVerification';
 import { z } from 'zod';
 
-// ============================================================
-// RATE SCHEMAS
-// ============================================================
-
-const RateLookupSchema = z.object({
-  summonerName: z.string().min(1).max(100),
+const LookupSchema = z.object({
+  summonerName: z.string().min(3).max(100),
   region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU']),
+  receiverUsername: z.string().min(1).max(100),
 });
-
-const RateVerifySchema = z.object({
-  summonerName: z.string().min(1).max(100),
-  region: z.enum(['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU']),
-  verificationIconId: z.number().int().min(0),
-  receiverUsername: z.string().min(1), // The user being rated
+const TokenSchema = z.object({ raterToken: z.string().min(1).max(4096) });
+const ConfirmSchema = TokenSchema.extend({ keepIconFor30Minutes: z.literal(true) });
+const SubmitSchema = TokenSchema.extend({
+  receiverId: z.string().min(1), stars: z.number().int().min(1).max(5),
+  moons: z.number().int().min(1).max(5), comment: z.string().max(300).optional(),
 });
-
-const RateSubmitSchema = z.object({
-  raterToken: z.string().min(1),
-  receiverId: z.string().min(1),
-  stars: z.number().int().min(1).max(5),
-  moons: z.number().int().min(1).max(5),
-  comment: z.string().max(300, 'Comment too long (max 300 characters)').optional(),
-});
-
-// Helper to parse Riot ID
-function parseRiotId(summonerName: string, region: string): { gameName: string; tagLine: string } {
-  if (summonerName.includes('#')) {
-    const parts = summonerName.split('#');
-    return { gameName: parts[0], tagLine: parts[1] };
-  }
-  return { gameName: summonerName, tagLine: region };
-}
-
-// Helper to find shared matches between two PUUIDs
-async function findSharedMatches(
-  puuid1: string,
-  puuid2: string,
-  region: string
-): Promise<{ sharedMatchIds: string[]; count: number }> {
-  try {
-    // Fetch recent matches for both players (last 50 each for performance)
-    const [matches1, matches2] = await Promise.all([
-      riotClient.getRecentMatchIds(puuid1, region, 50),
-      riotClient.getRecentMatchIds(puuid2, region, 50),
-    ]);
-
-    // Find intersection
-    const matches2Set = new Set(matches2);
-    const sharedMatchIds = matches1.filter(id => matches2Set.has(id));
-
-    return {
-      sharedMatchIds,
-      count: sharedMatchIds.length,
-    };
-  } catch (err) {
-    console.error('[SharedMatches] Error finding shared matches:', err);
-    return { sharedMatchIds: [], count: 0 };
-  }
-}
 
 export default async function rateRoutes(fastify: any) {
   // Get target user's public profile for rating page
@@ -119,340 +70,89 @@ export default async function rateRoutes(fastify: any) {
     }
   });
 
-  // Lookup rater's Riot account (step 1 of verification)
-  fastify.post('/lookup', async (request: any, reply: any) => {
+
+  // A scoped receipt is not a login JWT: deliberately contains no userId.
+  async function pendingFromToken(token: string) {
+    let payload: any;
+    try { payload = fastify.jwt.verify(token); }
+    catch { throw new VerificationError('Invalid or expired rating session. Start again.', 401); }
+    if (payload.purpose !== 'pending_rating' || typeof payload.pendingId !== 'string') throw new VerificationError('Invalid rating token.', 401);
+    const pending = await prisma.pendingRating.findUnique({ where: { id: payload.pendingId }, include: { attempt: true } });
+    if (!pending || pending.receiverId !== payload.receiverId) throw new VerificationError('Rating session not found.', 404);
+    return pending;
+  }
+
+  function sendError(reply: any, error: any) {
+    fastify.log.error(error);
+    return reply.code(error instanceof VerificationError ? error.statusCode : 502).send({
+      error: error instanceof VerificationError ? error.message : 'Could not complete the request. Please try again shortly.',
+    });
+  }
+
+  fastify.post('/lookup', { config: { rateLimit: { max: 10, timeWindow: '1 hour' } } }, async (request: any, reply: any) => {
+    const parsed = LookupSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Enter a Riot ID, region, and player to rate.' });
     try {
-      const validation = validateRequest(RateLookupSchema, request.body);
-      if (!validation.success) {
-        return reply.status(400).send({ error: 'Invalid input', details: validation.errors });
-      }
-
-      const { summonerName, region } = validation.data;
-      const { gameName, tagLine } = parseRiotId(summonerName, region);
-
-      // Fetch PUUID
-      let puuid: string | null;
-      try {
-        puuid = await riotClient.getPuuid(gameName, tagLine, region);
-        if (!puuid) {
-          return reply.status(404).send({ error: 'Summoner not found on Riot' });
-        }
-      } catch (err: any) {
-        fastify.log.error(err);
-        return reply.status(502).send({ error: 'Error fetching data from Riot API' });
-      }
-
-      // Fetch current profile icon
-      let currentIcon: number | null;
-      try {
-        currentIcon = await riotClient.getProfileIcon({ summonerName, region, puuid }, false);
-      } catch (err: any) {
-        if (err?.status === 404) {
-          return reply.status(404).send({ error: 'Summoner not found on Riot' });
-        }
-        fastify.log.error(err);
-        return reply.status(502).send({ error: 'Error fetching data from Riot API' });
-      }
-
-      return reply.send({
-        success: true,
-        puuid,
-        profileIconId: currentIcon,
-        gameName,
-        tagLine,
+      const userId = await getUserIdFromRequest(request, reply, false);
+      const receiver = await prisma.user.findUnique({ where: { username: parsed.data.receiverUsername }, include: { riotAccounts: { where: { verified: true } } } });
+      if (!receiver || !receiver.riotAccounts.length) throw new VerificationError('This player has no verified Riot account to rate.', 404);
+      if (receiver.id === userId) throw new VerificationError('You cannot rate yourself.', 400);
+      const attempt = await prepareRiotVerification(parsed.data.summonerName, parsed.data.region, userId, receiver.riotAccounts.map((a: any) => a.puuid));
+      if (receiver.riotAccounts.some((a: any) => a.puuid === attempt.puuid)) throw new VerificationError('You cannot rate yourself.', 400);
+      // Reusing a signed-in connection reuses its clock and assigned icon.
+      const pending = await prisma.pendingRating.upsert({
+        where: { attemptId_receiverId: { attemptId: attempt.id, receiverId: receiver.id } },
+        create: { attemptId: attempt.id, receiverId: receiver.id }, update: {},
       });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to lookup Riot account' });
-    }
+      const raterToken = fastify.jwt.sign({ purpose: 'pending_rating', pendingId: pending.id, receiverId: receiver.id }, { expiresIn: '7d' });
+      return reply.send({ success: true, raterToken, attempt: publicAttempt(attempt), status: pending.status });
+    } catch (error) { return sendError(reply, error); }
   });
 
-  // Verify rater's identity and check shared matches
+  // Acknowledge the assigned icon immediately. The worker will verify it later.
   fastify.post('/verify', async (request: any, reply: any) => {
+    const parsed = ConfirmSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Confirm that you changed the assigned icon and will keep it for 30 minutes.' });
     try {
-      const validation = validateRequest(RateVerifySchema, request.body);
-      if (!validation.success) {
-        return reply.status(400).send({ error: 'Invalid input', details: validation.errors });
-      }
-
-      const { summonerName, region, verificationIconId, receiverUsername } = validation.data;
-      const { gameName, tagLine } = parseRiotId(summonerName, region);
-
-      // Find the receiver user
-      const receiver = await prisma.user.findUnique({
-        where: { username: receiverUsername },
-        include: {
-          riotAccounts: {
-            where: { verified: true },
-          },
-        },
-      });
-
-      if (!receiver) {
-        return reply.status(404).send({ error: 'User to rate not found' });
-      }
-
-      if (!receiver.riotAccounts.length) {
-        return reply.status(400).send({ error: 'User has no verified Riot accounts' });
-      }
-
-      // Rate limiting: prevent brute force icon guessing
-      const rateLimitKey = `rate:verify:attempts:${summonerName.toLowerCase()}:${region}`;
-      const attempts = await cacheGet<number>(rateLimitKey) || 0;
-
-      if (attempts >= 3) {
-        return reply.status(429).send({
-          error: 'Too many verification attempts. Please try again in 1 hour.',
-          retryAfter: 3600
-        });
-      }
-
-      // Fetch PUUID
-      let raterPuuid: string;
-      try {
-        const puuid = await riotClient.getPuuid(gameName, tagLine, region);
-        if (!puuid) {
-          return reply.status(404).send({ error: 'Summoner not found on Riot' });
-        }
-        raterPuuid = puuid;
-      } catch (err: any) {
-        fastify.log.error(err);
-        return reply.status(502).send({ error: 'Error fetching data from Riot API' });
-      }
-
-      // Fetch current icon (bypass cache for verification)
-      let currentIcon: number | null;
-      try {
-        currentIcon = await riotClient.getProfileIcon({ summonerName, region, puuid: raterPuuid }, true);
-      } catch (err: any) {
-        if (err?.status === 404) {
-          return reply.status(404).send({ error: 'Summoner not found on Riot' });
-        }
-        fastify.log.error(err);
-        return reply.status(502).send({ error: 'Error fetching data from Riot API' });
-      }
-
-      // Verify icon matches
-      if (currentIcon !== verificationIconId) {
-        await cacheSet(rateLimitKey, attempts + 1, 3600);
-        return reply.status(400).send({
-          error: 'Profile icon does not match verification icon',
-          currentIcon,
-          expectedIcon: verificationIconId,
-          attemptsRemaining: 2 - attempts
-        });
-      }
-
-      // Clear rate limit on success
-      await cacheSet(rateLimitKey, 0, 1);
-
-      // Check for shared matches with any of receiver's Riot accounts
-      let totalSharedMatches = 0;
-      for (const receiverAccount of receiver.riotAccounts) {
-        // Only check accounts in the same region cluster
-        const { count } = await findSharedMatches(raterPuuid, receiverAccount.puuid, region);
-        totalSharedMatches += count;
-      }
-
-      if (totalSharedMatches === 0) {
-        return reply.status(403).send({
-          error: 'No shared games found with this player. You must have played at least one game together to rate them.',
-          sharedMatchesCount: 0
-        });
-      }
-
-      // Find or create minimal user for rater
-      let raterUser = await prisma.riotAccount.findFirst({
-        where: { puuid: raterPuuid, region: region as any },
-        include: { user: true },
-      }).then((r: { user: any } | null) => r?.user);
-
-      if (!raterUser) {
-        // Create minimal user (no password/email)
-        const username = `${gameName.replace(/[^a-zA-Z0-9]/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
-
-        raterUser = await prisma.user.create({
-          data: {
-            username,
-            region: region as any,
-            riotAccounts: {
-              create: {
-                puuid: raterPuuid,
-                summonerName,
-                gameName,
-                tagLine,
-                region: region as any,
-                verified: true,
-                verificationIconId,
-                isMain: true,
-              },
-            },
-          },
-        });
-      }
-
-      // Check if already rated this user
-      const existingRating = await prisma.rating.findFirst({
-        where: { raterId: raterUser.id, receiverId: receiver.id },
-      });
-
-      if (existingRating) {
-        return reply.status(400).send({ error: 'You have already rated this user' });
-      }
-
-      // Generate short-lived token for the rating session
-      const raterToken = fastify.jwt.sign({
-        raterId: raterUser.id,
-        receiverId: receiver.id,
-        sharedMatchesCount: totalSharedMatches,
-        purpose: 'external_rating'
-      }, { expiresIn: '15m' });
-
-      return reply.send({
-        success: true,
-        raterToken,
-        raterUserId: raterUser.id,
-        sharedMatchesCount: totalSharedMatches,
-        receiver: {
-          id: receiver.id,
-          username: receiver.username,
-        }
-      });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to verify Riot account' });
-    }
+      const pending = await pendingFromToken(parsed.data.raterToken);
+      const attempt = await confirmRiotVerification(pending.attemptId, pending.attempt.userId);
+      return reply.send({ success: true, attempt: publicAttempt(attempt) });
+    } catch (error) { return sendError(reply, error); }
   });
 
-  // Submit rating
   fastify.post('/submit', async (request: any, reply: any) => {
+    const parsed = SubmitSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Rate skill and personality from 1 to 5. Comments must be at most 300 characters.' });
     try {
-      const validation = validateRequest(RateSubmitSchema, request.body);
-      if (!validation.success) {
-        return reply.status(400).send({ error: 'Invalid input', details: validation.errors });
-      }
-
-      const { raterToken, receiverId, stars, moons, comment } = validation.data;
-
-      // Verify token
-      let tokenData: { raterId: string; receiverId: string; sharedMatchesCount: number; purpose: string };
-      try {
-        tokenData = fastify.jwt.verify(raterToken);
-      } catch (err) {
-        return reply.status(401).send({ error: 'Invalid or expired rating session. Please verify again.' });
-      }
-
-      // Validate token purpose and receiver
-      if (tokenData.purpose !== 'external_rating') {
-        return reply.status(401).send({ error: 'Invalid token' });
-      }
-
-      if (tokenData.receiverId !== receiverId) {
-        return reply.status(403).send({ error: 'Token does not match the user being rated' });
-      }
-
-      const raterId = tokenData.raterId;
-
-      // Self-rating check
-      if (raterId === receiverId) {
-        return reply.status(400).send({ error: 'You cannot rate yourself' });
-      }
-
-      // Get rater info for notification
-      const rater = await prisma.user.findUnique({
-        where: { id: raterId },
-        include: { badges: true },
+      const pending = await pendingFromToken(parsed.data.raterToken);
+      if (pending.receiverId !== parsed.data.receiverId) throw new VerificationError('This rating session belongs to another player.', 403);
+      if (['FAILED', 'CANCELLED'].includes(pending.attempt.status) || pending.status === 'REJECTED') throw new VerificationError('Verification failed. Your rating was not published. Start a new attempt.');
+      if (!['ACTIVE', 'VERIFIED'].includes(pending.attempt.status)) throw new VerificationError('Confirm your icon change first.');
+      if (pending.status === 'DRAFT' && Date.now() - pending.createdAt.getTime() > 60 * 60_000) throw new VerificationError('The rating form expired. Start again.');
+      // Compare-and-set: double submits never overwrite the accepted payload.
+      await prisma.pendingRating.updateMany({
+        where: { id: pending.id, status: 'DRAFT' },
+        data: { status: 'PENDING', stars: parsed.data.stars, moons: parsed.data.moons,
+          comment: parsed.data.comment || '', submittedAt: new Date(), nextPublishAt: new Date() },
       });
+      const saved = await prisma.pendingRating.findUnique({ where: { id: pending.id } });
+      return reply.code(202).send({ success: true, status: saved.status, attempt: publicAttempt(pending.attempt) });
+    } catch (error) { return sendError(reply, error); }
+  });
 
-      if (!rater) {
-        return reply.status(404).send({ error: 'Rater not found' });
-      }
-
-      const hasDeveloperBadge = rater.badges?.some((b: any) => b.key?.toLowerCase() === 'developer');
-
-      if (!hasDeveloperBadge) {
-        // Check daily rate limit (10 ratings per day)
-        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        const ratingsToday = await prisma.rating.count({
-          where: {
-            raterId,
-            createdAt: { gte: oneDayAgo },
-          },
-        });
-
-        if (ratingsToday >= 10) {
-          return reply.status(429).send({ error: 'Daily rating limit reached. You can submit up to 10 ratings per day.' });
-        }
-
-        // Check cooldown and duplicate in transaction
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-
-        try {
-          await prisma.$transaction(async (tx: any) => {
-            const existingFeedback = await tx.rating.findFirst({
-              where: { raterId, receiverId },
-            });
-
-            if (existingFeedback) {
-              throw new Error('ALREADY_RATED');
-            }
-
-            const recentRating = await tx.rating.findFirst({
-              where: {
-                raterId,
-                createdAt: { gte: fiveMinutesAgo },
-              },
-            });
-
-            if (recentRating) {
-              throw new Error('COOLDOWN_ACTIVE');
-            }
-          });
-        } catch (error: any) {
-          if (error.message === 'ALREADY_RATED') {
-            return reply.status(400).send({ error: 'You have already rated this user' });
-          }
-          if (error.message === 'COOLDOWN_ACTIVE') {
-            return reply.status(429).send({ error: 'You can only rate once every 5 minutes' });
-          }
-          throw error;
-        }
-      }
-
-      // Create rating
-      const rating = await prisma.rating.create({
-        data: {
-          raterId,
-          receiverId,
-          stars,
-          moons,
-          comment: comment || '',
-          sharedMatchesCount: tokenData.sharedMatchesCount,
-        },
-      });
-
-      // Create notification for receiver
-      await prisma.notification.create({
-        data: {
-          userId: receiverId,
-          type: 'FEEDBACK_RECEIVED',
-          fromUserId: raterId,
-          feedbackId: rating.id,
-          message: `You received ${stars} stars and ${moons} moons from ${rater.username}`,
-        },
-      });
-
+  // POST keeps bearer receipts out of URLs, referers, and access-log query strings.
+  fastify.post('/status', async (request: any, reply: any) => {
+    reply.header('Cache-Control', 'no-store');
+    const parsed = TokenSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Missing rating receipt.' });
+    try {
+      const pending = await pendingFromToken(parsed.data.raterToken);
+      const failed = ['FAILED', 'CANCELLED'].includes(pending.attempt.status);
       return reply.send({
-        success: true,
-        rating: {
-          id: rating.id,
-          stars: rating.stars,
-          moons: rating.moons,
-        }
+        status: failed && pending.status !== 'PUBLISHED' ? 'REJECTED' : pending.status,
+        failureReason: pending.failureReason || pending.attempt.failureReason,
+        attempt: publicAttempt(pending.attempt),
       });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to submit rating' });
-    }
+    } catch (error) { return sendError(reply, error); }
   });
 }
