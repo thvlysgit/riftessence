@@ -1,18 +1,25 @@
 jest.mock('../src/riotClient', () => ({ getPuuid: jest.fn(), getProfileIcon: jest.fn() }));
+jest.mock('../src/middleware/auth', () => ({ getUserIdFromRequest: jest.fn() }));
 jest.mock('../src/prisma', () => ({ __esModule: true, default: {
   user: { findUnique: jest.fn() },
-  pendingRating: { findUnique: jest.fn(), updateMany: jest.fn(), upsert: jest.fn() },
+  pendingRating: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn(), upsert: jest.fn() },
+  riotAccount: { findMany: jest.fn() },
   rating: { create: jest.fn() }, notification: { create: jest.fn() },
 } }));
 jest.mock('../src/services/riotVerification', () => ({
   ...jest.requireActual('../src/services/riotVerification'),
-  prepareRiotVerification: jest.fn(), confirmRiotVerification: jest.fn(),
+  prepareRiotVerification: jest.fn(), confirmRiotVerification: jest.fn(), trustedRatingAttempt: jest.fn(),
 }));
+jest.mock('../src/services/ratingEligibility', () => ({ checkRatingEligibility: jest.fn() }));
+jest.mock('../src/services/pendingRatings', () => ({ publishPendingRating: jest.fn() }));
 import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
 import prisma from '../src/prisma';
 import routes from '../src/routes/rate';
-import { prepareRiotVerification, confirmRiotVerification } from '../src/services/riotVerification';
+import { prepareRiotVerification, confirmRiotVerification, trustedRatingAttempt } from '../src/services/riotVerification';
+import { checkRatingEligibility } from '../src/services/ratingEligibility';
+import { getUserIdFromRequest } from '../src/middleware/auth';
+import { publishPendingRating } from '../src/services/pendingRatings';
 
 describe('optimistic guest rating HTTP flow', () => {
   let app: any; let pending: any; let token: string;
@@ -23,10 +30,14 @@ describe('optimistic guest rating HTTP flow', () => {
   afterAll(async () => app.close());
   beforeEach(() => {
     jest.clearAllMocks();
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue(null);
     pending = { id: 'pending', receiverId: 'receiver', attemptId: 'proof', status: 'DRAFT', createdAt: new Date(),
-      attempt: { id: 'proof', userId: null, targetIconId: 7, status: 'ACTIVE', startedAt: new Date() } };
+      sharedMatchesCount: 1, sharedMatchesCheckedAt: new Date(), eligibleRaterPuuids: ['rater-puuid'], eligibleReceiverAccountIds: ['receiver-account'],
+      attempt: { id: 'proof', userId: null, targetIconId: 7, status: 'ACTIVE', startedAt: new Date(), puuid: 'rater-puuid', region: 'EUW' } };
     prisma.pendingRating.findUnique.mockImplementation(async () => pending);
     prisma.pendingRating.upsert.mockImplementation(async () => pending);
+    prisma.pendingRating.update.mockImplementation(async ({ data }: any) => Object.assign(pending, data));
+    prisma.riotAccount.findMany.mockResolvedValue([{ id: 'receiver-account', puuid: 'receiver-puuid', region: 'EUW' }]);
     prisma.pendingRating.updateMany.mockImplementation(async ({ data }: any) => {
       if (pending.status !== 'DRAFT') return { count: 0 };
       Object.assign(pending, data); return { count: 1 };
@@ -34,6 +45,8 @@ describe('optimistic guest rating HTTP flow', () => {
     prisma.user.findUnique.mockResolvedValue({ id: 'receiver', riotAccounts: [{ puuid: 'receiver-puuid' }] });
     (prepareRiotVerification as jest.Mock).mockResolvedValue(pending.attempt);
     (confirmRiotVerification as jest.Mock).mockResolvedValue(pending.attempt);
+    (trustedRatingAttempt as jest.Mock).mockResolvedValue({ ...pending.attempt, status: 'VERIFIED', userId: 'signed-rater', riotAccountId: 'linked-2' });
+    (checkRatingEligibility as jest.Mock).mockResolvedValue({ sharedMatchesCount: 1, eligibleRaterPuuids: ['rater-puuid'], eligibleReceiverAccountIds: ['receiver-account'], checkedRaterAccounts: 1, checkedReceiverAccounts: 1, matchWindow: 50 });
     token = app.jwt.sign({ purpose: 'pending_rating', pendingId: 'pending', receiverId: 'receiver' });
   });
   const submit = (payload: any) => app.inject({ method: 'POST', url: '/api/rate/submit', payload });
@@ -60,6 +73,7 @@ describe('optimistic guest rating HTTP flow', () => {
     const accepted = await app.inject({ method: 'POST', url: '/api/rate/verify', payload: { raterToken: token, keepIconFor30Minutes: true } });
     expect(accepted.statusCode).toBe(200);
     expect(accepted.json().attempt.status).toBe('ACTIVE');
+    expect(accepted.json().eligibility.sharedMatchesCount).toBe(1);
   });
 
   test('submission saves privately; a double submit cannot alter or publish it', async () => {
@@ -69,6 +83,35 @@ describe('optimistic guest rating HTTP flow', () => {
     expect(pending.stars).toBe(4);
     expect(prisma.rating.create).not.toHaveBeenCalled();
     expect(prisma.notification.create).not.toHaveBeenCalled();
+  });
+
+  test('does not unlock submission before a shared game has been checked', async () => {
+    pending.sharedMatchesCount = 0; pending.sharedMatchesCheckedAt = null;
+    expect((await submit(data())).statusCode).toBe(403);
+    expect(prisma.pendingRating.updateMany).not.toHaveBeenCalled();
+  });
+
+  test('already verified ownership publishes without waiting for the worker', async () => {
+    pending.attempt.status = 'VERIFIED';
+    await submit(data());
+    expect(publishPendingRating).toHaveBeenCalledWith(pending);
+  });
+
+  test('signed-in raters skip icon verification and check every verified linked account', async () => {
+    const linked = [
+      { id: 'linked-1', puuid: 'linked-puuid-1', region: 'EUW' },
+      { id: 'linked-2', puuid: 'rater-puuid', region: 'NA' },
+    ];
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('signed-rater');
+    prisma.riotAccount.findMany.mockResolvedValue(linked);
+    const loginToken = app.jwt.sign({ userId: 'signed-rater' });
+    const response = await app.inject({ method: 'POST', url: '/api/rate/session',
+      headers: { authorization: `Bearer ${loginToken}` }, payload: { receiverUsername: 'receiver' } });
+    expect(response.statusCode).toBe(200);
+    expect(checkRatingEligibility).toHaveBeenCalledWith(linked, expect.any(Array));
+    expect(prepareRiotVerification).not.toHaveBeenCalled();
+    expect(confirmRiotVerification).not.toHaveBeenCalled();
+    expect(response.json().attempt.status).toBe('VERIFIED');
   });
 
   test('expired or wrong-purpose JWTs and receiver swaps are rejected', async () => {

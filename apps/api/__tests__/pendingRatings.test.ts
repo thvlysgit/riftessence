@@ -6,16 +6,15 @@ jest.mock('../src/prisma', () => ({ __esModule: true, default: {
   notification: { create: jest.fn() }, block: { findFirst: jest.fn() }, user: { create: jest.fn() },
   $transaction: jest.fn(), $queryRaw: jest.fn(), $executeRaw: jest.fn(),
 } }));
-jest.mock('../src/riotClient', () => ({ getRecentMatchIds: jest.fn() }));
 import prisma from '../src/prisma';
-import * as riot from '../src/riotClient';
-import { publishPendingRating, processPendingRatings } from '../src/services/pendingRatings';
+import { publishPendingRating } from '../src/services/pendingRatings';
 
 describe('pending rating publication', () => {
   let pending: any;
   beforeEach(() => {
     jest.resetAllMocks();
     pending = { id: 'draft', receiverId: 'receiver', status: 'PENDING', stars: 4, moons: 5, comment: 'Good teammate',
+      sharedMatchesCount: 2, sharedMatchesCheckedAt: new Date(), eligibleRaterPuuids: ['rater-puuid'], eligibleReceiverAccountIds: ['receiver-account'],
       attempt: { id: 'proof', status: 'VERIFIED', puuid: 'rater-puuid', gameName: 'Rater', region: 'EUW', userId: null } };
     prisma.$transaction.mockImplementation((fn: any) => fn(prisma));
     prisma.pendingRating.findUnique.mockImplementation(async () => pending);
@@ -27,7 +26,6 @@ describe('pending rating publication', () => {
     prisma.rating.count.mockResolvedValue(0);
     prisma.guestRatingIdentity.findMany.mockResolvedValue([]);
     prisma.rating.create.mockResolvedValue({ id: 'published' });
-    (riot.getRecentMatchIds as jest.Mock).mockResolvedValue(['shared-1', 'shared-2']);
   });
 
   test('publishes exactly once, with one notification, and only after verified ownership', async () => {
@@ -49,23 +47,18 @@ describe('pending rating publication', () => {
   });
 
   test('no shared games rejects without public effects', async () => {
-    (riot.getRecentMatchIds as jest.Mock).mockResolvedValueOnce(['mine']).mockResolvedValueOnce(['theirs']);
+    pending.sharedMatchesCount = 0;
     await publishPendingRating(pending);
     expect(pending.status).toBe('REJECTED');
     expect(prisma.rating.create).not.toHaveBeenCalled();
     expect(prisma.notification.create).not.toHaveBeenCalled();
   });
 
-  test('Riot outage defers publication without treating it as no shared games', async () => {
-    (riot.getRecentMatchIds as jest.Mock).mockRejectedValue(new Error('503'));
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    await processPendingRatings();
-    expect(pending.status).toBe('PENDING');
-    expect(prisma.pendingRating.updateMany).toHaveBeenLastCalledWith({
-      where: { id: 'draft', status: 'PENDING' }, data: { nextPublishAt: expect.any(Date) },
-    });
+  test('revoked recipient link rejects previously recorded match evidence', async () => {
+    prisma.riotAccount.count.mockResolvedValue(0);
+    await publishPendingRating(pending);
+    expect(pending.status).toBe('REJECTED');
     expect(prisma.rating.create).not.toHaveBeenCalled();
-    warn.mockRestore();
   });
 
   test('existing rating rejects the pending duplicate without notification', async () => {

@@ -101,3 +101,21 @@ export async function confirmRiotVerification(attemptId: string, userId: string 
     } });
   });
 }
+
+/** Verified connected accounts can authorize rating without a new icon change. */
+export async function trustedRatingAttempt(account: any, userId: string) {
+  return prisma.$transaction(async (tx: any) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`trusted-rating:${userId}:${account.puuid}`}))`;
+    const reusable = await tx.riotVerificationAttempt.findFirst({
+      where: { userId, puuid: account.puuid, region: account.region, status: 'VERIFIED', createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60_000) } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (reusable) return reusable;
+    return tx.riotVerificationAttempt.create({ data: {
+      userId, puuid: account.puuid, summonerName: account.summonerName,
+      gameName: account.gameName || account.summonerName, tagLine: account.tagLine || account.region,
+      region: account.region, targetIconId: account.profileIconId || account.verificationIconId || 0,
+      status: 'VERIFIED', riotAccountId: account.id,
+    } });
+  });
+}

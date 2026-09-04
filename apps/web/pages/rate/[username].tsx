@@ -37,7 +37,7 @@ type ReceiverProfile = {
   feedbackCount: number;
 };
 
-type Step = 'loading' | 'enter_riot_id' | 'verify_icon' | 'verifying_matches' | 'submit_rating' | 'success' | 'error';
+type Step = 'loading' | 'checking_accounts' | 'ineligible' | 'enter_riot_id' | 'verify_icon' | 'verifying_matches' | 'submit_rating' | 'success' | 'error';
 
 type RateUserPageProps = {
   initialReceiver: ReceiverProfile | null;
@@ -50,7 +50,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
   const { t: _t } = useLanguage();
 
   // State
-  const [step, setStep] = useState<Step>(initialReceiver ? 'enter_riot_id' : initialError ? 'error' : 'loading');
+  const [step, setStep] = useState<Step>(initialReceiver ? 'checking_accounts' : initialError ? 'error' : 'loading');
   const [receiver, setReceiver] = useState<ReceiverProfile | null>(initialReceiver);
   const [error, setError] = useState<string | null>(initialError);
 
@@ -69,6 +69,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
 
   // Rating state
   const [raterToken, setRaterToken] = useState<string | null>(null);
+  const [sharedMatchesCount, setSharedMatchesCount] = useState(0);
   const [stars, setStars] = useState(0);
   const [moons, setMoons] = useState(0);
   const [comment, setComment] = useState('');
@@ -76,29 +77,53 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
 
   const receiptKey = receiver ? `riftessence:rating-receipt:v1:${receiver.id}` : null;
 
-  // Persist only this scoped receipt, never a full account login.
+  // Resume a receipt first; otherwise check every signed-in linked account.
   useEffect(() => {
-    if (!receiptKey) return;
+    if (!receiptKey || !receiver) return;
     let cancelled = false;
     let token: string | null = null;
     try { token = sessionStorage.getItem(receiptKey); } catch { /* Storage is optional. */ }
-    if (!token) return;
-    void fetch(`${API_URL}/api/rate/status`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ raterToken: token }),
-    }).then(async response => {
-      if (!response.ok) return;
-      const data = await response.json();
+    const authHeaders = getAuthHeader();
+    if (!token && !('Authorization' in authHeaders)) {
+      setStep('enter_riot_id');
+      return;
+    }
+    const responsePromise = token
+      ? fetch(`${API_URL}/api/rate/status`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ raterToken: token }),
+        })
+      : fetch(`${API_URL}/api/rate/session`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders },
+          credentials: 'include', body: JSON.stringify({ receiverUsername: receiver.username }),
+        });
+    void responsePromise.then(async response => {
+      const data = await response.json().catch(() => ({}));
       if (cancelled) return;
-      setRaterToken(token); setTargetIconId(data.attempt.targetIconId);
+      if (!response.ok) {
+        if (response.status === 401 || (response.status === 409 && data.needsRiotVerification)) {
+          setStep('enter_riot_id'); return;
+        }
+        if (response.status === 403) {
+          setError(data.error || 'No shared game was found in the most recent 50 games.');
+          setStep('ineligible'); return;
+        }
+        setError(data.error || 'Could not check linked Riot accounts.');
+        setStep('enter_riot_id'); return;
+      }
+      const receipt = token || data.raterToken;
+      if (receipt && !token) { try { sessionStorage.setItem(receiptKey, receipt); } catch { /* Optional persistence. */ } }
+      const matches = data.sharedMatchesCount || data.eligibility?.sharedMatchesCount || 0;
+      setRaterToken(receipt); setTargetIconId(data.attempt.targetIconId);
       setFinalCheckAt(data.attempt.finalCheckAt); setRatingStatus(data.status);
-      setFailureReason(data.failureReason);
-      setStep(data.status === 'DRAFT'
-        ? data.attempt.status === 'AWAITING_CONFIRMATION' ? 'verify_icon' : 'submit_rating'
-        : 'success');
-    }).catch(() => { /* A reload must not discard a saved submission during an outage. */ });
+      setFailureReason(data.failureReason); setSharedMatchesCount(matches);
+      setStep(data.status === 'DRAFT' ? matches > 0 ? 'submit_rating' : 'verify_icon' : 'success');
+    }).catch(() => {
+      if (!cancelled) { setError('Could not check linked Riot accounts. Please try again.'); setStep('enter_riot_id'); }
+    });
     return () => { cancelled = true; };
-  }, [receiptKey]);
+  }, [receiptKey, receiver]);
+
 
   useEffect(() => {
     if (step !== 'success' || ratingStatus !== 'PENDING' || !raterToken) return;
@@ -140,7 +165,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
         }
         const data = await res.json();
         setReceiver(data.user);
-        setStep('enter_riot_id');
+        setStep('checking_accounts');
       } catch (err: any) {
         setError(err?.message || 'Failed to load user profile');
         setStep('error');
@@ -196,8 +221,9 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
       setTargetIconId(data.attempt.targetIconId);
       setRaterToken(data.raterToken); setChangedIcon(false);
       setFinalCheckAt(data.attempt.finalCheckAt); setRatingStatus(data.status);
+      setSharedMatchesCount(data.eligibility?.sharedMatchesCount || 0);
       if (receiptKey) { try { sessionStorage.setItem(receiptKey, data.raterToken); } catch { /* Optional persistence. */ } }
-      setStep(data.status !== 'DRAFT' ? 'success' : data.attempt.status === 'AWAITING_CONFIRMATION' ? 'verify_icon' : 'submit_rating');
+      setStep(data.status !== 'DRAFT' ? 'success' : data.eligibility?.sharedMatchesCount > 0 ? 'submit_rating' : 'verify_icon');
     } catch (err: any) {
       setError(err?.message || String(err));
     } finally {
@@ -230,11 +256,12 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
 
       if (!res.ok) {
         setError(data?.error || `Verification failed: ${res.status}`);
-        setStep('verify_icon');
+        setStep(res.status === 403 ? 'ineligible' : 'verify_icon');
         return;
       }
 
       setFinalCheckAt(data.attempt.finalCheckAt);
+      setSharedMatchesCount(data.eligibility.sharedMatchesCount);
       setStep('submit_rating');
     } catch (err: any) {
       setError(err?.message || String(err));
@@ -356,6 +383,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
   function renderStepContent() {
     switch (step) {
       case 'loading':
+      case 'checking_accounts':
         return (
           <div className="flex items-center justify-center py-12">
             <svg className="animate-spin h-8 w-8" style={{ color: 'var(--accent-primary)' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -365,16 +393,28 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
           </div>
         );
 
+      case 'ineligible':
+        return <div className="text-center py-6">
+          <h3 className="text-lg font-bold" style={{ color: 'var(--accent-danger)' }}>No recent shared game found</h3>
+          <p className="mt-3 text-sm" style={{ color: 'var(--text-secondary)' }}>{error}</p>
+          <p className="mt-3 text-xs" style={{ color: 'var(--text-muted)' }}>We check every verified Riot account linked to you against every verified account linked to this player, using the latest 50 matches for each account. You cannot enter a rating unless at least one match ID is shared.</p>
+          <a href="/authenticate" className="mt-5 inline-block font-semibold underline" style={{ color: 'var(--accent-primary)' }}>Manage linked Riot accounts</a>
+          <button onClick={() => {
+            if (receiptKey) { try { sessionStorage.removeItem(receiptKey); } catch { /* Optional storage. */ } }
+            setRaterToken(null); setChangedIcon(false); setError(null); setStep('enter_riot_id');
+          }} className="mt-4 block w-full text-sm underline" style={{ color: 'var(--text-secondary)' }}>Check another Riot ID</button>
+        </div>;
+
       case 'enter_riot_id':
         return (
           <form onSubmit={handleLookup} className="space-y-4">
             <div className="rounded-lg p-4 mb-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-card)' }}>
               <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--accent-primary)' }}>How it works:</h3>
-              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Riot Sign-On is not available yet. Change an assigned icon, then rate immediately while we verify in the background. Guest verification does not sign you in to RiftEssence.</p>
+              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Riot Sign-On is not available yet. We first check the latest 50 games for a shared match. If you are not already linked, change an assigned icon while ownership verifies in the background. Guest verification does not sign you in to RiftEssence.</p>
               <ol className="space-y-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
                 <li><span className="font-bold" style={{ color: 'var(--accent-primary)' }}>1.</span> Enter your Riot ID</li>
                 <li><span className="font-bold" style={{ color: 'var(--accent-primary)' }}>2.</span> Change the assigned icon and keep it for at least 30 minutes</li>
-                <li><span className="font-bold" style={{ color: 'var(--accent-primary)' }}>3.</span> Save your rating now; it publishes only after ownership and shared games are confirmed</li>
+                <li><span className="font-bold" style={{ color: 'var(--accent-primary)' }}>3.</span> Only after a shared game is found, enter your rating; it publishes after ownership is confirmed</li>
               </ol>
             </div>
 
@@ -448,7 +488,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             <p className="text-lg font-semibold" style={{ color: 'var(--text-main)' }}>Starting background verification...</p>
-            <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>You can rate immediately; ownership and shared games will be checked before publishing.</p>
+            <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>Checking the latest 50 games for every relevant Riot account</p>
           </div>
         );
 
@@ -457,7 +497,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
           <form onSubmit={handleSubmitRating} className="space-y-4">
             <div className="rounded-lg p-4" style={{ background: 'var(--accent-primary-bg)', border: '1px solid var(--accent-primary)' }}>
               <p className="font-semibold" style={{ color: 'var(--accent-primary)' }}>
-                Your rating stays private until Riot ownership and shared games are confirmed.
+                Eligible: found {sharedMatchesCount} shared game{sharedMatchesCount === 1 ? '' : 's'} in the latest 50 games. Your rating stays private until Riot ownership is confirmed.
               </p>
               {finalCheckAt && <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>Keep icon {targetIconId} until at least {new Date(finalCheckAt).toLocaleTimeString()}. If checks are delayed, keep it until verification finishes.</p>}
             </div>
@@ -635,7 +675,7 @@ export default function RateUserPage({ initialReceiver, initialError }: RateUser
             )}
 
             {/* Error display */}
-            {error && step !== 'error' && (
+            {error && step !== 'error' && step !== 'ineligible' && (
               <div className="rounded-lg p-4 mb-4" style={{ background: 'var(--accent-danger-bg)', border: '2px solid var(--accent-danger)' }}>
                 <p className="text-sm" style={{ color: 'var(--accent-danger)' }}>{error}</p>
               </div>

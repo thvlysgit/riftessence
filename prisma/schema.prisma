@@ -288,6 +288,10 @@ model PendingRating {
   comment       String?
   status        String   @default("DRAFT") // DRAFT | PENDING | PUBLISHED | REJECTED
   failureReason String?
+  sharedMatchesCount Int      @default(0)
+  eligibleRaterPuuids String[] @default([])
+  eligibleReceiverAccountIds String[] @default([])
+  sharedMatchesCheckedAt DateTime?
   ratingId      String?  @unique
   submittedAt   DateTime?
   nextPublishAt DateTime @default(now())

@@ -1,25 +1,6 @@
 import { randomUUID } from 'crypto';
 import prisma from '../prisma';
-import * as riotClient from '../riotClient';
-
-/** Keep Riot calls outside database transactions. Errors must reach the retry path. */
-async function sharedGames(attempt: any, receiverId: string) {
-  const accounts = await prisma.riotAccount.findMany({ where: { userId: receiverId, verified: true } });
-  if (accounts.some((a: any) => a.puuid === attempt.puuid)) return { count: 0, accounts: [], self: true };
-  const mine = await riotClient.getRecentMatchIds(attempt.puuid, attempt.region, 50);
-  const matches = new Set<string>();
-  const matchedAccounts: string[] = [];
-  for (const account of accounts) {
-    const theirs = new Set(await riotClient.getRecentMatchIds(account.puuid, account.region, 50));
-    const shared = mine.filter(id => theirs.has(id));
-    if (shared.length) matchedAccounts.push(account.id);
-    shared.forEach(id => matches.add(id));
-  }
-  return { count: matches.size, accounts: matchedAccounts, self: false };
-}
-
 export async function publishPendingRating(pending: any): Promise<void> {
-  const proof = await sharedGames(pending.attempt, pending.receiverId);
   await prisma.$transaction(async (tx: any) => {
     // Row lock + status guard makes publication and its notification exactly once.
     await tx.$queryRaw`SELECT "id" FROM "PendingRating" WHERE "id" = ${pending.id} FOR UPDATE`;
@@ -28,9 +9,10 @@ export async function publishPendingRating(pending: any): Promise<void> {
     const reject = (failureReason: string) => tx.pendingRating.update({
       where: { id: fresh.id }, data: { status: 'REJECTED', failureReason },
     });
-    if (proof.self || fresh.attempt.userId === fresh.receiverId) { await reject('You cannot rate yourself.'); return; }
-    if (!proof.count) { await reject('No shared games found. You must have played together to rate this player.'); return; }
-    const stillLinked = await tx.riotAccount.count({ where: { id: { in: proof.accounts }, userId: fresh.receiverId, verified: true } });
+    if (fresh.attempt.userId === fresh.receiverId) { await reject('You cannot rate yourself.'); return; }
+    if (fresh.sharedMatchesCount <= 0 || !fresh.sharedMatchesCheckedAt) { await reject('No shared game was verified before submission.'); return; }
+    if (!fresh.attempt.userId && !fresh.eligibleRaterPuuids.includes(fresh.attempt.puuid)) { await reject('The verified Riot account was not eligible for this rating.'); return; }
+    const stillLinked = await tx.riotAccount.count({ where: { id: { in: fresh.eligibleReceiverAccountIds }, userId: fresh.receiverId, verified: true } });
     if (!stillLinked) { await reject('The recipient no longer has the verified Riot connection used for this rating.'); return; }
 
     const attempt = fresh.attempt;
@@ -76,7 +58,7 @@ export async function publishPendingRating(pending: any): Promise<void> {
     }
     const rating = await tx.rating.create({ data: {
       raterId: rater.id, receiverId: fresh.receiverId, stars: fresh.stars, moons: fresh.moons,
-      comment: fresh.comment || '', sharedMatchesCount: proof.count,
+      comment: fresh.comment || '', sharedMatchesCount: fresh.sharedMatchesCount,
     } });
     await tx.notification.create({ data: {
       userId: fresh.receiverId, type: 'FEEDBACK_RECEIVED', fromUserId: rater.id,
