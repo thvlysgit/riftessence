@@ -420,16 +420,21 @@ export default function ChatWidget() {
   };
 
   const markConversationRead = async (conversationId: string) => {
+    const unreadBeforeRequest = conversations.find((conv) => conv.id === conversationId)?.unreadCount || 0;
     try {
       const res = await fetch(`${API_URL}/api/chat/conversations/${conversationId}/read`, {
         method: 'POST',
-        headers: getAuthHeader(),
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        credentials: 'include',
+        body: JSON.stringify({}),
       });
       if (res.ok) {
+        const data = await res.json().catch(() => ({ readCount: 0 }));
+        const clearedUnreadCount = Math.max(Number(data.readCount) || 0, unreadBeforeRequest);
         setConversations((current) => current.map((conv) => (
           conv.id === conversationId ? { ...conv, unreadCount: 0 } : conv
         )));
-        setUnreadCount((count) => Math.max(count - (selectedConversation?.unreadCount || 0), 0));
+        setUnreadCount((count) => Math.max(count - clearedUnreadCount, 0));
       }
     } catch (err) {
       // Read receipts are best-effort; the next poll will recover.

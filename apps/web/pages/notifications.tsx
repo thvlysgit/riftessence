@@ -166,7 +166,9 @@ export default function NotificationsPage() {
     try {
       const res = await fetch(`${API_URL}/api/notifications/${id}/read`, {
         method: 'PATCH',
-        headers: getAuthHeader(),
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        credentials: 'include',
+        body: JSON.stringify({}),
       });
       if (!res.ok) throw new Error('Failed to update');
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
@@ -180,7 +182,9 @@ export default function NotificationsPage() {
     try {
       const res = await fetch(`${API_URL}/api/notifications/read-all`, {
         method: 'PATCH',
-        headers: getAuthHeader(),
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        credentials: 'include',
+        body: JSON.stringify({}),
       });
       if (!res.ok) throw new Error('Failed to update');
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));

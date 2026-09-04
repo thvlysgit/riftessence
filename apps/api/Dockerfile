@@ -41,6 +41,8 @@ RUN pnpm exec tsc -p apps/api/tsconfig.json
 # Generate Prisma client again after build to ensure it's in the right location
 RUN pnpm exec prisma generate --schema=./prisma/schema.prisma
 
+RUN mkdir -p /app/uploads/profile
+
 WORKDIR /app/apps/api
 
 EXPOSE 3333

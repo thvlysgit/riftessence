@@ -1,7 +1,11 @@
 import prisma from '../prisma';
 import { recordRequestFailure } from '../services/apiDiagnostics';
 import * as riotClient from '../riotClient';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
+import { createReadStream, createWriteStream } from 'fs';
+import { mkdir, open, rename, rm, stat } from 'fs/promises';
+import { join } from 'path';
+import { pipeline } from 'stream/promises';
 import { prepareRiotVerification, confirmRiotVerification, publicAttempt, VerificationError } from '../services/riotVerification';
 import { cacheDel, cacheGet, cacheSet } from '../utils/cache';
 import { getOrSetCache } from '../utils/requestCache';
@@ -51,6 +55,50 @@ function toIsoDateString(value: unknown): string | null {
 const PROFILE_BACKGROUND_TYPES = new Set(['DEFAULT', 'IMAGE', 'GRADIENT']);
 const PROFILE_BACKGROUND_GRADIENTS = new Set(['rift', 'ionia', 'piltover', 'shadow-isles']);
 const PROFILE_SOCIAL_KEYS = ['x', 'twitch', 'youtube', 'instagram', 'discord', 'opgg'] as const;
+const PROFILE_MEDIA_ROOT = process.env.PROFILE_UPLOAD_DIR?.trim() || join(process.cwd(), 'uploads', 'profile');
+const PROFILE_MEDIA_LIMITS = {
+  background: 5 * 1024 * 1024,
+  song: 12 * 1024 * 1024,
+} as const;
+const PROFILE_MEDIA_TYPES: Record<string, string> = {
+  jpg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  mp3: 'audio/mpeg',
+  ogg: 'audio/ogg',
+  wav: 'audio/wav',
+};
+
+function detectProfileMediaExtension(bytes: Buffer): keyof typeof PROFILE_MEDIA_TYPES | null {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'jpg';
+  if (bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png';
+  if (bytes.length >= 12 && bytes.subarray(0, 4).toString('ascii') === 'RIFF' && bytes.subarray(8, 12).toString('ascii') === 'WEBP') return 'webp';
+  if (bytes.length >= 3 && bytes.subarray(0, 3).toString('ascii') === 'ID3') return 'mp3';
+  if (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) return 'mp3';
+  if (bytes.length >= 4 && bytes.subarray(0, 4).toString('ascii') === 'OggS') return 'ogg';
+  if (bytes.length >= 12 && bytes.subarray(0, 4).toString('ascii') === 'RIFF' && bytes.subarray(8, 12).toString('ascii') === 'WAVE') return 'wav';
+  return null;
+}
+
+function profileMediaUrl(request: any, userId: string, filename: string) {
+  const configuredOrigin = process.env.API_PUBLIC_URL?.trim().replace(/\/$/, '');
+  const requestOrigin = `${request.protocol}://${request.host}`;
+  return `${configuredOrigin || requestOrigin}/api/user/profile-media/${encodeURIComponent(userId)}/${filename}`;
+}
+
+function ownedProfileMediaPath(value: string | null, userId: string): string | null {
+  if (!value) return null;
+  try {
+    const pathname = new URL(value).pathname;
+    const expectedPrefix = `/api/user/profile-media/${encodeURIComponent(userId)}/`;
+    if (!pathname.startsWith(expectedPrefix)) return null;
+    const filename = pathname.slice(expectedPrefix.length);
+    if (!/^[a-f0-9-]{36}\.(jpg|png|webp|mp3|ogg|wav)$/i.test(filename)) return null;
+    return join(PROFILE_MEDIA_ROOT, userId, filename);
+  } catch {
+    return null;
+  }
+}
 
 function normalizeBioSlug(value: unknown) {
   if (value === null || value === undefined || String(value).trim() === '') return null;
@@ -89,7 +137,8 @@ function normalizeProfileBackground(typeValue: unknown, value: unknown) {
   }
 
   if (type === 'IMAGE') {
-    return { type, value: normalizeOptionalUrl(value, 'Background image', ['https:']) };
+    const allowedProtocols = process.env.NODE_ENV === 'production' ? ['https:'] : ['https:', 'http:'];
+    return { type, value: normalizeOptionalUrl(value, 'Background image', allowedProtocols) };
   }
 
   const gradient = typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -149,6 +198,135 @@ function calculateRankScore(rank: string | null, division: string | null, lp: nu
 }
 
 export default async function userRoutes(fastify: any) {
+  fastify.get('/profile-media/:userId/:filename', async (request: any, reply: any) => {
+    const { userId, filename } = request.params || {};
+    if (!/^[a-z0-9_-]{10,64}$/i.test(String(userId || '')) || !/^[a-f0-9-]{36}\.(jpg|png|webp|mp3|ogg|wav)$/i.test(String(filename || ''))) {
+      return reply.code(404).send({ error: 'Profile media not found' });
+    }
+
+    const extension = String(filename).split('.').pop()?.toLowerCase() || '';
+    const filePath = join(PROFILE_MEDIA_ROOT, String(userId), String(filename));
+
+    try {
+      const fileStats = await stat(filePath);
+      if (!fileStats.isFile()) return reply.code(404).send({ error: 'Profile media not found' });
+
+      reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+      reply.header('Accept-Ranges', 'bytes');
+      reply.type(PROFILE_MEDIA_TYPES[extension] || 'application/octet-stream');
+
+      const rangeHeader = typeof request.headers?.range === 'string' ? request.headers.range : null;
+      if (rangeHeader) {
+        const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
+        if (!match) {
+          reply.header('Content-Range', `bytes */${fileStats.size}`);
+          return reply.code(416).send();
+        }
+
+        const start = match[1] ? Number(match[1]) : 0;
+        const requestedEnd = match[2] ? Number(match[2]) : fileStats.size - 1;
+        const end = Math.min(requestedEnd, fileStats.size - 1);
+        if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || start > end || start >= fileStats.size) {
+          reply.header('Content-Range', `bytes */${fileStats.size}`);
+          return reply.code(416).send();
+        }
+
+        reply.header('Content-Range', `bytes ${start}-${end}/${fileStats.size}`);
+        reply.header('Content-Length', String(end - start + 1));
+        return reply.code(206).send(createReadStream(filePath, { start, end }));
+      }
+
+      reply.header('Content-Length', String(fileStats.size));
+      return reply.send(createReadStream(filePath));
+    } catch (error: any) {
+      if (error?.code === 'ENOENT') return reply.code(404).send({ error: 'Profile media not found' });
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to load profile media' });
+    }
+  });
+
+  fastify.post('/profile-media/:kind', async (request: any, reply: any) => {
+    const userId = await getUserIdFromRequest(request, reply);
+    if (!userId) return;
+
+    const kind = String(request.params?.kind || '').toLowerCase() as keyof typeof PROFILE_MEDIA_LIMITS;
+    if (!Object.prototype.hasOwnProperty.call(PROFILE_MEDIA_LIMITS, kind)) {
+      return reply.code(400).send({ error: 'Profile media must be a background or song.' });
+    }
+
+    let temporaryPath: string | null = null;
+    try {
+      const maxBytes = PROFILE_MEDIA_LIMITS[kind];
+      const part = await request.file({ limits: { files: 1, fileSize: maxBytes } });
+      if (!part) return reply.code(400).send({ error: 'Choose a file to upload.' });
+
+      const declaredMime = String(part.mimetype || '').toLowerCase();
+      const declaredKindMatches = kind === 'background'
+        ? ['image/jpeg', 'image/png', 'image/webp'].includes(declaredMime)
+        : ['audio/mpeg', 'audio/mp3', 'audio/ogg', 'audio/wav', 'audio/x-wav', 'audio/wave'].includes(declaredMime);
+      if (!declaredKindMatches) {
+        part.file.resume();
+        return reply.code(415).send({
+          error: kind === 'background'
+            ? 'Background files must be JPEG, PNG, or WebP images.'
+            : 'Song files must be MP3, OGG, or WAV audio.',
+        });
+      }
+
+      const userDirectory = join(PROFILE_MEDIA_ROOT, userId);
+      await mkdir(userDirectory, { recursive: true });
+      const uploadId = randomUUID();
+      temporaryPath = join(userDirectory, `.${uploadId}.upload`);
+      await pipeline(part.file, createWriteStream(temporaryPath, { flags: 'wx' }));
+
+      if (part.file.truncated) {
+        return reply.code(413).send({
+          error: `${kind === 'background' ? 'Background image' : 'Song'} exceeds the ${Math.floor(maxBytes / 1024 / 1024)} MB limit.`,
+        });
+      }
+
+      const header = Buffer.alloc(16);
+      const handle = await open(temporaryPath, 'r');
+      let bytesRead = 0;
+      try {
+        ({ bytesRead } = await handle.read(header, 0, header.length, 0));
+      } finally {
+        await handle.close();
+      }
+      const extension = detectProfileMediaExtension(header.subarray(0, bytesRead));
+      const detectedKindMatches = extension && (kind === 'background'
+        ? ['jpg', 'png', 'webp'].includes(extension)
+        : ['mp3', 'ogg', 'wav'].includes(extension));
+
+      if (!extension || !detectedKindMatches) {
+        return reply.code(415).send({ error: 'The selected file contents do not match a supported media type.' });
+      }
+
+      const filename = `${uploadId}.${extension}`;
+      const finalPath = join(userDirectory, filename);
+      await rename(temporaryPath, finalPath);
+      temporaryPath = null;
+
+      return reply.code(201).send({
+        url: profileMediaUrl(request, userId, filename),
+        kind,
+        mimeType: PROFILE_MEDIA_TYPES[extension],
+      });
+    } catch (error: any) {
+      if (error?.statusCode === 413 || error?.code === 'FST_REQ_FILE_TOO_LARGE') {
+        const maxBytes = PROFILE_MEDIA_LIMITS[kind];
+        return reply.code(413).send({
+          error: `${kind === 'background' ? 'Background image' : 'Song'} exceeds the ${Math.floor(maxBytes / 1024 / 1024)} MB limit.`,
+        });
+      }
+
+      fastify.log.error(error);
+      return reply.code(500).send({ error: 'Failed to upload profile media' });
+    } finally {
+      if (temporaryPath) await rm(temporaryPath, { force: true }).catch(() => undefined);
+    }
+  });
+
   const ensureSingleMainAccount = async (db: any, userId: string) => {
     const accounts = await db.riotAccount.findMany({
       where: { userId },
@@ -768,7 +946,8 @@ export default async function userRoutes(fastify: any) {
 
       const normalizedBioSlug = normalizeBioSlug(bioSlug);
       const background = normalizeProfileBackground(profileBackgroundType, profileBackgroundValue);
-      const normalizedSongUrl = normalizeOptionalUrl(profileSongUrl, 'Profile song', ['https:']);
+      const mediaProtocols = process.env.NODE_ENV === 'production' ? ['https:'] : ['https:', 'http:'];
+      const normalizedSongUrl = normalizeOptionalUrl(profileSongUrl, 'Profile song', mediaProtocols);
       const normalizedSongTitle = typeof profileSongTitle === 'string' ? profileSongTitle.trim() : '';
       const normalizedSocialLinks = normalizeProfileSocialLinks(profileSocialLinks);
 
@@ -792,6 +971,16 @@ export default async function userRoutes(fastify: any) {
           profileSocialLinks: normalizedSocialLinks,
         },
       });
+
+      const obsoleteMedia = [
+        user.profileBackgroundValue !== updated.profileBackgroundValue
+          ? ownedProfileMediaPath(user.profileBackgroundValue, userId)
+          : null,
+        user.profileSongUrl !== updated.profileSongUrl
+          ? ownedProfileMediaPath(user.profileSongUrl, userId)
+          : null,
+      ].filter((filePath): filePath is string => Boolean(filePath));
+      await Promise.all(obsoleteMedia.map((filePath) => rm(filePath, { force: true }).catch(() => undefined)));
 
       return reply.send({
         success: true,

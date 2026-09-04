@@ -73,11 +73,15 @@ services:
       BADGES_CACHE_TTL_SECONDS: ${BADGES_CACHE_TTL_SECONDS:-180}
       NOTIFICATIONS_CACHE_TTL_SECONDS: ${NOTIFICATIONS_CACHE_TTL_SECONDS:-6}
       CHAT_UNREAD_COUNT_CACHE_TTL_SECONDS: ${CHAT_UNREAD_COUNT_CACHE_TTL_SECONDS:-3}
+      PROFILE_UPLOAD_DIR: /app/uploads/profile
+      API_PUBLIC_URL: ${API_PUBLIC_URL:-}
     depends_on:
       - db
       - redis
     ports:
       - "3333:3333"
+    volumes:
+      - profile_uploads:/app/uploads
     # Run the image's default CMD (compiled JS). Removing the dev command
     # avoids ts-node-dev restarts and lets the image-run compiled app start.
 
@@ -101,5 +105,6 @@ services:
       api:
         condition: service_healthy
 
-volumes: {}
+volumes:
+  profile_uploads:
 

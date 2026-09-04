@@ -10,7 +10,6 @@ import Toast from '@components/Toast';
 import ConfirmModal from '@components/ConfirmModal';
 import { useRouter } from 'next/router';
 import { LoadingSpinner } from '@components/LoadingSpinner';
-import { FeedbackModal } from '@components/FeedbackModal';
 import { ReportModal } from '@components/ReportModal';
 import { useGlobalUI } from '@components/GlobalUI';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -1001,6 +1000,27 @@ const isHttpsUrl = (value: string) => {
   }
 };
 
+const PROFILE_IMAGE_FILE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const PROFILE_AUDIO_FILE_TYPES = new Set(['audio/mpeg', 'audio/mp3', 'audio/ogg', 'audio/wav', 'audio/x-wav', 'audio/wave']);
+const MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_PROFILE_AUDIO_BYTES = 12 * 1024 * 1024;
+
+const uploadProfileMedia = async (kind: 'background' | 'song', file: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(`${API_URL}/api/user/profile-media/${kind}`, {
+    method: 'POST',
+    headers: getAuthHeader(),
+    credentials: 'include',
+    body: formData,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || typeof payload.url !== 'string') {
+    throw new Error(payload.error || `Failed to upload profile ${kind}.`);
+  }
+  return payload.url;
+};
+
 export default function ProfilePage() {
   const router = useRouter();
   const routeUsername = typeof router.query?.username === 'string' ? router.query.username : null;
@@ -1025,7 +1045,9 @@ export default function ProfilePage() {
   const [editedBioSlug, setEditedBioSlug] = useState<string>('');
   const [editedBackgroundType, setEditedBackgroundType] = useState<ProfileBackgroundType>('DEFAULT');
   const [editedBackgroundValue, setEditedBackgroundValue] = useState<string>('');
+  const [editedBackgroundFile, setEditedBackgroundFile] = useState<File | null>(null);
   const [editedSongUrl, setEditedSongUrl] = useState<string>('');
+  const [editedSongFile, setEditedSongFile] = useState<File | null>(null);
   const [editedSongTitle, setEditedSongTitle] = useState<string>('');
   const [editedSocialLinks, setEditedSocialLinks] = useState<ProfileSocialLinks>({});
   const [editedLanguages, setEditedLanguages] = useState<string[]>([]);
@@ -1037,10 +1059,8 @@ export default function ProfilePage() {
   const [userMasteryChampions, setUserMasteryChampions] = useState<string[]>([]);
   const [draggedChampion, setDraggedChampion] = useState<{ name: string; fromTier: 'S' | 'A' | 'B' | 'C' | 'suggestions' | null } | null>(null);
   const [dragOverTier, setDragOverTier] = useState<'S' | 'A' | 'B' | 'C' | null>(null);
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [currentUserHasVerifiedRiot, setCurrentUserHasVerifiedRiot] = useState(false);
   const [currentUserBadges, setCurrentUserBadges] = useState<{ key: string; name: string }[]>([]);
   const [isBlocked, setIsBlocked] = useState(false);
   const [isCheckingBlock, setIsCheckingBlock] = useState(false);
@@ -1068,7 +1088,6 @@ export default function ProfilePage() {
         if (res.ok) {
           const data = await res.json();
           setCurrentUserId(data.id || uid);
-          setCurrentUserHasVerifiedRiot(Boolean(data.riotAccounts?.some((account: RiotAccount) => account.verified)));
           if (data.badges) {
             setCurrentUserBadges(data.badges);
           }
@@ -1145,7 +1164,9 @@ export default function ProfilePage() {
     setEditedBioSlug(makeDefaultBioSlug(profile.bioSlug || profile.username || 'profile'));
     setEditedBackgroundType(profile.profileBackgroundType || 'DEFAULT');
     setEditedBackgroundValue(profile.profileBackgroundValue || '');
+    setEditedBackgroundFile(null);
     setEditedSongUrl(profile.profileSongUrl || '');
+    setEditedSongFile(null);
     setEditedSongTitle(profile.profileSongTitle || '');
     setEditedSocialLinks(profile.profileSocialLinks || {});
   }, []);
@@ -1440,17 +1461,22 @@ export default function ProfilePage() {
             return acc;
           }, {});
 
-          if (editedBackgroundType === 'IMAGE' && (!trimmedBackgroundValue || !isHttpsUrl(trimmedBackgroundValue))) {
+          if (editedBackgroundType === 'IMAGE' && !editedBackgroundFile && (!trimmedBackgroundValue || !isHttpsUrl(trimmedBackgroundValue))) {
             showToast('Background image must be a valid HTTPS hosted image URL.', 'error');
             setIsSaving(false);
             return;
           }
 
-          if (trimmedSongUrl && !isHttpsUrl(trimmedSongUrl)) {
+          if (!editedSongFile && trimmedSongUrl && !isHttpsUrl(trimmedSongUrl)) {
             showToast('Profile song must be a valid HTTPS direct audio URL.', 'error');
             setIsSaving(false);
             return;
           }
+
+          const [uploadedBackgroundUrl, uploadedSongUrl] = await Promise.all([
+            editedBackgroundFile ? uploadProfileMedia('background', editedBackgroundFile) : Promise.resolve(null),
+            editedSongFile ? uploadProfileMedia('song', editedSongFile) : Promise.resolve(null),
+          ]);
 
           const customizationRes = await fetch(`${API_URL}/api/user/profile-customization`, {
             method: 'PATCH',
@@ -1459,8 +1485,8 @@ export default function ProfilePage() {
             body: JSON.stringify({
               bioSlug: editedBioSlug,
               profileBackgroundType: editedBackgroundType,
-              profileBackgroundValue: editedBackgroundType === 'DEFAULT' ? null : trimmedBackgroundValue,
-              profileSongUrl: trimmedSongUrl,
+              profileBackgroundValue: editedBackgroundType === 'DEFAULT' ? null : (uploadedBackgroundUrl || trimmedBackgroundValue),
+              profileSongUrl: uploadedSongUrl || trimmedSongUrl,
               profileSongTitle: trimmedSongTitle,
               profileSocialLinks: cleanedSocialLinks,
             }),
@@ -1470,6 +1496,8 @@ export default function ProfilePage() {
             const err = await customizationRes.json().catch(() => ({ error: 'Failed to update profile customization' }));
             throw new Error(err.error || 'Failed to update profile customization');
           }
+          setEditedBackgroundFile(null);
+          setEditedSongFile(null);
         }
       } catch (err: any) {
         console.error('Profile customization save error:', err);
@@ -1714,40 +1742,6 @@ export default function ProfilePage() {
     } catch (err: any) {
       console.error('Error removing account:', err);
       showToast(err.message || 'Failed to remove account', 'error');
-    }
-  };
-
-  // Feedback submission handler
-  const handleSubmitFeedback = async (data: { stars: number; moons: number; comment: string }) => {
-    if (!user) return;
-    
-    try {
-      const res = await fetch(`${API_URL}/api/feedback`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...getAuthHeader(),
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          receiverId: user.id,
-          stars: data.stars,
-          moons: data.moons,
-          comment: data.comment,
-        }),
-      });
-      
-      if (res.ok) {
-        showToast('Feedback submitted successfully!', 'success');
-        setShowFeedbackModal(false);
-        // Reload user data to show new feedback
-        window.location.reload();
-      } else {
-        const errorData = await res.json();
-        showToast(`Error: ${errorData.error || 'Failed to submit feedback'}`, 'error');
-      }
-    } catch (err) {
-      showToast('Network error. Please try again.', 'error');
     }
   };
 
@@ -2563,6 +2557,7 @@ export default function ProfilePage() {
                             onClick={() => {
                               setEditedBackgroundType('DEFAULT');
                               setEditedBackgroundValue('');
+                              setEditedBackgroundFile(null);
                             }}
                             className="h-16 rounded-lg border text-xs font-semibold"
                             style={{
@@ -2580,6 +2575,7 @@ export default function ProfilePage() {
                               onClick={() => {
                                 setEditedBackgroundType('GRADIENT');
                                 setEditedBackgroundValue(key);
+                                setEditedBackgroundFile(null);
                               }}
                               className="h-16 rounded-lg border px-2 text-xs font-semibold"
                               style={{
@@ -2602,11 +2598,37 @@ export default function ProfilePage() {
                           onChange={(event) => {
                             setEditedBackgroundType('IMAGE');
                             setEditedBackgroundValue(event.target.value);
+                            setEditedBackgroundFile(null);
                           }}
                           className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
                           style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)', color: 'var(--text-main)' }}
                           placeholder="https://example.com/profile-cover.jpg"
                         />
+                      </label>
+
+                      <label className="block rounded-lg border border-dashed px-3 py-3 cursor-pointer" style={{ borderColor: 'var(--border-card)', background: 'var(--bg-card)' }}>
+                        <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Or upload a background image</span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                          className="mt-2 block w-full text-xs"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (!file) return;
+                            const supported = PROFILE_IMAGE_FILE_TYPES.has(file.type) || /\.(jpe?g|png|webp)$/i.test(file.name);
+                            if (!supported || file.size > MAX_PROFILE_IMAGE_BYTES) {
+                              showToast('Choose a JPEG, PNG, or WebP image up to 5 MB.', 'error');
+                              event.target.value = '';
+                              return;
+                            }
+                            setEditedBackgroundType('IMAGE');
+                            setEditedBackgroundValue('');
+                            setEditedBackgroundFile(file);
+                          }}
+                        />
+                        {editedBackgroundFile ? (
+                          <span className="mt-2 block text-xs" style={{ color: 'var(--accent-primary)' }}>{editedBackgroundFile.name} selected</span>
+                        ) : null}
                       </label>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2626,15 +2648,44 @@ export default function ProfilePage() {
                           <input
                             type="url"
                             value={editedSongUrl}
-                            onChange={(event) => setEditedSongUrl(event.target.value)}
+                            onChange={(event) => {
+                              setEditedSongUrl(event.target.value);
+                              setEditedSongFile(null);
+                            }}
                             className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
                             style={{ background: 'var(--bg-card)', borderColor: 'var(--border-card)', color: 'var(--text-main)' }}
                             placeholder="https://example.com/song.mp3"
                           />
                         </label>
                       </div>
+                      <label className="block rounded-lg border border-dashed px-3 py-3 cursor-pointer" style={{ borderColor: 'var(--border-card)', background: 'var(--bg-card)' }}>
+                        <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Or upload a song</span>
+                        <input
+                          type="file"
+                          accept="audio/mpeg,audio/ogg,audio/wav,.mp3,.ogg,.wav"
+                          className="mt-2 block w-full text-xs"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (!file) return;
+                            const supported = PROFILE_AUDIO_FILE_TYPES.has(file.type) || /\.(mp3|ogg|wav)$/i.test(file.name);
+                            if (!supported || file.size > MAX_PROFILE_AUDIO_BYTES) {
+                              showToast('Choose an MP3, OGG, or WAV file up to 12 MB.', 'error');
+                              event.target.value = '';
+                              return;
+                            }
+                            setEditedSongUrl('');
+                            setEditedSongFile(file);
+                            if (!editedSongTitle.trim()) {
+                              setEditedSongTitle(file.name.replace(/\.[^.]+$/, '').slice(0, 80));
+                            }
+                          }}
+                        />
+                        {editedSongFile ? (
+                          <span className="mt-2 block text-xs" style={{ color: 'var(--accent-primary)' }}>{editedSongFile.name} selected</span>
+                        ) : null}
+                      </label>
                       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        Use a direct HTTPS MP3, OGG, or WAV link. Browsers may ask visitors to press play before sound starts.
+                        Upload a file or use a direct HTTPS link. Browsers may ask visitors to press play before sound starts.
                       </p>
                     </div>
                   ) : user.profileSongUrl ? (
@@ -3470,13 +3521,7 @@ export default function ProfilePage() {
           <div className="flex gap-3 mb-4">
             <button
               className="px-4 py-2 rounded bg-[var(--accent-primary)] text-[var(--btn-gradient-text)] font-bold shadow"
-              onClick={() => {
-                if (!currentUserHasVerifiedRiot) {
-                  void router.push(`/rate/${encodeURIComponent(user.username)}`);
-                } else {
-                  setShowFeedbackModal(true);
-                }
-              }}
+              onClick={() => void router.push(`/rate/${encodeURIComponent(user.username)}`)}
             >
               {t('profile.giveFeedback')}
             </button>
@@ -3514,14 +3559,6 @@ export default function ProfilePage() {
               {isCheckingBlock ? t('common.loading') : isBlocked ? t('profile.unblock') : t('profile.block')}
             </button>
           </div>
-        )}
-        {showFeedbackModal && (
-          <FeedbackModal
-            username={user.username}
-            open={showFeedbackModal}
-            onClose={() => setShowFeedbackModal(false)}
-            onSubmit={handleSubmitFeedback}
-          />
         )}
         {showReportModal && (
           <ReportModal
