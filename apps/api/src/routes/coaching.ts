@@ -1,5 +1,6 @@
 import prisma from '../prisma';
 import { getUserIdFromRequest } from '../middleware/auth';
+import { recordRequestFailure } from '../services/apiDiagnostics';
 
 export default async function coachingRoutes(fastify: any) {
   // GET /api/coaching/posts - Get all coaching posts
@@ -89,6 +90,7 @@ export default async function coachingRoutes(fastify: any) {
 
       return reply.send(formatted);
     } catch (error: any) {
+      recordRequestFailure(request, error, '/api/coaching/posts');
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch coaching posts' });
     }

@@ -5,6 +5,7 @@
  */
 
 import { FastifyReply, FastifyRequest } from 'fastify';
+import { recordRequestFailure } from '../services/apiDiagnostics';
 
 export interface ErrorResponse {
   error: string;
@@ -44,6 +45,7 @@ export function sendError(
 
   if (statusCode >= 500) {
     request.log?.error?.(logDetails);
+    recordRequestFailure(request, internalDetails?.diagnosticError || internalDetails?.originalError || userMessage, request.url, statusCode);
   } else if (statusCode >= 400) {
     request.log?.warn?.(logDetails);
   }
@@ -108,6 +110,7 @@ export const Errors = {
     sendError(reply, request, 500, 'An unexpected error occurred. Please try again later.', 'SERVER_ERROR', {
       operation,
       originalError: error instanceof Error ? error.message : String(error),
+      diagnosticError: error,
     });
   },
 
@@ -115,6 +118,7 @@ export const Errors = {
     sendError(reply, request, 500, 'Database error. Please try again later.', 'DATABASE_ERROR', {
       operation,
       originalError: error instanceof Error ? error.message : String(error),
+      diagnosticError: error,
     });
   },
 

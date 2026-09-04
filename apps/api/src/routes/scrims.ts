@@ -3,6 +3,7 @@ import { getUserIdFromRequest } from '../middleware/auth';
 import { randomUUID } from 'crypto';
 import { getRecentMatchIds, getMatchDetails } from '../riotClient';
 import { enqueueMirrorDeletion } from '../services/discordMirrorDeletionQueue';
+import { markWorkerFailed, markWorkerStarted, markWorkerSucceeded } from '../services/apiDiagnostics';
 
 const REGULAR_SCRIM_FORMATS = ['BO1', 'BO3', 'BO5'] as const;
 const FEARLESS_SCRIM_FORMATS = ['FEARLESS_BO1', 'FEARLESS_BO3', 'FEARLESS_BO5', 'BLOCK'] as const;
@@ -809,6 +810,7 @@ async function maybeRunDueAutoResultSweep(fastify?: any): Promise<void> {
 
   autoResultSweepRunning = true;
   autoResultSweepLastRunAt = nowMs;
+  markWorkerStarted('scrim-auto-result-sweep');
 
   try {
     const dueSeries = await prisma.scrimSeries.findMany({
@@ -1009,7 +1011,9 @@ async function maybeRunDueAutoResultSweep(fastify?: any): Promise<void> {
         });
       });
     }
+    markWorkerSucceeded('scrim-auto-result-sweep', Date.now() - nowMs);
   } catch (error: any) {
+    markWorkerFailed('scrim-auto-result-sweep', error, Date.now() - nowMs);
     if (fastify?.log?.error) {
       fastify.log.error(error);
     } else {

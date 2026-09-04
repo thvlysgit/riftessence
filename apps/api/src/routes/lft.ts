@@ -1,6 +1,7 @@
 import prisma from '../prisma';
 import { enqueueMirrorDeletion } from '../services/discordMirrorDeletionQueue';
 import { getUserIdFromRequest } from '../middleware/auth';
+import { recordRequestFailure } from '../services/apiDiagnostics';
 
 const LFT_GAME_ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] as const;
 const LFT_STAFF_NEEDS = ['MANAGER', 'COACH', 'OTHER'] as const;
@@ -212,6 +213,7 @@ export default async function lftRoutes(fastify: any) {
 
       return reply.send(formatted);
     } catch (error: any) {
+      recordRequestFailure(request, error, '/api/lft/posts');
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch LFT posts' });
     }

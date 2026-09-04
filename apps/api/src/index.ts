@@ -30,6 +30,7 @@ import teamsRoutes from './routes/teams';
 import scrimRoutes from './routes/scrims';
 import walletRoutes from './routes/wallet';
 import inputControlRoutes from './routes/inputControl';
+import diagnosticsRoutes from './routes/diagnostics';
 import bcrypt from 'bcryptjs';
 import { env } from './env';
 import { RegisterSchema, LoginSchema, SetPasswordSchema, validateRequest, TurnstileVerifySchema, RatingSchema, BroadcastMessageSchema } from './validation';
@@ -41,6 +42,13 @@ import { normalizeDiscordWebhookUrl } from './utils/discord-webhook';
 import { getSessionCookieToken } from './utils/sessionCookie';
 import { collectInputControlTextFields, inspectInputControl } from './utils/inputControl';
 import { startRiotConnectionVerifier } from './services/riotConnectionVerifier';
+import {
+  captureFatalIncident,
+  initializeApiDiagnostics,
+  markApiProcessStopped,
+  recordIncidentThrottled,
+} from './services/apiDiagnostics';
+import { getApiRateLimitClass } from './utils/rateLimitPolicy';
 
 const COOKIE_SESSION_AUTH_PLACEHOLDER = '__cookie_session__';
 
@@ -411,12 +419,16 @@ async function build() {
 
   await server.register(rateLimit as any, {
     global: true,
-    max: (request: any) => request.userId ? 1000 : 300,
+    // Read-heavy authenticated sessions legitimately poll chat, notifications,
+    // wallet state, and the active feed. Keep writes in a separate stricter
+    // bucket so background reads cannot lock a user out of every API route.
+    max: (request: any) => getApiRateLimitClass(request.method, Boolean(request.userId)).max,
     timeWindow: '15 minutes',
     cache: 10000,
     keyGenerator: (request: any) => {
-      if (request.userId) return `user:${request.userId}`;
-      return `ip:${extractClientIp(request) || request.ip || request.socket?.remoteAddress || 'unknown'}`;
+      const bucket = getApiRateLimitClass(request.method, Boolean(request.userId)).bucket;
+      if (request.userId) return `user:${request.userId}:${bucket}`;
+      return `ip:${extractClientIp(request) || request.ip || request.socket?.remoteAddress || 'unknown'}:${bucket}`;
     },
     skip: (request: any) => {
       const pathname = String(request.url || '').split('?')[0] || '';
@@ -492,6 +504,42 @@ async function build() {
     });
   }
 
+  // Capture route failures before registering route plugins so the hooks apply
+  // to every API surface in Fastify's encapsulation model.
+  server.addHook('onError', async (request: any, _reply: any, error: Error) => {
+    request.__apiIncidentCaptured = true;
+    recordIncidentThrottled({
+      kind: 'UNHANDLED_REQUEST_ERROR',
+      severity: 'ERROR',
+      message: error.message,
+      stack: error.stack,
+      route: request.routeOptions?.url || String(request.url || '').split('?')[0],
+      method: request.method,
+      statusCode: error && Number.isInteger((error as any).statusCode) ? (error as any).statusCode : 500,
+      requestId: request.id,
+      userId: request.userId || null,
+    });
+  });
+
+  server.addHook('onResponse', async (request: any, reply: any) => {
+    const pathname = String(request.url || '').split('?')[0];
+    if (pathname.startsWith('/health') || pathname.startsWith('/api/admin/diagnostics')) return;
+    const statusCode = Number(reply.statusCode || 0);
+    if (request.__apiIncidentCaptured || (statusCode < 500 && statusCode !== 429)) return;
+    recordIncidentThrottled({
+      kind: statusCode === 429 ? 'RATE_LIMITED_REQUEST' : 'HTTP_SERVER_ERROR',
+      severity: statusCode === 429 ? 'WARNING' : 'ERROR',
+      message: statusCode === 429
+        ? 'A client was temporarily unable to use the API because its rate limit was exhausted.'
+        : `API request completed with HTTP ${statusCode}.`,
+      route: request.routeOptions?.url || pathname,
+      method: request.method,
+      statusCode,
+      requestId: request.id,
+      userId: request.userId || null,
+    });
+  });
+
   // Register auth routes (login, register, set-password, refresh token)
   await server.register(authRoutes, { prefix: '/api/auth' });
 
@@ -521,6 +569,7 @@ async function build() {
   await server.register(scrimRoutes, { prefix: '/api' });
   await server.register(walletRoutes, { prefix: '/api' });
   await server.register(inputControlRoutes, { prefix: '/api' });
+  await server.register(diagnosticsRoutes, { prefix: '/api' });
 
   server.post('/api/bug-report', {
     config: {
@@ -1745,15 +1794,38 @@ async function start() {
       console.warn('Warning: RIOT_API_KEY not set. Riot API calls will fail until it is provided.');
     }
 
+    await initializeApiDiagnostics();
+
     const app = await build();
     const port = Number(process.env.PORT) || 3333;
     await app.listen({ port, host: '0.0.0.0' });
     startRiotConnectionVerifier();
+    installGracefulShutdown(app);
     app.log.info(`Server listening on ${port}`);
   } catch (err) {
     server.log.error(err);
+    await captureFatalIncident('API_STARTUP_FAILURE', err);
     process.exit(1);
   }
+}
+
+let gracefulShutdownStarted = false;
+function installGracefulShutdown(app: any) {
+  const shutdown = async (signal: string) => {
+    if (gracefulShutdownStarted) return;
+    gracefulShutdownStarted = true;
+    app.log.info({ signal }, 'API graceful shutdown started');
+    try {
+      await app.close();
+      await markApiProcessStopped(signal, 'STOPPED');
+      process.exit(0);
+    } catch (error) {
+      await captureFatalIncident('API_SHUTDOWN_FAILURE', error);
+      process.exit(1);
+    }
+  };
+  process.once('SIGTERM', () => void shutdown('SIGTERM'));
+  process.once('SIGINT', () => void shutdown('SIGINT'));
 }
 
 if (require.main === module) {
@@ -1762,12 +1834,12 @@ if (require.main === module) {
   // cleanly rather than leaving it in an unknown state.
   process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Promise Rejection at:', promise, 'reason:', reason);
-    process.exit(1);
+    void captureFatalIncident('UNHANDLED_PROMISE_REJECTION', reason).finally(() => process.exit(1));
   });
 
   process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err);
-    process.exit(1);
+    void captureFatalIncident('UNCAUGHT_EXCEPTION', err).finally(() => process.exit(1));
   });
 
   start();

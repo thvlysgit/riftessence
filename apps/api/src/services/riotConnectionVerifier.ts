@@ -3,6 +3,7 @@ import * as riotClient from '../riotClient';
 import { syncUserVerification } from '../utils/verification';
 import { CHECK_DELAYS_MINUTES, CONFIRM_WINDOW_MS, nextScheduledCheck } from './riotVerification';
 import { processPendingRatings } from './pendingRatings';
+import { markWorkerFailed, markWorkerStarted, markWorkerSucceeded } from './apiDiagnostics';
 
 /** Database leases are fenced: a stale worker cannot commit after another claim. */
 export async function processDueRiotConnectionVerifications(limit = 25): Promise<void> {
@@ -82,11 +83,15 @@ export function startRiotConnectionVerifier(intervalMs = 60_000) {
   const run = async () => {
     if (running) return;
     running = true;
+    const startedAt = Date.now();
+    markWorkerStarted('riot-verification-and-pending-ratings');
     try {
       await processDueRiotConnectionVerifications();
       await processPendingRatings();
+      markWorkerSucceeded('riot-verification-and-pending-ratings', Date.now() - startedAt);
     } catch (error) {
       console.error('[RiotVerification] Scheduled processing failed', error);
+      markWorkerFailed('riot-verification-and-pending-ratings', error, Date.now() - startedAt);
     } finally { running = false; }
   };
   void run();

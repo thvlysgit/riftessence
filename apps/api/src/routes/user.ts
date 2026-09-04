@@ -1,4 +1,5 @@
 import prisma from '../prisma';
+import { recordRequestFailure } from '../services/apiDiagnostics';
 import * as riotClient from '../riotClient';
 import { createHash } from 'crypto';
 import { prepareRiotVerification, confirmRiotVerification, publicAttempt, VerificationError } from '../services/riotVerification';
@@ -573,6 +574,7 @@ export default async function userRoutes(fastify: any) {
 
       return reply.send(profileData);
     } catch (error: any) {
+      recordRequestFailure(request, error, '/api/user/profile');
       fastify.log.error({
         message: error?.message,
         code: error?.code,

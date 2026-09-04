@@ -63,7 +63,7 @@ export default function AdminDashboard() {
           router.push('/404');
         } else {
           setIsAdmin(true);
-          loadStats(user.id);
+          loadStats();
         }
       } catch (err) {
         console.error('Failed to check admin status:', err);
@@ -75,7 +75,7 @@ export default function AdminDashboard() {
     checkAdminStatus();
   }, [user, loading, router]);
 
-  async function loadStats(userId: string) {
+  async function loadStats() {
     try {
       // This endpoint would need to be created on the backend
       // For now, we'll fetch data from existing endpoints
@@ -162,6 +162,12 @@ export default function AdminDashboard() {
       href: '/admin/settings',
       icon: '⚙️',
       description: 'Configure platform settings and features',
+    },
+    {
+      label: 'API Diagnostics',
+      href: '/admin/diagnostics',
+      icon: '🩺',
+      description: 'Investigate API failures, restarts, and worker health',
     },
     {
       label: 'Developer API',
@@ -313,8 +319,8 @@ export default function AdminDashboard() {
               />
               <QuickActionButton
                 label="System Logs"
-                description="View system activity and errors"
-                onClick={() => showToast('System logs coming soon', 'info')}
+                description="Inspect API incidents and process restarts"
+                onClick={() => router.push('/admin/diagnostics')}
               />
             </div>
           </div>

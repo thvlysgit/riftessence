@@ -1,6 +1,30 @@
 # Changelog
 
-> Last updated: 2026-05-20
+> Last updated: 2026-09-04
+
+---
+
+## 2026-09-04 - API Crash Diagnostics and Polling-Safe Rate Limits
+
+### Objective: Preserve API failure evidence and prevent read polling from locking out active users
+
+Overview: Added an admin-only API diagnostics console backed by durable incident and process-run records. API failures now retain their route, authenticated user, request ID, release, sanitized error details, repeat count, and process resource snapshot across automatic container restarts. Read and write rate-limit buckets are separated so normal polling cannot exhaust the write allowance or block every API surface.
+
+Changes:
+
+- Added `SystemIncident` and `ApiProcessRun` models plus the `20260904220000_api_crash_diagnostics` migration.
+- Added API process heartbeats, graceful-stop recording, unclean-restart detection, bounded fatal-error persistence, and structured stdout fallback.
+- Added global 429/5xx capture and detailed handled-error capture for profile and primary feed routes.
+- Added worker heartbeat/error state for Riot verification/pending ratings and scrim auto-result processing.
+- Added admin-only diagnostics read/update routes and `/admin/diagnostics`, linked from the admin dashboard.
+- Redacts credentials, JWTs, and URL query values before diagnostics are logged or stored; no request bodies or IP addresses are retained.
+- Split rate limits into authenticated/anonymous read/write buckets: authenticated reads 3000, authenticated writes 1000, anonymous reads 1000, anonymous writes 300 per 15 minutes.
+
+Verification:
+
+- Prisma Client generation and API/web TypeScript checks pass.
+- Diagnostics, admin authorization, rate-limit policy, Riot-verification worker, pending-rating, and rating-eligibility tests pass.
+- Full database-backed Jest coverage requires the local PostgreSQL service; Docker Desktop was unavailable during this verification run.
 
 ---
 

@@ -825,6 +825,64 @@ model AuditLog {
   @@index([targetId, createdAt])
 }
 
+// Durable API diagnostics retained across container/process restarts.
+// These rows deliberately contain sanitized operational context only.
+model SystemIncident {
+  id               String   @id @default(cuid())
+  fingerprint      String   @unique
+  kind             String
+  severity         String   @default("ERROR")
+  status           String   @default("OPEN")
+  message          String
+  stack            String?
+  route            String?
+  method           String?
+  statusCode       Int?
+  requestId        String?
+  userId           String?
+  instanceKey      String?
+  release          String?
+  metadata         Json?
+  occurrences      Int      @default(1)
+  firstSeenAt      DateTime @default(now())
+  lastSeenAt       DateTime @default(now())
+  acknowledgedAt   DateTime?
+  acknowledgedById String?
+  resolvedAt       DateTime?
+  resolvedById     String?
+  resolutionNote   String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status, severity, lastSeenAt])
+  @@index([userId, lastSeenAt])
+  @@index([route, lastSeenAt])
+  @@index([kind, lastSeenAt])
+}
+
+// One row per API process lifetime. An ACTIVE row left behind by the same
+// container/dyno is converted into an unclean-restart incident on next boot.
+model ApiProcessRun {
+  id            String   @id @default(cuid())
+  instanceKey   String
+  release       String?
+  status        String   @default("ACTIVE")
+  startedAt     DateTime @default(now())
+  heartbeatAt   DateTime @default(now())
+  stoppedAt     DateTime?
+  stopReason    String?
+  rssMb         Int?
+  heapUsedMb    Int?
+  heapTotalMb   Int?
+  externalMb    Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([instanceKey, status])
+  @@index([startedAt])
+  @@index([status, heartbeatAt])
+}
+
 // Developer API access requests, keys, and usage tracking
 model DeveloperApiApplication {
   id             String   @id @default(cuid())
