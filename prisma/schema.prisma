@@ -135,6 +135,7 @@ model User {
   bannedById               String?
   bannedIp                 String?
   lastKnownIp              String?
+  lastSeen                 DateTime?
 
   reportCount Int @default(0) // Number of accepted reports against this user
 
@@ -201,6 +202,7 @@ model User {
   @@index([region, primaryRole, createdAt])
   @@index([isBanned, createdAt])
   @@index([bioSlug])
+  @@index([lastSeen])
 }
 
 model RiotAccount {

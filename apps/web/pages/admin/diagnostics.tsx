@@ -1,17 +1,19 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LoadingSpinner } from '@components/LoadingSpinner';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalUI } from '@components/GlobalUI';
 import { getAuthHeader } from '../../utils/auth';
+import { buildDiagnosticsPrompt } from '../../utils/diagnosticPrompt';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
 type IncidentStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
 type Incident = {
   id: string;
+  fingerprint?: string | null;
   kind: string;
   severity: 'WARNING' | 'ERROR' | 'FATAL';
   status: IncidentStatus;
@@ -94,6 +96,23 @@ function badgeColor(value: string): string {
   return 'var(--color-success)';
 }
 
+async function copyTextToClipboard(value: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = value;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand('copy');
+  textarea.remove();
+  if (!copied) throw new Error('Clipboard access is unavailable.');
+}
+
 export default function AdminDiagnosticsPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -108,6 +127,7 @@ export default function AdminDiagnosticsPage() {
   const [appliedFilters, setAppliedFilters] = useState({ status: 'OPEN', user: '', route: '' });
   const [expandedIncident, setExpandedIncident] = useState<string | null>(null);
   const [updatingIncident, setUpdatingIncident] = useState<string | null>(null);
+  const [selectedIncidentIds, setSelectedIncidentIds] = useState<string[]>([]);
 
   const loadDiagnostics = useCallback(async (quiet = false) => {
     if (!user) return;
@@ -123,6 +143,8 @@ export default function AdminDiagnosticsPage() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'Could not load API diagnostics.');
       setData(payload);
+      const visibleIds = new Set<string>((payload.incidents || []).map((incident: Incident) => incident.id));
+      setSelectedIncidentIds((current) => current.filter((id) => visibleIds.has(id)));
     } catch (error: any) {
       showToast(error.message || 'Could not load API diagnostics.', 'error');
     } finally {
@@ -191,6 +213,36 @@ export default function AdminDiagnosticsPage() {
       showToast(error.message || 'Could not update incident.', 'error');
     } finally {
       setUpdatingIncident(null);
+    }
+  };
+
+  const selectedIncidents = useMemo(() => {
+    if (!data) return [];
+    const selectedIds = new Set(selectedIncidentIds);
+    return data.incidents.filter((incident) => selectedIds.has(incident.id));
+  }, [data, selectedIncidentIds]);
+
+  const diagnosticPrompt = useMemo(() => buildDiagnosticsPrompt({
+    incidents: selectedIncidents,
+    filters: appliedFilters,
+    runtime: data ? {
+      instanceKey: data.runtime.instanceKey,
+      release: data.runtime.release,
+      nodeVersion: data.runtime.nodeVersion,
+      uptimeSeconds: data.runtime.uptimeSeconds,
+      rssMb: data.runtime.memory.rssMb,
+      heapUsedMb: data.runtime.memory.heapUsedMb,
+      heapTotalMb: data.runtime.memory.heapTotalMb,
+    } : undefined,
+  }), [appliedFilters, data, selectedIncidents]);
+
+  const copyDiagnosticPrompt = async () => {
+    if (selectedIncidents.length === 0) return;
+    try {
+      await copyTextToClipboard(diagnosticPrompt);
+      showToast(`Copied ${selectedIncidents.length} incident group${selectedIncidents.length === 1 ? '' : 's'} as a prompt.`, 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Could not copy the diagnostic prompt.', 'error');
     }
   };
 
@@ -271,27 +323,67 @@ export default function AdminDiagnosticsPage() {
               </section>
 
               <section>
-                <h2 className="mb-3 text-xl font-semibold">Incidents</h2>
+                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold">Incident groups</h2>
+                    <p className="mt-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                      Select the groups you want to send for investigation. Repeated occurrences are already combined in each card.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <ActionButton
+                      disabled={data.incidents.length === 0 || selectedIncidentIds.length === data.incidents.length}
+                      onClick={() => setSelectedIncidentIds(data.incidents.map((incident) => incident.id))}
+                    >
+                      Select all visible
+                    </ActionButton>
+                    <ActionButton disabled={selectedIncidentIds.length === 0} onClick={() => setSelectedIncidentIds([])}>Clear</ActionButton>
+                  </div>
+                </div>
                 <div className="space-y-3">
                   {data.incidents.length === 0 ? (
                     <EmptyState text="No incidents match these filters." />
                   ) : data.incidents.map((incident) => {
                     const expanded = expandedIncident === incident.id;
+                    const selected = selectedIncidentIds.includes(incident.id);
                     return (
-                      <article key={incident.id} className="rounded-xl border p-4" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+                      <article
+                        key={incident.id}
+                        className="rounded-xl border p-4"
+                        style={{
+                          background: 'var(--color-bg-secondary)',
+                          borderColor: selected ? 'var(--color-accent-1)' : 'var(--color-border)',
+                          boxShadow: selected ? '0 0 0 1px var(--color-accent-1)' : undefined,
+                        }}
+                      >
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                          <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setExpandedIncident(expanded ? null : incident.id)} aria-expanded={expanded}>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <StatusBadge text={incident.severity} />
-                              <StatusBadge text={incident.status} />
-                              <span className="font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>{incident.kind}</span>
-                              <span className="rounded-full px-2 py-0.5 text-xs" style={{ background: 'var(--color-bg-tertiary)' }}>×{incident.occurrences}</span>
-                            </div>
-                            <p className="mt-2 break-words font-medium">{incident.message}</p>
-                            <p className="mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                              {incident.method || '—'} {incident.route || 'process'} · HTTP {incident.statusCode || '—'} · last {formatDate(incident.lastSeenAt)}
-                            </p>
-                          </button>
+                          <div className="flex min-w-0 flex-1 items-start gap-3">
+                            <label className="mt-0.5 inline-flex cursor-pointer items-center" title="Include this incident group in the generated prompt">
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => setSelectedIncidentIds((current) => (
+                                  current.includes(incident.id)
+                                    ? current.filter((id) => id !== incident.id)
+                                    : [...current, incident.id]
+                                ))}
+                                aria-label={`Select incident group: ${incident.message}`}
+                                className="h-5 w-5"
+                              />
+                            </label>
+                            <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setExpandedIncident(expanded ? null : incident.id)} aria-expanded={expanded}>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <StatusBadge text={incident.severity} />
+                                <StatusBadge text={incident.status} />
+                                <span className="font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>{incident.kind}</span>
+                                <span className="rounded-full px-2 py-0.5 text-xs" style={{ background: 'var(--color-bg-tertiary)' }}>×{incident.occurrences}</span>
+                              </div>
+                              <p className="mt-2 break-words font-medium">{incident.message}</p>
+                              <p className="mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                                {incident.method || '—'} {incident.route || 'process'} · HTTP {incident.statusCode || '—'} · last {formatDate(incident.lastSeenAt)}
+                              </p>
+                            </button>
+                          </div>
                           <div className="flex flex-wrap gap-2">
                             {incident.status !== 'ACKNOWLEDGED' && <ActionButton disabled={updatingIncident === incident.id} onClick={() => void updateIncident(incident, 'ACKNOWLEDGED')}>Acknowledge</ActionButton>}
                             {incident.status !== 'RESOLVED' && <ActionButton disabled={updatingIncident === incident.id} onClick={() => void updateIncident(incident, 'RESOLVED')}>Resolve</ActionButton>}
@@ -316,6 +408,36 @@ export default function AdminDiagnosticsPage() {
                     );
                   })}
                 </div>
+              </section>
+
+              <section className="rounded-xl border p-4 sm:p-5" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold">Prompt-ready diagnostic report</h2>
+                    <p className="mt-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                      {selectedIncidents.length > 0
+                        ? `${selectedIncidents.length} selected group${selectedIncidents.length === 1 ? '' : 's'}, including stack traces and safe metadata.`
+                        : 'Select one or more incident groups above to build a report.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={selectedIncidents.length === 0}
+                    onClick={() => void copyDiagnosticPrompt()}
+                    className="rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ background: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}
+                  >
+                    Copy prompt
+                  </button>
+                </div>
+                <textarea
+                  readOnly
+                  value={selectedIncidents.length > 0 ? diagnosticPrompt : ''}
+                  placeholder="Your selected diagnostic groups will appear here as a copy-ready prompt."
+                  aria-label="Prompt-ready diagnostic report"
+                  className="mt-4 min-h-64 w-full resize-y rounded-lg border p-3 font-mono text-xs leading-relaxed"
+                  style={{ background: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                />
               </section>
 
               <section className="grid gap-6 lg:grid-cols-2">

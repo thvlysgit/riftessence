@@ -1536,6 +1536,11 @@ export default async function userRoutes(fastify: any) {
       }
 
       const isAdmin = user.badges?.some((badge: any) => badge.key === 'admin');
+      if (isAdmin) {
+        await prisma.user.update({ where: { id: userId }, data: { lastSeen: new Date() } }).catch((error: any) => {
+          request.log?.warn?.({ err: error, userId }, 'Could not refresh admin presence');
+        });
+      }
       return reply.send({ isAdmin });
     } catch (error: any) {
       fastify.log.error(error);

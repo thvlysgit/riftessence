@@ -118,6 +118,14 @@ export async function checkBadge(
       return false;
     }
 
+    if (badge.toLowerCase() === 'admin' && typeof db.user.update === 'function') {
+      try {
+        await db.user.update({ where: { id: userId }, data: { lastSeen: new Date() } });
+      } catch (err) {
+        request.log?.warn?.({ err, userId }, 'Could not refresh admin presence');
+      }
+    }
+
     return true;
   } catch (err) {
     request.log?.error?.({ err }, 'Badge check failed');

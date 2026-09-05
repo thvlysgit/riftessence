@@ -2,7 +2,7 @@
 // Central hub for all administrative functions
 // Protected - requires admin badge
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Head from 'next/head';
@@ -17,7 +17,9 @@ type AdminStats = {
   totalReports: number;
   pendingReports: number;
   totalBadges: number;
-  recentActivity?: string;
+  adminsOnline: number;
+  onlineWindowSeconds: number;
+  generatedAt: string;
 };
 
 type MenuItem = {
@@ -35,6 +37,23 @@ export default function AdminDashboard() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+
+  const loadStats = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/admin/stats`, {
+        headers: getAuthHeader(),
+        credentials: 'include',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Failed to load admin statistics');
+      setStats(payload);
+    } catch (err) {
+      console.error('Failed to load stats:', err);
+      showToast('Failed to load admin statistics', 'error');
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [showToast]);
 
   // Check admin status on mount
   useEffect(() => {
@@ -63,7 +82,6 @@ export default function AdminDashboard() {
           router.push('/404');
         } else {
           setIsAdmin(true);
-          loadStats();
         }
       } catch (err) {
         console.error('Failed to check admin status:', err);
@@ -75,43 +93,12 @@ export default function AdminDashboard() {
     checkAdminStatus();
   }, [user, loading, router]);
 
-  async function loadStats() {
-    try {
-      // This endpoint would need to be created on the backend
-      // For now, we'll fetch data from existing endpoints
-      const [reportsRes, badgesRes] = await Promise.all([
-        fetch(`${API_URL}/api/admin/reports`, { headers: getAuthHeader() }),
-        fetch(`${API_URL}/api/user/badges`),
-      ]);
-
-      let reports = [];
-      let badges = [];
-
-      if (reportsRes.ok) {
-        const reportsData = await reportsRes.json();
-        reports = reportsData.reports || [];
-      }
-
-      if (badgesRes.ok) {
-        const badgesData = await badgesRes.json();
-        badges = badgesData.badges || [];
-      }
-
-      const pendingReports = reports.filter((r: any) => r.status === 'PENDING').length;
-
-      setStats({
-        totalUsers: 0, // Would need backend endpoint
-        totalReports: reports.length,
-        pendingReports,
-        totalBadges: badges.length,
-      });
-    } catch (err) {
-      console.error('Failed to load stats:', err);
-      showToast('Failed to load admin statistics', 'error');
-    } finally {
-      setStatsLoading(false);
-    }
-  }
+  useEffect(() => {
+    if (!isAdmin) return;
+    void loadStats();
+    const interval = window.setInterval(() => void loadStats(), 30_000);
+    return () => window.clearInterval(interval);
+  }, [isAdmin, loadStats]);
 
   if (loading || isAdmin === null) {
     return (
@@ -244,9 +231,10 @@ export default function AdminDashboard() {
               />
               <StatCard
                 label="Admins Online"
-                value={1}
+                value={stats.adminsOnline}
                 icon="👤"
                 color="from-green-500 to-green-600"
+                detail={`Active in the last ${Math.round(stats.onlineWindowSeconds / 60)} minutes`}
               />
             </div>
           </div>
@@ -332,7 +320,7 @@ export default function AdminDashboard() {
             <p>
               Admin Dashboard • Last updated:{' '}
               <span style={{ color: 'var(--color-text-secondary)' }}>
-                {new Date().toLocaleTimeString()}
+                {stats?.generatedAt ? new Date(stats.generatedAt).toLocaleTimeString() : '—'}
               </span>
             </p>
           </div>
@@ -347,11 +335,13 @@ function StatCard({
   value,
   icon,
   color,
+  detail,
 }: {
   label: string;
   value: number;
   icon: string;
   color: string;
+  detail?: string;
 }) {
   const gradientMap: Record<string, string> = {
     'from-blue-500 to-blue-600': 'linear-gradient(to bottom right, var(--color-accent-1), var(--color-accent-2))',
@@ -365,6 +355,7 @@ function StatCard({
         <div>
           <p className="text-sm font-medium" style={{ opacity: 0.8 }}>{label}</p>
           <p className="text-3xl font-bold mt-2">{value}</p>
+          {detail ? <p className="mt-1 text-xs" style={{ opacity: 0.8 }}>{detail}</p> : null}
         </div>
         <span className="text-4xl opacity-50">{icon}</span>
       </div>

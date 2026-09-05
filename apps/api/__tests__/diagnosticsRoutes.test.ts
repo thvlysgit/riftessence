@@ -4,7 +4,9 @@ jest.mock('../src/prisma', () => ({
   __esModule: true,
   default: {
     $queryRaw: jest.fn(),
-    user: { findFirst: jest.fn() },
+    user: { findFirst: jest.fn(), count: jest.fn(), update: jest.fn() },
+    report: { count: jest.fn() },
+    badge: { count: jest.fn() },
     systemIncident: { findMany: jest.fn(), count: jest.fn(), update: jest.fn() },
     apiProcessRun: { findMany: jest.fn() },
   },
@@ -81,5 +83,31 @@ describe('admin diagnostics routes', () => {
     expect(prisma.systemIncident.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ userId: 'user-thvlys', status: 'OPEN' }),
     }));
+  });
+
+  test('returns live admin statistics with an activity-window count', async () => {
+    authUser.mockResolvedValue('admin-1');
+    adminCheck.mockResolvedValue(true);
+    (prisma.user.count as jest.Mock).mockResolvedValueOnce(42).mockResolvedValueOnce(2);
+    (prisma.report.count as jest.Mock).mockResolvedValueOnce(8).mockResolvedValueOnce(3);
+    (prisma.badge.count as jest.Mock).mockResolvedValue(6);
+
+    const response = await app.inject({ method: 'GET', url: '/api/admin/stats' });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      totalUsers: 42,
+      totalReports: 8,
+      pendingReports: 3,
+      totalBadges: 6,
+      adminsOnline: 2,
+      onlineWindowSeconds: 120,
+    });
+    expect(prisma.user.count).toHaveBeenLastCalledWith({
+      where: {
+        lastSeen: { gte: expect.any(Date) },
+        badges: { some: { key: 'admin' } },
+      },
+    });
   });
 });

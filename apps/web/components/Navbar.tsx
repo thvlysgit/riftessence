@@ -276,29 +276,44 @@ export default function Navbar() {
       return;
     }
 
-    const checkAdminStatus = async () => {
+    let cancelled = false;
+    let presenceInterval: number | undefined;
+
+    const checkAdminStatus = async (): Promise<boolean> => {
       try {
         if (!user.id) {
-          setIsAdmin(false);
-          return;
+          if (!cancelled) setIsAdmin(false);
+          return false;
         }
 
         const res = await fetch(`${API_URL}/api/user/check-admin?userId=${encodeURIComponent(user.id)}`, {
           headers: getAuthHeader(),
+          credentials: 'include',
         });
         if (res.ok) {
           const data = await res.json();
-          setIsAdmin(data.isAdmin || false);
+          const admin = Boolean(data.isAdmin);
+          if (!cancelled) setIsAdmin(admin);
+          return admin;
         } else {
-          setIsAdmin(false);
+          if (!cancelled) setIsAdmin(false);
         }
       } catch (err) {
         console.error('Failed to check admin status:', err);
-        setIsAdmin(false);
+        if (!cancelled) setIsAdmin(false);
       }
+      return false;
     };
 
-    checkAdminStatus();
+    void checkAdminStatus().then((admin) => {
+      if (!admin || cancelled) return;
+      presenceInterval = window.setInterval(() => void checkAdminStatus(), 60_000);
+    });
+
+    return () => {
+      cancelled = true;
+      if (presenceInterval) window.clearInterval(presenceInterval);
+    };
   }, [user]);
 
   // Search users with debouncing

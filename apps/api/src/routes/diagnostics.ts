@@ -9,6 +9,8 @@ const IncidentUpdateSchema = z.object({
   note: z.string().trim().max(1_000).optional().nullable(),
 });
 
+const ADMIN_ONLINE_WINDOW_SECONDS = 120;
+
 function safeInt(value: unknown, fallback: number, min: number, max: number): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -16,6 +18,41 @@ function safeInt(value: unknown, fallback: number, min: number, max: number): nu
 }
 
 export default async function diagnosticsRoutes(fastify: any) {
+  fastify.get('/admin/stats', async (request: any, reply: any) => {
+    const userId = await getUserIdFromRequest(request, reply);
+    if (!userId) return;
+    if (!(await requireAdmin(request, reply, prisma))) return;
+
+    const onlineSince = new Date(Date.now() - ADMIN_ONLINE_WINDOW_SECONDS * 1_000);
+    try {
+      const [totalUsers, totalReports, pendingReports, totalBadges, adminsOnline] = await Promise.all([
+        prisma.user.count(),
+        prisma.report.count(),
+        prisma.report.count({ where: { status: 'PENDING' } }),
+        prisma.badge.count(),
+        prisma.user.count({
+          where: {
+            lastSeen: { gte: onlineSince },
+            badges: { some: { key: 'admin' } },
+          },
+        }),
+      ]);
+
+      return reply.send({
+        totalUsers,
+        totalReports,
+        pendingReports,
+        totalBadges,
+        adminsOnline,
+        onlineWindowSeconds: ADMIN_ONLINE_WINDOW_SECONDS,
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      request.log.error({ err: error }, 'Failed to load admin statistics');
+      return reply.code(500).send({ error: 'Failed to load admin statistics.' });
+    }
+  });
+
   fastify.get('/admin/diagnostics', async (request: any, reply: any) => {
     const userId = await getUserIdFromRequest(request, reply);
     if (!userId) return;
