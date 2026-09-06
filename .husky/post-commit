@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+
+# Rebuild only the application containers after a local commit. Database and
+# Redis remain Compose-managed dependencies and are started only when needed.
+# Set RIFTESSENCE_SKIP_POST_COMMIT_REBUILD=1 to opt out for a single commit.
+if [ "${RIFTESSENCE_SKIP_POST_COMMIT_REBUILD:-}" = "1" ]; then
+  echo "Skipping RiftEssence container rebuild."
+  exit 0
+fi
+
+if ! command -v docker >/dev/null 2>&1 || ! docker compose version >/dev/null 2>&1; then
+  echo "Docker Compose is unavailable; skipping RiftEssence container rebuild."
+  exit 0
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root" || exit 1
+
+echo "Rebuilding and restarting RiftEssence API and Discord bot containers..."
+docker compose up --build --detach --remove-orphans api discord-bot
