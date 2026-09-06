@@ -14,7 +14,7 @@ import { ReportModal } from '@components/ReportModal';
 import { useGlobalUI } from '@components/GlobalUI';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useChat } from '../contexts/ChatContext';
-import { getAuthToken, getUserIdFromToken, getAuthHeader } from '../utils/auth';
+import { emptyJsonPostInit, getAuthToken, getUserIdFromToken, getAuthHeader } from '../utils/auth';
 import { getChampionIconUrl, getProfileIconUrl } from '../utils/championData';
 import { DiscordIcon } from '../src/components/DiscordBrand';
 import LivingBadge from '../src/components/LivingBadge';
@@ -1237,11 +1237,7 @@ export default function ProfilePage() {
         
         // Step 2: Refresh Riot stats in background (non-blocking)
         if (data.id && !isViewingOther) {
-          fetch(`${API_URL}/api/user/refresh-riot-stats`, {
-            method: 'POST',
-            headers: getAuthHeader(),
-            credentials: 'include',
-          })
+          fetch(`${API_URL}/api/user/refresh-riot-stats`, emptyJsonPostInit(getAuthHeader()))
             .then(() => fetch(profileUrl, fetchOptions))
             .then(res => res.ok ? res.json() : null)
             .then(refreshedData => {
@@ -1613,11 +1609,10 @@ export default function ProfilePage() {
       // Refresh Riot stats, then profile data
       // Attempt to refresh Riot stats if we have auth
       if (!isViewingOther) {
-        await fetch(`${API_URL}/api/user/refresh-riot-stats`, { 
-          method: 'POST',
-          headers: getAuthHeader(),
-          credentials: 'include',
-        }).catch(err => console.error('Failed to refresh stats:', err));
+        await fetch(
+          `${API_URL}/api/user/refresh-riot-stats`,
+          emptyJsonPostInit(getAuthHeader()),
+        ).catch(err => console.error('Failed to refresh stats:', err));
       }
       const url = isViewingOther
         ? routeBioSlug
@@ -1942,11 +1937,10 @@ export default function ProfilePage() {
             <button
               onClick={async () => {
                 try {
-                  await fetch(`${API_URL}/api/user/refresh-riot-stats`, {
-                    method: 'POST',
-                    headers: getAuthHeader(),
-                    credentials: 'include',
-                  });
+                  await fetch(
+                    `${API_URL}/api/user/refresh-riot-stats`,
+                    emptyJsonPostInit(getAuthHeader()),
+                  );
                   showToast('League statistics refreshed!', 'success');
                   // Reload profile data
                   window.location.reload();

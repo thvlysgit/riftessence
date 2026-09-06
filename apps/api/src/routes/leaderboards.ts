@@ -1,4 +1,5 @@
 import prisma from '../prisma';
+import { recordRequestFailure } from '../services/apiDiagnostics';
 
 type LeaderboardType = 'overall' | 'skill' | 'personality' | 'rank' | 'ingame' | 'prismatic';
 
@@ -56,6 +57,7 @@ type MainAccountSnapshot = {
   lp: number | null;
   winrate: number | null;
   region: string | null;
+  profileIconId: number | null;
 };
 
 type RatingSnapshot = {
@@ -71,6 +73,7 @@ type MainAccountRow = {
   lp: number | null;
   winrate: number | null;
   region: string | null;
+  profileIconId: number | null;
 };
 
 function normalizeLeaderboardType(value: unknown): LeaderboardType {
@@ -155,7 +158,8 @@ async function fetchMainAccountRows(fastify: any): Promise<MainAccountRow[]> {
         "division",
         "lp",
         "winrate",
-        "region"::text AS "region"
+        "region"::text AS "region",
+        "profileIconId"
       FROM "RiotAccount"
       WHERE "isMain" = true AND "userId" IS NOT NULL
       ORDER BY "userId", "createdAt" DESC
@@ -181,6 +185,7 @@ async function fetchMainAccountRows(fastify: any): Promise<MainAccountRow[]> {
         lp: true,
         winrate: true,
         region: true,
+        profileIconId: true,
       },
     });
   }
@@ -208,7 +213,6 @@ export default async function leaderboardRoutes(fastify: any) {
             id: true,
             username: true,
             verified: true,
-            profileIconId: true,
             badges: {
               select: {
                 key: true,
@@ -236,6 +240,7 @@ export default async function leaderboardRoutes(fastify: any) {
           lp: toFiniteNumber(row.lp),
           winrate: toFiniteNumber(row.winrate),
           region: row.region ? String(row.region).toUpperCase() : null,
+          profileIconId: toFiniteNumber(row.profileIconId),
         });
       });
 
@@ -295,7 +300,7 @@ export default async function leaderboardRoutes(fastify: any) {
           id: user.id,
           username: user.username,
           verified: user.verified,
-          profileIconId: user.profileIconId,
+          profileIconId: mainAccount?.profileIconId ?? null,
           badges: user.badges,
           skillStars,
           personalityMoons,
@@ -368,6 +373,7 @@ export default async function leaderboardRoutes(fastify: any) {
       });
     } catch (error: any) {
       fastify.log.error(error);
+      recordRequestFailure(request, error, '/api/leaderboards');
       return reply.status(500).send({ error: 'Failed to fetch leaderboard' });
     }
   });

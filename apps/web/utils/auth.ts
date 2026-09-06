@@ -69,6 +69,23 @@ export function isTokenExpired(token: string): boolean {
 let refreshPromise: Promise<string | null> | null = null;
 
 /**
+ * Builds a valid JSON request for POST endpoints that do not require input.
+ * Fastify rejects an empty request when application/json is declared, and
+ * some proxies assign an unsupported media type to bodyless POST requests.
+ */
+export function emptyJsonPostInit(headers: Record<string, string> = {}): RequestInit {
+  return {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers,
+    },
+    credentials: 'include',
+    body: '{}',
+  };
+}
+
+/**
  * Attempts to refresh the authentication token
  * Returns new token if successful, null otherwise
  * RACE CONDITION FIX: Prevents multiple simultaneous refresh attempts
@@ -83,18 +100,12 @@ export async function refreshAuthToken(apiUrl: string): Promise<string | null> {
   
   refreshPromise = (async () => {
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
+      const headers: Record<string, string> = {};
       if (currentToken) {
         headers.Authorization = `Bearer ${currentToken}`;
       }
 
-      const res = await fetch(`${apiUrl}/api/auth/refresh`, {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-      });
+      const res = await fetch(`${apiUrl}/api/auth/refresh`, emptyJsonPostInit(headers));
       
       if (res.ok) {
         const data = await res.json();
@@ -202,7 +213,7 @@ export function clearAllAuthState(): void {
 /**
  * Creates Authorization header with Bearer token
  */
-export function getAuthHeader(): { Authorization: string } | {} {
+export function getAuthHeader(): Record<string, string> {
   const token = getAuthToken();
   if (!token) return {};
   return { Authorization: `Bearer ${token}` };
