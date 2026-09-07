@@ -1,695 +1,211 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import {
-  FaBullhorn,
-  FaCheckCircle,
-  FaFont,
-  FaGem,
-  FaPalette,
-} from 'react-icons/fa';
+import React, { useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
-import { useGlobalUI } from '@components/GlobalUI';
-import { getAuthHeader } from '../utils/auth';
-import PrismaticEssenceIcon from '../src/components/PrismaticEssenceIcon';
-import LivingBadge from '../src/components/LivingBadge';
+import EconomyLayout, {
+  EconomyError,
+  EconomyLoading,
+  SignInPrompt,
+} from '../components/economy/EconomyLayout';
+import CosmeticPreview from '../components/economy/CosmeticPreview';
+import { Cosmetic, economyApi, pe, Shop, walletChanged } from '../utils/economy';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-
-type CosmeticCategory = 'BADGE' | 'USERNAME_DECORATION' | 'FONT';
-
-type CosmeticItem = {
-  key: string;
-  title: string;
-  description: string;
-  category: CosmeticCategory;
-  costPrismaticEssence: number;
-  repeatable: boolean;
-  owned: boolean;
-  active: boolean;
-  available: boolean;
-  blockedReason: string | null;
-  adCreditsGrant: number | null;
-  badgePreview: { key: string; name: string; icon: string } | null;
-};
-
-type ShopState = {
-  items: CosmeticItem[];
-  adCredits: number;
-  loadout: {
-    activeUsernameDecoration: string | null;
-    activeHoverEffect: string | null;
-    activeVisualEffect: string | null;
-    activeNameplateFont: string | null;
-  };
-  wallet: {
-    prismaticEssence: number;
-  };
-};
-
-const EMPTY_SHOP: ShopState = {
-  items: [],
-  adCredits: 0,
-  loadout: {
-    activeUsernameDecoration: null,
-    activeHoverEffect: null,
-    activeVisualEffect: null,
-    activeNameplateFont: null,
-  },
-  wallet: {
-    prismaticEssence: 0,
-  },
-};
-
-const CATEGORY_ORDER: CosmeticCategory[] = [
-  'BADGE',
-  'USERNAME_DECORATION',
-  'FONT',
+const categories = [
+  ['ALL', 'Everything'],
+  ['USERNAME_DECORATION', 'Name styles'],
+  ['FONT', 'Fonts'],
+  ['HOVER_EFFECT', 'Hover effects'],
+  ['BADGE', 'Prestige badges'],
 ];
-
-const CATEGORY_META: Record<CosmeticCategory, { label: string; icon: React.ReactNode; color: string }> = {
-  BADGE: {
-    label: 'Badges',
-    icon: <FaGem />,
-    color: '#C8AA6E',
-  },
-  USERNAME_DECORATION: {
-    label: 'Username Decoration',
-    icon: <FaPalette />,
-    color: '#60A5FA',
-  },
-  FONT: {
-    label: 'Fonts',
-    icon: <FaFont />,
-    color: '#F59E0B',
-  },
-};
-
-const ACTIVATABLE_CATEGORIES = new Set<CosmeticCategory>([
-  'USERNAME_DECORATION',
-  'FONT',
-]);
-
-const USERNAME_DECORATION_PREVIEW_STYLES: Record<string, React.CSSProperties> = {
-  USERNAME_GILDED_EDGE: {
-    textShadow: '0 0 10px rgba(251, 191, 36, 0.34)',
-    WebkitTextStroke: '0.6px rgba(245, 158, 11, 0.65)',
-  },
-  USERNAME_PRISMATIC_SLASH: {
-    backgroundImage: 'linear-gradient(92deg, #67e8f9, #93c5fd 35%, #a78bfa 68%, #f9a8d4)',
-    WebkitBackgroundClip: 'text',
-    backgroundClip: 'text',
-    color: 'transparent',
-    WebkitTextFillColor: 'transparent',
-    textShadow: '0 0 12px rgba(103, 232, 249, 0.28)',
-  },
-  USERNAME_SOLAR_FLARE: {
-    color: '#fde68a',
-    WebkitTextStroke: '0.65px rgba(194, 65, 12, 0.72)',
-    textShadow: '0 0 7px rgba(251, 146, 60, 0.52), 0 0 18px rgba(239, 68, 68, 0.35)',
-    letterSpacing: '0.015em',
-  },
-  USERNAME_VOID_GLASS: {
-    color: '#dbeafe',
-    WebkitTextStroke: '0.55px rgba(99, 102, 241, 0.55)',
-    textShadow: '0 0 8px rgba(96, 165, 250, 0.42), 0 0 20px rgba(147, 51, 234, 0.28)',
-    filter: 'drop-shadow(0 0 6px rgba(59, 130, 246, 0.28))',
-  },
-};
-
-const FONT_PREVIEW_FAMILIES: Record<string, string> = {
-  FONT_ORBITRON: 'Orbitron, "Segoe UI", sans-serif',
-  FONT_CINZEL: 'Cinzel, Georgia, serif',
-  FONT_EXO2: '"Exo 2", "Segoe UI", sans-serif',
-  FONT_RAJDHANI: 'Rajdhani, "Segoe UI", sans-serif',
-  FONT_AUDIOWIDE: 'Audiowide, "Segoe UI", sans-serif',
-  FONT_UNBOUNDED: 'Unbounded, "Segoe UI", sans-serif',
-  FONT_BEBAS_NEUE: '"Bebas Neue", "Segoe UI", sans-serif',
-};
-
-type PrestigeBadgePreviewConfig = {
-  badgeKey: string;
-  label: string;
-  description: string;
-  icon: string;
-  bgColor: string;
-  borderColor: string;
-  textColor: string;
-  hoverBg: string;
-  shape: string;
-  animation: string;
-};
-
-const PRESTIGE_BADGE_PREVIEW_CONFIG: Record<string, PrestigeBadgePreviewConfig> = {
-  BADGE_FORTUNE_COIN: {
-    badgeKey: 'shop_fortune_coin',
-    label: 'Novice',
-    description: 'Fortune Badge I',
-    icon: 'gem',
-    bgColor: 'linear-gradient(140deg, rgba(146,64,14,0.38), rgba(180,83,9,0.34))',
-    borderColor: '#F97316',
-    textColor: '#FED7AA',
-    hoverBg: 'rgba(249, 115, 22, 0.28)',
-    shape: 'squircle',
-    animation: 'glint',
-  },
-  BADGE_ORACLE_DICE: {
-    badgeKey: 'shop_oracle_dice',
-    label: 'Advanced',
-    description: 'Fortune Badge II',
-    icon: 'gem',
-    bgColor: 'linear-gradient(140deg, rgba(180,83,9,0.42), rgba(217,119,6,0.36), rgba(234,179,8,0.3))',
-    borderColor: '#F59E0B',
-    textColor: '#FEF3C7',
-    hoverBg: 'rgba(245, 158, 11, 0.32)',
-    shape: 'squircle',
-    animation: 'drift',
-  },
-  BADGE_JACKPOT_CROWN: {
-    badgeKey: 'shop_jackpot_crown',
-    label: 'Expert',
-    description: 'Fortune Badge III',
-    icon: 'gem',
-    bgColor: 'linear-gradient(140deg, rgba(180,83,9,0.44), rgba(217,119,6,0.4), rgba(251,191,36,0.34))',
-    borderColor: '#FBBF24',
-    textColor: '#FEF9C3',
-    hoverBg: 'rgba(251, 191, 36, 0.36)',
-    shape: 'squircle',
-    animation: 'spark',
-  },
-  BADGE_VAULT_ASCENDANT: {
-    badgeKey: 'shop_vault_ascendant',
-    label: 'Ascendant',
-    description: 'Fortune Badge IV',
-    icon: 'gem',
-    bgColor: 'linear-gradient(140deg, rgba(146,64,14,0.5), rgba(217,119,6,0.44), rgba(251,191,36,0.38), rgba(168,85,247,0.32))',
-    borderColor: '#EAB308',
-    textColor: '#FEFCE8',
-    hoverBg: 'rgba(234, 179, 8, 0.42)',
-    shape: 'squircle',
-    animation: 'breathe',
-  },
-};
-
-export default function CosmeticsPage() {
-  const { user } = useAuth();
-  const { showToast } = useGlobalUI();
-
-  const [loading, setLoading] = useState(true);
-  const [shop, setShop] = useState<ShopState>(EMPTY_SHOP);
-  const [purchaseLoading, setPurchaseLoading] = useState<Record<string, boolean>>({});
-  const [activateLoading, setActivateLoading] = useState<Record<string, boolean>>({});
-  const [deactivateLoading, setDeactivateLoading] = useState<Record<string, boolean>>({});
-
-  const authHeaders = useCallback(() => {
-    const headers = getAuthHeader();
-    if (!headers || !('Authorization' in headers)) return null;
-    return headers as Record<string, string>;
-  }, []);
-
-  const loadShop = useCallback(async () => {
-    const headers = authHeaders();
-    if (!headers) return EMPTY_SHOP;
-
-    const res = await fetch(`${API_URL}/api/wallet/cosmetics`, { headers });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) {
-      throw new Error(data?.error || 'Failed to load cosmetics shop.');
-    }
-
-    return {
-      items: (data?.items || []) as CosmeticItem[],
-      adCredits: Number(data?.adCredits || 0),
-      loadout: {
-        activeUsernameDecoration: data?.loadout?.activeUsernameDecoration || null,
-        activeHoverEffect: data?.loadout?.activeHoverEffect || null,
-        activeVisualEffect: data?.loadout?.activeVisualEffect || null,
-        activeNameplateFont: data?.loadout?.activeNameplateFont || null,
-      },
-      wallet: {
-        prismaticEssence: Number(data?.wallet?.prismaticEssence || 0),
-      },
-    } as ShopState;
-  }, [authHeaders]);
-
-  useEffect(() => {
-    let active = true;
-
-    const run = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const data = await loadShop();
-        if (!active) return;
-        setShop(data);
-      } catch (error: any) {
-        if (!active) return;
-        showToast(error?.message || 'Failed to load cosmetics.', 'error');
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-
-    run();
-    return () => {
-      active = false;
-    };
-  }, [user, loadShop, showToast]);
-
-  const groupedItems = useMemo(() => {
-    const groups: Record<CosmeticCategory, CosmeticItem[]> = {
-      BADGE: [],
-      USERNAME_DECORATION: [],
-      FONT: [],
-    };
-
-    shop.items.forEach((item) => {
-      groups[item.category].push(item);
-    });
-
-    return groups;
-  }, [shop.items]);
-
-  const hasActiveCosmetics = Boolean(
-    shop.loadout.activeUsernameDecoration
-    || shop.loadout.activeHoverEffect
-    || shop.loadout.activeVisualEffect
-    || shop.loadout.activeNameplateFont
+export default function CollectionPage() {
+  const { user, loading, refreshUser } = useAuth();
+  const client = useQueryClient();
+  const [category, setCategory] = useState('ALL');
+  const [ownedOnly, setOwnedOnly] = useState(false);
+  const [buying, setBuying] = useState<Cosmetic | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [notice, setNotice] = useState('');
+  const operation = useRef<Record<string, string>>({});
+  const shop = useQuery(
+    ['economy', user?.id, 'shop'],
+    ({ signal }) => economyApi<Shop>('/wallet/cosmetics', { signal }),
+    { enabled: Boolean(user) },
   );
-
-  const updateShopFromResponse = (data: any) => {
-    setShop({
-      items: (data?.items || []) as CosmeticItem[],
-      adCredits: Number(data?.adCredits || 0),
-      loadout: {
-        activeUsernameDecoration: data?.loadout?.activeUsernameDecoration || null,
-        activeHoverEffect: data?.loadout?.activeHoverEffect || null,
-        activeVisualEffect: data?.loadout?.activeVisualEffect || null,
-        activeNameplateFont: data?.loadout?.activeNameplateFont || null,
-      },
-      wallet: {
-        prismaticEssence: Number(data?.wallet?.prismaticEssence || 0),
-      },
-    });
-  };
-
-  const renderCosmeticPreview = (item: CosmeticItem) => {
-    if (item.category === 'BADGE') {
-      const config = PRESTIGE_BADGE_PREVIEW_CONFIG[item.key] || {
-        badgeKey: item.badgePreview?.key || item.key.toLowerCase(),
-        label: item.badgePreview?.name || item.title,
-        description: item.description,
-        icon: item.badgePreview?.icon || 'gem',
-        bgColor: 'linear-gradient(145deg, rgba(71,85,105,0.6), rgba(51,65,85,0.52))',
-        borderColor: '#94A3B8',
-        textColor: '#F8FAFC',
-        hoverBg: 'rgba(148,163,184,0.24)',
-        shape: 'squircle',
-        animation: 'breathe',
-      };
-
-      return (
-        <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-card)', background: 'rgba(15,23,42,0.55)' }}>
-          <div className="mx-auto flex w-fit">
-            <LivingBadge
-              badgeKey={config.badgeKey}
-              icon={config.icon}
-              bgColor={config.bgColor}
-              borderColor={config.borderColor}
-              textColor={config.textColor}
-              hoverBg={config.hoverBg}
-              shape={config.shape}
-              animation={config.animation}
-              label={config.label}
-              description={config.description}
-              className="w-14 h-14"
-              iconClassName="w-7 h-7"
-              tooltipIconClassName="w-4 h-4"
-            />
-          </div>
-        </div>
-      );
-    }
-
-    if (item.category === 'USERNAME_DECORATION') {
-      const previewStyle = USERNAME_DECORATION_PREVIEW_STYLES[item.key] || undefined;
-      return (
-        <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-card)', background: 'rgba(15,23,42,0.55)' }}>
-          <p className="text-center text-lg font-bold" style={{ color: 'var(--accent-primary)', ...(previewStyle || {}) }}>
-            RiftEssence
-          </p>
-        </div>
-      );
-    }
-
-    if (item.category === 'FONT') {
-      const fontFamily = FONT_PREVIEW_FAMILIES[item.key] || undefined;
-      return (
-        <div className="rounded-lg border p-3" style={{ borderColor: 'var(--border-card)', background: 'rgba(15,23,42,0.55)' }}>
-          <p className="text-center text-xl leading-tight" style={{ color: 'var(--text-main)', fontFamily }}>
-            RiftEssence
-          </p>
-        </div>
-      );
-    }
-
-    return null;
-  };
-
-  const handlePurchase = async (item: CosmeticItem) => {
-    if (!user || !item.available) return;
-
-    setPurchaseLoading((prev) => ({ ...prev, [item.key]: true }));
+  const items =
+    shop.data?.items.filter(
+      (item) => (category === 'ALL' || category === item.category) && (!ownedOnly || item.owned),
+    ) || [];
+  const act = async (item: Cosmetic, action: 'purchase' | 'activate' | 'deactivate') => {
+    if (busy) return;
+    setBusy(item.key);
+    setError(null);
+    setNotice('');
     try {
-      const headers = authHeaders();
-      if (!headers) throw new Error('Please sign in first.');
-
-      const res = await fetch(`${API_URL}/api/wallet/cosmetics/${item.key}/purchase`, {
-        method: 'POST',
-        headers,
-      });
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        throw new Error(data?.error || 'Purchase failed.');
-      }
-
-      updateShopFromResponse(data);
-
-      if (Number(data?.result?.adCreditsAdded || 0) > 0) {
-        showToast(`Ad credits added: +${Number(data.result.adCreditsAdded)}.`, 'success');
-      } else if (data?.result?.badgeGranted) {
-        showToast('Badge unlocked.', 'success');
-      } else {
-        showToast('Item unlocked.', 'success');
-      }
-    } catch (error: any) {
-      showToast(error?.message || 'Purchase failed.', 'error');
-    } finally {
-      setPurchaseLoading((prev) => ({ ...prev, [item.key]: false }));
-    }
-  };
-
-  const handleActivate = async (item: CosmeticItem) => {
-    if (!user || !item.owned || item.active) return;
-
-    setActivateLoading((prev) => ({ ...prev, [item.key]: true }));
-    try {
-      const headers = authHeaders();
-      if (!headers) throw new Error('Please sign in first.');
-
-      const res = await fetch(`${API_URL}/api/wallet/cosmetics/${item.key}/activate`, {
-        method: 'POST',
-        headers,
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(data?.error || 'Activation failed.');
-      }
-
-      updateShopFromResponse(data);
-      showToast('Cosmetic activated.', 'success');
-    } catch (error: any) {
-      showToast(error?.message || 'Activation failed.', 'error');
-    } finally {
-      setActivateLoading((prev) => ({ ...prev, [item.key]: false }));
-    }
-  };
-
-  const handleDeactivate = async (category: 'ALL' | 'USERNAME_DECORATION' | 'FONT') => {
-    if (!user) return;
-
-    setDeactivateLoading((prev) => ({ ...prev, [category]: true }));
-    try {
-      const headers = authHeaders();
-      if (!headers) throw new Error('Please sign in first.');
-
-      const res = await fetch(`${API_URL}/api/wallet/cosmetics/deactivate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...headers,
+      const key = (operation.current[item.key] ||= crypto.randomUUID());
+      const result = await economyApi<Shop>(
+        action === 'deactivate'
+          ? '/wallet/cosmetics/deactivate'
+          : `/wallet/cosmetics/${item.key}/${action}`,
+        {
+          method: 'POST',
+          headers: action === 'purchase' ? { 'Idempotency-Key': key } : {},
+          body: JSON.stringify(action === 'deactivate' ? { category: item.category } : {}),
         },
-        body: JSON.stringify({ category }),
-      });
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        throw new Error(data?.error || 'Failed to disable cosmetic.');
-      }
-
-      updateShopFromResponse(data);
-      showToast(category === 'ALL' ? 'All active cosmetics disabled.' : 'Cosmetic disabled.', 'success');
-    } catch (error: any) {
-      showToast(error?.message || 'Failed to disable cosmetic.', 'error');
+      );
+      delete operation.current[item.key];
+      setBuying(null);
+      client.setQueryData(['economy', user?.id, 'shop'], result);
+      await client.invalidateQueries(['economy', user?.id]);
+      walletChanged();
+      await refreshUser();
+      setNotice(
+        action === 'purchase'
+          ? `${item.title} is now in your collection.`
+          : action === 'activate'
+          ? `${item.title} equipped.`
+          : 'Item unequipped.',
+      );
+    } catch (err) {
+      setError(err);
     } finally {
-      setDeactivateLoading((prev) => ({ ...prev, [category]: false }));
+      setBusy(null);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen px-4 py-10" style={{ background: 'var(--color-bg-primary)' }}>
-        <div className="max-w-6xl mx-auto flex items-center justify-center py-24">
-          <div
-            className="h-14 w-14 rounded-full animate-spin border-4 border-t-transparent"
-            style={{ borderColor: '#67e8f9', borderTopColor: 'transparent' }}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen px-4 py-10" style={{ background: 'var(--color-bg-primary)' }}>
-        <div
-          className="max-w-2xl mx-auto rounded-2xl border p-8 text-center"
-          style={{
-            border: '2px solid var(--border-card)',
-            background: 'var(--bg-card)',
-            boxShadow: 'var(--shadow-lg)',
-          }}
-        >
-          <h1 className="text-3xl font-black mb-2" style={{ color: 'var(--accent-primary)' }}>
-            Cosmetics Shop
-          </h1>
-          <p className="text-sm mb-6" style={{ color: 'var(--color-text-secondary)' }}>
-            Sign in to unlock cosmetics with Prismatic Essence.
-          </p>
-          <Link
-            href="/login"
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-lg font-semibold"
-            style={{ background: 'var(--btn-gradient)', color: 'var(--btn-gradient-text)' }}
-          >
-            <PrismaticEssenceIcon className="text-lg" />
-            Log in
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div
-      className="min-h-screen px-4 py-8"
-      style={{
-        background: `
-          radial-gradient(900px 460px at 8% -12%, rgba(200,170,110,0.16), transparent 60%),
-          radial-gradient(720px 360px at 100% 0%, rgba(96,165,250,0.12), transparent 64%),
-          var(--color-bg-primary)
-        `,
-      }}
-    >
-      <div className="max-w-6xl mx-auto space-y-6">
-        <header
-          className="rounded-2xl border p-6"
-          style={{
-            border: '2px solid var(--border-card)',
-            background: 'var(--bg-card)',
-            boxShadow: 'var(--shadow-lg)',
-          }}
-        >
-          <div className="flex flex-wrap items-start justify-between gap-6">
-            <div>
-              <p className="text-xs uppercase tracking-[0.18em] mb-2" style={{ color: 'var(--text-secondary)' }}>
-                Prismatic Shop
-              </p>
-              <h1 className="text-3xl sm:text-4xl font-black mb-2 flex items-center gap-3" style={{ color: 'var(--accent-primary)' }}>
-                <FaPalette />
-                Cosmetics
-              </h1>
-              <p className="text-sm max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
-                Unlock profile cosmetics with Prismatic Essence, then activate your current loadout instantly.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Link
-                  href="/purse"
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                  style={{ background: 'var(--accent-primary-bg)', color: 'var(--accent-primary)', border: '1px solid var(--accent-primary-border)' }}
-                >
-                  <PrismaticEssenceIcon /> Purse
-                </Link>
-                <Link
-                  href="/adspace"
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                  style={{ background: 'rgba(34,197,94,0.14)', color: '#86efac', border: '1px solid rgba(34,197,94,0.38)' }}
-                >
-                  <FaBullhorn /> Use Ad Credits
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => handleDeactivate('ALL')}
-                  disabled={!hasActiveCosmetics || Boolean(deactivateLoading.ALL)}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                  style={{
-                    background: hasActiveCosmetics ? 'rgba(239,68,68,0.14)' : 'rgba(148,163,184,0.12)',
-                    color: hasActiveCosmetics ? '#fca5a5' : 'var(--color-text-muted)',
-                    border: hasActiveCosmetics ? '1px solid rgba(239,68,68,0.38)' : '1px solid var(--color-border)',
-                  }}
-                >
-                  {deactivateLoading.ALL ? 'Disabling...' : 'Disable All Active'}
-                </button>
-              </div>
-            </div>
-
-            <div className="text-right rounded-xl p-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-card)' }}>
-              <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Balance</p>
-              <p className="text-3xl font-black inline-flex items-center gap-2" style={{ color: 'var(--text-main)' }}>
-                <PrismaticEssenceIcon className="text-3xl" />
-                {shop.wallet.prismaticEssence.toLocaleString()} PE
-              </p>
+    <EconomyLayout
+      title="Make it yours."
+      description="Small details. A profile that feels like you."
+      aside={
+        shop.data ? (
+          <div className="essence-game-reward">
+            <span className="essence-muted essence-small">Available essence</span>
+            <div className="essence-number">
+              {pe(shop.data.wallet.prismaticEssence)}
+              <small>PE</small>
             </div>
           </div>
-        </header>
-
-        {CATEGORY_ORDER.map((categoryKey) => {
-          const items = groupedItems[categoryKey];
-          if (!items || items.length === 0) return null;
-
-          const category = CATEGORY_META[categoryKey];
-
-          return (
-            <section
-              key={categoryKey}
-              className="rounded-2xl border p-5"
-              style={{
-                border: '2px solid var(--border-card)',
-                background: 'var(--bg-card)',
-                boxShadow: 'var(--shadow)',
-              }}
-            >
-              <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-                <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: category.color }}>
-                  {category.icon}
-                  {category.label}
-                </h2>
-                {ACTIVATABLE_CATEGORIES.has(categoryKey) && (
-                  <button
-                    type="button"
-                    onClick={() => handleDeactivate(categoryKey as 'USERNAME_DECORATION' | 'FONT')}
-                    disabled={!items.some((entry) => entry.active) || Boolean(deactivateLoading[categoryKey])}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold"
-                    style={{
-                      background: items.some((entry) => entry.active) ? 'rgba(239,68,68,0.14)' : 'rgba(148,163,184,0.12)',
-                      color: items.some((entry) => entry.active) ? '#fca5a5' : 'var(--color-text-muted)',
-                      border: items.some((entry) => entry.active) ? '1px solid rgba(239,68,68,0.38)' : '1px solid var(--color-border)',
-                    }}
-                  >
-                    {deactivateLoading[categoryKey] ? 'Disabling...' : 'Disable Current'}
-                  </button>
-                )}
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {items.map((item) => {
-                  const canActivate = ACTIVATABLE_CATEGORIES.has(item.category) && item.owned;
-                  return (
-                    <article
-                      key={item.key}
-                      className="rounded-xl border p-4 flex flex-col gap-3"
-                      style={{ borderColor: 'var(--border-card)', background: 'var(--bg-input)' }}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{item.title}</p>
-                        </div>
-                        <p className="text-sm font-bold inline-flex items-center gap-1" style={{ color: 'var(--accent-primary)' }}>
-                          <PrismaticEssenceIcon /> {item.costPrismaticEssence.toLocaleString()}
+        ) : null
+      }
+    >
+      {loading ? (
+        <EconomyLoading />
+      ) : !user ? (
+        <SignInPrompt />
+      ) : (
+        <>
+          <EconomyError error={shop.error} retry={() => shop.refetch()} />
+          <EconomyError error={error} />
+          {notice ? (
+            <div className="essence-notice essence-success" role="status">
+              {notice}
+            </div>
+          ) : null}
+          <div className="essence-filters" aria-label="Collection categories">
+            {categories.map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={category === key}
+                onClick={() => setCategory(key)}
+              >
+                {label}
+              </button>
+            ))}
+            <label className="essence-filter-end">
+              <input
+                type="checkbox"
+                checked={ownedOnly}
+                onChange={(e) => setOwnedOnly(e.target.checked)}
+              />
+              Owned only
+            </label>
+          </div>
+          {shop.isLoading ? (
+            <EconomyLoading />
+          ) : (
+            <>
+              <div className="essence-gallery">
+                {items.map((item) => (
+                  <article className="essence-item" key={item.key}>
+                    <CosmeticPreview item={item} username={user.username} />
+                    <div className="essence-item-info">
+                      <h3>{item.title.replace('Username: ', '').replace('Name Font: ', '')}</h3>
+                      <p>{item.description}</p>
+                      {item.category === 'HOVER_EFFECT' ? (
+                        <p>Hover over your name to preview.</p>
+                      ) : null}
+                      <div className="essence-item-action">
+                        <span className={item.owned ? 'essence-item-status' : 'essence-amount'}>
+                          {item.owned
+                            ? item.active
+                              ? 'Equipped'
+                              : 'Collected'
+                            : `${pe(item.costPrismaticEssence)} PE`}
+                        </span>
+                        {!item.owned ? (
+                          <button
+                            className="essence-button essence-secondary"
+                            disabled={!item.available || Boolean(busy)}
+                            onClick={() => {
+                              setBuying(item);
+                              setError(null);
+                            }}
+                          >
+                            Unlock
+                          </button>
+                        ) : item.category !== 'BADGE' ? (
+                          <button
+                            className="essence-button essence-secondary"
+                            disabled={Boolean(busy)}
+                            onClick={() => act(item, item.active ? 'deactivate' : 'activate')}
+                          >
+                            {busy === item.key ? 'Saving…' : item.active ? 'Unequip' : 'Equip'}
+                          </button>
+                        ) : null}
+                      </div>
+                      {!item.owned && !item.available ? (
+                        <p className="essence-muted essence-small" style={{ marginTop: 12 }}>
+                          {item.blockedReason}
                         </p>
-                      </div>
-
-                      {renderCosmeticPreview(item)}
-
-                      <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                        {item.owned && (
-                          <span className="px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-primary-bg)', color: 'var(--accent-primary)', border: '1px solid var(--accent-primary-border)' }}>
-                            <FaCheckCircle className="inline mr-1" />Owned
-                          </span>
-                        )}
-                        {item.active && (
-                          <span className="px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-success-bg)', color: '#86efac', border: '1px solid var(--accent-success-border)' }}>
-                            Active
-                          </span>
-                        )}
-                        {item.repeatable && (
-                          <span className="px-2 py-0.5 rounded-full" style={{ background: 'rgba(148,163,184,0.18)', color: '#cbd5e1', border: '1px solid rgba(148,163,184,0.28)' }}>
-                            Repeatable
-                          </span>
-                        )}
-                        {item.adCreditsGrant && item.adCreditsGrant > 0 && (
-                          <span className="px-2 py-0.5 rounded-full" style={{ background: 'rgba(34,197,94,0.14)', color: '#86efac', border: '1px solid rgba(34,197,94,0.32)' }}>
-                            +{item.adCreditsGrant} credit{item.adCreditsGrant === 1 ? '' : 's'}
-                          </span>
-                        )}
-                      </div>
-
-                      {item.blockedReason && !canActivate && (
-                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{item.blockedReason}</p>
-                      )}
-
-                      <div className="mt-auto flex gap-2">
-                        {canActivate ? (
-                          <button
-                            onClick={() => handleActivate(item)}
-                            disabled={item.active || Boolean(activateLoading[item.key])}
-                            className="w-full px-3 py-2 rounded-lg text-xs font-semibold"
-                            style={{
-                              background: item.active ? 'var(--accent-success-bg)' : 'var(--accent-primary-bg)',
-                              color: item.active ? '#86efac' : 'var(--accent-primary)',
-                              border: `1px solid ${item.active ? 'var(--accent-success-border)' : 'var(--accent-primary-border)'}`,
-                            }}
-                          >
-                            {activateLoading[item.key] ? 'Applying...' : item.active ? 'Active' : 'Activate'}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handlePurchase(item)}
-                            disabled={!item.available || Boolean(purchaseLoading[item.key])}
-                            className="w-full px-3 py-2 rounded-lg text-xs font-semibold"
-                            style={{
-                              background: item.available
-                                ? 'var(--btn-gradient)'
-                                : 'var(--color-bg-tertiary)',
-                              color: item.available ? 'var(--btn-gradient-text)' : 'var(--color-text-muted)',
-                              border: `1px solid ${item.available ? 'var(--accent-primary-border)' : 'var(--color-border)'}`,
-                            }}
-                          >
-                            {purchaseLoading[item.key] ? 'Processing...' : item.owned && !item.repeatable ? 'Owned' : 'Buy'}
-                          </button>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
+                      ) : null}
+                      {buying?.key === item.key ? (
+                        <div className="essence-notice" role="group" aria-label="Confirm unlock">
+                          <p>Unlock for {pe(item.costPrismaticEssence)} PE?</p>
+                          <div className="essence-form-actions">
+                            <button
+                              className="essence-button"
+                              disabled={Boolean(busy)}
+                              onClick={() => act(item, 'purchase')}
+                            >
+                              {busy === item.key ? 'Unlocking…' : 'Confirm'}
+                            </button>
+                            <button
+                              className="essence-text-button"
+                              disabled={Boolean(busy)}
+                              onClick={() => setBuying(null)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
               </div>
-            </section>
-          );
-        })}
-      </div>
-    </div>
+              {!items.length && !shop.error ? (
+                <div className="essence-empty">
+                  No items in this view yet. Try another category.
+                </div>
+              ) : null}
+            </>
+          )}
+          <p className="essence-credit">
+            All unlocks are permanent and belong to your account. Name styles, fonts and hover
+            effects appear on your profile and in the navigation.
+          </p>
+        </>
+      )}
+    </EconomyLayout>
   );
 }

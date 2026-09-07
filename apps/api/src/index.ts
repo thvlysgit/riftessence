@@ -30,6 +30,8 @@ import rateRoutes from './routes/rate';
 import teamsRoutes from './routes/teams';
 import scrimRoutes from './routes/scrims';
 import walletRoutes from './routes/wallet';
+import gameRoutes from './routes/games';
+import economyAdminRoutes from './routes/economyAdmin';
 import inputControlRoutes from './routes/inputControl';
 import diagnosticsRoutes from './routes/diagnostics';
 import bcrypt from 'bcryptjs';
@@ -269,7 +271,7 @@ async function build() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin', 'Accept', 'Idempotency-Key'],
     maxAge: 86400,
   });
 
@@ -574,6 +576,8 @@ async function build() {
   await server.register(teamsRoutes, { prefix: '/api' });
   await server.register(scrimRoutes, { prefix: '/api' });
   await server.register(walletRoutes, { prefix: '/api' });
+  await server.register(gameRoutes, { prefix: '/api' });
+  await server.register(economyAdminRoutes, { prefix: '/api' });
   await server.register(inputControlRoutes, { prefix: '/api' });
   await server.register(diagnosticsRoutes, { prefix: '/api' });
 

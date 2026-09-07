@@ -1,404 +1,554 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/router';
-import Link from 'next/link';
-import Head from 'next/head';
+import React, { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
-import { useGlobalUI } from '@components/GlobalUI';
-import { getAuthHeader } from '../../utils/auth';
+import EconomyLayout, {
+  EconomyError,
+  EconomyLoading,
+} from '../../components/economy/EconomyLayout';
+import {
+  economyApi,
+  EconomyOverview,
+  EconomySettings,
+  pe,
+  walletChanged,
+} from '../../utils/economy';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-const QUICK_AMOUNTS = [250, 500, 1000, 2500, 5000, 10000] as const;
-
-type GrantResult = {
-  action?: 'GRANT' | 'REMOVE';
-  amount: number;
-  reason: string | null;
-  target: {
-    id: string;
-    username: string;
-  };
-  admin: {
-    id: string;
-    username: string;
-  };
-  newBalance: number;
-  createdAt: string;
+const fields: {
+  key: keyof Omit<EconomySettings, 'gameRewardsEnabled' | 'version'>;
+  label: string;
+  max: number;
+}[] = [
+  { key: 'starterGrant', label: 'Welcome grant', max: 5000 },
+  { key: 'dailyCheckin', label: 'Daily check-in', max: 500 },
+  { key: 'dailySocial', label: 'Daily conversation', max: 500 },
+  { key: 'championReward', label: 'Champion Archive', max: 500 },
+  { key: 'soundReward', label: 'Soundcheck', max: 500 },
+  { key: 'dailyGameCap', label: 'Daily game cap', max: 1000 },
+];
+const sourceLabels: Record<string, string> = {
+  archive: 'Champion Archive',
+  soundcheck: 'Soundcheck',
+  quests: 'Challenges',
+  welcome: 'Welcome grants',
+  cosmetics: 'Cosmetics',
+  adjustments: 'Admin adjustments',
+  legacy_activity: 'Legacy activity',
 };
 
-export default function AdminPrismaticGrantPage() {
-  const router = useRouter();
+export default function AdminEconomyPage() {
   const { user, loading } = useAuth();
-  const { showToast } = useGlobalUI();
-
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [actionMode, setActionMode] = useState<'grant' | 'remove'>('grant');
-  const [targetMode, setTargetMode] = useState<'self' | 'user'>('self');
-  const [targetUsername, setTargetUsername] = useState('');
-  const [amount, setAmount] = useState(500);
+  const admin = user?.badges?.some((b) => b.key.toLowerCase() === 'admin');
+  const [days, setDays] = useState(30);
+  const [draft, setDraft] = useState<EconomySettings | null>(null);
+  const [settingsReason, setSettingsReason] = useState('');
+  const [action, setAction] = useState('grant');
+  const [target, setTarget] = useState('');
+  const [amount, setAmount] = useState(100);
   const [reason, setReason] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [lastGrant, setLastGrant] = useState<GrantResult | null>(null);
-
+  const [busy, setBusy] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState<unknown>(null);
+  const operation = useRef<{ payload: string; key: string } | null>(null);
+  const report = useQuery(
+    ['economy-admin', user?.id, days],
+    ({ signal }) => economyApi<EconomyOverview>(`/wallet/admin/economy?days=${days}`, { signal }),
+    { enabled: Boolean(admin), refetchOnWindowFocus: false },
+  );
   useEffect(() => {
-    if (loading) return;
-
-    if (!user) {
-      router.push('/');
-      return;
-    }
-
-    async function checkAdminStatus() {
-      try {
-        if (!user?.id) {
-          setIsAdmin(false);
-          router.push('/404');
-          return;
-        }
-
-        const res = await fetch(`${API_URL}/api/user/check-admin?userId=${encodeURIComponent(user.id)}`, {
-          headers: getAuthHeader(),
-        });
-        const data = await res.json();
-
-        if (!data.isAdmin) {
-          setIsAdmin(false);
-          router.push('/404');
-          return;
-        }
-
-        setIsAdmin(true);
-      } catch (error) {
-        console.error('Failed to check admin status:', error);
-        setIsAdmin(false);
-        router.push('/404');
-      }
-    }
-
-    checkAdminStatus();
-  }, [user, loading, router]);
-
-  const normalizedAmount = useMemo(() => {
-    const parsed = Math.round(Number(amount) || 0);
-    return Math.max(1, Math.min(1_000_000, parsed));
-  }, [amount]);
-
-  const canSubmit = normalizedAmount > 0 && (targetMode === 'self' || targetUsername.trim().length > 1);
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    if (!canSubmit) {
-      showToast('Select a target and amount first.', 'error');
-      return;
-    }
-
-    setSubmitting(true);
+    if (report.data?.settings && !draft) setDraft(report.data.settings);
+  }, [report.data?.settings, draft]);
+  const data = report.data;
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!draft || busy) return;
+    setBusy('settings');
+    setError(null);
+    setNotice('');
     try {
-      const headers = getAuthHeader();
-      if (!headers) {
-        showToast('You need to be signed in as admin.', 'error');
-        return;
-      }
-
-      const payload = actionMode === 'grant'
-        ? (targetMode === 'self'
-          ? {
-              grantToSelf: true,
-              amount: normalizedAmount,
-              reason: reason.trim() || undefined,
-            }
-          : {
-              grantToSelf: false,
-              targetUsername: targetUsername.trim(),
-              amount: normalizedAmount,
-              reason: reason.trim() || undefined,
-            })
-        : (targetMode === 'self'
-          ? {
-              removeFromSelf: true,
-              amount: normalizedAmount,
-              reason: reason.trim() || undefined,
-            }
-          : {
-              removeFromSelf: false,
-              targetUsername: targetUsername.trim(),
-              amount: normalizedAmount,
-              reason: reason.trim() || undefined,
-            });
-
-      const endpoint = actionMode === 'grant'
-        ? '/api/wallet/admin/grant-pe'
-        : '/api/wallet/admin/remove-pe';
-
-      const res = await fetch(`${API_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...headers,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(data?.error || 'Failed to grant PE.');
-      }
-
-      const result = data?.grant || data?.adjustment || null;
-      setLastGrant(result);
-
-      if (actionMode === 'grant') {
-        showToast(
-          `Granted ${normalizedAmount.toLocaleString()} PE to ${result?.target?.username || 'user'}.`,
-          'success'
-        );
-      } else {
-        showToast(
-          `Removed ${normalizedAmount.toLocaleString()} PE from ${result?.target?.username || 'user'}.`,
-          'success'
-        );
-      }
-
-      if (targetMode === 'self') {
-        setReason('');
-      }
-    } catch (error: any) {
-      showToast(error?.message || 'Failed to grant PE.', 'error');
+      const result = await economyApi<{ settings: EconomySettings }>(
+        '/wallet/admin/economy/settings',
+        { method: 'PUT', body: JSON.stringify({ ...draft, reason: settingsReason }) },
+      );
+      setDraft(result.settings);
+      setSettingsReason('');
+      await report.refetch();
+      setNotice(
+        'Reward settings saved. New games use the new rewards; daily caps and the pause switch apply immediately.',
+      );
+    } catch (err) {
+      setError(err);
     } finally {
-      setSubmitting(false);
+      setBusy(null);
     }
   };
-
-  if (loading || isAdmin === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-bg-primary)' }}>
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'var(--color-accent-1)' }}></div>
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return null;
-  }
-
+  const adjust = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy('wallet');
+    setError(null);
+    setNotice('');
+    const payload = JSON.stringify({
+      targetUsername: target.trim(),
+      amount,
+      reason: reason.trim(),
+      grantToSelf: false,
+      removeFromSelf: false,
+    });
+    const signature = action + payload;
+    if (operation.current?.payload !== signature)
+      operation.current = { payload: signature, key: crypto.randomUUID() };
+    try {
+      const result = await economyApi<{
+        grant: { target: { username: string }; newBalance: number };
+      }>(`/wallet/admin/${action}-pe`, {
+        method: 'POST',
+        headers: { 'Idempotency-Key': operation.current.key },
+        body: payload,
+      });
+      setNotice(
+        `${action === 'grant' ? 'Granted' : 'Removed'} ${pe(amount)} PE ${
+          action === 'grant' ? 'to' : 'from'
+        } ${result.grant.target.username}. Balance: ${pe(result.grant.newBalance)} PE.`,
+      );
+      operation.current = null;
+      setReason('');
+      await report.refetch();
+      walletChanged();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(null);
+    }
+  };
+  const series = data
+    ? Array.from({ length: data.days }, (_, i) => {
+        const day = new Date(new Date(data.start).getTime() + i * 86400000)
+          .toISOString()
+          .slice(0, 10);
+        return data.daily.find((d) => d.day === day) || { day, earned: 0, spent: 0 };
+      })
+    : [];
+  const chartMax = Math.max(1, ...series.flatMap((day) => [day.earned, day.spent]));
   return (
-    <>
-      <Head>
-        <title>Prismatic Controls | Admin Dashboard</title>
-        <meta name="description" content="Grant or remove Prismatic Essence from users via the admin panel" />
-      </Head>
-
-      <div className="min-h-screen" style={{ background: 'linear-gradient(140deg, var(--color-bg-primary), var(--color-bg-secondary), var(--color-bg-primary))' }}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-            <div>
-              <h1 className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>✨ Prismatic Essence Controls</h1>
-              <p className="mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                Grant or remove PE for yourself or any user by username.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link
-                href="/admin"
-                className="px-4 py-2 rounded-lg text-sm font-semibold"
-                style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
-              >
-                ← Admin Dashboard
-              </Link>
-            </div>
-          </div>
-
-          <div
-            className="rounded-2xl border p-5 sm:p-6"
-            style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}
+    <EconomyLayout
+      title="Economy."
+      description="Understand where essence comes from, and where it goes."
+      admin
+      aside={
+        <label className="essence-field">
+          <span className="sr-only">Reporting period</span>
+          <select
+            className="essence-input"
+            value={days}
+            onChange={(e) => setDays(Number(e.target.value))}
           >
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <p className="text-xs uppercase tracking-wide font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                  Action
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActionMode('grant')}
-                    className="px-4 py-2 rounded-lg text-sm font-semibold"
-                    style={{
-                      background: actionMode === 'grant' ? 'var(--accent-primary-bg)' : 'var(--color-bg-tertiary)',
-                      color: actionMode === 'grant' ? 'var(--accent-primary)' : 'var(--color-text-secondary)',
-                      border: `1px solid ${actionMode === 'grant' ? 'var(--accent-primary-border)' : 'var(--color-border)'}`,
-                    }}
-                  >
-                    Grant PE
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActionMode('remove')}
-                    className="px-4 py-2 rounded-lg text-sm font-semibold"
-                    style={{
-                      background: actionMode === 'remove' ? 'rgba(239,68,68,0.14)' : 'var(--color-bg-tertiary)',
-                      color: actionMode === 'remove' ? '#fca5a5' : 'var(--color-text-secondary)',
-                      border: `1px solid ${actionMode === 'remove' ? 'rgba(239,68,68,0.34)' : 'var(--color-border)'}`,
-                    }}
-                  >
-                    Remove PE
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs uppercase tracking-wide font-semibold mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                  Target
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setTargetMode('self')}
-                    className="px-4 py-2 rounded-lg text-sm font-semibold"
-                    style={{
-                      background: targetMode === 'self' ? 'var(--accent-primary-bg)' : 'var(--color-bg-tertiary)',
-                      color: targetMode === 'self' ? 'var(--accent-primary)' : 'var(--color-text-secondary)',
-                      border: `1px solid ${targetMode === 'self' ? 'var(--accent-primary-border)' : 'var(--color-border)'}`,
-                    }}
-                  >
-                    {actionMode === 'grant' ? 'Apply To Myself' : 'Remove From Myself'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTargetMode('user')}
-                    className="px-4 py-2 rounded-lg text-sm font-semibold"
-                    style={{
-                      background: targetMode === 'user' ? 'var(--accent-primary-bg)' : 'var(--color-bg-tertiary)',
-                      color: targetMode === 'user' ? 'var(--accent-primary)' : 'var(--color-text-secondary)',
-                      border: `1px solid ${targetMode === 'user' ? 'var(--accent-primary-border)' : 'var(--color-border)'}`,
-                    }}
-                  >
-                    {actionMode === 'grant' ? 'Apply To User' : 'Remove From User'}
-                  </button>
-                </div>
-              </div>
-
-              {targetMode === 'user' && (
-                <label className="block">
-                  <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Target Username</span>
-                  <input
-                    type="text"
-                    value={targetUsername}
-                    onChange={(event) => setTargetUsername(event.target.value)}
-                    placeholder="Enter in-app username"
-                    className="w-full mt-2 px-3 py-2 rounded-lg"
-                    style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
-                  />
-                </label>
-              )}
-
-              <div>
-                <label className="block">
-                  <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Amount (PE)</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={1000000}
-                    value={amount}
-                    onChange={(event) => setAmount(Number(event.target.value) || 1)}
-                    className="w-full mt-2 px-3 py-2 rounded-lg"
-                    style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
-                  />
-                </label>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {QUICK_AMOUNTS.map((entry) => (
-                    <button
-                      key={entry}
-                      type="button"
-                      onClick={() => setAmount(entry)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold"
-                      style={{ background: 'var(--accent-primary-bg)', color: 'var(--accent-primary)', border: '1px solid var(--accent-primary-border)' }}
-                    >
-                      {entry.toLocaleString()} PE
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <label className="block">
-                <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Reason (optional)</span>
-                <textarea
-                  value={reason}
-                  onChange={(event) => setReason(event.target.value.slice(0, 180))}
-                  rows={3}
-                  maxLength={180}
-                  className="w-full mt-2 px-3 py-2 rounded-lg"
-                  style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
-                  placeholder="Example: reimbursement, tournament prize, manual support adjustment"
-                />
-                <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{reason.length}/180</p>
-              </label>
-
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  {actionMode === 'grant' ? 'Granting ' : 'Removing '}
-                  <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{normalizedAmount.toLocaleString()} PE</span>
-                  {targetMode === 'self'
-                    ? actionMode === 'grant' ? ' to your own account.' : ' from your own account.'
-                    : `${actionMode === 'grant' ? ' to ' : ' from '}${targetUsername.trim() || 'the selected user'}.`}
-                </p>
-                <button
-                  type="submit"
-                  disabled={!canSubmit || submitting}
-                  className="px-5 py-2.5 rounded-lg text-sm font-semibold"
-                  style={{
-                    background: !canSubmit || submitting ? 'var(--color-bg-tertiary)' : 'var(--btn-gradient)',
-                    color: !canSubmit || submitting ? 'var(--color-text-muted)' : 'var(--btn-gradient-text)',
-                    border: '1px solid var(--accent-primary-border)',
-                  }}
-                >
-                  {submitting
-                    ? actionMode === 'grant' ? 'Granting...' : 'Removing...'
-                    : actionMode === 'grant' ? 'Grant Prismatic Essence' : 'Remove Prismatic Essence'}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {lastGrant && (
-            <div
-              className="mt-6 rounded-2xl border p-5"
-              style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--accent-primary-border)', boxShadow: 'var(--shadow)' }}
-            >
-              <p className="text-xs uppercase tracking-wide font-semibold mb-2" style={{ color: 'var(--accent-primary)' }}>
-                Last Action Executed
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="rounded-lg p-3" style={{ background: 'var(--color-bg-tertiary)' }}>
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Target</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{lastGrant.target.username}</p>
-                </div>
-                <div className="rounded-lg p-3" style={{ background: 'var(--color-bg-tertiary)' }}>
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Amount</p>
-                  <p className="text-sm font-semibold" style={{ color: (lastGrant.action || 'GRANT') === 'REMOVE' ? '#fca5a5' : 'var(--accent-primary)' }}>
-                    {(lastGrant.action || 'GRANT') === 'REMOVE' ? '-' : '+'}{lastGrant.amount.toLocaleString()} PE
-                  </p>
-                </div>
-                <div className="rounded-lg p-3" style={{ background: 'var(--color-bg-tertiary)' }}>
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>New Balance</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{lastGrant.newBalance.toLocaleString()} PE</p>
-                </div>
-                <div className="rounded-lg p-3" style={{ background: 'var(--color-bg-tertiary)' }}>
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Timestamp</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                    {new Date(lastGrant.createdAt).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-              {lastGrant.reason && (
-                <p className="text-sm mt-3" style={{ color: 'var(--color-text-secondary)' }}>
-                  Reason: {lastGrant.reason}
-                </p>
-              )}
+            <option value={7}>Last 7 days</option>
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 90 days</option>
+          </select>
+        </label>
+      }
+    >
+      {loading || (admin && report.isLoading) ? (
+        <EconomyLoading />
+      ) : !admin ? (
+        <p>Admin access is required.</p>
+      ) : (
+        <>
+          <EconomyError error={report.error} retry={() => report.refetch()} />
+          <EconomyError error={error} />
+          {notice ? (
+            <div className="essence-notice essence-success" role="status">
+              {notice}
             </div>
-          )}
-        </div>
-      </div>
-    </>
+          ) : null}
+          {data ? (
+            <>
+              {data.reconciliationWarnings ? (
+                <div className="essence-notice" role="status">
+                  {data.reconciliationWarnings}{' '}
+                  {data.reconciliationWarnings === 1 ? 'wallet needs' : 'wallets need'}{' '}
+                  reconciliation: the balance and PE history disagree. Review legacy activity before
+                  issuing adjustments.
+                </div>
+              ) : null}
+              <div className="essence-stats">
+                {[
+                  ['In circulation · all wallets', pe(data.totals.circulation) + ' PE'],
+                  ['Earned in period', pe(data.totals.earned) + ' PE'],
+                  ['Spent in period', pe(data.totals.spent) + ' PE'],
+                  ['Active wallets in period', pe(data.totals.activeWallets)],
+                ].map(([label, value]) => (
+                  <div className="essence-stat" key={label}>
+                    <span>{label}</span>
+                    <strong>{value}</strong>
+                  </div>
+                ))}
+              </div>
+              <div className="essence-columns">
+                <section className="essence-panel">
+                  <h2>Earned &amp; spent</h2>
+                  <div className="essence-chart-legend">
+                    <span>Earned PE</span>
+                    <span>Spent PE</span>
+                  </div>
+                  {data.totals.earned || data.totals.spent ? (
+                    <>
+                      <div
+                        className="essence-chart"
+                        role="img"
+                        aria-label={`Daily PE earned and spent. Scale 0 to ${pe(
+                          chartMax,
+                        )} PE; exact values below.`}
+                      >
+                        {series.map((day) => (
+                          <div
+                            className="essence-chart-day"
+                            key={day.day}
+                            title={`${day.day}: +${pe(day.earned)} earned, ${pe(day.spent)} spent`}
+                          >
+                            <span
+                              className="essence-bar"
+                              style={{ height: `${(day.earned / chartMax) * 100}%` }}
+                            />
+                            <span
+                              className="essence-bar spent"
+                              style={{ height: `${(day.spent / chartMax) * 100}%` }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="essence-chart-labels">
+                        <span>{series[0]?.day}</span>
+                        <span>Scale: 0–{pe(chartMax)} PE</span>
+                        <span>{series[series.length - 1]?.day}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="essence-empty">No PE activity in this period.</div>
+                  )}
+                  <p className="essence-muted essence-small" style={{ marginTop: 18 }}>
+                    Net change: {data.totals.earned - data.totals.spent > 0 ? '+' : ''}
+                    {pe(data.totals.earned - data.totals.spent)} PE. Legacy currency conversions are
+                    excluded.
+                  </p>
+                  <details className="essence-onboarding">
+                    <summary>Daily figures</summary>
+                    <div className="essence-table-scroll">
+                      <table className="essence-table">
+                        <thead>
+                          <tr>
+                            <th>Date (UTC)</th>
+                            <th>Earned</th>
+                            <th>Spent</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {series.map((day) => (
+                            <tr key={day.day}>
+                              <td>{day.day}</td>
+                              <td>{pe(day.earned)}</td>
+                              <td>{pe(day.spent)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
+                </section>
+                <section className="essence-panel">
+                  <h2>Sources &amp; sinks</h2>
+                  <div className="essence-table-scroll">
+                    <table className="essence-table">
+                      <thead>
+                        <tr>
+                          <th>Source</th>
+                          <th>Earned</th>
+                          <th>Spent</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.categories.map((row) => (
+                          <tr key={row.source}>
+                            <td>{sourceLabels[row.source] || row.source}</td>
+                            <td className="essence-positive">{pe(row.earned)}</td>
+                            <td>{pe(row.spent)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {!data.categories.length ? (
+                    <p className="essence-empty">No transactions yet.</p>
+                  ) : null}
+                  <div className="essence-section">
+                    <h3>Balance distribution</h3>
+                    <p className="essence-muted essence-small">
+                      {pe(data.totals.wallets)} wallets · median {pe(data.totals.median)} PE
+                    </p>
+                    {data.distribution.map((row) => (
+                      <div className="essence-distribution" key={row.bucket}>
+                        <span>{row.bucket}</span>
+                        <progress
+                          className="essence-progress"
+                          value={row.count}
+                          max={Math.max(data.totals.wallets, 1)}
+                          aria-label={`${row.bucket} PE: ${row.count} wallets`}
+                        />
+                        <strong>{row.count}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+              <div className="essence-columns essence-section">
+                <form className="essence-panel" onSubmit={save}>
+                  <div className="essence-section-head">
+                    <h2>Reward settings</h2>
+                    <button
+                      className="essence-text-button essence-small"
+                      type="button"
+                      onClick={async () => {
+                        const result = await report.refetch();
+                        if (result.data) setDraft(result.data.settings);
+                      }}
+                    >
+                      Reload saved
+                    </button>
+                  </div>
+                  {draft ? (
+                    <>
+                      <div className="essence-form-grid">
+                        {fields.map((field) => (
+                          <label className="essence-field" key={field.key}>
+                            {field.label} (PE)
+                            <input
+                              className="essence-input"
+                              type="number"
+                              min={0}
+                              max={field.max}
+                              step={1}
+                              required
+                              value={draft[field.key]}
+                              onChange={(e) =>
+                                setDraft({ ...draft, [field.key]: Number(e.target.value) })
+                              }
+                            />
+                          </label>
+                        ))}
+                      </div>
+                      <label
+                        className="essence-filter-end"
+                        style={{ marginTop: 24, justifyContent: 'flex-start' }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={draft.gameRewardsEnabled}
+                          onChange={(e) =>
+                            setDraft({ ...draft, gameRewardsEnabled: e.target.checked })
+                          }
+                        />
+                        Game rewards enabled
+                      </label>
+                      <p className="essence-muted essence-small" style={{ marginTop: 12 }}>
+                        The cap applies per player, per UTC day. Pausing rewards keeps games
+                        playable. Existing rounds keep their offered reward, subject to the current
+                        cap and pause switch.
+                      </p>
+                      <p className="essence-small" style={{ marginTop: 12 }} aria-live="polite">
+                        Recurring daily ceiling:{' '}
+                        <strong>
+                          {pe(
+                            draft.dailyCheckin +
+                              draft.dailySocial +
+                              (draft.gameRewardsEnabled
+                                ? Math.min(
+                                    draft.dailyGameCap,
+                                    draft.championReward + draft.soundReward,
+                                  )
+                                : 0),
+                          )}{' '}
+                          PE
+                        </strong>{' '}
+                        per player, excluding welcome grants and one-time milestones.
+                      </p>
+                      <label className="essence-field essence-section">
+                        Reason for change
+                        <input
+                          className="essence-input"
+                          required
+                          minLength={3}
+                          maxLength={180}
+                          value={settingsReason}
+                          onChange={(e) => setSettingsReason(e.target.value)}
+                          placeholder="Recorded in the admin audit log"
+                        />
+                      </label>
+                      <div className="essence-form-actions">
+                        <button className="essence-button" disabled={Boolean(busy)}>
+                          {busy === 'settings' ? 'Saving…' : 'Save settings'}
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
+                </form>
+                <form className="essence-panel" onSubmit={adjust}>
+                  <h2>Adjust a wallet</h2>
+                  <p className="essence-muted essence-small" style={{ marginTop: 10 }}>
+                    Every adjustment needs a reason and is recorded. Adjustments do not grant
+                    progression XP.
+                  </p>
+                  <div className="essence-form-grid essence-section">
+                    <label className="essence-field full">
+                      Exact username
+                      <input
+                        className="essence-input"
+                        value={target}
+                        onChange={(e) => setTarget(e.target.value)}
+                        required
+                        minLength={2}
+                        maxLength={40}
+                        placeholder="Player username"
+                      />
+                    </label>
+                    <label className="essence-field">
+                      Action
+                      <select
+                        className="essence-input"
+                        value={action}
+                        onChange={(e) => setAction(e.target.value)}
+                      >
+                        <option value="grant">Grant PE</option>
+                        <option value="remove">Remove PE</option>
+                      </select>
+                    </label>
+                    <label className="essence-field">
+                      Amount (PE)
+                      <input
+                        className="essence-input"
+                        type="number"
+                        min={1}
+                        max={1000000}
+                        step={1}
+                        required
+                        value={amount}
+                        onChange={(e) => setAmount(Number(e.target.value))}
+                      />
+                    </label>
+                    <label className="essence-field full">
+                      Reason
+                      <textarea
+                        className="essence-input"
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        minLength={3}
+                        maxLength={180}
+                        required
+                        placeholder="Why is this balance changing?"
+                      />
+                    </label>
+                  </div>
+                  <div className="essence-form-actions">
+                    <button className="essence-button" disabled={Boolean(busy)}>
+                      {busy === 'wallet' ? 'Applying…' : 'Apply adjustment'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+              <section className="essence-panel essence-section">
+                <h2>Daily game completion</h2>
+                <table className="essence-table">
+                  <thead>
+                    <tr>
+                      <th>Game</th>
+                      <th>Started</th>
+                      <th>Solved</th>
+                      <th>PE awarded</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {['archive', 'soundcheck'].map((key) => {
+                      const rows = data.games.filter((game) => game.gameKey === key);
+                      const started = rows.reduce((n, row) => n + row._count._all, 0);
+                      const won = rows
+                        .filter((row) => row.won)
+                        .reduce((n, row) => n + row._count._all, 0);
+                      return (
+                        <tr key={key}>
+                          <td>{sourceLabels[key]}</td>
+                          <td>{started}</td>
+                          <td>
+                            {won}
+                            {started ? ` (${Math.round((won / started) * 100)}%)` : ''}
+                          </td>
+                          <td>{pe(rows.reduce((n, row) => n + (row._sum.rewardPaid || 0), 0))}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <p className="essence-muted essence-small">
+                  Includes unfinished daily rounds in the started count. Practice rounds are
+                  excluded.
+                </p>
+              </section>
+              <section className="essence-panel essence-section">
+                <div className="essence-section-head">
+                  <h2>Recent transactions</h2>
+                  <span className="essence-muted essence-small">Latest 50 in this period</span>
+                </div>
+                <div className="essence-table-scroll">
+                  <table className="essence-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Player</th>
+                        <th>Activity</th>
+                        <th>Amount</th>
+                        <th>Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.recent.map((tx) => (
+                        <tr key={tx.id}>
+                          <td>
+                            <time dateTime={tx.createdAt}>
+                              {new Date(tx.createdAt).toLocaleString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </time>
+                          </td>
+                          <td>{tx.user.username}</td>
+                          <td>{tx.note}</td>
+                          <td
+                            className={`essence-amount ${
+                              tx.amount >= 0 ? 'essence-positive' : 'essence-negative'
+                            }`}
+                          >
+                            {tx.amount > 0 ? '+' : ''}
+                            {pe(tx.amount)}
+                          </td>
+                          <td className="essence-amount">{pe(tx.balanceAfter)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {!data.recent.length ? (
+                  <p className="essence-empty">No transactions in this period.</p>
+                ) : null}
+              </section>
+              <p className="essence-credit">
+                Snapshot taken {new Date(data.generatedAt).toLocaleString()}. Period boundaries use
+                UTC.
+              </p>
+            </>
+          ) : null}
+        </>
+      )}
+    </EconomyLayout>
   );
 }

@@ -52,8 +52,8 @@ type AdRequest = {
 };
 
 function getRequestedCredits(requestAd: AdRequest): number {
-  if (Number.isFinite(Number(requestAd.requestedCredits)) && Number(requestAd.requestedCredits) > 0) {
-    return Math.max(1, Math.round(Number(requestAd.requestedCredits)));
+  if (requestAd.requestedCredits !== undefined && Number.isFinite(Number(requestAd.requestedCredits)) && Number(requestAd.requestedCredits) >= 0) {
+    return Math.max(0, Math.round(Number(requestAd.requestedCredits)));
   }
 
   const start = new Date(requestAd.startDate).getTime();
@@ -307,7 +307,7 @@ export default function AdsManagementPage() {
     const creditsToRefund = getRequestedCredits(requestAd);
     const ok = await confirm({
       title: 'Reject Ad Request',
-      message: `Reject this request and refund ${creditsToRefund} ad credit${creditsToRefund === 1 ? '' : 's'} to the requester?`,
+      message: creditsToRefund ? `Reject this request and refund ${creditsToRefund} legacy ad credit${creditsToRefund === 1 ? '' : 's'} to the requester?` : 'Reject this advertising inquiry? The requester will be notified. No PE or credits were charged.',
       confirmText: 'Reject',
     });
 
@@ -322,8 +322,8 @@ export default function AdsManagementPage() {
 
       if (res.ok) {
         const data = await res.json().catch(() => null);
-        const refundedCredits = Number(data?.refundedCredits || creditsToRefund);
-        showToast(`Ad request rejected (${refundedCredits} credit${refundedCredits === 1 ? '' : 's'} refunded)`, 'success');
+        const refundedCredits = Number(data?.refundedCredits ?? creditsToRefund);
+        showToast(refundedCredits ? `Ad request rejected (${refundedCredits} legacy credits refunded)` : 'Advertising inquiry rejected', 'success');
         loadRequests();
       } else {
         const data = await res.json().catch(() => null);
@@ -695,7 +695,7 @@ export default function AdsManagementPage() {
                             Duration: {new Date(requestAd.startDate).toLocaleDateString()} - {new Date(requestAd.endDate).toLocaleDateString()}
                           </span>
                           <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'rgba(251,191,36,0.16)', color: '#fcd34d', border: '1px solid rgba(251,191,36,0.3)' }}>
-                            Cost: {getRequestedCredits(requestAd)} credit{getRequestedCredits(requestAd) === 1 ? '' : 's'}
+                            {getRequestedCredits(requestAd) ? `Legacy request: ${getRequestedCredits(requestAd)} credits` : 'Inquiry · no PE or credits charged'}
                           </span>
                         </div>
 

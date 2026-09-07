@@ -19,6 +19,7 @@ import { getChampionIconUrl, getProfileIconUrl } from '../utils/championData';
 import { DiscordIcon } from '../src/components/DiscordBrand';
 import LivingBadge from '../src/components/LivingBadge';
 import NoAccess from '@components/NoAccess';
+import { USERNAME_DECORATION_STYLES, USERNAME_FONT_FAMILIES, USERNAME_HOVER_EFFECT_CLASSES } from '../utils/cosmeticStyles';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 const CHAMPION_TIER_LABELS: Record<'S' | 'A' | 'B' | 'C', string> = {
@@ -837,48 +838,6 @@ const resolvePrestigeBadgeKey = (badgeLookupKey: string): keyof typeof PRESTIGE_
   return PRESTIGE_BADGE_ALIASES[compactKey] || null;
 };
 
-const USERNAME_DECORATION_STYLES: Record<string, React.CSSProperties> = {
-  username_gilded_edge: {
-    textShadow: '0 0 10px rgba(251, 191, 36, 0.34)',
-    WebkitTextStroke: '0.6px rgba(245, 158, 11, 0.65)',
-  },
-  username_prismatic_slash: {
-    backgroundImage: 'linear-gradient(92deg, #67e8f9, #93c5fd 35%, #a78bfa 68%, #f9a8d4)',
-    WebkitBackgroundClip: 'text',
-    backgroundClip: 'text',
-    color: 'transparent',
-    WebkitTextFillColor: 'transparent',
-    textShadow: '0 0 12px rgba(103, 232, 249, 0.28)',
-  },
-  username_solar_flare: {
-    color: '#fde68a',
-    WebkitTextStroke: '0.65px rgba(194, 65, 12, 0.72)',
-    textShadow: '0 0 7px rgba(251, 146, 60, 0.52), 0 0 18px rgba(239, 68, 68, 0.35)',
-    letterSpacing: '0.015em',
-  },
-  username_void_glass: {
-    color: '#dbeafe',
-    WebkitTextStroke: '0.55px rgba(99, 102, 241, 0.55)',
-    textShadow: '0 0 8px rgba(96, 165, 250, 0.42), 0 0 20px rgba(147, 51, 234, 0.28)',
-    filter: 'drop-shadow(0 0 6px rgba(59, 130, 246, 0.28))',
-  },
-};
-
-const USERNAME_FONT_FAMILIES: Record<string, string> = {
-  font_orbitron: 'Orbitron, "Segoe UI", sans-serif',
-  font_cinzel: 'Cinzel, Georgia, serif',
-  font_exo2: '"Exo 2", "Segoe UI", sans-serif',
-  font_rajdhani: 'Rajdhani, "Segoe UI", sans-serif',
-  font_audiowide: 'Audiowide, "Segoe UI", sans-serif',
-  font_unbounded: 'Unbounded, "Segoe UI", sans-serif',
-  font_bebas_neue: '"Bebas Neue", "Segoe UI", sans-serif',
-};
-
-const USERNAME_HOVER_EFFECT_CLASSES: Record<string, string> = {
-  hover_aurora_ring: 'username-hover-aurora-ring',
-  hover_ember_trail: 'username-hover-ember-trail',
-  hover_eclipse_gleam: 'username-hover-eclipse-gleam',
-};
 
 const PROFILE_BACKGROUND_GRADIENTS: Record<string, { label: string; background: string }> = {
   rift: {

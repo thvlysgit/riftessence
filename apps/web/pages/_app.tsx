@@ -1,5 +1,6 @@
 import React, { ReactNode, useEffect } from 'react';
 import '../styles/globals.css';
+import '../styles/economy.css';
 import NextApp, { AppContext, AppInitialProps, AppProps } from 'next/app';
 import Head from 'next/head';
 import Script from 'next/script';
@@ -191,7 +192,9 @@ const ROUTE_TITLES: Record<string, string> = {
   '/admin/reports': 'Reports | RiftEssence',
   '/admin/badges': 'Badge Management | RiftEssence',
   '/admin/ads': 'Ad Management | RiftEssence',
-  '/admin/prismatic': 'Prismatic Grants | RiftEssence',
+  '/admin/prismatic': 'Economy | RiftEssence',
+  '/games': 'Daily Games | RiftEssence',
+  '/advertise': 'Advertise | RiftEssence',
   '/admin/settings': 'Admin Settings | RiftEssence',
   '/admin/broadcast': 'Discord DM Broadcast | RiftEssence',
   // Region / role landing pages

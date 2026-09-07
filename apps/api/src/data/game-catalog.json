@@ -1,0 +1,2745 @@
+{
+  "version": "16.10.1",
+  "champions": [
+    {
+      "id": "Aatrox",
+      "name": "Aatrox",
+      "title": "the Darkin Blade",
+      "roles": [
+        "Fighter"
+      ],
+      "resource": "Blood Well",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Ahri",
+      "name": "Ahri",
+      "title": "the Nine-Tailed Fox",
+      "roles": [
+        "Mage",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 5,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Orb of Deception",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0103/ability_0103_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Fox-Fire",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0103/ability_0103_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Charm",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0103/ability_0103_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Spirit Rush",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0103/ability_0103_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Akali",
+      "name": "Akali",
+      "title": "the Rogue Assassin",
+      "roles": [
+        "Assassin"
+      ],
+      "resource": "Energy",
+      "range": "Melee",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "Akshan",
+      "name": "Akshan",
+      "title": "the Rogue Sentinel",
+      "roles": [
+        "Marksman",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 0,
+      "abilities": []
+    },
+    {
+      "id": "Alistar",
+      "name": "Alistar",
+      "title": "the Minotaur",
+      "roles": [
+        "Tank",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "Ambessa",
+      "name": "Ambessa",
+      "title": "Matriarch of War",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Energy",
+      "range": "Melee",
+      "difficulty": 10,
+      "abilities": []
+    },
+    {
+      "id": "Amumu",
+      "name": "Amumu",
+      "title": "the Sad Mummy",
+      "roles": [
+        "Tank",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 3,
+      "abilities": []
+    },
+    {
+      "id": "Anivia",
+      "name": "Anivia",
+      "title": "the Cryophoenix",
+      "roles": [
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 10,
+      "abilities": []
+    },
+    {
+      "id": "Annie",
+      "name": "Annie",
+      "title": "the Dark Child",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Aphelios",
+      "name": "Aphelios",
+      "title": "the Weapon of the Faithful",
+      "roles": [
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 10,
+      "abilities": []
+    },
+    {
+      "id": "Ashe",
+      "name": "Ashe",
+      "title": "the Frost Archer",
+      "roles": [
+        "Marksman",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 4,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Ranger's Focus",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0022/ability_0022_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Volley",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0022/ability_0022_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Hawkshot",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0022/ability_0022_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Enchanted Crystal Arrow",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0022/ability_0022_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "AurelionSol",
+      "name": "Aurelion Sol",
+      "title": "The Star Forger",
+      "roles": [
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "Aurora",
+      "name": "Aurora",
+      "title": "the Witch Between Worlds",
+      "roles": [
+        "Mage",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Azir",
+      "name": "Azir",
+      "title": "the Emperor of the Sands",
+      "roles": [
+        "Mage",
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 9,
+      "abilities": []
+    },
+    {
+      "id": "Bard",
+      "name": "Bard",
+      "title": "the Wandering Caretaker",
+      "roles": [
+        "Support",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 9,
+      "abilities": []
+    },
+    {
+      "id": "Belveth",
+      "name": "Bel'Veth",
+      "title": "the Empress of the Void",
+      "roles": [
+        "Fighter"
+      ],
+      "resource": "",
+      "range": "Melee",
+      "difficulty": 10,
+      "abilities": []
+    },
+    {
+      "id": "Blitzcrank",
+      "name": "Blitzcrank",
+      "title": "the Great Steam Golem",
+      "roles": [
+        "Tank",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Rocket Grab",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0053/ability_0053_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Overdrive",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0053/ability_0053_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Power Fist",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0053/ability_0053_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Static Field",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0053/ability_0053_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Brand",
+      "name": "Brand",
+      "title": "the Burning Vengeance",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 4,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Sear",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0063/ability_0063_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Pillar of Flame",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0063/ability_0063_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Conflagration",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0063/ability_0063_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Pyroclasm",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0063/ability_0063_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Braum",
+      "name": "Braum",
+      "title": "the Heart of the Freljord",
+      "roles": [
+        "Tank",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 3,
+      "abilities": []
+    },
+    {
+      "id": "Briar",
+      "name": "Briar",
+      "title": "the Restrained Hunger",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Fury",
+      "range": "Melee",
+      "difficulty": 3,
+      "abilities": []
+    },
+    {
+      "id": "Caitlyn",
+      "name": "Caitlyn",
+      "title": "the Sheriff of Piltover",
+      "roles": [
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Piltover Peacemaker",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0051/ability_0051_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Yordle Snap Trap",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0051/ability_0051_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "90 Caliber Net",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0051/ability_0051_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Ace in the Hole",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0051/ability_0051_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Camille",
+      "name": "Camille",
+      "title": "the Steel Shadow",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Cassiopeia",
+      "name": "Cassiopeia",
+      "title": "the Serpent's Embrace",
+      "roles": [
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 10,
+      "abilities": []
+    },
+    {
+      "id": "Chogath",
+      "name": "Cho'Gath",
+      "title": "the Terror of the Void",
+      "roles": [
+        "Tank",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Corki",
+      "name": "Corki",
+      "title": "the Daring Bombardier",
+      "roles": [
+        "Marksman",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Darius",
+      "name": "Darius",
+      "title": "the Hand of Noxus",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 2,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Decimate",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0122/ability_0122_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Crippling Strike",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0122/ability_0122_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Apprehend",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0122/ability_0122_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Noxian Guillotine",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0122/ability_0122_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Diana",
+      "name": "Diana",
+      "title": "Scorn of the Moon",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Draven",
+      "name": "Draven",
+      "title": "the Glorious Executioner",
+      "roles": [
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 8,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Spinning Axe",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0119/ability_0119_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Blood Rush",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0119/ability_0119_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Stand Aside",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0119/ability_0119_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Whirling Death",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0119/ability_0119_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "DrMundo",
+      "name": "Dr. Mundo",
+      "title": "the Madman of Zaun",
+      "roles": [
+        "Tank",
+        "Fighter"
+      ],
+      "resource": "None",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Ekko",
+      "name": "Ekko",
+      "title": "the Boy Who Shattered Time",
+      "roles": [
+        "Assassin",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Elise",
+      "name": "Elise",
+      "title": "the Spider Queen",
+      "roles": [
+        "Assassin",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 9,
+      "abilities": []
+    },
+    {
+      "id": "Evelynn",
+      "name": "Evelynn",
+      "title": "Agony's Embrace",
+      "roles": [
+        "Assassin",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 10,
+      "abilities": []
+    },
+    {
+      "id": "Ezreal",
+      "name": "Ezreal",
+      "title": "the Prodigal Explorer",
+      "roles": [
+        "Marksman",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 7,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Mystic Shot",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0081/ability_0081_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Essence Flux",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0081/ability_0081_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Arcane Shift",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0081/ability_0081_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Trueshot Barrage",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0081/ability_0081_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Fiddlesticks",
+      "name": "Fiddlesticks",
+      "title": "the Ancient Fear",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 9,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Terrify",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0009/ability_0009_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Bountiful Harvest",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0009/ability_0009_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Reap",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0009/ability_0009_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Crowstorm",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0009/ability_0009_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Fiora",
+      "name": "Fiora",
+      "title": "the Grand Duelist",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 3,
+      "abilities": []
+    },
+    {
+      "id": "Fizz",
+      "name": "Fizz",
+      "title": "the Tidal Trickster",
+      "roles": [
+        "Assassin",
+        "Fighter"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Galio",
+      "name": "Galio",
+      "title": "the Colossus",
+      "roles": [
+        "Tank",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Gangplank",
+      "name": "Gangplank",
+      "title": "the Saltwater Scourge",
+      "roles": [
+        "Fighter"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 9,
+      "abilities": []
+    },
+    {
+      "id": "Garen",
+      "name": "Garen",
+      "title": "The Might of Demacia",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "None",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Decisive Strike",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0086/ability_0086_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Courage",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0086/ability_0086_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Judgment",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0086/ability_0086_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Demacian Justice",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0086/ability_0086_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Gnar",
+      "name": "Gnar",
+      "title": "the Missing Link",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Rage",
+      "range": "Melee",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Gragas",
+      "name": "Gragas",
+      "title": "the Rabble Rouser",
+      "roles": [
+        "Fighter",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Graves",
+      "name": "Graves",
+      "title": "the Outlaw",
+      "roles": [
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 3,
+      "abilities": []
+    },
+    {
+      "id": "Gwen",
+      "name": "Gwen",
+      "title": "The Hallowed Seamstress",
+      "roles": [
+        "Fighter"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Hecarim",
+      "name": "Hecarim",
+      "title": "the Shadow of War",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Heimerdinger",
+      "name": "Heimerdinger",
+      "title": "the Revered Inventor",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Hwei",
+      "name": "Hwei",
+      "title": "the Visionary",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 9,
+      "abilities": []
+    },
+    {
+      "id": "Illaoi",
+      "name": "Illaoi",
+      "title": "the Kraken Priestess",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Irelia",
+      "name": "Irelia",
+      "title": "the Blade Dancer",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Ivern",
+      "name": "Ivern",
+      "title": "the Green Father",
+      "roles": [
+        "Support",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "Janna",
+      "name": "Janna",
+      "title": "the Storm's Fury",
+      "roles": [
+        "Support",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "JarvanIV",
+      "name": "Jarvan IV",
+      "title": "the Exemplar of Demacia",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Jax",
+      "name": "Jax",
+      "title": "Grandmaster at Arms",
+      "roles": [
+        "Fighter"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Jayce",
+      "name": "Jayce",
+      "title": "the Defender of Tomorrow",
+      "roles": [
+        "Fighter",
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "Jhin",
+      "name": "Jhin",
+      "title": "the Virtuoso",
+      "roles": [
+        "Marksman",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Dancing Grenade",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0202/ability_0202_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Deadly Flourish",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0202/ability_0202_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Captive Audience",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0202/ability_0202_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Curtain Call",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0202/ability_0202_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Jinx",
+      "name": "Jinx",
+      "title": "the Loose Cannon",
+      "roles": [
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Switcheroo!",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0222/ability_0222_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Zap!",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0222/ability_0222_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Flame Chompers!",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0222/ability_0222_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Super Mega Death Rocket!",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0222/ability_0222_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Kaisa",
+      "name": "Kai'Sa",
+      "title": "Daughter of the Void",
+      "roles": [
+        "Marksman",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Kalista",
+      "name": "Kalista",
+      "title": "the Spear of Vengeance",
+      "roles": [
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "Karma",
+      "name": "Karma",
+      "title": "the Enlightened One",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Karthus",
+      "name": "Karthus",
+      "title": "the Deathsinger",
+      "roles": [
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "Kassadin",
+      "name": "Kassadin",
+      "title": "the Void Walker",
+      "roles": [
+        "Assassin",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Katarina",
+      "name": "Katarina",
+      "title": "the Sinister Blade",
+      "roles": [
+        "Assassin",
+        "Mage"
+      ],
+      "resource": "None",
+      "range": "Melee",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Kayle",
+      "name": "Kayle",
+      "title": "the Righteous",
+      "roles": [
+        "Mage",
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "Kayn",
+      "name": "Kayn",
+      "title": "the Shadow Reaper",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Kennen",
+      "name": "Kennen",
+      "title": "the Heart of the Tempest",
+      "roles": [
+        "Mage"
+      ],
+      "resource": "Energy",
+      "range": "Ranged",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Khazix",
+      "name": "Kha'Zix",
+      "title": "the Voidreaver",
+      "roles": [
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Kindred",
+      "name": "Kindred",
+      "title": "The Eternal Hunters",
+      "roles": [
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Kled",
+      "name": "Kled",
+      "title": "the Cantankerous Cavalier",
+      "roles": [
+        "Fighter"
+      ],
+      "resource": "Courage",
+      "range": "Melee",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "KogMaw",
+      "name": "Kog'Maw",
+      "title": "the Mouth of the Abyss",
+      "roles": [
+        "Marksman",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "KSante",
+      "name": "K'Sante",
+      "title": "the Pride of Nazumah",
+      "roles": [
+        "Tank",
+        "Fighter"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 9,
+      "abilities": []
+    },
+    {
+      "id": "Leblanc",
+      "name": "LeBlanc",
+      "title": "the Deceiver",
+      "roles": [
+        "Assassin",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 9,
+      "abilities": []
+    },
+    {
+      "id": "LeeSin",
+      "name": "Lee Sin",
+      "title": "the Blind Monk",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Energy",
+      "range": "Melee",
+      "difficulty": 6,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Sonic Wave / Resonating Strike",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0064/ability_0064_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Safeguard / Iron Will",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0064/ability_0064_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Tempest / Cripple",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0064/ability_0064_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Dragon's Rage",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0064/ability_0064_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Leona",
+      "name": "Leona",
+      "title": "the Radiant Dawn",
+      "roles": [
+        "Tank",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Shield of Daybreak",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0089/ability_0089_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Eclipse",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0089/ability_0089_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Zenith Blade",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0089/ability_0089_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Solar Flare",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0089/ability_0089_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Lillia",
+      "name": "Lillia",
+      "title": "the Bashful Bloom",
+      "roles": [
+        "Fighter",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Lissandra",
+      "name": "Lissandra",
+      "title": "the Ice Witch",
+      "roles": [
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Lucian",
+      "name": "Lucian",
+      "title": "the Purifier",
+      "roles": [
+        "Marksman",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Lulu",
+      "name": "Lulu",
+      "title": "the Fae Sorceress",
+      "roles": [
+        "Support",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Lux",
+      "name": "Lux",
+      "title": "the Lady of Luminosity",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 5,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Light Binding",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0099/ability_0099_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Prismatic Barrier",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0099/ability_0099_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Lucent Singularity",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0099/ability_0099_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Final Spark",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0099/ability_0099_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Malphite",
+      "name": "Malphite",
+      "title": "Shard of the Monolith",
+      "roles": [
+        "Tank",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 2,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Seismic Shard",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0054/ability_0054_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Thunderclap",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0054/ability_0054_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Ground Slam",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0054/ability_0054_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Unstoppable Force",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0054/ability_0054_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Malzahar",
+      "name": "Malzahar",
+      "title": "the Prophet of the Void",
+      "roles": [
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Maokai",
+      "name": "Maokai",
+      "title": "the Twisted Treant",
+      "roles": [
+        "Tank",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 3,
+      "abilities": []
+    },
+    {
+      "id": "MasterYi",
+      "name": "Master Yi",
+      "title": "the Wuju Bladesman",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Mel",
+      "name": "Mel",
+      "title": "the Soul's Reflection",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Milio",
+      "name": "Milio",
+      "title": "The Gentle Flame",
+      "roles": [
+        "Support",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "MissFortune",
+      "name": "Miss Fortune",
+      "title": "the Bounty Hunter",
+      "roles": [
+        "Marksman",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 1,
+      "abilities": []
+    },
+    {
+      "id": "MonkeyKing",
+      "name": "Wukong",
+      "title": "the Monkey King",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 3,
+      "abilities": []
+    },
+    {
+      "id": "Mordekaiser",
+      "name": "Mordekaiser",
+      "title": "the Iron Revenant",
+      "roles": [
+        "Fighter",
+        "Mage"
+      ],
+      "resource": "Shield",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Morgana",
+      "name": "Morgana",
+      "title": "the Fallen",
+      "roles": [
+        "Support",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 1,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Dark Binding",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0025/ability_0025_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Tormented Shadow",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0025/ability_0025_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Black Shield",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0025/ability_0025_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Soul Shackles",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0025/ability_0025_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Naafiri",
+      "name": "Naafiri",
+      "title": "the Hound of a Hundred Bites",
+      "roles": [
+        "Assassin",
+        "Fighter"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 2,
+      "abilities": []
+    },
+    {
+      "id": "Nami",
+      "name": "Nami",
+      "title": "the Tidecaller",
+      "roles": [
+        "Support",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 5,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Aqua Prison",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0267/ability_0267_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Ebb and Flow",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0267/ability_0267_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Tidecaller's Blessing",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0267/ability_0267_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Tidal Wave",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0267/ability_0267_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Nasus",
+      "name": "Nasus",
+      "title": "the Curator of the Sands",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Nautilus",
+      "name": "Nautilus",
+      "title": "the Titan of the Depths",
+      "roles": [
+        "Tank",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 6,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Dredge Line",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0111/ability_0111_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Titan's Wrath",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0111/ability_0111_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Riptide",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0111/ability_0111_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Depth Charge",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0111/ability_0111_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Neeko",
+      "name": "Neeko",
+      "title": "the Curious Chameleon",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Nidalee",
+      "name": "Nidalee",
+      "title": "the Bestial Huntress",
+      "roles": [
+        "Assassin",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Nilah",
+      "name": "Nilah",
+      "title": "the Joy Unbound",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 10,
+      "abilities": []
+    },
+    {
+      "id": "Nocturne",
+      "name": "Nocturne",
+      "title": "the Eternal Nightmare",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Nunu",
+      "name": "Nunu & Willump",
+      "title": "the Boy and His Yeti",
+      "roles": [
+        "Tank",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Olaf",
+      "name": "Olaf",
+      "title": "the Berserker",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 3,
+      "abilities": []
+    },
+    {
+      "id": "Orianna",
+      "name": "Orianna",
+      "title": "the Lady of Clockwork",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 7,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Command: Attack",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0061/ability_0061_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Command: Dissonance",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0061/ability_0061_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Command: Protect",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0061/ability_0061_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Command: Shockwave",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0061/ability_0061_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Ornn",
+      "name": "Ornn",
+      "title": "The Fire below the Mountain",
+      "roles": [
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Pantheon",
+      "name": "Pantheon",
+      "title": "the Unbreakable Spear",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Poppy",
+      "name": "Poppy",
+      "title": "Keeper of the Hammer",
+      "roles": [
+        "Tank",
+        "Fighter"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Pyke",
+      "name": "Pyke",
+      "title": "the Bloodharbor Ripper",
+      "roles": [
+        "Support",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 7,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Bone Skewer",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0555/ability_0555_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Ghostwater Dive",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0555/ability_0555_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Phantom Undertow",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0555/ability_0555_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Death From Below",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0555/ability_0555_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Qiyana",
+      "name": "Qiyana",
+      "title": "Empress of the Elements",
+      "roles": [
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Quinn",
+      "name": "Quinn",
+      "title": "Demacia's Wings",
+      "roles": [
+        "Marksman",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Rakan",
+      "name": "Rakan",
+      "title": "The Charmer",
+      "roles": [
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Rammus",
+      "name": "Rammus",
+      "title": "the Armordillo",
+      "roles": [
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "RekSai",
+      "name": "Rek'Sai",
+      "title": "the Void Burrower",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Rage",
+      "range": "Melee",
+      "difficulty": 3,
+      "abilities": []
+    },
+    {
+      "id": "Rell",
+      "name": "Rell",
+      "title": "the Iron Maiden",
+      "roles": [
+        "Tank",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 0,
+      "abilities": []
+    },
+    {
+      "id": "Renata",
+      "name": "Renata Glasc",
+      "title": "the Chem-Baroness",
+      "roles": [
+        "Support",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Renekton",
+      "name": "Renekton",
+      "title": "the Butcher of the Sands",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Fury",
+      "range": "Melee",
+      "difficulty": 3,
+      "abilities": []
+    },
+    {
+      "id": "Rengar",
+      "name": "Rengar",
+      "title": "the Pridestalker",
+      "roles": [
+        "Assassin",
+        "Fighter"
+      ],
+      "resource": "Ferocity",
+      "range": "Melee",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Riven",
+      "name": "Riven",
+      "title": "the Exile",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "None",
+      "range": "Melee",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Rumble",
+      "name": "Rumble",
+      "title": "the Mechanized Menace",
+      "roles": [
+        "Fighter",
+        "Mage"
+      ],
+      "resource": "Heat",
+      "range": "Melee",
+      "difficulty": 10,
+      "abilities": []
+    },
+    {
+      "id": "Ryze",
+      "name": "Ryze",
+      "title": "the Rune Mage",
+      "roles": [
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "Samira",
+      "name": "Samira",
+      "title": "the Desert Rose",
+      "roles": [
+        "Marksman",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Sejuani",
+      "name": "Sejuani",
+      "title": "Fury of the North",
+      "roles": [
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Senna",
+      "name": "Senna",
+      "title": "the Redeemer",
+      "roles": [
+        "Support",
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "Seraphine",
+      "name": "Seraphine",
+      "title": "the Starry-Eyed Songstress",
+      "roles": [
+        "Support",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 0,
+      "abilities": []
+    },
+    {
+      "id": "Sett",
+      "name": "Sett",
+      "title": "the Boss",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Grit",
+      "range": "Melee",
+      "difficulty": 2,
+      "abilities": []
+    },
+    {
+      "id": "Shaco",
+      "name": "Shaco",
+      "title": "the Demon Jester",
+      "roles": [
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 9,
+      "abilities": []
+    },
+    {
+      "id": "Shen",
+      "name": "Shen",
+      "title": "the Eye of Twilight",
+      "roles": [
+        "Tank"
+      ],
+      "resource": "Energy",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Shyvana",
+      "name": "Shyvana",
+      "title": "the Half-Dragon",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Fury",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Singed",
+      "name": "Singed",
+      "title": "the Mad Chemist",
+      "roles": [
+        "Tank",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Sion",
+      "name": "Sion",
+      "title": "The Undead Juggernaut",
+      "roles": [
+        "Tank",
+        "Fighter"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Sivir",
+      "name": "Sivir",
+      "title": "the Battle Mistress",
+      "roles": [
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Skarner",
+      "name": "Skarner",
+      "title": "the Primordial Sovereign",
+      "roles": [
+        "Tank",
+        "Fighter"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Smolder",
+      "name": "Smolder",
+      "title": "the Fiery Fledgling",
+      "roles": [
+        "Marksman",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Sona",
+      "name": "Sona",
+      "title": "Maven of the Strings",
+      "roles": [
+        "Support",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 4,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Hymn of Valor",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0037/ability_0037_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Aria of Perseverance",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0037/ability_0037_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Song of Celerity",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0037/ability_0037_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Crescendo",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0037/ability_0037_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Soraka",
+      "name": "Soraka",
+      "title": "the Starchild",
+      "roles": [
+        "Support",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 3,
+      "abilities": []
+    },
+    {
+      "id": "Swain",
+      "name": "Swain",
+      "title": "the Noxian Grand General",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Sylas",
+      "name": "Sylas",
+      "title": "the Unshackled",
+      "roles": [
+        "Mage",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Syndra",
+      "name": "Syndra",
+      "title": "the Dark Sovereign",
+      "roles": [
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "TahmKench",
+      "name": "Tahm Kench",
+      "title": "The River King",
+      "roles": [
+        "Tank",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Taliyah",
+      "name": "Taliyah",
+      "title": "the Stoneweaver",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Talon",
+      "name": "Talon",
+      "title": "the Blade's Shadow",
+      "roles": [
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "Taric",
+      "name": "Taric",
+      "title": "the Shield of Valoran",
+      "roles": [
+        "Support",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 3,
+      "abilities": []
+    },
+    {
+      "id": "Teemo",
+      "name": "Teemo",
+      "title": "the Swift Scout",
+      "roles": [
+        "Marksman",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Thresh",
+      "name": "Thresh",
+      "title": "the Chain Warden",
+      "roles": [
+        "Support",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 7,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Death Sentence",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0412/ability_0412_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Dark Passage",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0412/ability_0412_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Flay",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0412/ability_0412_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "The Box",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0412/ability_0412_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Tristana",
+      "name": "Tristana",
+      "title": "the Yordle Gunner",
+      "roles": [
+        "Marksman",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Trundle",
+      "name": "Trundle",
+      "title": "the Troll King",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Tryndamere",
+      "name": "Tryndamere",
+      "title": "the Barbarian King",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Fury",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "TwistedFate",
+      "name": "Twisted Fate",
+      "title": "the Card Master",
+      "roles": [
+        "Mage",
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 9,
+      "abilities": []
+    },
+    {
+      "id": "Twitch",
+      "name": "Twitch",
+      "title": "the Plague Rat",
+      "roles": [
+        "Marksman",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Udyr",
+      "name": "Udyr",
+      "title": "the Spirit Walker",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "Urgot",
+      "name": "Urgot",
+      "title": "the Dreadnought",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Varus",
+      "name": "Varus",
+      "title": "the Arrow of Retribution",
+      "roles": [
+        "Marksman",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 2,
+      "abilities": []
+    },
+    {
+      "id": "Vayne",
+      "name": "Vayne",
+      "title": "the Night Hunter",
+      "roles": [
+        "Marksman",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Veigar",
+      "name": "Veigar",
+      "title": "the Tiny Master of Evil",
+      "roles": [
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 7,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Baleful Strike",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0045/ability_0045_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Dark Matter",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0045/ability_0045_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Event Horizon",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0045/ability_0045_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Primordial Burst",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0045/ability_0045_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Velkoz",
+      "name": "Vel'Koz",
+      "title": "the Eye of the Void",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Vex",
+      "name": "Vex",
+      "title": "the Gloomist",
+      "roles": [
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 0,
+      "abilities": []
+    },
+    {
+      "id": "Vi",
+      "name": "Vi",
+      "title": "the Piltover Enforcer",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Viego",
+      "name": "Viego",
+      "title": "The Ruined King",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "None",
+      "range": "Melee",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Viktor",
+      "name": "Viktor",
+      "title": "the Herald of the Arcane",
+      "roles": [
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 9,
+      "abilities": []
+    },
+    {
+      "id": "Vladimir",
+      "name": "Vladimir",
+      "title": "the Crimson Reaper",
+      "roles": [
+        "Mage",
+        "Fighter"
+      ],
+      "resource": "Crimson Rush",
+      "range": "Ranged",
+      "difficulty": 7,
+      "abilities": []
+    },
+    {
+      "id": "Volibear",
+      "name": "Volibear",
+      "title": "the Relentless Storm",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 3,
+      "abilities": []
+    },
+    {
+      "id": "Warwick",
+      "name": "Warwick",
+      "title": "the Uncaged Wrath of Zaun",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 3,
+      "abilities": []
+    },
+    {
+      "id": "Xayah",
+      "name": "Xayah",
+      "title": "the Rebel",
+      "roles": [
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Xerath",
+      "name": "Xerath",
+      "title": "the Magus Ascendant",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "XinZhao",
+      "name": "Xin Zhao",
+      "title": "the Seneschal of Demacia",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 2,
+      "abilities": []
+    },
+    {
+      "id": "Yasuo",
+      "name": "Yasuo",
+      "title": "the Unforgiven",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Flow",
+      "range": "Melee",
+      "difficulty": 10,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Steel Tempest",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0157/ability_0157_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Wind Wall",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0157/ability_0157_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Sweeping Blade",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0157/ability_0157_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Last Breath",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0157/ability_0157_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Yone",
+      "name": "Yone",
+      "title": "the Unforgotten",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Flow",
+      "range": "Melee",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Yorick",
+      "name": "Yorick",
+      "title": "Shepherd of Souls",
+      "roles": [
+        "Fighter",
+        "Tank"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Yunara",
+      "name": "Yunara",
+      "title": "the Unbroken Faith",
+      "roles": [
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Yuumi",
+      "name": "Yuumi",
+      "title": "the Magical Cat",
+      "roles": [
+        "Support",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 2,
+      "abilities": []
+    },
+    {
+      "id": "Zaahen",
+      "name": "Zaahen",
+      "title": "The Unsundered",
+      "roles": [
+        "Fighter",
+        "Assassin"
+      ],
+      "resource": "Mana",
+      "range": "Melee",
+      "difficulty": 2,
+      "abilities": []
+    },
+    {
+      "id": "Zac",
+      "name": "Zac",
+      "title": "the Secret Weapon",
+      "roles": [
+        "Tank",
+        "Fighter"
+      ],
+      "resource": "None",
+      "range": "Melee",
+      "difficulty": 8,
+      "abilities": []
+    },
+    {
+      "id": "Zed",
+      "name": "Zed",
+      "title": "the Master of Shadows",
+      "roles": [
+        "Assassin"
+      ],
+      "resource": "Energy",
+      "range": "Melee",
+      "difficulty": 7,
+      "abilities": [
+        {
+          "key": "Q",
+          "name": "Razor Shuriken",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0238/ability_0238_Q1.webm"
+        },
+        {
+          "key": "W",
+          "name": "Living Shadow",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0238/ability_0238_W1.webm"
+        },
+        {
+          "key": "E",
+          "name": "Shadow Slash",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0238/ability_0238_E1.webm"
+        },
+        {
+          "key": "R",
+          "name": "Death Mark",
+          "video": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0238/ability_0238_R1.webm"
+        }
+      ]
+    },
+    {
+      "id": "Zeri",
+      "name": "Zeri",
+      "title": "The Spark of Zaun",
+      "roles": [
+        "Marksman"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Ziggs",
+      "name": "Ziggs",
+      "title": "the Hexplosives Expert",
+      "roles": [
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 4,
+      "abilities": []
+    },
+    {
+      "id": "Zilean",
+      "name": "Zilean",
+      "title": "the Chronokeeper",
+      "roles": [
+        "Support",
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 6,
+      "abilities": []
+    },
+    {
+      "id": "Zoe",
+      "name": "Zoe",
+      "title": "the Aspect of Twilight",
+      "roles": [
+        "Mage"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 5,
+      "abilities": []
+    },
+    {
+      "id": "Zyra",
+      "name": "Zyra",
+      "title": "Rise of the Thorns",
+      "roles": [
+        "Mage",
+        "Support"
+      ],
+      "resource": "Mana",
+      "range": "Ranged",
+      "difficulty": 7,
+      "abilities": []
+    }
+  ]
+}

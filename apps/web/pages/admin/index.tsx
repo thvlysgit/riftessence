@@ -296,8 +296,8 @@ export default function AdminDashboard() {
                 onClick={() => router.push('/admin/badges')}
               />
               <QuickActionButton
-                label="Grant Prismatic Essence"
-                description="Issue PE rewards to any user account"
+                label="Economy"
+                description="Track circulation, tune rewards, and manage wallets"
                 onClick={() => router.push('/admin/prismatic')}
               />
               <QuickActionButton

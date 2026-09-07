@@ -1,0 +1,678 @@
+{
+  "Ahri": [
+    {
+      "key": "Q",
+      "name": "Orb of Deception",
+      "file": "Ahri-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0103/ability_0103_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Fox-Fire",
+      "file": "Ahri-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0103/ability_0103_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Charm",
+      "file": "Ahri-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0103/ability_0103_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Spirit Rush",
+      "file": "Ahri-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0103/ability_0103_R1.webm"
+    }
+  ],
+  "Ashe": [
+    {
+      "key": "Q",
+      "name": "Ranger's Focus",
+      "file": "Ashe-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0022/ability_0022_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Volley",
+      "file": "Ashe-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0022/ability_0022_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Hawkshot",
+      "file": "Ashe-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0022/ability_0022_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Enchanted Crystal Arrow",
+      "file": "Ashe-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0022/ability_0022_R1.webm"
+    }
+  ],
+  "Blitzcrank": [
+    {
+      "key": "Q",
+      "name": "Rocket Grab",
+      "file": "Blitzcrank-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0053/ability_0053_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Overdrive",
+      "file": "Blitzcrank-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0053/ability_0053_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Power Fist",
+      "file": "Blitzcrank-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0053/ability_0053_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Static Field",
+      "file": "Blitzcrank-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0053/ability_0053_R1.webm"
+    }
+  ],
+  "Brand": [
+    {
+      "key": "Q",
+      "name": "Sear",
+      "file": "Brand-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0063/ability_0063_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Pillar of Flame",
+      "file": "Brand-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0063/ability_0063_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Conflagration",
+      "file": "Brand-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0063/ability_0063_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Pyroclasm",
+      "file": "Brand-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0063/ability_0063_R1.webm"
+    }
+  ],
+  "Caitlyn": [
+    {
+      "key": "Q",
+      "name": "Piltover Peacemaker",
+      "file": "Caitlyn-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0051/ability_0051_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Yordle Snap Trap",
+      "file": "Caitlyn-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0051/ability_0051_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "90 Caliber Net",
+      "file": "Caitlyn-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0051/ability_0051_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Ace in the Hole",
+      "file": "Caitlyn-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0051/ability_0051_R1.webm"
+    }
+  ],
+  "Darius": [
+    {
+      "key": "Q",
+      "name": "Decimate",
+      "file": "Darius-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0122/ability_0122_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Crippling Strike",
+      "file": "Darius-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0122/ability_0122_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Apprehend",
+      "file": "Darius-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0122/ability_0122_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Noxian Guillotine",
+      "file": "Darius-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0122/ability_0122_R1.webm"
+    }
+  ],
+  "Draven": [
+    {
+      "key": "Q",
+      "name": "Spinning Axe",
+      "file": "Draven-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0119/ability_0119_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Blood Rush",
+      "file": "Draven-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0119/ability_0119_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Stand Aside",
+      "file": "Draven-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0119/ability_0119_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Whirling Death",
+      "file": "Draven-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0119/ability_0119_R1.webm"
+    }
+  ],
+  "Ezreal": [
+    {
+      "key": "Q",
+      "name": "Mystic Shot",
+      "file": "Ezreal-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0081/ability_0081_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Essence Flux",
+      "file": "Ezreal-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0081/ability_0081_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Arcane Shift",
+      "file": "Ezreal-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0081/ability_0081_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Trueshot Barrage",
+      "file": "Ezreal-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0081/ability_0081_R1.webm"
+    }
+  ],
+  "Fiddlesticks": [
+    {
+      "key": "Q",
+      "name": "Terrify",
+      "file": "Fiddlesticks-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0009/ability_0009_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Bountiful Harvest",
+      "file": "Fiddlesticks-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0009/ability_0009_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Reap",
+      "file": "Fiddlesticks-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0009/ability_0009_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Crowstorm",
+      "file": "Fiddlesticks-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0009/ability_0009_R1.webm"
+    }
+  ],
+  "Garen": [
+    {
+      "key": "Q",
+      "name": "Decisive Strike",
+      "file": "Garen-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0086/ability_0086_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Courage",
+      "file": "Garen-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0086/ability_0086_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Judgment",
+      "file": "Garen-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0086/ability_0086_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Demacian Justice",
+      "file": "Garen-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0086/ability_0086_R1.webm"
+    }
+  ],
+  "Jhin": [
+    {
+      "key": "Q",
+      "name": "Dancing Grenade",
+      "file": "Jhin-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0202/ability_0202_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Deadly Flourish",
+      "file": "Jhin-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0202/ability_0202_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Captive Audience",
+      "file": "Jhin-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0202/ability_0202_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Curtain Call",
+      "file": "Jhin-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0202/ability_0202_R1.webm"
+    }
+  ],
+  "Jinx": [
+    {
+      "key": "Q",
+      "name": "Switcheroo!",
+      "file": "Jinx-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0222/ability_0222_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Zap!",
+      "file": "Jinx-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0222/ability_0222_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Flame Chompers!",
+      "file": "Jinx-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0222/ability_0222_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Super Mega Death Rocket!",
+      "file": "Jinx-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0222/ability_0222_R1.webm"
+    }
+  ],
+  "LeeSin": [
+    {
+      "key": "Q",
+      "name": "Sonic Wave / Resonating Strike",
+      "file": "LeeSin-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0064/ability_0064_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Safeguard / Iron Will",
+      "file": "LeeSin-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0064/ability_0064_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Tempest / Cripple",
+      "file": "LeeSin-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0064/ability_0064_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Dragon's Rage",
+      "file": "LeeSin-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0064/ability_0064_R1.webm"
+    }
+  ],
+  "Leona": [
+    {
+      "key": "Q",
+      "name": "Shield of Daybreak",
+      "file": "Leona-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0089/ability_0089_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Eclipse",
+      "file": "Leona-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0089/ability_0089_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Zenith Blade",
+      "file": "Leona-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0089/ability_0089_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Solar Flare",
+      "file": "Leona-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0089/ability_0089_R1.webm"
+    }
+  ],
+  "Lux": [
+    {
+      "key": "Q",
+      "name": "Light Binding",
+      "file": "Lux-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0099/ability_0099_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Prismatic Barrier",
+      "file": "Lux-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0099/ability_0099_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Lucent Singularity",
+      "file": "Lux-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0099/ability_0099_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Final Spark",
+      "file": "Lux-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0099/ability_0099_R1.webm"
+    }
+  ],
+  "Malphite": [
+    {
+      "key": "Q",
+      "name": "Seismic Shard",
+      "file": "Malphite-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0054/ability_0054_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Thunderclap",
+      "file": "Malphite-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0054/ability_0054_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Ground Slam",
+      "file": "Malphite-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0054/ability_0054_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Unstoppable Force",
+      "file": "Malphite-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0054/ability_0054_R1.webm"
+    }
+  ],
+  "Morgana": [
+    {
+      "key": "Q",
+      "name": "Dark Binding",
+      "file": "Morgana-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0025/ability_0025_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Tormented Shadow",
+      "file": "Morgana-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0025/ability_0025_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Black Shield",
+      "file": "Morgana-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0025/ability_0025_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Soul Shackles",
+      "file": "Morgana-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0025/ability_0025_R1.webm"
+    }
+  ],
+  "Nami": [
+    {
+      "key": "Q",
+      "name": "Aqua Prison",
+      "file": "Nami-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0267/ability_0267_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Ebb and Flow",
+      "file": "Nami-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0267/ability_0267_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Tidecaller's Blessing",
+      "file": "Nami-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0267/ability_0267_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Tidal Wave",
+      "file": "Nami-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0267/ability_0267_R1.webm"
+    }
+  ],
+  "Nautilus": [
+    {
+      "key": "Q",
+      "name": "Dredge Line",
+      "file": "Nautilus-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0111/ability_0111_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Titan's Wrath",
+      "file": "Nautilus-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0111/ability_0111_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Riptide",
+      "file": "Nautilus-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0111/ability_0111_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Depth Charge",
+      "file": "Nautilus-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0111/ability_0111_R1.webm"
+    }
+  ],
+  "Orianna": [
+    {
+      "key": "Q",
+      "name": "Command: Attack",
+      "file": "Orianna-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0061/ability_0061_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Command: Dissonance",
+      "file": "Orianna-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0061/ability_0061_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Command: Protect",
+      "file": "Orianna-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0061/ability_0061_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Command: Shockwave",
+      "file": "Orianna-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0061/ability_0061_R1.webm"
+    }
+  ],
+  "Pyke": [
+    {
+      "key": "Q",
+      "name": "Bone Skewer",
+      "file": "Pyke-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0555/ability_0555_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Ghostwater Dive",
+      "file": "Pyke-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0555/ability_0555_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Phantom Undertow",
+      "file": "Pyke-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0555/ability_0555_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Death From Below",
+      "file": "Pyke-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0555/ability_0555_R1.webm"
+    }
+  ],
+  "Sona": [
+    {
+      "key": "Q",
+      "name": "Hymn of Valor",
+      "file": "Sona-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0037/ability_0037_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Aria of Perseverance",
+      "file": "Sona-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0037/ability_0037_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Song of Celerity",
+      "file": "Sona-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0037/ability_0037_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Crescendo",
+      "file": "Sona-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0037/ability_0037_R1.webm"
+    }
+  ],
+  "Thresh": [
+    {
+      "key": "Q",
+      "name": "Death Sentence",
+      "file": "Thresh-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0412/ability_0412_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Dark Passage",
+      "file": "Thresh-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0412/ability_0412_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Flay",
+      "file": "Thresh-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0412/ability_0412_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "The Box",
+      "file": "Thresh-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0412/ability_0412_R1.webm"
+    }
+  ],
+  "Veigar": [
+    {
+      "key": "Q",
+      "name": "Baleful Strike",
+      "file": "Veigar-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0045/ability_0045_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Dark Matter",
+      "file": "Veigar-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0045/ability_0045_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Event Horizon",
+      "file": "Veigar-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0045/ability_0045_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Primordial Burst",
+      "file": "Veigar-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0045/ability_0045_R1.webm"
+    }
+  ],
+  "Yasuo": [
+    {
+      "key": "Q",
+      "name": "Steel Tempest",
+      "file": "Yasuo-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0157/ability_0157_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Wind Wall",
+      "file": "Yasuo-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0157/ability_0157_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Sweeping Blade",
+      "file": "Yasuo-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0157/ability_0157_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Last Breath",
+      "file": "Yasuo-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0157/ability_0157_R1.webm"
+    }
+  ],
+  "Zed": [
+    {
+      "key": "Q",
+      "name": "Razor Shuriken",
+      "file": "Zed-Q.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0238/ability_0238_Q1.webm"
+    },
+    {
+      "key": "W",
+      "name": "Living Shadow",
+      "file": "Zed-W.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0238/ability_0238_W1.webm"
+    },
+    {
+      "key": "E",
+      "name": "Shadow Slash",
+      "file": "Zed-E.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0238/ability_0238_E1.webm"
+    },
+    {
+      "key": "R",
+      "name": "Death Mark",
+      "file": "Zed-R.mp3",
+      "source": "https://d28xe8vt774jo5.cloudfront.net/champion-abilities/0238/ability_0238_R1.webm"
+    }
+  ]
+}

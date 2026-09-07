@@ -55,6 +55,7 @@ function buildContentSecurityPolicy(nonce: string): string {
     "style-src-attr 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
+    "media-src 'self' blob:",
     `connect-src ${connectSources.join(' ')}`,
     "frame-src https://challenges.cloudflare.com https://www.youtube.com",
     "form-action 'self'",

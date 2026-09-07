@@ -196,7 +196,17 @@ export default async function adsRoutes(fastify: any) {
     }
   });
 
-  // POST /api/ads/request-slot - Submit an ad slot request using one ad credit
+  fastify.get('/ads/my-requests', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+      const requests = await prisma.ad.findMany({ where: { createdBy: userId }, orderBy: { createdAt: 'desc' }, take: 20,
+        select: { id: true, title: true, isActive: true, endDate: true } });
+      return { requests };
+    } catch (error) { request.log.error(error); return reply.code(500).send({ error: 'Could not load your requests.' }); }
+  });
+
+  // Advertising inquiries are reviewed independently of PE.
   fastify.post('/ads/request-slot', async (request: any, reply: any) => {
     try {
       const userId = await getUserIdFromRequest(request, reply);
@@ -216,6 +226,9 @@ export default async function adsRoutes(fastify: any) {
       const normalizedImageUrl = String(imageUrl || '').trim();
       const normalizedTargetUrl = String(targetUrl || '').trim();
       const normalizedDescription = String(description || '').trim();
+      if (normalizedDescription.length > 500 || normalizedImageUrl.length > 2000 || normalizedTargetUrl.length > 2000) {
+        return reply.code(400).send({ error: 'Description or URL is too long.' });
+      }
 
       if (!normalizedTitle || normalizedTitle.length < 3 || normalizedTitle.length > 80) {
         return reply.code(400).send({ error: 'Title must be between 3 and 80 characters.' });
@@ -239,30 +252,25 @@ export default async function adsRoutes(fastify: any) {
 
       const requestedDays = Number(days);
       const durationDays = Number.isFinite(requestedDays) ? Math.max(1, Math.min(14, Math.round(requestedDays))) : 3;
-      const requiredCredits = durationDays;
+      const requiredCredits = 0;
       const startDate = new Date();
       const endDate = new Date(startDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
       const requestResult = await prisma.$transaction(async (tx: any) => {
+        await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
         const user = await tx.user.findUnique({
           where: { id: userId },
-          select: { adCredits: true, username: true },
+          select: { username: true },
         });
 
         if (!user) {
           throw new Error('User not found.');
         }
 
-        if ((user.adCredits || 0) < requiredCredits) {
-          throw new Error(`Need ${requiredCredits} adspace credits for ${durationDays} day(s).`);
-        }
-
-        await tx.user.update({
-          where: { id: userId },
-          data: {
-            adCredits: { decrement: requiredCredits },
-          },
-        });
+        const duplicate = await tx.ad.findFirst({ where: { createdBy: userId, isActive: false, title: normalizedTitle, targetUrl: normalizedTargetUrl } });
+        if (duplicate) return { ad: duplicate, requesterUsername: user.username, created: false };
+        const pendingCount = await tx.ad.count({ where: { createdBy: userId, isActive: false } });
+        if (pendingCount >= 3) throw new Error('You already have three requests awaiting review.');
 
         const ad = await tx.ad.create({
           data: {
@@ -277,6 +285,7 @@ export default async function adsRoutes(fastify: any) {
             priority: 0,
             isActive: false,
             createdBy: userId,
+            requestCreditsSpent: 0,
           },
           select: {
             id: true,
@@ -295,6 +304,7 @@ export default async function adsRoutes(fastify: any) {
         return {
           ad,
           requesterUsername: user.username,
+          created: true,
         };
       });
 
@@ -302,7 +312,7 @@ export default async function adsRoutes(fastify: any) {
       const regionLabel = targetRegions.length > 0 ? targetRegions.join(', ') : 'all regions';
 
       try {
-        await notifyAdminsAboutAdRequest({
+        if (requestResult.created) await notifyAdminsAboutAdRequest({
           adId: requestResult.ad.id,
           requesterId: userId,
           requesterUsername: requestResult.requesterUsername,
@@ -319,7 +329,7 @@ export default async function adsRoutes(fastify: any) {
         success: true,
         ad: requestResult.ad,
         creditsSpent: requiredCredits,
-        message: `Ad request sent for ${durationDays} day(s). ${requiredCredits} credit(s) were used. Staff review is required before it goes live.`,
+        message: 'Your advertising request is with the team. Placement and terms are confirmed separately; no PE was spent.',
       });
     } catch (error: any) {
       const message = typeof error?.message === 'string' ? error.message : null;
@@ -518,11 +528,11 @@ export default async function adsRoutes(fastify: any) {
       );
 
       const requests = ads
-        .filter((ad: any) => !creatorMap.get(ad.createdBy)?.isAdmin)
+        .filter((ad: any) => ad.requestCreditsSpent !== null || !creatorMap.get(ad.createdBy)?.isAdmin)
         .map((ad: any) => ({
           ...ad,
           requesterUsername: creatorMap.get(ad.createdBy)?.username || null,
-          requestedCredits: getRequestedAdCredits(ad.startDate, ad.endDate),
+          requestedCredits: ad.requestCreditsSpent ?? getRequestedAdCredits(ad.startDate, ad.endDate),
           impressionCount: ad._count.impressions,
           clickCount: ad._count.clicks,
           ctr: ad._count.impressions > 0
@@ -566,7 +576,7 @@ export default async function adsRoutes(fastify: any) {
         : null;
       const nextEndDate = nextDurationDays
         ? new Date(nextStartDate.getTime() + nextDurationDays * 24 * 60 * 60 * 1000)
-        : existing.endDate;
+        : new Date(nextStartDate.getTime() + getRequestedAdCredits(existing.startDate, existing.endDate) * MS_PER_DAY);
 
       const parsedPriority = Number(priority);
       const nextPriority = Number.isFinite(parsedPriority)
@@ -627,12 +637,14 @@ export default async function adsRoutes(fastify: any) {
         return reply.code(400).send({ error: 'Cannot reject an already active ad.' });
       }
 
-      const refundableCredits = getRequestedAdCredits(existing.startDate, existing.endDate);
+      const refundableCredits = existing.requestCreditsSpent ?? getRequestedAdCredits(existing.startDate, existing.endDate);
 
       await prisma.$transaction(async (tx: any) => {
-        await tx.ad.delete({ where: { id } });
+        // Conditional deletion fences simultaneous approval/rejection requests.
+        const removed = await tx.ad.deleteMany({ where: { id, isActive: false } });
+        if (!removed.count) throw new Error('This request has already been reviewed.');
 
-        if (refundCredit) {
+        if (refundCredit && refundableCredits > 0) {
           await tx.user.update({
             where: { id: existing.createdBy },
             data: {
@@ -645,7 +657,7 @@ export default async function adsRoutes(fastify: any) {
           data: {
             userId: existing.createdBy,
             type: 'ADMIN_TEST',
-            message: `[Ad Request Rejected] "${existing.title}" was not approved.${refundCredit ? ` ${refundableCredits} credit${refundableCredits === 1 ? '' : 's'} were refunded.` : ''}${reason ? ` Reason: ${String(reason).slice(0, 180)}` : ''}`,
+            message: `[Ad Request Rejected] "${existing.title}" was not approved.${refundCredit && refundableCredits > 0 ? ` ${refundableCredits} legacy credit${refundableCredits === 1 ? '' : 's'} were refunded.` : ''}${reason ? ` Reason: ${String(reason).slice(0, 180)}` : ''}`,
           },
         });
       });
@@ -657,7 +669,7 @@ export default async function adsRoutes(fastify: any) {
         details: { requestRejected: true, refundCredit, refundedCredits: refundCredit ? refundableCredits : 0, reason: reason || null },
       });
 
-      return reply.send({ success: true, refunded: Boolean(refundCredit), refundedCredits: refundCredit ? refundableCredits : 0 });
+      return reply.send({ success: true, refunded: Boolean(refundCredit && refundableCredits > 0), refundedCredits: refundCredit ? refundableCredits : 0 });
     } catch (error: any) {
       fastify.log.error(error);
       return reply.code(500).send({ error: 'Failed to reject ad request' });

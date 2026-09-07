@@ -54,9 +54,46 @@ jobs:
       - name: Build web app
         run: pnpm --filter @lfd/web build
 
+  economy-safety:
+    name: Verify economy transactions
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: economy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/economy_test
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/economy_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.22.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prisma generate --schema=prisma/schema.prisma
+      # This disposable database tests current schema/transactions, not the
+      # historical migration chain. Never run db push against production.
+      - run: pnpm exec prisma db push --schema=prisma/schema.prisma --skip-generate
+      - run: pnpm exec jest --runInBand --config jest.config.cjs --runTestsByPath apps/api/__tests__/dailyGames.test.ts apps/api/__tests__/economy.integration.test.ts
+
   container-build:
     name: Validate container images
-    needs: validate
+    needs: [validate, economy-safety]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:

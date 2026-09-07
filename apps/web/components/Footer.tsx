@@ -93,6 +93,16 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/advertise" className="text-sm hover:underline" style={{ color: 'var(--color-text-muted)' }}>
+                  Advertise
+                </Link>
+              </li>
+              <li>
+                <Link href="/games" className="text-sm hover:underline" style={{ color: 'var(--color-text-muted)' }}>
+                  Daily games
+                </Link>
+              </li>
+              <li>
                 <Link href="/riot" className="text-sm hover:underline" style={{ color: 'var(--color-text-muted)' }}>
                   Riot API Review
                 </Link>
