@@ -22,7 +22,9 @@ COPY package.json ./
 COPY apps/api/package.json ./apps/api/
 
 # install deps (only once, during build)
-RUN pnpm install --frozen-lockfile
+# Skip lifecycle scripts here; the source tree is not copied yet, and Prisma
+# generation is run explicitly after COPY.
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # copy the rest of the source
 COPY . .
