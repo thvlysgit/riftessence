@@ -114,6 +114,12 @@ export default function AdminDashboard() {
 
   const menuItems: MenuItem[] = [
     {
+      label: 'Game Suggestions',
+      href: '/admin/game-suggestions',
+      icon: '🎮',
+      description: 'Review new game ideas from the community',
+    },
+    {
       label: 'Badge Management',
       href: '/admin/badges',
       icon: '🎖️',

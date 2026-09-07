@@ -8,6 +8,7 @@ import EconomyLayout, {
   EconomyLoading,
 } from '../../components/economy/EconomyLayout';
 import { economyApi, GamesOverview, pe } from '../../utils/economy';
+import PuzzleCountdown from '../../components/economy/PuzzleCountdown';
 
 export default function GamesPage() {
   const { user } = useAuth();
@@ -25,7 +26,12 @@ export default function GamesPage() {
               ? `${pe(overview.data.earnedToday)} / ${pe(overview.data.dailyCap)} PE earned today`
               : 'Sign in to save your progress and earn PE.'}
           </span>
-          <span className="essence-muted essence-small">New puzzles at 00:00 UTC</span>
+          <PuzzleCountdown
+            resetAt={overview.data.resetAt}
+            onReset={() => {
+              void overview.refetch();
+            }}
+          />
         </div>
       ) : null}
       {[
@@ -69,7 +75,8 @@ export default function GamesPage() {
                   : 'Play today’s puzzle'}
               </Link>
               <p className="essence-small">
-                {state ? `${state.reward} PE for a daily solve · ` : ''}Practice rounds available
+                {state ? `Up to ${state.reward} PE for a daily solve · ` : ''}Practice rounds
+                available
               </p>
               <p className="essence-small">
                 Inspired by{' '}

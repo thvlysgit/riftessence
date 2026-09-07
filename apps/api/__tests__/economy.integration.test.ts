@@ -291,6 +291,77 @@ suite('PE economy against PostgreSQL', () => {
         .statusCode,
     ).toBe(409);
   });
+  test('Archive penalties persist, duplicate guesses are free, and the ledger pays the reduced reward once', async () => {
+    const user = await createUser();
+    const { id } = (await call(user, 'POST', '/games/archive/start', {})).json();
+    const answer = (await db.gameRound.findUnique({ where: { id } })).championId;
+    const wrong = answer === 'Ahri' ? 'Ashe' : 'Ahri';
+    await call(user, 'POST', `/games/rounds/${id}/guess`, { championId: wrong });
+    await call(user, 'POST', `/games/rounds/${id}/guess`, { championId: wrong });
+    expect((await call(user, 'POST', '/games/archive/start', {})).json().rewardAvailable).toBe(50);
+    const results = await Promise.all(
+      [1, 2].map(() => call(user, 'POST', `/games/rounds/${id}/guess`, { championId: answer })),
+    );
+    expect(results.map((r) => r.json().rewardPaid)).toEqual([50, 50]);
+    expect(
+      await db.walletTransaction.count({
+        where: { userId: user, type: 'GAME_REWARD', amount: 50 },
+      }),
+    ).toBe(1);
+  });
+  test('Soundcheck charges once per new ability even concurrently, persists across reloads, and preserves completed rewards', async () => {
+    const user = await createUser();
+    const { id } = (await call(user, 'POST', '/games/soundcheck/start', {})).json();
+    expect((await call(user, 'GET', `/games/rounds/${id}/audio/9`)).statusCode).toBe(400);
+    await Promise.all(
+      [0, 0, 1, 2].map((slot) => call(user, 'GET', `/games/rounds/${id}/audio/${slot}`)),
+    );
+    const resumed = (await call(user, 'POST', '/games/soundcheck/start', {})).json();
+    expect(resumed.listenedSlots.sort()).toEqual([0, 1, 2]);
+    expect(resumed.rewardAvailable).toBe(40);
+    const answer = (await db.gameRound.findUnique({ where: { id } })).championId;
+    await call(user, 'POST', `/games/rounds/${id}/guess`, {
+      championId: answer === 'Ahri' ? 'Ashe' : 'Ahri',
+    });
+    expect(
+      (await call(user, 'POST', `/games/rounds/${id}/guess`, { championId: answer })).json()
+        .rewardPaid,
+    ).toBe(40);
+    await call(user, 'GET', `/games/rounds/${id}/audio/3`);
+    expect((await call(user, 'POST', '/games/soundcheck/start', {})).json().rewardPaid).toBe(40);
+  });
+  test('game suggestions require auth, notify admins exactly once, and support an admin-only review queue', async () => {
+    const user = await createUser();
+    const input = { idea: 'A map guessing game with tiny screenshots of the Rift.' };
+    expect((await call(null, 'POST', '/games/suggestions', input)).statusCode).toBe(401);
+    expect((await call(user, 'POST', '/games/suggestions', { idea: ' ' })).statusCode).toBe(400);
+    const results = await Promise.all(
+      [1, 2].map(() => call(user, 'POST', '/games/suggestions', input)),
+    );
+    expect(results.map((r) => r.statusCode)).toEqual([201, 201]);
+    const id = results[0].json().id;
+    expect(results[1].json().id).toBe(id);
+    expect(
+      await db.notification.count({
+        where: { userId: admin, fromUserId: user, message: { startsWith: '[Game Suggestion]' } },
+      }),
+    ).toBe(1);
+    expect((await call(user, 'GET', '/games/admin/suggestions')).statusCode).toBe(403);
+    expect(
+      (await call(user, 'PUT', `/games/admin/suggestions/${id}`, { reviewed: true })).statusCode,
+    ).toBe(403);
+    expect((await call(admin, 'GET', '/games/admin/suggestions')).json().suggestions).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id, idea: input.idea })]),
+    );
+    expect(
+      (await call(admin, 'PUT', `/games/admin/suggestions/${id}`, { reviewed: true })).statusCode,
+    ).toBe(200);
+    expect(
+      (await call(admin, 'GET', '/games/admin/suggestions?reviewed=true')).json().suggestions,
+    ).toEqual(expect.arrayContaining([expect.objectContaining({ id, reviewedBy: admin })]));
+    await call(admin, 'PUT', `/games/admin/suggestions/${id}`, { reviewed: false });
+    expect((await db.gameSuggestion.findUnique({ where: { id } })).reviewedAt).toBeNull();
+  });
   test('admin reports work; settings reject non-admin, invalid values and stale edits', async () => {
     const user = await createUser();
     expect((await call(null, 'GET', '/wallet/admin/economy')).statusCode).toBe(401);
@@ -355,6 +426,8 @@ suite('PE economy against PostgreSQL', () => {
     const input = {
       title: 'Test community',
       description: 'Local test request',
+      discordContact: ' test.discord ',
+      specialRequests: 'Prefer weekends.\nCan we arrange a custom banner?',
       targetUrl: 'https://example.com',
       imageUrl: 'https://example.com/banner.png',
       days: 7,
@@ -367,6 +440,42 @@ suite('PE economy against PostgreSQL', () => {
     expect(await db.ad.count({ where: { createdBy: user } })).toBe(1);
     const ad = await db.ad.findFirst({ where: { createdBy: user } });
     expect(ad.requestCreditsSpent).toBe(0);
+    expect(ad.discordContact).toBe('test.discord');
+    expect(ad.specialRequests).toBe(input.specialRequests);
+    const requests = (await call(admin, 'GET', '/ads/admin/requests')).json().requests;
+    expect(requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: ad.id,
+          discordContact: 'test.discord',
+          specialRequests: input.specialRequests,
+        }),
+      ]),
+    );
+    const ownRequest = await call(admin, 'POST', '/ads/request-slot', {
+      ...input,
+      title: 'Admin submitted inquiry',
+    });
+    expect((await call(admin, 'GET', '/ads/admin/requests')).json().requests).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: ownRequest.json().ad.id })]),
+    );
+    expect((await call(user, 'GET', '/ads/admin/requests')).statusCode).toBe(403);
+    expect(
+      (
+        await call(user, 'POST', '/ads/request-slot', {
+          ...input,
+          specialRequests: 'x'.repeat(3001),
+        })
+      ).statusCode,
+    ).toBe(400);
+    await call(admin, 'POST', `/ads/admin/requests/${ownRequest.json().ad.id}/approve`, {});
+    const publicAds = (await call(null, 'GET', '/ads')).json().ads;
+    expect(publicAds.length).toBeGreaterThan(0);
+    expect(
+      publicAds.every(
+        (entry: any) => !('discordContact' in entry) && !('specialRequests' in entry),
+      ),
+    ).toBe(true);
     expect(
       (await call(admin, 'POST', `/ads/admin/requests/${ad.id}/reject`, {})).json().refundedCredits,
     ).toBe(0);

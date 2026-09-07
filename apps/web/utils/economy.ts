@@ -80,6 +80,8 @@ export type GameRound = {
   finished: boolean;
   won: boolean;
   rewardOffer: number;
+  rewardAvailable: number;
+  listenedSlots: number[];
   rewardPaid: number;
   maxGuesses: number;
   attempts: Guess[];

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useLanguage } from '../../contexts/LanguageContext';
+import GameSuggestionBanner from './GameSuggestionBanner';
 
 export default function EconomyLayout({
   title,
@@ -23,7 +24,7 @@ export default function EconomyLayout({
   return (
     <div className="essence-page">
       <Head>
-        <title>{title.replace(/\.$/, '')} | RiftEssence</title>
+        <title>{`${title.replace(/\.$/, '')} | RiftEssence`}</title>
       </Head>
       <nav className="essence-nav" aria-label={fr ? 'Prismatic Essence' : 'Prismatic Essence'}>
         <div className="essence-width">
@@ -52,6 +53,7 @@ export default function EconomyLayout({
         </div>
       </nav>
       <main className="essence-width essence-main">
+        {pathname.startsWith('/games') ? <GameSuggestionBanner /> : null}
         <header className="essence-heading">
           <div>
             <h1>{title}</h1>

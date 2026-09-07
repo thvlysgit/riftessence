@@ -212,7 +212,7 @@ export default async function adsRoutes(fastify: any) {
       const userId = await getUserIdFromRequest(request, reply);
       if (!userId) return;
 
-      const { title, description, imageUrl, targetUrl, feed, days, targetRegion } = request.body as {
+      const { title, description, imageUrl, targetUrl, feed, days, targetRegion, discordContact, specialRequests } = (request.body || {}) as {
         title?: string;
         description?: string;
         imageUrl?: string;
@@ -220,7 +220,18 @@ export default async function adsRoutes(fastify: any) {
         feed?: string;
         days?: number;
         targetRegion?: string;
+        discordContact?: string;
+        specialRequests?: string;
       };
+
+      if ((discordContact !== undefined && typeof discordContact !== 'string') || (specialRequests !== undefined && typeof specialRequests !== 'string')) {
+        return reply.code(400).send({ error: 'Discord contact and special requests must be text.' });
+      }
+      const normalizedDiscord = (discordContact || '').trim();
+      const normalizedRequests = (specialRequests || '').trim();
+      if (normalizedDiscord.length > 100 || normalizedRequests.length > 3000) {
+        return reply.code(400).send({ error: 'Discord contact must be at most 100 characters and special requests at most 3,000 characters.' });
+      }
 
       const normalizedTitle = String(title || '').trim();
       const normalizedImageUrl = String(imageUrl || '').trim();
@@ -260,7 +271,7 @@ export default async function adsRoutes(fastify: any) {
         await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
         const user = await tx.user.findUnique({
           where: { id: userId },
-          select: { username: true },
+          select: { username: true, discordAccount: { select: { username: true } } },
         });
 
         if (!user) {
@@ -286,6 +297,8 @@ export default async function adsRoutes(fastify: any) {
             isActive: false,
             createdBy: userId,
             requestCreditsSpent: 0,
+            discordContact: normalizedDiscord || user.discordAccount?.username || null,
+            specialRequests: normalizedRequests || null,
           },
           select: {
             id: true,

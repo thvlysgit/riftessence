@@ -7,10 +7,12 @@ import prisma from '../prisma';
 import { getUserIdFromRequest } from '../middleware/auth';
 import {
   EconomyError,
+  EconomyTx,
   economyFailure,
   nextReset,
   postEntry,
   readSettings,
+  requireEconomyAdmin,
   utcDay,
   withWallet,
 } from '../services/economy';
@@ -22,6 +24,7 @@ import {
   presentRound,
   selectAnswer,
   sounds,
+  roundReward,
 } from '../services/dailyGames';
 import catalog from '../data/game-catalog.json';
 
@@ -168,7 +171,7 @@ export default async function gameRoutes(app: FastifyInstance) {
               ? Math.max(
                   0,
                   Math.min(
-                    round.rewardOffer,
+                    roundReward(round, guesses.length),
                     settings.dailyGameCap - (earned._sum.rewardPaid || 0),
                   ),
                 )
@@ -215,6 +218,20 @@ export default async function gameRoutes(app: FastifyInstance) {
         const clip = sounds[round.championId]?.[slot];
         if (!clip) throw new EconomyError('This ability clip is unavailable.', 404);
         const audio = await readFile(path.resolve(__dirname, '../../assets/soundcheck', clip.file));
+        // Use the same lock as guesses so concurrent listening and solving cannot
+        // bypass the penalty. Replays and completed rounds never reduce rewards.
+        await withWallet(userId, async (tx) => {
+          const current = await tx.gameRound.findFirst({ where: { id: round.id, userId } });
+          if (!current) throw new EconomyError('Puzzle not found.', 404);
+          if (current.finished) return;
+          if (!current.day.startsWith('practice:') && current.day !== utcDay())
+            throw new EconomyError('This daily puzzle has ended. Open today’s puzzle.', 409);
+          if (!current.listenedSlots.includes(slot))
+            await tx.gameRound.update({
+              where: { id: current.id },
+              data: { listenedSlots: { push: slot } },
+            });
+        });
         // Serve only audio bytes under an opaque round/slot URL. Never redirect to
         // a champion-named source or expose video frames / title metadata.
         return reply.header('Cache-Control', 'private, no-store').type('audio/mpeg').send(audio);
@@ -223,4 +240,98 @@ export default async function gameRoutes(app: FastifyInstance) {
       }
     },
   );
+
+  app.post('/games/suggestions', async (request, reply) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+      const { idea } = z.object({ idea: z.string().trim().min(10).max(3000) }).parse(request.body);
+      const suggestion = await prisma.$transaction(async (tx: EconomyTx) => {
+        await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+        const duplicate = await tx.gameSuggestion.findFirst({
+          where: { userId, idea, reviewed: false },
+        });
+        if (duplicate) return duplicate;
+        const count = await tx.gameSuggestion.count({
+          where: { userId, createdAt: { gte: new Date(Date.now() - 86400000) } },
+        });
+        if (count >= 5)
+          throw new EconomyError(
+            'You can send up to five game ideas per day. Please try again tomorrow.',
+            429,
+          );
+        const created = await tx.gameSuggestion.create({ data: { userId, idea } });
+        const admins = await tx.user.findMany({
+          where: { badges: { some: { key: 'admin' } } },
+          select: { id: true },
+        });
+        if (admins.length)
+          await tx.notification.createMany({
+            data: admins.map((admin) => ({
+              userId: admin.id,
+              fromUserId: userId,
+              type: 'ADMIN_TEST' as const,
+              message: `[Game Suggestion] A new game idea is ready to review: ${idea.slice(
+                0,
+                160,
+              )}`,
+            })),
+          });
+        return created;
+      });
+      return reply.code(201).send({ id: suggestion.id });
+    } catch (error) {
+      return economyFailure(request, reply, error);
+    }
+  });
+
+  app.get('/games/admin/suggestions', async (request, reply) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+      await requireEconomyAdmin(userId);
+      const { reviewed, page } = z
+        .object({
+          reviewed: z.enum(['true', 'false']).default('false'),
+          page: z.coerce.number().int().min(1).default(1),
+        })
+        .parse(request.query);
+      const where = { reviewed: reviewed === 'true' };
+      const [suggestions, total] = await Promise.all([
+        prisma.gameSuggestion.findMany({
+          where,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          skip: (page - 1) * 25,
+          take: 25,
+          include: { user: { select: { username: true } } },
+        }),
+        prisma.gameSuggestion.count({ where }),
+      ]);
+      reply.header('Cache-Control', 'private, no-store');
+      return { suggestions, total };
+    } catch (error) {
+      return economyFailure(request, reply, error);
+    }
+  });
+
+  app.put<{ Params: { id: string } }>('/games/admin/suggestions/:id', async (request, reply) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+      await requireEconomyAdmin(userId);
+      const { reviewed } = z.object({ reviewed: z.boolean() }).parse(request.body);
+      const result = await prisma.gameSuggestion.updateMany({
+        where: { id: request.params.id },
+        data: {
+          reviewed,
+          reviewedBy: reviewed ? userId : null,
+          reviewedAt: reviewed ? new Date() : null,
+        },
+      });
+      if (!result.count) throw new EconomyError('Suggestion not found.', 404);
+      return { success: true };
+    } catch (error) {
+      return economyFailure(request, reply, error);
+    }
+  });
 }

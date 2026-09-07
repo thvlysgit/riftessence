@@ -36,6 +36,8 @@ type Ad = {
 };
 
 type AdRequest = {
+  discordContact?: string | null;
+  specialRequests?: string | null;
   id: string;
   title: string;
   description: string | null;
@@ -77,6 +79,9 @@ export default function AdsManagementPage() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<'managed' | 'requests'>('managed');
+  useEffect(() => {
+    if (router.isReady && router.query.tab === 'requests') setActiveTab('requests');
+  }, [router.isReady, router.query.tab]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
 
@@ -158,11 +163,11 @@ export default function AdsManagementPage() {
     try {
       const res = await fetch(`${API_URL}/api/ads/admin/requests`, {
         headers: getAuthHeader(),
+        credentials: 'include',
       });
-      if (res.ok) {
-        const data = await res.json();
-        setRequests(data.requests || []);
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load ad requests');
+      setRequests(data.requests || []);
     } catch (err) {
       console.error('Failed to load ad requests:', err);
       showToast('Failed to load ad requests', 'error');
@@ -678,6 +683,8 @@ export default function AdsManagementPage() {
                             <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                               Requested by: {requestAd.requesterUsername || 'Unknown'} • {new Date(requestAd.createdAt).toLocaleString()}
                             </p>
+                            <p className="text-sm mt-3 break-words" style={{ color: 'var(--color-text-primary)' }}><strong>Discord:</strong> {requestAd.discordContact || 'Not provided'}</p>
+                            {requestAd.specialRequests ? <div className="mt-3 text-sm" style={{ color: 'var(--color-text-primary)' }}><strong>Special requests</strong><p className="whitespace-pre-wrap break-words mt-1">{requestAd.specialRequests}</p></div> : null}
                           </div>
                           <span className="px-3 py-1 rounded-full text-xs font-semibold" style={{ background: 'rgba(251,191,36,0.2)', color: '#fbbf24' }}>
                             Pending Review

@@ -21,7 +21,7 @@ Existing starter grants are not reissued. Positive legacy RiftCoins convert 1:1 
 
 ## Games and attribution
 
-- `/games/archive`: six guesses using role, resource, attack range and difficulty clues. Inspired by [LoLdle](https://loldle.net/), credited in-game.
+- `/games/archive`: six guesses using role, resource, attack range and skin-count clues (excluding the base appearance). Inspired by [LoLdle](https://loldle.net/), credited in-game. Each guess after the first reduces the offered reward by 10 PE.
 - `/games/soundcheck`: guess a champion from their actual Q/W/E/R ability sounds, not music or voice lines. Inspired by [League of Listen by Lynge](https://lynge.tv/listen/), credited in-game. Initial curated pool: 26 champions, 104 audio clips.
 - Champion data/artwork and ability demonstration audio originate from Riot Games. The game implementations are independent; neither original game's code or recordings were copied. Third-party assets are not covered by this repository's software license. See `apps/api/assets/soundcheck/README.md`.
 
@@ -29,7 +29,9 @@ Each daily game is persisted once per account/game/UTC date. The daily answer is
 
 The browser never decides whether an answer is correct or how much to award. It receives champion choices, prior guesses and comparisons, not an unfinished round's answer. Audio is authenticated, served as stripped audio-only MP3 bytes under opaque round/slot URLs, and marked private/no-store; source filenames and champion-specific ability names are withheld until completion. Like any daily puzzle, answers can still be shared between players. Rewards are capped, not claimed to be cheat-proof.
 
-Round rewards are offered when the round starts. Changing reward values affects new rounds. The current cap and pause switch apply when awarding every win, including an already-started round. Practice, failed rounds, expired daily rounds and repeated submissions never award PE. Pausing rewards leaves games playable.
+Round base rewards are offered when the round starts. Changing reward values affects new rounds. Soundcheck records distinct ability slots when audio is served; each additional slot after the first reduces the offered reward by 10 PE. Replays and additional Soundcheck guesses are free. Deductions have a zero floor, persist across refreshes, and use the same transaction lock as guesses. Completed rewards are unchanged by subsequent listening. The current cap and pause switch apply when awarding every win, including an already-started round. Practice, failed rounds, expired daily rounds and repeated submissions never award PE. Pausing rewards leaves games playable.
+
+Game pages display a countdown to the next UTC reset and links to another game after completion. Their suggestion banner accepts a free-form idea from signed-in users (10–3,000 characters, up to five submissions per rolling day). Suggestions and in-app admin notifications commit together; identical pending ideas are deduplicated. Admins review, mark reviewed, or reopen ideas at `/admin/game-suggestions`.
 
 To refresh assets, with Node and FFmpeg available:
 
@@ -50,6 +52,8 @@ Admins can inspect circulation, period earnings/spending, daily flows, sources/s
 
 ## Advertising
 
+The request form strongly encourages a Discord username, especially for accounts without linked Discord. If the contact is blank, the API uses the linked Discord username when available. Contact details and free-form special requests are stored for staff review and excluded from public ad responses. Admin notifications link directly to `/admin/ads?tab=requests`.
+
 `/advertise` is linked from the footer. Submitting an inquiry consumes neither PE nor legacy ad credits. At most three requests may await review; an identical pending title/destination returns the existing inquiry without notifying admins again. Staff review remains at `/admin/ads`; publishing terms must be agreed separately. There is no checkout or invented advertising price in this change.
 
 New requests record `requestCreditsSpent = 0`. Existing requests retain null and retain the old duration-based credit refund behavior if rejected. Existing unused credits are preserved for staff reconciliation, not deleted or converted. `/adspace` redirects to `/advertise`; `/purse/gamble` redirects to `/games`. Old PE wagering/cache/advertising-purchase API routes return 410.
@@ -59,6 +63,7 @@ New requests record `requestCreditsSpent = 0`. Existing requests retain null and
 1. Back up the application database and review its migration status.
 2. Apply `20260907010000_pe_daily_games` via the normal `prisma migrate deploy` workflow before serving the new API. Generate the Prisma client at build time. The migration preserves balances and ownership; its nonnegative-balance constraint is `NOT VALID` so it checks new writes without silently rewriting historical inconsistencies.
 3. Rebuild API and web together. Existing API images bundle the audio files. No credentials beyond the existing database/JWT configuration are required for games.
+   Apply `20260907120000_game_feedback_and_rewards` before deploying the corresponding game and advertising changes; it adds listening history, game suggestions, and staff-only ad request fields.
 4. Check the economy dashboard and make any deliberate reward adjustments with an audit reason.
 
 **Historical migration caveat:** replaying this repository's complete migration chain onto an empty database currently fails in pre-existing `0003_update_notification_system`, which references `Notification` before it exists. This change does not rewrite applied historical migrations. The new migration was separately verified against a schema generated from the preceding revision, with seeded legacy balance, counters, ownership and credits. Resolve fresh-install baselining separately; do not reset or `db push` a live database.

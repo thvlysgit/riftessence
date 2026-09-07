@@ -10,7 +10,7 @@
       ],
       "resource": "Blood Well",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 40,
       "abilities": []
     },
     {
@@ -23,7 +23,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 5,
+      "skinCount": 94,
       "abilities": [
         {
           "key": "Q",
@@ -56,7 +56,7 @@
       ],
       "resource": "Energy",
       "range": "Melee",
-      "difficulty": 7,
+      "skinCount": 100,
       "abilities": []
     },
     {
@@ -69,7 +69,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 0,
+      "skinCount": 20,
       "abilities": []
     },
     {
@@ -82,7 +82,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 7,
+      "skinCount": 45,
       "abilities": []
     },
     {
@@ -95,7 +95,7 @@
       ],
       "resource": "Energy",
       "range": "Melee",
-      "difficulty": 10,
+      "skinCount": 7,
       "abilities": []
     },
     {
@@ -108,7 +108,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 3,
+      "skinCount": 61,
       "abilities": []
     },
     {
@@ -120,7 +120,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 10,
+      "skinCount": 54,
       "abilities": []
     },
     {
@@ -133,7 +133,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 58,
       "abilities": []
     },
     {
@@ -145,7 +145,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 10,
+      "skinCount": 39,
       "abilities": []
     },
     {
@@ -158,7 +158,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 4,
+      "skinCount": 92,
       "abilities": [
         {
           "key": "Q",
@@ -191,7 +191,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 7,
+      "skinCount": 37,
       "abilities": []
     },
     {
@@ -204,7 +204,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 5,
+      "skinCount": 19,
       "abilities": []
     },
     {
@@ -217,7 +217,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 9,
+      "skinCount": 27,
       "abilities": []
     },
     {
@@ -230,7 +230,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 9,
+      "skinCount": 45,
       "abilities": []
     },
     {
@@ -242,7 +242,7 @@
       ],
       "resource": "",
       "range": "Melee",
-      "difficulty": 10,
+      "skinCount": 28,
       "abilities": []
     },
     {
@@ -255,7 +255,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 73,
       "abilities": [
         {
           "key": "Q",
@@ -289,7 +289,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 4,
+      "skinCount": 52,
       "abilities": [
         {
           "key": "Q",
@@ -323,7 +323,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 3,
+      "skinCount": 60,
       "abilities": []
     },
     {
@@ -336,7 +336,7 @@
       ],
       "resource": "Fury",
       "range": "Melee",
-      "difficulty": 3,
+      "skinCount": 28,
       "abilities": []
     },
     {
@@ -348,7 +348,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 62,
       "abilities": [
         {
           "key": "Q",
@@ -382,7 +382,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 52,
       "abilities": []
     },
     {
@@ -394,7 +394,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 10,
+      "skinCount": 37,
       "abilities": []
     },
     {
@@ -407,7 +407,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 41,
       "abilities": []
     },
     {
@@ -420,7 +420,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 44,
       "abilities": []
     },
     {
@@ -433,7 +433,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 2,
+      "skinCount": 72,
       "abilities": [
         {
           "key": "Q",
@@ -467,7 +467,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 74,
       "abilities": []
     },
     {
@@ -479,7 +479,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 8,
+      "skinCount": 77,
       "abilities": [
         {
           "key": "Q",
@@ -513,7 +513,7 @@
       ],
       "resource": "None",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 29,
       "abilities": []
     },
     {
@@ -526,7 +526,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 8,
+      "skinCount": 58,
       "abilities": []
     },
     {
@@ -539,7 +539,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 9,
+      "skinCount": 35,
       "abilities": []
     },
     {
@@ -552,7 +552,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 10,
+      "skinCount": 64,
       "abilities": []
     },
     {
@@ -565,7 +565,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 7,
+      "skinCount": 74,
       "abilities": [
         {
           "key": "Q",
@@ -599,7 +599,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 9,
+      "skinCount": 54,
       "abilities": [
         {
           "key": "Q",
@@ -633,7 +633,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 3,
+      "skinCount": 99,
       "abilities": []
     },
     {
@@ -646,7 +646,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 6,
+      "skinCount": 43,
       "abilities": []
     },
     {
@@ -659,7 +659,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 46,
       "abilities": []
     },
     {
@@ -671,7 +671,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 9,
+      "skinCount": 41,
       "abilities": []
     },
     {
@@ -684,7 +684,7 @@
       ],
       "resource": "None",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 53,
       "abilities": [
         {
           "key": "Q",
@@ -718,7 +718,7 @@
       ],
       "resource": "Rage",
       "range": "Melee",
-      "difficulty": 8,
+      "skinCount": 43,
       "abilities": []
     },
     {
@@ -731,7 +731,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 47,
       "abilities": []
     },
     {
@@ -743,7 +743,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 3,
+      "skinCount": 53,
       "abilities": []
     },
     {
@@ -755,7 +755,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 47,
       "abilities": []
     },
     {
@@ -768,7 +768,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 6,
+      "skinCount": 49,
       "abilities": []
     },
     {
@@ -781,7 +781,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 8,
+      "skinCount": 26,
       "abilities": []
     },
     {
@@ -794,7 +794,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 9,
+      "skinCount": 20,
       "abilities": []
     },
     {
@@ -807,7 +807,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 36,
       "abilities": []
     },
     {
@@ -820,7 +820,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 62,
       "abilities": []
     },
     {
@@ -833,7 +833,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 7,
+      "skinCount": 38,
       "abilities": []
     },
     {
@@ -846,7 +846,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 7,
+      "skinCount": 66,
       "abilities": []
     },
     {
@@ -859,7 +859,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 54,
       "abilities": []
     },
     {
@@ -871,7 +871,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 41,
       "abilities": []
     },
     {
@@ -884,7 +884,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 7,
+      "skinCount": 46,
       "abilities": []
     },
     {
@@ -897,7 +897,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 53,
       "abilities": [
         {
           "key": "Q",
@@ -930,7 +930,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 63,
       "abilities": [
         {
           "key": "Q",
@@ -964,7 +964,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 77,
       "abilities": []
     },
     {
@@ -976,7 +976,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 7,
+      "skinCount": 32,
       "abilities": []
     },
     {
@@ -989,7 +989,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 5,
+      "skinCount": 75,
       "abilities": []
     },
     {
@@ -1001,7 +1001,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 7,
+      "skinCount": 43,
       "abilities": []
     },
     {
@@ -1014,7 +1014,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 8,
+      "skinCount": 31,
       "abilities": []
     },
     {
@@ -1027,7 +1027,7 @@
       ],
       "resource": "None",
       "range": "Melee",
-      "difficulty": 8,
+      "skinCount": 77,
       "abilities": []
     },
     {
@@ -1040,7 +1040,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 7,
+      "skinCount": 87,
       "abilities": []
     },
     {
@@ -1053,7 +1053,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 8,
+      "skinCount": 30,
       "abilities": []
     },
     {
@@ -1065,7 +1065,7 @@
       ],
       "resource": "Energy",
       "range": "Ranged",
-      "difficulty": 4,
+      "skinCount": 33,
       "abilities": []
     },
     {
@@ -1077,7 +1077,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 6,
+      "skinCount": 57,
       "abilities": []
     },
     {
@@ -1089,7 +1089,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 4,
+      "skinCount": 43,
       "abilities": []
     },
     {
@@ -1101,7 +1101,7 @@
       ],
       "resource": "Courage",
       "range": "Melee",
-      "difficulty": 7,
+      "skinCount": 26,
       "abilities": []
     },
     {
@@ -1114,7 +1114,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 64,
       "abilities": []
     },
     {
@@ -1127,7 +1127,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 9,
+      "skinCount": 17,
       "abilities": []
     },
     {
@@ -1140,7 +1140,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 9,
+      "skinCount": 58,
       "abilities": []
     },
     {
@@ -1153,7 +1153,7 @@
       ],
       "resource": "Energy",
       "range": "Melee",
-      "difficulty": 6,
+      "skinCount": 78,
       "abilities": [
         {
           "key": "Q",
@@ -1187,7 +1187,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 63,
       "abilities": [
         {
           "key": "Q",
@@ -1221,7 +1221,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 8,
+      "skinCount": 52,
       "abilities": []
     },
     {
@@ -1233,7 +1233,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 51,
       "abilities": []
     },
     {
@@ -1246,7 +1246,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 72,
       "abilities": []
     },
     {
@@ -1259,7 +1259,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 5,
+      "skinCount": 55,
       "abilities": []
     },
     {
@@ -1272,7 +1272,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 5,
+      "skinCount": 80,
       "abilities": [
         {
           "key": "Q",
@@ -1306,7 +1306,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 2,
+      "skinCount": 56,
       "abilities": [
         {
           "key": "Q",
@@ -1339,7 +1339,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 57,
       "abilities": []
     },
     {
@@ -1352,7 +1352,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 3,
+      "skinCount": 35,
       "abilities": []
     },
     {
@@ -1365,7 +1365,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 89,
       "abilities": []
     },
     {
@@ -1378,7 +1378,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 5,
+      "skinCount": 11,
       "abilities": []
     },
     {
@@ -1391,7 +1391,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 5,
+      "skinCount": 28,
       "abilities": []
     },
     {
@@ -1404,7 +1404,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 1,
+      "skinCount": 68,
       "abilities": []
     },
     {
@@ -1417,7 +1417,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 3,
+      "skinCount": 35,
       "abilities": []
     },
     {
@@ -1430,7 +1430,7 @@
       ],
       "resource": "Shield",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 56,
       "abilities": []
     },
     {
@@ -1443,7 +1443,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 1,
+      "skinCount": 81,
       "abilities": [
         {
           "key": "Q",
@@ -1477,7 +1477,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 2,
+      "skinCount": 37,
       "abilities": []
     },
     {
@@ -1490,7 +1490,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 5,
+      "skinCount": 67,
       "abilities": [
         {
           "key": "Q",
@@ -1524,7 +1524,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 6,
+      "skinCount": 62,
       "abilities": []
     },
     {
@@ -1537,7 +1537,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 6,
+      "skinCount": 45,
       "abilities": [
         {
           "key": "Q",
@@ -1571,7 +1571,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 5,
+      "skinCount": 49,
       "abilities": []
     },
     {
@@ -1584,7 +1584,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 8,
+      "skinCount": 66,
       "abilities": []
     },
     {
@@ -1597,7 +1597,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 10,
+      "skinCount": 29,
       "abilities": []
     },
     {
@@ -1610,7 +1610,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 35,
       "abilities": []
     },
     {
@@ -1623,7 +1623,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 53,
       "abilities": []
     },
     {
@@ -1636,7 +1636,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 3,
+      "skinCount": 52,
       "abilities": []
     },
     {
@@ -1649,7 +1649,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 7,
+      "skinCount": 39,
       "abilities": [
         {
           "key": "Q",
@@ -1682,7 +1682,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 37,
       "abilities": []
     },
     {
@@ -1695,7 +1695,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 46,
       "abilities": []
     },
     {
@@ -1708,7 +1708,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 6,
+      "skinCount": 50,
       "abilities": []
     },
     {
@@ -1721,7 +1721,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 7,
+      "skinCount": 84,
       "abilities": [
         {
           "key": "Q",
@@ -1754,7 +1754,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 8,
+      "skinCount": 50,
       "abilities": []
     },
     {
@@ -1767,7 +1767,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 5,
+      "skinCount": 32,
       "abilities": []
     },
     {
@@ -1779,7 +1779,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 5,
+      "skinCount": 57,
       "abilities": []
     },
     {
@@ -1791,7 +1791,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 34,
       "abilities": []
     },
     {
@@ -1804,7 +1804,7 @@
       ],
       "resource": "Rage",
       "range": "Melee",
-      "difficulty": 3,
+      "skinCount": 35,
       "abilities": []
     },
     {
@@ -1817,7 +1817,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 0,
+      "skinCount": 30,
       "abilities": []
     },
     {
@@ -1830,7 +1830,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 8,
+      "skinCount": 31,
       "abilities": []
     },
     {
@@ -1843,7 +1843,7 @@
       ],
       "resource": "Fury",
       "range": "Melee",
-      "difficulty": 3,
+      "skinCount": 56,
       "abilities": []
     },
     {
@@ -1856,7 +1856,7 @@
       ],
       "resource": "Ferocity",
       "range": "Melee",
-      "difficulty": 8,
+      "skinCount": 48,
       "abilities": []
     },
     {
@@ -1869,7 +1869,7 @@
       ],
       "resource": "None",
       "range": "Melee",
-      "difficulty": 8,
+      "skinCount": 72,
       "abilities": []
     },
     {
@@ -1882,7 +1882,7 @@
       ],
       "resource": "Heat",
       "range": "Melee",
-      "difficulty": 10,
+      "skinCount": 31,
       "abilities": []
     },
     {
@@ -1894,7 +1894,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 7,
+      "skinCount": 38,
       "abilities": []
     },
     {
@@ -1907,7 +1907,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 41,
       "abilities": []
     },
     {
@@ -1919,7 +1919,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 56,
       "abilities": []
     },
     {
@@ -1932,7 +1932,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 7,
+      "skinCount": 79,
       "abilities": []
     },
     {
@@ -1945,7 +1945,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 0,
+      "skinCount": 67,
       "abilities": []
     },
     {
@@ -1958,7 +1958,7 @@
       ],
       "resource": "Grit",
       "range": "Melee",
-      "difficulty": 2,
+      "skinCount": 75,
       "abilities": []
     },
     {
@@ -1970,7 +1970,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 9,
+      "skinCount": 72,
       "abilities": []
     },
     {
@@ -1982,7 +1982,7 @@
       ],
       "resource": "Energy",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 52,
       "abilities": []
     },
     {
@@ -1995,7 +1995,7 @@
       ],
       "resource": "Fury",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 25,
       "abilities": []
     },
     {
@@ -2008,7 +2008,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 28,
       "abilities": []
     },
     {
@@ -2021,7 +2021,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 49,
       "abilities": []
     },
     {
@@ -2033,7 +2033,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 4,
+      "skinCount": 80,
       "abilities": []
     },
     {
@@ -2046,7 +2046,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 14,
       "abilities": []
     },
     {
@@ -2059,7 +2059,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 19,
       "abilities": []
     },
     {
@@ -2072,7 +2072,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 4,
+      "skinCount": 76,
       "abilities": [
         {
           "key": "Q",
@@ -2106,7 +2106,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 3,
+      "skinCount": 62,
       "abilities": []
     },
     {
@@ -2119,7 +2119,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 8,
+      "skinCount": 50,
       "abilities": []
     },
     {
@@ -2132,7 +2132,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 53,
       "abilities": []
     },
     {
@@ -2144,7 +2144,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 8,
+      "skinCount": 73,
       "abilities": []
     },
     {
@@ -2157,7 +2157,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 46,
       "abilities": []
     },
     {
@@ -2170,7 +2170,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 5,
+      "skinCount": 24,
       "abilities": []
     },
     {
@@ -2182,7 +2182,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 7,
+      "skinCount": 59,
       "abilities": []
     },
     {
@@ -2195,7 +2195,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 3,
+      "skinCount": 35,
       "abilities": []
     },
     {
@@ -2208,7 +2208,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 62,
       "abilities": []
     },
     {
@@ -2221,7 +2221,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 7,
+      "skinCount": 67,
       "abilities": [
         {
           "key": "Q",
@@ -2255,7 +2255,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 4,
+      "skinCount": 78,
       "abilities": []
     },
     {
@@ -2268,7 +2268,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 29,
       "abilities": []
     },
     {
@@ -2281,7 +2281,7 @@
       ],
       "resource": "Fury",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 46,
       "abilities": []
     },
     {
@@ -2294,7 +2294,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 9,
+      "skinCount": 53,
       "abilities": []
     },
     {
@@ -2307,7 +2307,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 58,
       "abilities": []
     },
     {
@@ -2320,7 +2320,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 7,
+      "skinCount": 11,
       "abilities": []
     },
     {
@@ -2333,7 +2333,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 8,
+      "skinCount": 40,
       "abilities": []
     },
     {
@@ -2346,7 +2346,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 2,
+      "skinCount": 70,
       "abilities": []
     },
     {
@@ -2359,7 +2359,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 8,
+      "skinCount": 73,
       "abilities": []
     },
     {
@@ -2371,7 +2371,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 7,
+      "skinCount": 66,
       "abilities": [
         {
           "key": "Q",
@@ -2405,7 +2405,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 8,
+      "skinCount": 28,
       "abilities": []
     },
     {
@@ -2417,7 +2417,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 0,
+      "skinCount": 37,
       "abilities": []
     },
     {
@@ -2430,7 +2430,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 4,
+      "skinCount": 50,
       "abilities": []
     },
     {
@@ -2443,7 +2443,7 @@
       ],
       "resource": "None",
       "range": "Melee",
-      "difficulty": 5,
+      "skinCount": 42,
       "abilities": []
     },
     {
@@ -2455,7 +2455,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 9,
+      "skinCount": 33,
       "abilities": []
     },
     {
@@ -2468,7 +2468,7 @@
       ],
       "resource": "Crimson Rush",
       "range": "Ranged",
-      "difficulty": 7,
+      "skinCount": 57,
       "abilities": []
     },
     {
@@ -2481,7 +2481,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 3,
+      "skinCount": 36,
       "abilities": []
     },
     {
@@ -2494,7 +2494,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 3,
+      "skinCount": 60,
       "abilities": []
     },
     {
@@ -2506,7 +2506,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 5,
+      "skinCount": 64,
       "abilities": []
     },
     {
@@ -2519,7 +2519,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 8,
+      "skinCount": 32,
       "abilities": []
     },
     {
@@ -2532,7 +2532,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 2,
+      "skinCount": 51,
       "abilities": []
     },
     {
@@ -2545,7 +2545,7 @@
       ],
       "resource": "Flow",
       "range": "Melee",
-      "difficulty": 10,
+      "skinCount": 96,
       "abilities": [
         {
           "key": "Q",
@@ -2579,7 +2579,7 @@
       ],
       "resource": "Flow",
       "range": "Melee",
-      "difficulty": 8,
+      "skinCount": 75,
       "abilities": []
     },
     {
@@ -2592,7 +2592,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 6,
+      "skinCount": 58,
       "abilities": []
     },
     {
@@ -2604,7 +2604,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 4,
+      "skinCount": 9,
       "abilities": []
     },
     {
@@ -2617,7 +2617,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 2,
+      "skinCount": 78,
       "abilities": []
     },
     {
@@ -2630,7 +2630,7 @@
       ],
       "resource": "Mana",
       "range": "Melee",
-      "difficulty": 2,
+      "skinCount": 9,
       "abilities": []
     },
     {
@@ -2643,7 +2643,7 @@
       ],
       "resource": "None",
       "range": "Melee",
-      "difficulty": 8,
+      "skinCount": 41,
       "abilities": []
     },
     {
@@ -2655,7 +2655,7 @@
       ],
       "resource": "Energy",
       "range": "Melee",
-      "difficulty": 7,
+      "skinCount": 70,
       "abilities": [
         {
           "key": "Q",
@@ -2688,7 +2688,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 46,
       "abilities": []
     },
     {
@@ -2700,7 +2700,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 4,
+      "skinCount": 51,
       "abilities": []
     },
     {
@@ -2713,7 +2713,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 6,
+      "skinCount": 32,
       "abilities": []
     },
     {
@@ -2725,7 +2725,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 5,
+      "skinCount": 44,
       "abilities": []
     },
     {
@@ -2738,7 +2738,7 @@
       ],
       "resource": "Mana",
       "range": "Ranged",
-      "difficulty": 7,
+      "skinCount": 73,
       "abilities": []
     }
   ]

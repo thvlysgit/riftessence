@@ -83,6 +83,31 @@ export default function AdvertisePage() {
             <form onSubmit={submit} className="essence-panel">
               <h2>Tell us about your project</h2>
               <div className="essence-form-grid">
+                <div className="essence-field full essence-notice">
+                  <strong>Discord is the best way to arrange your ad.</strong>
+                  <p>
+                    {user.discordLinked
+                      ? 'We can follow up using your linked Discord. Please confirm the username below, or give us another contact.'
+                      : 'You haven’t linked Discord yet. We strongly recommend leaving your Discord username so the team can quickly discuss your request and placement.'}
+                  </p>
+                  {!user.discordLinked ? (
+                    <Link href="/settings">You can also link Discord in settings →</Link>
+                  ) : null}
+                </div>
+                <label className="essence-field full">
+                  Discord username (strongly recommended)
+                  <input
+                    className="essence-input"
+                    name="discordContact"
+                    maxLength={100}
+                    defaultValue={user.discordUsername || ''}
+                    placeholder="Your Discord username"
+                    aria-describedby="ad-discord-help"
+                  />
+                  <span id="ad-discord-help" className="essence-muted essence-small">
+                    Only staff can see this contact. Optional, but it helps us follow up faster.
+                  </span>
+                </label>
                 <label className="essence-field full">
                   Campaign title
                   <input
@@ -154,6 +179,19 @@ export default function AdvertisePage() {
                   </select>
                 </label>
               </div>
+              <label className="essence-field" style={{ marginTop: 20 }}>
+                Special requests (optional)
+                <textarea
+                  className="essence-input"
+                  name="specialRequests"
+                  rows={5}
+                  maxLength={3000}
+                  placeholder="Preferred dates, custom placements, creative ideas, questions, or anything else you’d like us to consider…"
+                />
+                <span className="essence-muted essence-small">
+                  Share freely — these notes are for staff and won’t appear in your ad.
+                </span>
+              </label>
               <div className="essence-form-actions">
                 <button className="essence-button" disabled={busy}>
                   {busy ? 'Sending…' : 'Send request'}

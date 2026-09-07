@@ -666,22 +666,43 @@
   height: 32px;
 }
 .essence-audio-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: min(350px, 100%);
   gap: 10px;
 }
-.essence-audio-tabs button {
-  min-width: 80px;
+.essence-page .essence-audio-tabs button.essence-button {
+  min-width: 0;
+  padding-inline: 8px;
+  height: 48px;
+  background: transparent;
+  color: var(--ep-text);
+  border-color: var(--ep-line);
+  transform: none;
+  box-shadow: none;
 }
-.essence-audio-tabs button[aria-pressed='true'] {
+.essence-page .essence-audio-tabs button.essence-button[aria-pressed='true'] {
   background: var(--ep-gold);
   color: var(--ep-bg);
 }
 .essence-sound-stage audio {
-  width: min(440px, 100%);
+  width: 100%;
+  max-width: 100%;
   color-scheme: dark;
 }
+.essence-audio-control {
+  width: min(440px, 100%);
+  min-width: 0;
+  height: 54px;
+  display: grid;
+  align-items: center;
+  text-align: center;
+}
+.essence-audio-status { min-height: 24px; text-align: center; }
+.essence-reward-rule { padding: 16px 24px; }
+.essence-suggestion { margin-bottom: 32px; }
+.essence-suggestion .essence-section-head { margin: 0; flex-wrap: wrap; gap: 16px; }
+.essence-suggestion form { margin-top: 20px; }
 .essence-result {
   display: grid;
   grid-template-columns: 170px 1fr;

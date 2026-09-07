@@ -200,6 +200,7 @@ model User {
   walletQuestClaims  WalletQuestClaim[]
   walletOperations   WalletOperation[]
   gameRounds         GameRound[]
+  gameSuggestions    GameSuggestion[]
 
   @@index([region, primaryRole, createdAt])
   @@index([isBanned, createdAt])
@@ -842,6 +843,7 @@ model GameRound {
   day         String
   championId  String
   guesses     String[] @default([])
+  listenedSlots Int[]  @default([])
   won         Boolean  @default(false)
   finished    Boolean  @default(false)
   rewardOffer Int
@@ -851,6 +853,20 @@ model GameRound {
 
   @@unique([userId, gameKey, day])
   @@index([day, gameKey, won])
+}
+
+model GameSuggestion {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idea        String
+  reviewed    Boolean  @default(false)
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([reviewed, createdAt])
+  @@index([userId, createdAt])
 }
 
 model WalletOperation {
@@ -1029,6 +1045,8 @@ model Ad {
   id          String  @id @default(cuid())
   title       String
   description String?
+  discordContact String?
+  specialRequests String?
   imageUrl    String
   targetUrl   String
 

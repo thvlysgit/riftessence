@@ -12,6 +12,7 @@ import EconomyLayout, {
 } from '../../components/economy/EconomyLayout';
 import ChampionSearch from '../../components/economy/ChampionSearch';
 import AbilityPlayer from '../../components/economy/AbilityPlayer';
+import PuzzleCountdown from '../../components/economy/PuzzleCountdown';
 import { economyApi, GameRound, pe, walletChanged } from '../../utils/economy';
 
 export default function DailyGamePage() {
@@ -24,6 +25,7 @@ export default function DailyGamePage() {
   const key = ['economy', user?.id, 'round', gameKey];
   const [practice, setPractice] = useState<GameRound | null>(null);
   const [busy, setBusy] = useState(false);
+  const [audioBusy, setAudioBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [confirmGiveUp, setConfirmGiveUp] = useState(false);
   const catalog = useQuery(
@@ -46,7 +48,7 @@ export default function DailyGamePage() {
   }, [user?.id, gameKey]);
   const round = practice?.gameKey === gameKey ? practice : daily.data;
   const submit = async (championId?: string, giveUp = false) => {
-    if (!round || busy) return;
+    if (!round || busy || audioBusy) return;
     setBusy(true);
     setError(null);
     setConfirmGiveUp(false);
@@ -115,7 +117,7 @@ export default function DailyGamePage() {
                 : 'Today’s reward'}
             </span>
             <div className="essence-number">
-              {pe(round.finished ? round.rewardPaid : round.rewardOffer)}
+              {pe(round.finished ? round.rewardPaid : round.rewardAvailable)}
               <small>PE</small>
             </div>
           </div>
@@ -147,9 +149,18 @@ export default function DailyGamePage() {
                   All games
                 </Link>
                 <span className="essence-muted essence-small">
-                  {round.practice
-                    ? 'Practice · no PE rewards'
-                    : `${round.day} · resets at 00:00 UTC`}
+                  {round.practice ? (
+                    'Practice · no PE rewards'
+                  ) : (
+                    <PuzzleCountdown
+                      resetAt={new Date(
+                        Date.parse(`${round.day}T00:00:00Z`) + 86400000,
+                      ).toISOString()}
+                      onReset={() => {
+                        void daily.refetch();
+                      }}
+                    />
+                  )}
                 </span>
               </div>
               <section className="essence-board" aria-label={title}>
@@ -192,17 +203,66 @@ export default function DailyGamePage() {
                       >
                         {busy ? 'Starting…' : 'Play a practice round'}
                       </button>
+                      <div className="essence-form-actions">
+                        <Link
+                          className="essence-button"
+                          href={`/games/${gameKey === 'archive' ? 'soundcheck' : 'archive'}`}
+                        >
+                          Play {gameKey === 'archive' ? 'Soundcheck' : 'Champion Archive'} →
+                        </Link>
+                        <Link className="essence-text-button" href="/games">
+                          All games
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 ) : null}
-                {gameKey === 'soundcheck' ? <AbilityPlayer round={round} key={round.id} /> : null}
+                {gameKey === 'soundcheck' ? (
+                  <AbilityPlayer
+                    round={round}
+                    key={`audio-${round.id}`}
+                    disabled={busy}
+                    onBusyChange={setAudioBusy}
+                    onListened={(slot) => {
+                      const update = (current: GameRound | undefined) => {
+                        if (
+                          !current ||
+                          current.id !== round.id ||
+                          current.finished ||
+                          current.listenedSlots.includes(slot)
+                        )
+                          return current;
+                        const listenedSlots = [...current.listenedSlots, slot];
+                        return {
+                          ...current,
+                          listenedSlots,
+                          rewardAvailable: Math.max(
+                            0,
+                            current.rewardOffer - Math.max(0, listenedSlots.length - 1) * 10,
+                          ),
+                        };
+                      };
+                      if (round.practice)
+                        setPractice((current) => update(current || undefined) || null);
+                      else client.setQueryData<GameRound>(key, update);
+                    }}
+                  />
+                ) : null}
+                {!round.practice && !round.finished ? (
+                  <p className="essence-reward-rule essence-muted essence-small">
+                    {gameKey === 'archive'
+                      ? 'Each guess after your first reduces the reward by 10 PE.'
+                      : 'The first ability is free. Each new ability after it reduces the reward by 10 PE; replays are free.'}{' '}
+                    Rewards never fall below 0 PE.
+                  </p>
+                ) : null}
                 {!round.finished ? (
                   <ChampionSearch
-                    key={round.id}
+                    key={`search-${round.id}`}
                     champions={catalog.data.champions}
                     excluded={round.attempts.map((a) => a.champion.id)}
                     version={catalog.data.version}
-                    disabled={busy}
+                    disabled={busy || audioBusy}
                     onGuess={(id) => submit(id)}
                   />
                 ) : null}
@@ -215,9 +275,7 @@ export default function DailyGamePage() {
                         <tr>
                           <th>Champion</th>
                           {gameKey === 'archive' ? (
-                            ['Role', 'Resource', 'Range', 'Difficulty'].map((h) => (
-                              <th key={h}>{h}</th>
-                            ))
+                            ['Role', 'Resource', 'Range', 'Skins'].map((h) => <th key={h}>{h}</th>)
                           ) : (
                             <th>Result</th>
                           )}
@@ -280,7 +338,10 @@ export default function DailyGamePage() {
                 ) : gameKey === 'archive' ? (
                   <div className="essence-empty">
                     <h2>Every guess leaves a clue.</h2>
-                    <p>Match the role, resource, range and difficulty to narrow it down.</p>
+                    <p>
+                      Match the role, resource, range and number of skins to narrow it down. Base
+                      appearances don’t count as skins.
+                    </p>
                   </div>
                 ) : null}
                 <div className="essence-attempts">

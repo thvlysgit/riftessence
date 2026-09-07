@@ -14,6 +14,16 @@ export const sounds = soundcheck as Record<
   Array<{ key: string; name: string; file: string; source: string }>
 >;
 export const MAX_GUESSES = 6;
+export function roundReward(
+  round: Pick<GameRound, 'gameKey' | 'rewardOffer' | 'guesses' | 'listenedSlots'>,
+  guessCount = round.guesses.length,
+) {
+  const extras =
+    round.gameKey === 'archive'
+      ? Math.max(0, guessCount - 1)
+      : Math.max(0, new Set(round.listenedSlots || []).size - 1);
+  return Math.max(0, round.rewardOffer - extras * 10);
+}
 export function selectAnswer(
   game: GameKey,
   day: string,
@@ -56,13 +66,13 @@ export function compareChampion(guess: Champion, answer: Champion) {
         match: guess.range === answer.range ? 'correct' : 'wrong',
       },
       {
-        label: 'Difficulty',
-        value: String(guess.difficulty),
-        match: guess.difficulty === answer.difficulty ? 'correct' : 'wrong',
+        label: 'Skins',
+        value: String(guess.skinCount),
+        match: guess.skinCount === answer.skinCount ? 'correct' : 'wrong',
         direction:
-          guess.difficulty < answer.difficulty
+          guess.skinCount < answer.skinCount
             ? 'higher'
-            : guess.difficulty > answer.difficulty
+            : guess.skinCount > answer.skinCount
             ? 'lower'
             : null,
       },
@@ -80,6 +90,10 @@ export function presentRound(round: GameRound) {
     won: round.won,
     finished: round.finished,
     rewardOffer: round.rewardOffer,
+    rewardAvailable: round.finished
+      ? round.rewardPaid
+      : roundReward(round, round.guesses.length + 1),
+    listenedSlots: round.listenedSlots || [],
     rewardPaid: round.rewardPaid,
     maxGuesses: MAX_GUESSES,
     attempts: round.guesses.map((id) => {

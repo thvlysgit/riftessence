@@ -91,6 +91,9 @@ const NOTIFICATION_CONFIG: Record<Notification['type'], { icon: string; color: s
 
 function getNotificationConfig(notification: Notification) {
   if (notification.type === 'ADMIN_TEST') {
+    if (notification.message?.startsWith('[Game Suggestion]')) {
+      return { icon: '🎮', color: 'var(--accent-info)', title: 'New Game Suggestion' };
+    }
     const message = String(notification.message || '');
     if (message.startsWith('[Ad Request Approved]')) {
       return { icon: '✅', color: 'var(--accent-success)', title: 'Ad Request Approved' };
@@ -415,6 +418,8 @@ export default function NotificationsPage() {
                         )}
                       </div>
                       {n.message && <p className="text-sm mb-2" style={{ color: 'var(--color-text-primary)' }}>{n.message}</p>}
+                      {n.type === 'ADMIN_TEST' && n.message?.startsWith('[Game Suggestion]') ? <Link href="/admin/game-suggestions" className="text-sm underline">Review game suggestions →</Link> : null}
+                      {n.type === 'ADMIN_TEST' && n.message?.startsWith('[Ad Request]') ? <Link href="/admin/ads?tab=requests" className="text-sm underline">Review advertising requests →</Link> : null}
                       <div className="flex items-center justify-between gap-2 mt-2">
                         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                           {new Date(n.createdAt).toLocaleString()}
