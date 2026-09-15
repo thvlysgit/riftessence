@@ -17,18 +17,34 @@ async function main() {
       ' ',
     ),
   );
-  const items = Object.entries(data)
-    .filter(
-      ([id, item]) =>
-        standardIds.has(id) &&
-        item.maps['11'] &&
-        item.gold.purchasable &&
-        item.gold.total > 0 &&
-        !item.requiredAlly &&
-        !item.requiredChampion &&
-        item.inStore !== false,
-    )
-    .map(([id, item]) => ({ id, name: item.name, price: item.gold.total, image: item.image.full }));
+  const eligible = Object.entries(data).filter(
+    ([id, item]) =>
+      standardIds.has(id) &&
+      item.maps['11'] &&
+      item.gold.purchasable &&
+      item.gold.total > 0 &&
+      !item.requiredAlly &&
+      !item.requiredChampion &&
+      item.inStore !== false,
+  );
+  const eligibleIds = new Set(eligible.map(([id]) => id));
+  const items = eligible.map(([id, item]) => ({
+    id,
+    name: item.name,
+    price: item.gold.total,
+    image: item.image.full,
+    tier: item.tags.includes('Boots')
+      ? 'boots'
+      : item.tags.includes('Consumable')
+      ? 'consumable'
+      : ['1054', '1055', '1056', '1082', '1083'].includes(id)
+      ? 'starter'
+      : !item.from?.length
+      ? 'component'
+      : item.into?.some((next) => eligibleIds.has(next))
+      ? 'epic'
+      : 'legendary',
+  }));
   if (items.length < 20) throw new Error('Not enough eligible shop items');
   await fs.writeFile(
     path.join(__dirname, '../apps/api/src/data/item-catalog.json'),

@@ -91,6 +91,7 @@ export type GameRound = {
     name: string;
     title: string;
     abilities: { key: string; name: string }[];
+    clues?: Guess['clues'];
   } | null;
 };
 export type GamesOverview = {

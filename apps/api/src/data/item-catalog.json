@@ -5,1039 +5,1212 @@
       "id": "1001",
       "name": "Boots",
       "price": 300,
-      "image": "1001.png"
+      "image": "1001.png",
+      "tier": "boots"
     },
     {
       "id": "1004",
       "name": "Faerie Charm",
       "price": 200,
-      "image": "1004.png"
+      "image": "1004.png",
+      "tier": "component"
     },
     {
       "id": "1006",
       "name": "Rejuvenation Bead",
       "price": 300,
-      "image": "1006.png"
+      "image": "1006.png",
+      "tier": "component"
     },
     {
       "id": "1011",
       "name": "Giant's Belt",
       "price": 900,
-      "image": "1011.png"
+      "image": "1011.png",
+      "tier": "epic"
     },
     {
       "id": "1018",
       "name": "Cloak of Agility",
       "price": 600,
-      "image": "1018.png"
+      "image": "1018.png",
+      "tier": "component"
     },
     {
       "id": "1026",
       "name": "Blasting Wand",
       "price": 850,
-      "image": "1026.png"
+      "image": "1026.png",
+      "tier": "component"
     },
     {
       "id": "1027",
       "name": "Sapphire Crystal",
       "price": 300,
-      "image": "1027.png"
+      "image": "1027.png",
+      "tier": "component"
     },
     {
       "id": "1028",
       "name": "Ruby Crystal",
       "price": 400,
-      "image": "1028.png"
+      "image": "1028.png",
+      "tier": "component"
     },
     {
       "id": "1029",
       "name": "Cloth Armor",
       "price": 300,
-      "image": "1029.png"
+      "image": "1029.png",
+      "tier": "component"
     },
     {
       "id": "1031",
       "name": "Chain Vest",
       "price": 800,
-      "image": "1031.png"
+      "image": "1031.png",
+      "tier": "epic"
     },
     {
       "id": "1033",
       "name": "Null-Magic Mantle",
       "price": 400,
-      "image": "1033.png"
+      "image": "1033.png",
+      "tier": "component"
     },
     {
       "id": "1036",
       "name": "Long Sword",
       "price": 350,
-      "image": "1036.png"
+      "image": "1036.png",
+      "tier": "component"
     },
     {
       "id": "1037",
       "name": "Pickaxe",
       "price": 875,
-      "image": "1037.png"
+      "image": "1037.png",
+      "tier": "component"
     },
     {
       "id": "1038",
       "name": "B. F. Sword",
       "price": 1300,
-      "image": "1038.png"
+      "image": "1038.png",
+      "tier": "component"
     },
     {
       "id": "1042",
       "name": "Dagger",
       "price": 250,
-      "image": "1042.png"
+      "image": "1042.png",
+      "tier": "component"
     },
     {
       "id": "1043",
       "name": "Recurve Bow",
       "price": 700,
-      "image": "1043.png"
+      "image": "1043.png",
+      "tier": "epic"
     },
     {
       "id": "1052",
       "name": "Amplifying Tome",
       "price": 400,
-      "image": "1052.png"
+      "image": "1052.png",
+      "tier": "component"
     },
     {
       "id": "1053",
       "name": "Vampiric Scepter",
       "price": 900,
-      "image": "1053.png"
+      "image": "1053.png",
+      "tier": "epic"
     },
     {
       "id": "1054",
       "name": "Doran's Shield",
       "price": 450,
-      "image": "1054.png"
+      "image": "1054.png",
+      "tier": "starter"
     },
     {
       "id": "1055",
       "name": "Doran's Blade",
       "price": 450,
-      "image": "1055.png"
+      "image": "1055.png",
+      "tier": "starter"
     },
     {
       "id": "1056",
       "name": "Doran's Ring",
       "price": 400,
-      "image": "1056.png"
+      "image": "1056.png",
+      "tier": "starter"
     },
     {
       "id": "1057",
       "name": "Negatron Cloak",
       "price": 850,
-      "image": "1057.png"
+      "image": "1057.png",
+      "tier": "epic"
     },
     {
       "id": "1058",
       "name": "Needlessly Large Rod",
       "price": 1200,
-      "image": "1058.png"
+      "image": "1058.png",
+      "tier": "component"
     },
     {
       "id": "1082",
       "name": "Dark Seal",
       "price": 350,
-      "image": "1082.png"
+      "image": "1082.png",
+      "tier": "starter"
     },
     {
       "id": "1083",
       "name": "Cull",
       "price": 450,
-      "image": "1083.png"
+      "image": "1083.png",
+      "tier": "starter"
     },
     {
       "id": "2003",
       "name": "Health Potion",
       "price": 50,
-      "image": "2003.png"
+      "image": "2003.png",
+      "tier": "consumable"
     },
     {
       "id": "2019",
       "name": "Steel Sigil",
       "price": 1100,
-      "image": "2019.png"
+      "image": "2019.png",
+      "tier": "epic"
     },
     {
       "id": "2020",
       "name": "The Brutalizer",
       "price": 1337,
-      "image": "2020.png"
+      "image": "2020.png",
+      "tier": "epic"
     },
     {
       "id": "2021",
       "name": "Tunneler",
       "price": 1150,
-      "image": "2021.png"
+      "image": "2021.png",
+      "tier": "epic"
     },
     {
       "id": "2022",
       "name": "Glowing Mote",
       "price": 250,
-      "image": "2022.png"
+      "image": "2022.png",
+      "tier": "component"
     },
     {
       "id": "2031",
       "name": "Refillable Potion",
       "price": 150,
-      "image": "2031.png"
+      "image": "2031.png",
+      "tier": "consumable"
     },
     {
       "id": "2055",
       "name": "Control Ward",
       "price": 75,
-      "image": "2055.png"
+      "image": "2055.png",
+      "tier": "consumable"
     },
     {
       "id": "2065",
       "name": "Shurelya's Battlesong",
       "price": 2200,
-      "image": "2065.png"
+      "image": "2065.png",
+      "tier": "legendary"
     },
     {
       "id": "2138",
       "name": "Elixir of Iron",
       "price": 500,
-      "image": "2138.png"
+      "image": "2138.png",
+      "tier": "consumable"
     },
     {
       "id": "2139",
       "name": "Elixir of Sorcery",
       "price": 500,
-      "image": "2139.png"
+      "image": "2139.png",
+      "tier": "consumable"
     },
     {
       "id": "2140",
       "name": "Elixir of Wrath",
       "price": 500,
-      "image": "2140.png"
+      "image": "2140.png",
+      "tier": "consumable"
     },
     {
       "id": "2420",
       "name": "Seeker's Armguard",
       "price": 1600,
-      "image": "2420.png"
+      "image": "2420.png",
+      "tier": "epic"
     },
     {
       "id": "2501",
       "name": "Overlord's Bloodmail",
       "price": 3300,
-      "image": "2501.png"
+      "image": "2501.png",
+      "tier": "legendary"
     },
     {
       "id": "2502",
       "name": "Unending Despair",
       "price": 2800,
-      "image": "2502.png"
+      "image": "2502.png",
+      "tier": "legendary"
     },
     {
       "id": "2503",
       "name": "Blackfire Torch",
       "price": 2800,
-      "image": "2503.png"
+      "image": "2503.png",
+      "tier": "legendary"
     },
     {
       "id": "2504",
       "name": "Kaenic Rookern",
       "price": 2900,
-      "image": "2504.png"
+      "image": "2504.png",
+      "tier": "legendary"
     },
     {
       "id": "2508",
       "name": "Fated Ashes",
       "price": 900,
-      "image": "2508.png"
+      "image": "2508.png",
+      "tier": "epic"
     },
     {
       "id": "3003",
       "name": "Archangel's Staff",
       "price": 2900,
-      "image": "3003.png"
+      "image": "3003.png",
+      "tier": "legendary"
     },
     {
       "id": "3004",
       "name": "Manamune",
       "price": 2900,
-      "image": "3004.png"
+      "image": "3004.png",
+      "tier": "legendary"
     },
     {
       "id": "3006",
       "name": "Berserker's Greaves",
       "price": 1100,
-      "image": "3006.png"
+      "image": "3006.png",
+      "tier": "boots"
     },
     {
       "id": "3009",
       "name": "Boots of Swiftness",
       "price": 1000,
-      "image": "3009.png"
+      "image": "3009.png",
+      "tier": "boots"
     },
     {
       "id": "3020",
       "name": "Sorcerer's Shoes",
       "price": 1100,
-      "image": "3020.png"
+      "image": "3020.png",
+      "tier": "boots"
     },
     {
       "id": "3024",
       "name": "Glacial Buckler",
       "price": 900,
-      "image": "3024.png"
+      "image": "3024.png",
+      "tier": "epic"
     },
     {
       "id": "3026",
       "name": "Guardian Angel",
       "price": 3200,
-      "image": "3026.png"
+      "image": "3026.png",
+      "tier": "legendary"
     },
     {
       "id": "3031",
       "name": "Infinity Edge",
       "price": 3500,
-      "image": "3031.png"
+      "image": "3031.png",
+      "tier": "legendary"
     },
     {
       "id": "3032",
       "name": "Yun Tal Wildarrows",
       "price": 3000,
-      "image": "3032.png"
+      "image": "3032.png",
+      "tier": "legendary"
     },
     {
       "id": "3033",
       "name": "Mortal Reminder",
       "price": 3000,
-      "image": "3033.png"
+      "image": "3033.png",
+      "tier": "legendary"
     },
     {
       "id": "3035",
       "name": "Last Whisper",
       "price": 1450,
-      "image": "3035.png"
+      "image": "3035.png",
+      "tier": "epic"
     },
     {
       "id": "3036",
       "name": "Lord Dominik's Regards",
       "price": 3300,
-      "image": "3036.png"
+      "image": "3036.png",
+      "tier": "legendary"
     },
     {
       "id": "3041",
       "name": "Mejai's Soulstealer",
       "price": 1500,
-      "image": "3041.png"
+      "image": "3041.png",
+      "tier": "legendary"
     },
     {
       "id": "3044",
       "name": "Phage",
       "price": 1100,
-      "image": "3044.png"
+      "image": "3044.png",
+      "tier": "epic"
     },
     {
       "id": "3046",
       "name": "Phantom Dancer",
       "price": 2650,
-      "image": "3046.png"
+      "image": "3046.png",
+      "tier": "legendary"
     },
     {
       "id": "3047",
       "name": "Plated Steelcaps",
       "price": 1200,
-      "image": "3047.png"
+      "image": "3047.png",
+      "tier": "boots"
     },
     {
       "id": "3050",
       "name": "Zeke's Convergence",
       "price": 2200,
-      "image": "3050.png"
+      "image": "3050.png",
+      "tier": "legendary"
     },
     {
       "id": "3051",
       "name": "Hearthbound Axe",
       "price": 1200,
-      "image": "3051.png"
+      "image": "3051.png",
+      "tier": "epic"
     },
     {
       "id": "3053",
       "name": "Sterak's Gage",
       "price": 3200,
-      "image": "3053.png"
+      "image": "3053.png",
+      "tier": "legendary"
     },
     {
       "id": "3057",
       "name": "Sheen",
       "price": 900,
-      "image": "3057.png"
+      "image": "3057.png",
+      "tier": "epic"
     },
     {
       "id": "3065",
       "name": "Spirit Visage",
       "price": 2700,
-      "image": "3065.png"
+      "image": "3065.png",
+      "tier": "legendary"
     },
     {
       "id": "3066",
       "name": "Winged Moonplate",
       "price": 800,
-      "image": "3066.png"
+      "image": "3066.png",
+      "tier": "epic"
     },
     {
       "id": "3067",
       "name": "Kindlegem",
       "price": 800,
-      "image": "3067.png"
+      "image": "3067.png",
+      "tier": "epic"
     },
     {
       "id": "3068",
       "name": "Sunfire Aegis",
       "price": 2800,
-      "image": "3068.png"
+      "image": "3068.png",
+      "tier": "legendary"
     },
     {
       "id": "3070",
       "name": "Tear of the Goddess",
       "price": 400,
-      "image": "3070.png"
+      "image": "3070.png",
+      "tier": "component"
     },
     {
       "id": "3071",
       "name": "Black Cleaver",
       "price": 3000,
-      "image": "3071.png"
+      "image": "3071.png",
+      "tier": "legendary"
     },
     {
       "id": "3072",
       "name": "Bloodthirster",
       "price": 3400,
-      "image": "3072.png"
+      "image": "3072.png",
+      "tier": "legendary"
     },
     {
       "id": "3073",
       "name": "Experimental Hexplate",
       "price": 3000,
-      "image": "3073.png"
+      "image": "3073.png",
+      "tier": "legendary"
     },
     {
       "id": "3074",
       "name": "Ravenous Hydra",
       "price": 3300,
-      "image": "3074.png"
+      "image": "3074.png",
+      "tier": "legendary"
     },
     {
       "id": "3075",
       "name": "Thornmail",
       "price": 2450,
-      "image": "3075.png"
+      "image": "3075.png",
+      "tier": "legendary"
     },
     {
       "id": "3076",
       "name": "Bramble Vest",
       "price": 800,
-      "image": "3076.png"
+      "image": "3076.png",
+      "tier": "epic"
     },
     {
       "id": "3077",
       "name": "Tiamat",
       "price": 1200,
-      "image": "3077.png"
+      "image": "3077.png",
+      "tier": "epic"
     },
     {
       "id": "3078",
       "name": "Trinity Force",
       "price": 3333,
-      "image": "3078.png"
+      "image": "3078.png",
+      "tier": "legendary"
     },
     {
       "id": "3082",
       "name": "Warden's Mail",
       "price": 1000,
-      "image": "3082.png"
+      "image": "3082.png",
+      "tier": "epic"
     },
     {
       "id": "3083",
       "name": "Warmog's Armor",
       "price": 3100,
-      "image": "3083.png"
+      "image": "3083.png",
+      "tier": "legendary"
     },
     {
       "id": "3084",
       "name": "Heartsteel",
       "price": 3000,
-      "image": "3084.png"
+      "image": "3084.png",
+      "tier": "legendary"
     },
     {
       "id": "3085",
       "name": "Runaan's Hurricane",
       "price": 2650,
-      "image": "3085.png"
+      "image": "3085.png",
+      "tier": "legendary"
     },
     {
       "id": "3086",
       "name": "Zeal",
       "price": 1200,
-      "image": "3086.png"
+      "image": "3086.png",
+      "tier": "epic"
     },
     {
       "id": "3087",
       "name": "Statikk Shiv",
       "price": 3000,
-      "image": "3087.png"
+      "image": "3087.png",
+      "tier": "legendary"
     },
     {
       "id": "3089",
       "name": "Rabadon's Deathcap",
       "price": 3500,
-      "image": "3089.png"
+      "image": "3089.png",
+      "tier": "legendary"
     },
     {
       "id": "3091",
       "name": "Wit's End",
       "price": 2800,
-      "image": "3091.png"
+      "image": "3091.png",
+      "tier": "legendary"
     },
     {
       "id": "3094",
       "name": "Rapid Firecannon",
       "price": 2650,
-      "image": "3094.png"
+      "image": "3094.png",
+      "tier": "legendary"
     },
     {
       "id": "3100",
       "name": "Lich Bane",
       "price": 2900,
-      "image": "3100.png"
+      "image": "3100.png",
+      "tier": "legendary"
     },
     {
       "id": "3102",
       "name": "Banshee's Veil",
       "price": 3000,
-      "image": "3102.png"
+      "image": "3102.png",
+      "tier": "legendary"
     },
     {
       "id": "3107",
       "name": "Redemption",
       "price": 2300,
-      "image": "3107.png"
+      "image": "3107.png",
+      "tier": "legendary"
     },
     {
       "id": "3108",
       "name": "Fiendish Codex",
       "price": 850,
-      "image": "3108.png"
+      "image": "3108.png",
+      "tier": "epic"
     },
     {
       "id": "3109",
       "name": "Knight's Vow",
       "price": 2300,
-      "image": "3109.png"
+      "image": "3109.png",
+      "tier": "legendary"
     },
     {
       "id": "3110",
       "name": "Frozen Heart",
       "price": 2500,
-      "image": "3110.png"
+      "image": "3110.png",
+      "tier": "legendary"
     },
     {
       "id": "3111",
       "name": "Mercury's Treads",
       "price": 1250,
-      "image": "3111.png"
+      "image": "3111.png",
+      "tier": "boots"
     },
     {
       "id": "3113",
       "name": "Aether Wisp",
       "price": 900,
-      "image": "3113.png"
+      "image": "3113.png",
+      "tier": "epic"
     },
     {
       "id": "3114",
       "name": "Forbidden Idol",
       "price": 600,
-      "image": "3114.png"
+      "image": "3114.png",
+      "tier": "epic"
     },
     {
       "id": "3115",
       "name": "Nashor's Tooth",
       "price": 2900,
-      "image": "3115.png"
+      "image": "3115.png",
+      "tier": "legendary"
     },
     {
       "id": "3116",
       "name": "Rylai's Crystal Scepter",
       "price": 2600,
-      "image": "3116.png"
+      "image": "3116.png",
+      "tier": "legendary"
     },
     {
       "id": "3118",
       "name": "Malignance",
       "price": 2700,
-      "image": "3118.png"
+      "image": "3118.png",
+      "tier": "legendary"
     },
     {
       "id": "3119",
       "name": "Winter's Approach",
       "price": 2400,
-      "image": "3119.png"
+      "image": "3119.png",
+      "tier": "legendary"
     },
     {
       "id": "3123",
       "name": "Executioner's Calling",
       "price": 800,
-      "image": "3123.png"
+      "image": "3123.png",
+      "tier": "epic"
     },
     {
       "id": "3124",
       "name": "Guinsoo's Rageblade",
       "price": 3000,
-      "image": "3124.png"
+      "image": "3124.png",
+      "tier": "legendary"
     },
     {
       "id": "3133",
       "name": "Caulfield's Warhammer",
       "price": 1050,
-      "image": "3133.png"
+      "image": "3133.png",
+      "tier": "epic"
     },
     {
       "id": "3134",
       "name": "Serrated Dirk",
       "price": 1000,
-      "image": "3134.png"
+      "image": "3134.png",
+      "tier": "epic"
     },
     {
       "id": "3135",
       "name": "Void Staff",
       "price": 3000,
-      "image": "3135.png"
+      "image": "3135.png",
+      "tier": "legendary"
     },
     {
       "id": "3137",
       "name": "Cryptbloom",
       "price": 3000,
-      "image": "3137.png"
+      "image": "3137.png",
+      "tier": "legendary"
     },
     {
       "id": "3139",
       "name": "Mercurial Scimitar",
       "price": 3200,
-      "image": "3139.png"
+      "image": "3139.png",
+      "tier": "legendary"
     },
     {
       "id": "3140",
       "name": "Quicksilver Sash",
       "price": 1300,
-      "image": "3140.png"
+      "image": "3140.png",
+      "tier": "epic"
     },
     {
       "id": "3142",
       "name": "Youmuu's Ghostblade",
       "price": 2800,
-      "image": "3142.png"
+      "image": "3142.png",
+      "tier": "legendary"
     },
     {
       "id": "3143",
       "name": "Randuin's Omen",
       "price": 2700,
-      "image": "3143.png"
+      "image": "3143.png",
+      "tier": "legendary"
     },
     {
       "id": "3144",
       "name": "Scout's Slingshot",
       "price": 600,
-      "image": "3144.png"
+      "image": "3144.png",
+      "tier": "epic"
     },
     {
       "id": "3145",
       "name": "Hextech Alternator",
       "price": 1100,
-      "image": "3145.png"
+      "image": "3145.png",
+      "tier": "epic"
     },
     {
       "id": "3147",
       "name": "Haunting Guise",
       "price": 1300,
-      "image": "3147.png"
+      "image": "3147.png",
+      "tier": "epic"
     },
     {
       "id": "3152",
       "name": "Hextech Rocketbelt",
       "price": 2650,
-      "image": "3152.png"
+      "image": "3152.png",
+      "tier": "legendary"
     },
     {
       "id": "3153",
       "name": "Blade of The Ruined King",
       "price": 3200,
-      "image": "3153.png"
+      "image": "3153.png",
+      "tier": "legendary"
     },
     {
       "id": "3155",
       "name": "Hexdrinker",
       "price": 1300,
-      "image": "3155.png"
+      "image": "3155.png",
+      "tier": "epic"
     },
     {
       "id": "3156",
       "name": "Maw of Malmortius",
       "price": 3100,
-      "image": "3156.png"
+      "image": "3156.png",
+      "tier": "legendary"
     },
     {
       "id": "3157",
       "name": "Zhonya's Hourglass",
       "price": 3250,
-      "image": "3157.png"
+      "image": "3157.png",
+      "tier": "legendary"
     },
     {
       "id": "3158",
       "name": "Ionian Boots of Lucidity",
       "price": 900,
-      "image": "3158.png"
+      "image": "3158.png",
+      "tier": "boots"
     },
     {
       "id": "3161",
       "name": "Spear of Shojin",
       "price": 3100,
-      "image": "3161.png"
+      "image": "3161.png",
+      "tier": "legendary"
     },
     {
       "id": "3165",
       "name": "Morellonomicon",
       "price": 2850,
-      "image": "3165.png"
+      "image": "3165.png",
+      "tier": "legendary"
     },
     {
       "id": "3179",
       "name": "Umbral Glaive",
       "price": 2800,
-      "image": "3179.png"
+      "image": "3179.png",
+      "tier": "legendary"
     },
     {
       "id": "3181",
       "name": "Hullbreaker",
       "price": 3000,
-      "image": "3181.png"
+      "image": "3181.png",
+      "tier": "legendary"
     },
     {
       "id": "3190",
       "name": "Locket of the Iron Solari",
       "price": 2200,
-      "image": "3190.png"
+      "image": "3190.png",
+      "tier": "legendary"
     },
     {
       "id": "3211",
       "name": "Spectre's Cowl",
       "price": 1250,
-      "image": "3211.png"
+      "image": "3211.png",
+      "tier": "epic"
     },
     {
       "id": "3222",
       "name": "Mikael's Blessing",
       "price": 2300,
-      "image": "3222.png"
+      "image": "3222.png",
+      "tier": "legendary"
     },
     {
       "id": "3302",
       "name": "Terminus",
       "price": 3000,
-      "image": "3302.png"
+      "image": "3302.png",
+      "tier": "legendary"
     },
     {
       "id": "3504",
       "name": "Ardent Censer",
       "price": 2200,
-      "image": "3504.png"
+      "image": "3504.png",
+      "tier": "legendary"
     },
     {
       "id": "3508",
       "name": "Essence Reaver",
       "price": 3050,
-      "image": "3508.png"
+      "image": "3508.png",
+      "tier": "legendary"
     },
     {
       "id": "3742",
       "name": "Dead Man's Plate",
       "price": 2900,
-      "image": "3742.png"
+      "image": "3742.png",
+      "tier": "legendary"
     },
     {
       "id": "3748",
       "name": "Titanic Hydra",
       "price": 3300,
-      "image": "3748.png"
+      "image": "3748.png",
+      "tier": "legendary"
     },
     {
       "id": "3801",
       "name": "Crystalline Bracer",
       "price": 800,
-      "image": "3801.png"
+      "image": "3801.png",
+      "tier": "epic"
     },
     {
       "id": "3802",
       "name": "Lost Chapter",
       "price": 1200,
-      "image": "3802.png"
+      "image": "3802.png",
+      "tier": "epic"
     },
     {
       "id": "3803",
       "name": "Catalyst of Aeons",
       "price": 1300,
-      "image": "3803.png"
+      "image": "3803.png",
+      "tier": "epic"
     },
     {
       "id": "3814",
       "name": "Edge of Night",
       "price": 3000,
-      "image": "3814.png"
+      "image": "3814.png",
+      "tier": "legendary"
     },
     {
       "id": "3916",
       "name": "Oblivion Orb",
       "price": 800,
-      "image": "3916.png"
+      "image": "3916.png",
+      "tier": "epic"
     },
     {
       "id": "4005",
       "name": "Imperial Mandate",
       "price": 2400,
-      "image": "4005.png"
+      "image": "4005.png",
+      "tier": "legendary"
     },
     {
       "id": "4401",
       "name": "Force of Nature",
       "price": 2800,
-      "image": "4401.png"
+      "image": "4401.png",
+      "tier": "legendary"
     },
     {
       "id": "4628",
       "name": "Horizon Focus",
       "price": 2700,
-      "image": "4628.png"
+      "image": "4628.png",
+      "tier": "legendary"
     },
     {
       "id": "4629",
       "name": "Cosmic Drive",
       "price": 3000,
-      "image": "4629.png"
+      "image": "4629.png",
+      "tier": "legendary"
     },
     {
       "id": "4630",
       "name": "Blighting Jewel",
       "price": 1100,
-      "image": "4630.png"
+      "image": "4630.png",
+      "tier": "epic"
     },
     {
       "id": "4632",
       "name": "Verdant Barrier",
       "price": 1600,
-      "image": "4632.png"
+      "image": "4632.png",
+      "tier": "epic"
     },
     {
       "id": "4633",
       "name": "Riftmaker",
       "price": 3100,
-      "image": "4633.png"
+      "image": "4633.png",
+      "tier": "legendary"
     },
     {
       "id": "4642",
       "name": "Bandleglass Mirror",
       "price": 900,
-      "image": "4642.png"
+      "image": "4642.png",
+      "tier": "epic"
     },
     {
       "id": "4645",
       "name": "Shadowflame",
       "price": 3200,
-      "image": "4645.png"
+      "image": "4645.png",
+      "tier": "legendary"
     },
     {
       "id": "4646",
       "name": "Stormsurge",
       "price": 2800,
-      "image": "4646.png"
+      "image": "4646.png",
+      "tier": "legendary"
     },
     {
       "id": "6333",
       "name": "Death's Dance",
       "price": 3300,
-      "image": "6333.png"
+      "image": "6333.png",
+      "tier": "legendary"
     },
     {
       "id": "6609",
       "name": "Chempunk Chainsword",
       "price": 3000,
-      "image": "6609.png"
+      "image": "6609.png",
+      "tier": "legendary"
     },
     {
       "id": "6610",
       "name": "Sundered Sky",
       "price": 3100,
-      "image": "6610.png"
+      "image": "6610.png",
+      "tier": "legendary"
     },
     {
       "id": "6616",
       "name": "Staff of Flowing Water",
       "price": 2250,
-      "image": "6616.png"
+      "image": "6616.png",
+      "tier": "legendary"
     },
     {
       "id": "6617",
       "name": "Moonstone Renewer",
       "price": 2200,
-      "image": "6617.png"
+      "image": "6617.png",
+      "tier": "legendary"
     },
     {
       "id": "6620",
       "name": "Echoes of Helia",
       "price": 2200,
-      "image": "6620.png"
+      "image": "6620.png",
+      "tier": "legendary"
     },
     {
       "id": "6621",
       "name": "Dawncore",
       "price": 2500,
-      "image": "6621.png"
+      "image": "6621.png",
+      "tier": "legendary"
     },
     {
       "id": "6631",
       "name": "Stridebreaker",
       "price": 3300,
-      "image": "6631.png"
+      "image": "6631.png",
+      "tier": "legendary"
     },
     {
       "id": "6653",
       "name": "Liandry's Torment",
       "price": 3000,
-      "image": "6653.png"
+      "image": "6653.png",
+      "tier": "legendary"
     },
     {
       "id": "6655",
       "name": "Luden's Echo",
       "price": 2750,
-      "image": "6655.png"
+      "image": "6655.png",
+      "tier": "legendary"
     },
     {
       "id": "6657",
       "name": "Rod of Ages",
       "price": 2600,
-      "image": "6657.png"
+      "image": "6657.png",
+      "tier": "legendary"
     },
     {
       "id": "6660",
       "name": "Bami's Cinder",
       "price": 900,
-      "image": "6660.png"
+      "image": "6660.png",
+      "tier": "epic"
     },
     {
       "id": "6662",
       "name": "Iceborn Gauntlet",
       "price": 2900,
-      "image": "6662.png"
+      "image": "6662.png",
+      "tier": "legendary"
     },
     {
       "id": "6664",
       "name": "Hollow Radiance",
       "price": 2800,
-      "image": "6664.png"
+      "image": "6664.png",
+      "tier": "legendary"
     },
     {
       "id": "6665",
       "name": "Jak'Sho, The Protean",
       "price": 3200,
-      "image": "6665.png"
+      "image": "6665.png",
+      "tier": "legendary"
     },
     {
       "id": "6670",
       "name": "Noonquiver",
       "price": 1300,
-      "image": "6670.png"
+      "image": "6670.png",
+      "tier": "epic"
     },
     {
       "id": "6672",
       "name": "Kraken Slayer",
       "price": 3000,
-      "image": "6672.png"
+      "image": "6672.png",
+      "tier": "legendary"
     },
     {
       "id": "6673",
       "name": "Immortal Shieldbow",
       "price": 3000,
-      "image": "6673.png"
+      "image": "6673.png",
+      "tier": "legendary"
     },
     {
       "id": "6675",
       "name": "Navori Flickerblade",
       "price": 2650,
-      "image": "6675.png"
+      "image": "6675.png",
+      "tier": "legendary"
     },
     {
       "id": "6676",
       "name": "The Collector",
       "price": 3000,
-      "image": "6676.png"
+      "image": "6676.png",
+      "tier": "legendary"
     },
     {
       "id": "6690",
       "name": "Rectrix",
       "price": 775,
-      "image": "6690.png"
+      "image": "6690.png",
+      "tier": "epic"
     },
     {
       "id": "6692",
       "name": "Eclipse",
       "price": 2900,
-      "image": "6692.png"
+      "image": "6692.png",
+      "tier": "legendary"
     },
     {
       "id": "6694",
       "name": "Serylda's Grudge",
       "price": 3000,
-      "image": "6694.png"
+      "image": "6694.png",
+      "tier": "legendary"
     },
     {
       "id": "6695",
       "name": "Serpent's Fang",
       "price": 2500,
-      "image": "6695.png"
+      "image": "6695.png",
+      "tier": "legendary"
     },
     {
       "id": "6696",
       "name": "Axiom Arc",
       "price": 2750,
-      "image": "6696.png"
+      "image": "6696.png",
+      "tier": "legendary"
     },
     {
       "id": "6697",
       "name": "Hubris",
       "price": 2800,
-      "image": "6697.png"
+      "image": "6697.png",
+      "tier": "legendary"
     },
     {
       "id": "6698",
       "name": "Profane Hydra",
       "price": 2850,
-      "image": "6698.png"
+      "image": "6698.png",
+      "tier": "legendary"
     },
     {
       "id": "6699",
       "name": "Voltaic Cyclosword",
       "price": 3000,
-      "image": "6699.png"
+      "image": "6699.png",
+      "tier": "legendary"
     },
     {
       "id": "8010",
       "name": "Bloodletter's Curse",
       "price": 2900,
-      "image": "8010.png"
+      "image": "8010.png",
+      "tier": "legendary"
     },
     {
       "id": "8020",
       "name": "Abyssal Mask",
       "price": 2650,
-      "image": "8020.png"
+      "image": "8020.png",
+      "tier": "legendary"
     }
   ]
 }

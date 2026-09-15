@@ -22,7 +22,7 @@ export default function EconomyLayout({
   const { currentLanguage } = useLanguage();
   const fr = currentLanguage === 'fr';
   return (
-    <div className="essence-page">
+    <div className={`essence-page ${pathname === '/games/[gameKey]' ? 'essence-play-page' : ''}`}>
       <Head>
         <title>{`${title.replace(/\.$/, '')} | RiftEssence`}</title>
       </Head>

@@ -118,6 +118,7 @@ export function presentRound(round: GameRound) {
           id: answer.id,
           name: answer.name,
           title: answer.title,
+          clues: round.gameKey === 'archive' ? compareChampion(answer, answer).clues : [],
           abilities:
             round.gameKey === 'soundcheck'
               ? sounds[answer.id].map((s) => ({ key: s.key, name: s.name }))

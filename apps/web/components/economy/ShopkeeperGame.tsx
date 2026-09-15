@@ -8,8 +8,10 @@ import { economyApi, pe, walletChanged } from '../../utils/economy';
 import EconomyLayout, { EconomyError, EconomyLoading, SignInPrompt } from './EconomyLayout';
 import PuzzleCountdown from './PuzzleCountdown';
 import GameLinks from './GameLinks';
+import PriceCard from './PriceCard';
+import { EffectsToggle, RewardCount, useGameEffects } from './GameEffects';
 
-type Item = { id: string; name: string; imageUrl: string; price?: number };
+type Item = { id: string; name: string; imageUrl: string; price?: number; tier?: string };
 type Comparison = {
   reference: Item;
   challenger: Item;
@@ -46,6 +48,7 @@ function ItemCard({
   return (
     <article className={`essence-item-price-card ${hidden ? 'mystery' : ''}`}>
       <p className="essence-muted essence-small">{label}</p>
+      <p className="price-tier">{item.tier}</p>
       <Image src={item.imageUrl} width={96} height={96} alt={item.name} unoptimized />
       <h2>{item.name}</h2>
       <p className="essence-item-gold">
@@ -58,6 +61,7 @@ function ItemCard({
 export default function ShopkeeperGame() {
   const { user, loading } = useAuth();
   const client = useQueryClient();
+  const effects = useGameEffects();
   const key = ['economy', user?.id, 'round', 'shopkeeper'];
   const [practice, setPractice] = useState<Round | null>(null);
   const [busy, setBusy] = useState(false);
@@ -88,6 +92,7 @@ export default function ShopkeeperGame() {
       if (next.practice) setPractice(next);
       else client.setQueryData(key, next);
       setRevealed(round.index);
+      effects.play(next.history[round.index]?.correct ? 'coin' : 'miss');
       if (next.finished) {
         await Promise.all([
           client.invalidateQueries(['economy', user?.id, 'games']),
@@ -170,6 +175,13 @@ export default function ShopkeeperGame() {
                 />
               </div>
               <section className="essence-board essence-shopkeeper" aria-label="Item price game">
+                <div className="game-stage-title">
+                  <div>
+                    <span>THE SHOP COUNTER</span>
+                    <h2>Trust your shop knowledge.</h2>
+                  </div>
+                  <EffectsToggle {...effects} />
+                </div>
                 <div className="essence-section-head">
                   <span className="essence-muted essence-small">
                     {round.finished
@@ -183,20 +195,49 @@ export default function ShopkeeperGame() {
                   </strong>
                 </div>
                 <p className="essence-muted essence-small">
-                  Total shop prices on Summoner’s Rift · Patch {round.version}. Equal-price pairs
-                  are excluded.
+                  Total shop prices · Patch {round.version}.{' '}
+                  {comparison?.reference.tier ? 'Same tier. Different prices.' : 'Saved round.'}
                 </p>
+                <ol className="shop-coin-tray" aria-label="Your six comparisons">
+                  {Array.from({ length: round.total }, (_, i) => (
+                    <li
+                      key={i}
+                      className={
+                        round.history[i]
+                          ? round.history[i].correct
+                            ? 'coin-earned'
+                            : 'coin-cracked'
+                          : 'coin-empty'
+                      }
+                      aria-label={`Comparison ${i + 1}: ${
+                        round.history[i]
+                          ? round.history[i].correct
+                            ? 'correct'
+                            : 'incorrect'
+                          : 'unanswered'
+                      }`}
+                    >
+                      <span aria-hidden="true">
+                        {round.history[i] ? (round.history[i].correct ? '✦' : '×') : i + 1}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
                 {comparison ? (
                   <>
-                    <div className="essence-item-comparison">
+                    <div
+                      className="essence-item-comparison shop-counter"
+                      key={`${round.id}-${revealed ?? round.index}`}
+                    >
                       <ItemCard item={comparison.reference} label="The price you know" />
                       <span className="essence-item-versus" aria-hidden="true">
                         vs
                       </span>
-                      <ItemCard
+                      <PriceCard
                         item={comparison.challenger}
-                        label={feedback ? 'Price revealed' : 'Higher or lower?'}
                         hidden={!feedback}
+                        disabled={busy}
+                        onChoose={choose}
                       />
                     </div>
                     {feedback ? (
@@ -213,7 +254,10 @@ export default function ShopkeeperGame() {
                         <button
                           className="essence-button"
                           disabled={busy}
-                          onClick={() => setRevealed(null)}
+                          onClick={() => {
+                            setRevealed(null);
+                            if (round.finished) effects.play('win');
+                          }}
                         >
                           {round.finished ? 'See results' : 'Next comparison →'}
                         </button>
@@ -226,20 +270,19 @@ export default function ShopkeeperGame() {
                         </p>
                         <div className="essence-price-choices">
                           <button
-                            className="essence-button"
+                            className="essence-button essence-secondary price-lower"
+                            disabled={busy}
+                            onClick={() => choose('lower')}
+                          >
+                            <FiArrowDown aria-hidden="true" /> Lower
+                          </button>
+                          <button
+                            className="essence-button price-higher"
                             disabled={busy}
                             onClick={() => choose('higher')}
                           >
                             <FiArrowUp aria-hidden="true" />
                             Higher
-                          </button>
-                          <button
-                            className="essence-button essence-secondary"
-                            disabled={busy}
-                            onClick={() => choose('lower')}
-                          >
-                            <FiArrowDown aria-hidden="true" />
-                            Lower
                           </button>
                         </div>
                         {busy ? (
@@ -252,11 +295,14 @@ export default function ShopkeeperGame() {
                   </>
                 ) : null}
                 {round.finished && !feedback ? (
-                  <div className="essence-empty" role="status">
+                  <div className="essence-empty shop-finale" role="status">
                     <h2>{round.won ? 'You know your shop.' : 'That’s a wrap.'}</h2>
                     <p>
                       You got {round.score} of {round.total} comparisons right.
                     </p>
+                    <div className="game-reward-count">
+                      <RewardCount value={round.rewardPaid} />
+                    </div>
                     <p>
                       {round.practice
                         ? 'Practice complete — no PE rewards.'

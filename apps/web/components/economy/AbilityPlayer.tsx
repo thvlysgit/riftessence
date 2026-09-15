@@ -16,6 +16,70 @@ export default function AbilityPlayer({
   onListened: (slot: number) => void;
 }) {
   const audio = useRef<HTMLAudioElement>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const graph = useRef<{
+    context: AudioContext;
+    analyser: AnalyserNode;
+    source: MediaElementAudioSourceNode;
+  } | null>(null);
+  const frame = useRef(0);
+  const graphStarting = useRef(false);
+  const [playing, setPlaying] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const stopVisuals = () => {
+    setPlaying(false);
+    cancelAnimationFrame(frame.current);
+  };
+  const beginVisuals = async () => {
+    setPlaying(true);
+    if (!audio.current) return;
+    if (graphStarting.current) return;
+    graphStarting.current = true;
+    try {
+      if (!graph.current) {
+        const context = new AudioContext();
+        await context.resume();
+        if (!audio.current || context.state !== 'running') {
+          await context.close();
+          return;
+        }
+        const source = context.createMediaElementSource(audio.current);
+        const analyser = context.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        analyser.connect(context.destination);
+        graph.current = { context, analyser, source };
+      }
+      await graph.current.context.resume();
+      cancelAnimationFrame(frame.current);
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const samples = new Uint8Array(graph.current.analyser.frequencyBinCount);
+      const draw = () => {
+        const ctx = canvas.current?.getContext('2d');
+        if (!ctx || !graph.current || !audio.current || audio.current.paused) return;
+        graph.current.analyser.getByteTimeDomainData(samples);
+        ctx.clearRect(0, 0, 900, 160);
+        ctx.strokeStyle = '#66dfcd';
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#66dfcd';
+        ctx.beginPath();
+        samples.forEach((sample, i) => {
+          const x = (i / (samples.length - 1)) * 900;
+          const y = 80 + (sample - 128) * 0.85;
+          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        });
+        ctx.stroke();
+        frame.current = requestAnimationFrame(draw);
+      };
+      draw();
+    } catch {
+      /* Native audio remains available when Web Audio is unsupported. */
+    } finally {
+      graphStarting.current = false;
+    }
+  };
   const abort = useRef<AbortController | null>(null);
   const currentUrl = useRef<string | null>(null);
   const autoplayUrl = useRef<string | null>(null);
@@ -26,15 +90,25 @@ export default function AbilityPlayer({
   useEffect(
     () => () => {
       abort.current?.abort();
+      cancelAnimationFrame(frame.current);
+      graph.current?.source.disconnect();
+      void graph.current?.context.close();
       onBusyChange(false);
       if (currentUrl.current) URL.revokeObjectURL(currentUrl.current);
     },
     [onBusyChange],
   );
+  useEffect(() => {
+    if (round.finished) {
+      audio.current?.pause();
+    }
+  }, [round.finished]);
   const play = async (next: number) => {
     if (loading || disabled) return;
     abort.current?.abort();
     audio.current?.pause();
+    setElapsed(0);
+    setDuration(0);
     const controller = new AbortController();
     abort.current = controller;
     setSlot(next);
@@ -66,15 +140,32 @@ export default function AbilityPlayer({
     }
   };
   return (
-    <div className="essence-sound-stage">
+    <div
+      className={`essence-sound-stage sound-console ${playing ? 'is-playing' : ''} ${
+        round.finished ? 'finished' : ''
+      }`}
+    >
       <div className="essence-sound-mark" aria-hidden="true">
         <FiHeadphones />
       </div>
       <div style={{ textAlign: 'center' }}>
-        <h2>Listen closely.</h2>
+        <h2>{round.finished ? 'Signal identified.' : 'Find the champion in the sound.'}</h2>
         <p className="essence-muted essence-small">
           Choose an ability. Replay it as often as you like.
         </p>
+      </div>
+      <div className="sound-scope">
+        <div className="sound-scope-label">
+          <span>{loading ? 'LOADING SIGNAL' : playing ? 'SIGNAL LIVE' : 'LISTENING BOOTH'}</span>
+          <span>{slot !== null ? `${['Q', 'W', 'E', 'R'][slot]} CHANNEL` : 'SELECT A PAD'}</span>
+        </div>
+        <canvas ref={canvas} width={900} height={160} aria-label="Live audio waveform" />
+        <div className="sound-playhead">
+          <progress max={duration || 1} value={elapsed} aria-label="Ability playback progress" />
+          <span>
+            {elapsed.toFixed(1)} / {duration.toFixed(1)}s
+          </span>
+        </div>
       </div>
       <div className="essence-audio-tabs" aria-label="Ability sounds">
         {round.audioSlots.map((s, i) => (
@@ -83,6 +174,7 @@ export default function AbilityPlayer({
             type="button"
             key={s}
             aria-pressed={slot === s}
+            data-opened={round.listenedSlots.includes(s)}
             aria-label={`Play ${['Q', 'W', 'E', 'R'][i]} ability${
               !round.finished &&
               !round.practice &&
@@ -94,18 +186,39 @@ export default function AbilityPlayer({
             disabled={disabled || loading}
             onClick={() => play(s)}
           >
-            {round.answer?.abilities[i]?.key || ['Q', 'W', 'E', 'R'][i]}
+            <kbd>{round.answer?.abilities[i]?.key || ['Q', 'W', 'E', 'R'][i]}</kbd>
+            <span>
+              {round.finished
+                ? round.listenedSlots.includes(s)
+                  ? 'OPENED'
+                  : 'UNOPENED'
+                : round.listenedSlots.includes(s)
+                ? 'REPLAY · FREE'
+                : round.practice || round.listenedSlots.length === 0
+                ? 'FIRST LISTEN'
+                : '−10 PE'}
+            </span>
+            {round.finished ? <small>{round.answer?.abilities[i]?.name}</small> : null}
           </button>
         ))}
       </div>
       <div className="essence-audio-control">
-        {src ? (
+        <div hidden={!src}>
           <audio
             ref={audio}
-            src={src}
+            src={src || undefined}
             controls
             preload="auto"
             aria-label="Champion ability sound"
+            onPlay={() => {
+              void beginVisuals();
+            }}
+            onPause={stopVisuals}
+            onEnded={stopVisuals}
+            onTimeUpdate={() => setElapsed(audio.current?.currentTime || 0)}
+            onLoadedMetadata={() =>
+              setDuration(Number.isFinite(audio.current?.duration) ? audio.current!.duration : 0)
+            }
             onCanPlay={() => {
               if (autoplayUrl.current !== src) {
                 autoplayUrl.current = src;
@@ -114,9 +227,10 @@ export default function AbilityPlayer({
             }}
             onError={() => setError(new Error('Audio playback failed. Select the clip to retry.'))}
           />
-        ) : (
+        </div>
+        {!src ? (
           <p className="essence-muted essence-small">Choose an ability to start listening.</p>
-        )}
+        ) : null}
       </div>
       <p className="essence-audio-status essence-muted essence-small" role="status">
         {loading

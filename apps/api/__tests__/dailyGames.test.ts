@@ -96,5 +96,9 @@ describe('daily game rules and public payloads', () => {
       /Ahri|private-user|\.mp3|\.webm|cloudfront|championId/,
     );
     expect(presentRound({ ...round, finished: true }).answer?.name).toBe('Ahri');
+    expect(presentRound({ ...round, gameKey: 'archive' }).answer).toBeNull();
+    expect(presentRound({ ...round, gameKey: 'archive', finished: true }).answer?.clues).toEqual(
+      compareChampion(ahri, ahri).clues,
+    );
   });
 });

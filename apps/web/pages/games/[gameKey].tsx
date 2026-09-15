@@ -3,7 +3,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FiArrowDown, FiArrowUp } from 'react-icons/fi';
+import ArchiveBoard from '../../components/economy/ArchiveBoard';
+import { EffectsToggle, RewardCount, useGameEffects } from '../../components/economy/GameEffects';
 import { useAuth } from '../../contexts/AuthContext';
 import EconomyLayout, {
   EconomyError,
@@ -26,6 +27,7 @@ function ChampionGamePage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const client = useQueryClient();
+  const effects = useGameEffects();
   const gameKey = typeof router.query.gameKey === 'string' ? router.query.gameKey : '';
   const valid = gameKey === 'archive' || gameKey === 'soundcheck';
   const title = gameKey === 'soundcheck' ? 'Soundcheck.' : 'Champion Archive.';
@@ -64,6 +66,10 @@ function ChampionGamePage() {
         method: 'POST',
         body: JSON.stringify({ championId, giveUp }),
       });
+      effects.play(
+        next.finished ? (next.won ? 'win' : 'miss') : gameKey === 'archive' ? 'stamp' : 'miss',
+        next.attempts[next.attempts.length - 1]?.clues.map((clue) => clue.match),
+      );
       if (next.practice) setPractice(next);
       else client.setQueryData(key, next);
       if (next.finished) {
@@ -170,9 +176,19 @@ function ChampionGamePage() {
                   )}
                 </span>
               </div>
-              <section className="essence-board" aria-label={title}>
+              <section
+                className={`essence-board game-champion-stage ${gameKey}`}
+                aria-label={title}
+              >
+                <div className="game-effects-bar">
+                  <EffectsToggle {...effects} />
+                </div>
                 {round.finished && round.answer ? (
-                  <div className="essence-result" role="status">
+                  <div
+                    className={`game-champion-reveal ${round.won ? 'solved' : 'unsolved'}`}
+                    key={`reveal-${round.id}`}
+                    role="status"
+                  >
                     <Image
                       src={`https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${round.answer.id}_0.jpg`}
                       width={640}
@@ -189,6 +205,9 @@ function ChampionGamePage() {
                           : 'The champion was…'}
                       </span>
                       <h2>{round.answer.name}</h2>
+                      <div className="game-reward-count">
+                        <RewardCount value={round.rewardPaid} />
+                      </div>
                       <p>{round.answer.title}</p>
                       {round.rewardPaid > 0 ? (
                         <p className="essence-positive">
@@ -263,83 +282,32 @@ function ChampionGamePage() {
                     onGuess={(id) => submit(id)}
                   />
                 ) : null}
-                {round.attempts.length ? (
-                  <div className="essence-table-scroll" aria-label="Your guesses" tabIndex={0}>
-                    <table
-                      className={gameKey === 'archive' ? 'essence-guess-table' : 'essence-table'}
-                    >
-                      <thead>
-                        <tr>
-                          <th>Champion</th>
-                          {gameKey === 'archive' ? (
-                            ['Role', 'Resource', 'Range', 'Skins'].map((h) => <th key={h}>{h}</th>)
-                          ) : (
-                            <th>Result</th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {round.attempts.map((attempt) => (
-                          <tr key={attempt.champion.id}>
-                            <td>
-                              <div className="essence-champion-cell">
-                                <Image
-                                  src={`https://ddragon.leagueoflegends.com/cdn/${
-                                    catalog.data!.version
-                                  }/img/champion/${attempt.champion.id}.png`}
-                                  width={44}
-                                  height={44}
-                                  alt=""
-                                />
-                                <span>{attempt.champion.name}</span>
-                              </div>
-                            </td>
-                            {gameKey === 'archive' ? (
-                              attempt.clues.map((clue) => (
-                                <td key={clue.label} className={clue.match}>
-                                  {clue.value}
-                                  {clue.direction === 'higher' ? (
-                                    <FiArrowUp
-                                      style={{ display: 'inline', marginLeft: 5 }}
-                                      aria-label="Answer is higher"
-                                    />
-                                  ) : clue.direction === 'lower' ? (
-                                    <FiArrowDown
-                                      style={{ display: 'inline', marginLeft: 5 }}
-                                      aria-label="Answer is lower"
-                                    />
-                                  ) : null}
-                                  <small>
-                                    {clue.match === 'correct'
-                                      ? 'Match'
-                                      : clue.match === 'partial'
-                                      ? 'Partial match'
-                                      : clue.direction
-                                      ? `Go ${clue.direction}`
-                                      : 'No match'}
-                                  </small>
-                                </td>
-                              ))
-                            ) : (
-                              <td
-                                className={attempt.correct ? 'essence-positive' : 'essence-muted'}
-                              >
-                                {attempt.correct ? 'Correct' : 'Try again'}
-                              </td>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : gameKey === 'archive' ? (
-                  <div className="essence-empty">
-                    <h2>Every guess leaves a clue.</h2>
-                    <p>
-                      Match the role, resource, range and number of skins to narrow it down. Base
-                      appearances and chromas don’t count as skins.
-                    </p>
-                  </div>
+                {gameKey === 'archive' ? (
+                  <ArchiveBoard
+                    key={`board-${round.id}`}
+                    round={round}
+                    champions={catalog.data.champions}
+                    version={catalog.data.version}
+                    userId={user.id}
+                  />
+                ) : round.attempts.length ? (
+                  <ol className="sound-guesses" aria-label="Your guesses">
+                    {round.attempts.map((attempt) => (
+                      <li key={attempt.champion.id} className={attempt.correct ? 'correct' : ''}>
+                        <Image
+                          src={`https://ddragon.leagueoflegends.com/cdn/${
+                            catalog.data!.version
+                          }/img/champion/${attempt.champion.id}.png`}
+                          width={40}
+                          height={40}
+                          alt=""
+                          unoptimized
+                        />
+                        <span>{attempt.champion.name}</span>
+                        <strong>{attempt.correct ? '✓ Identified' : '× Not this champion'}</strong>
+                      </li>
+                    ))}
+                  </ol>
                 ) : null}
                 <div className="essence-attempts">
                   <span className="essence-attempt-dots" aria-hidden="true">

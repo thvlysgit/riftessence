@@ -35,6 +35,10 @@ Round base rewards are offered when the round starts. Changing reward values aff
 
 Game pages display a countdown to the next UTC reset and links to another game after completion. Their suggestion banner accepts a free-form idea from signed-in users (10–3,000 characters, up to five submissions per rolling day). Suggestions and in-app admin notifications commit together; identical pending ideas are deduplicated. Admins review, mark reviewed, or reopen ideas at `/admin/game-suggestions`.
 
+Shopkeeper's new rounds pair items in the same tier (component, epic, legendary; boots, starters and consumables have separate pools). Equal-priced or stranded items are skipped. Existing saved rounds retain their original comparisons and prices. The sync derives tiers from the eligible recipe graph and item tags; review the tiers when refreshing the catalog. Drag the mystery card 64 pixels left/right to commit, or use the focused card's arrow keys or the equivalent buttons. Short drags and cancelled touches do not submit. Gold and red cues include text; price tags reveal after the server accepts an answer. The six-slot coin tray tracks correct/missed comparisons, while the finale counts only the actual PE payout.
+
+Champion Archive presents guesses as portraits with staggered clue stamps. Its suspect roster supports manual pins and eliminations, stored locally per account and round. These notes never submit guesses or automatically filter the answer. Completed rounds reveal the champion's splash; failed rounds also show the answer's clue values. Soundcheck uses illuminated pads with visible listen costs, a Web Audio waveform from the actual clip, a playback progress bar, and a finale that names the abilities and highlights the opened pads. Native audio controls remain available. Optional synthesized effects default off and share a device preference across games. Reduced-motion preferences disable decorative animations and the moving waveform.
+
 To refresh assets, with Node and FFmpeg available:
 
 ```sh

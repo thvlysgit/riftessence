@@ -10,18 +10,20 @@ const item = z.object({
   name: z.string(),
   price: z.number().int().positive(),
   image: z.string(),
+  tier: z.enum(['component', 'epic', 'legendary', 'boots', 'consumable', 'starter']).optional(),
 });
 const puzzleSchema = z.object({
   version: z.string(),
   pairs: z.array(z.object({ reference: item, challenger: item })).length(ITEM_COMPARISONS),
 });
+const catalogItems = z.array(item.required({ tier: true })).parse(catalog.items);
 export type ItemPuzzle = z.infer<typeof puzzleSchema>;
 export const priceDirection = (pair: ItemPuzzle['pairs'][number]) =>
   pair.challenger.price > pair.reference.price ? 'higher' : 'lower';
 
 export function createItemPuzzle(day: string, practice: boolean, secret: string): ItemPuzzle {
   const seed = practice ? randomUUID() : day;
-  const pool = catalog.items
+  const pool = catalogItems
     .map((item) => ({
       item,
       hash: createHmac('sha256', secret)
@@ -32,8 +34,17 @@ export function createItemPuzzle(day: string, practice: boolean, secret: string)
     .map((entry) => entry.item);
   const pairs: ItemPuzzle['pairs'] = [];
   for (let i = 0; i < ITEM_COMPARISONS; i++) {
-    const reference = pool.pop();
-    const index = pool.findIndex((candidate) => candidate.price !== reference?.price);
+    // Discard stranded items (for example equal-priced consumables). Every pair
+    // must share a tier, and no item may occur twice in the round.
+    let reference = pool.pop();
+    let index = -1;
+    while (reference) {
+      index = pool.findIndex(
+        (candidate) => candidate.tier === reference!.tier && candidate.price !== reference!.price,
+      );
+      if (index >= 0) break;
+      reference = pool.pop();
+    }
     if (!reference || index < 0)
       throw new EconomyError('Item puzzles are temporarily unavailable.', 503);
     const [challenger] = pool.splice(index, 1);
@@ -57,9 +68,10 @@ export function itemScore(puzzle: ItemPuzzle, choices: string[]) {
 
 export function presentItemRound(round: GameRound) {
   const puzzle = readItemPuzzle(round);
-  const visibleItem = ({ id, name, image }: ItemPuzzle['pairs'][number]['reference']) => ({
+  const visibleItem = ({ id, name, image, tier }: ItemPuzzle['pairs'][number]['reference']) => ({
     id,
     name,
+    tier,
     imageUrl: `https://ddragon.leagueoflegends.com/cdn/${puzzle.version}/img/item/${image}`,
   });
   const score = itemScore(puzzle, round.guesses);
