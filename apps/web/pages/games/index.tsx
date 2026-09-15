@@ -16,7 +16,7 @@ export default function GamesPage() {
     economyApi<GamesOverview>('/games', { signal }),
   );
   return (
-    <EconomyLayout title="Know the Rift." description="Two daily puzzles. A fresh reason to play.">
+    <EconomyLayout title="Know the Rift." description="Three daily games. A fresh reason to play.">
       <EconomyError error={overview.error} retry={() => overview.refetch()} />
       {overview.isLoading ? <EconomyLoading /> : null}
       {overview.data ? (
@@ -42,6 +42,14 @@ export default function GamesPage() {
           art: 'Ahri',
           credit: 'LoLdle',
           url: 'https://loldle.net/',
+        },
+        {
+          key: 'shopkeeper',
+          title: 'Shopkeeper',
+          text: 'Know your shop? Compare two items and decide whether the hidden price is higher or lower. Six comparisons, one daily score.',
+          art: 'Ornn',
+          credit: 'Riot Games item data',
+          url: 'https://developer.riotgames.com/docs/lol#data-dragon_items',
         },
         {
           key: 'soundcheck',
@@ -75,11 +83,11 @@ export default function GamesPage() {
                   : 'Play today’s puzzle'}
               </Link>
               <p className="essence-small">
-                {state ? `Up to ${state.reward} PE for a daily solve · ` : ''}Practice rounds
+                {state ? `Up to ${state.reward} PE per daily round · ` : ''}Practice rounds
                 available
               </p>
               <p className="essence-small">
-                Inspired by{' '}
+                {game.key === 'shopkeeper' ? 'Powered by ' : 'Inspired by '}
                 <a href={game.url} target="_blank" rel="noopener noreferrer">
                   {game.credit}
                 </a>

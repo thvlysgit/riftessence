@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { FiArrowRight, FiPlay } from 'react-icons/fi';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import EconomyLayout, {
@@ -61,6 +62,16 @@ export default function WalletPage() {
     .sort((a, b) => a.costPrismaticEssence - b.costPrismaticEssence)[0];
   const daily = quests.data?.quests.filter((quest) => quest.repeatWindow === 'DAILY') || [];
   const milestones = quests.data?.quests.filter((quest) => quest.repeatWindow === 'ONE_TIME') || [];
+  const gameRewardRemaining = games.data?.rewardsEnabled
+    ? Math.min(
+        Math.max(0, games.data.dailyCap - games.data.earnedToday),
+        games.data.games.reduce(
+          (total, game) =>
+            total + (game.round?.finished ? 0 : game.round?.rewardAvailable ?? game.reward),
+          0,
+        ),
+      )
+    : 0;
   const claim = async (quest: Quest) => {
     if (claiming) return;
     setClaiming(quest.key);
@@ -133,6 +144,28 @@ export default function WalletPage() {
               </Link>
             </div>
           ) : null}
+          <section className="essence-wallet-games" aria-labelledby="wallet-games-heading">
+            <div>
+              <span className="essence-kicker">Play for Prismatic Essence</span>
+              <h2 id="wallet-games-heading">Know the Rift? Put it to the test.</h2>
+              <p>
+                Guess champions, identify ability sounds, or compare item prices. Three daily games,
+                fresh every day.
+              </p>
+              <p className="essence-wallet-games-reward">
+                {gameRewardRemaining > 0
+                  ? `Up to ${pe(gameRewardRemaining)} PE left to earn from games today.`
+                  : games.data?.games.every((game) => game.round?.finished)
+                  ? 'Today’s rounds are complete. Keep playing in practice.'
+                  : games.data?.rewardsEnabled && games.data.earnedToday >= games.data.dailyCap
+                  ? 'Today’s game reward cap is reached. Keep playing in practice.'
+                  : 'Try a daily puzzle or sharpen your skills in practice.'}
+              </p>
+            </div>
+            <Link className="essence-button essence-wallet-games-cta" href="/games">
+              <FiPlay aria-hidden="true" /> Play daily games <FiArrowRight aria-hidden="true" />
+            </Link>
+          </section>
           <div className="essence-columns essence-section">
             <section className="essence-panel">
               <div className="essence-section-head">
@@ -155,6 +188,8 @@ export default function WalletPage() {
                           : 'Daily round complete. Practice is still open.'
                         : game.key === 'archive'
                         ? 'Guess the champion from a trail of clues.'
+                        : game.key === 'shopkeeper'
+                        ? 'Compare item prices: higher or lower?'
                         : 'Name the champion from their ability sounds.'}
                     </p>
                   </div>

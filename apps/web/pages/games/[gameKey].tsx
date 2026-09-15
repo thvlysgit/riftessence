@@ -13,9 +13,16 @@ import EconomyLayout, {
 import ChampionSearch from '../../components/economy/ChampionSearch';
 import AbilityPlayer from '../../components/economy/AbilityPlayer';
 import PuzzleCountdown from '../../components/economy/PuzzleCountdown';
+import ShopkeeperGame from '../../components/economy/ShopkeeperGame';
+import GameLinks from '../../components/economy/GameLinks';
 import { economyApi, GameRound, pe, walletChanged } from '../../utils/economy';
 
 export default function DailyGamePage() {
+  const router = useRouter();
+  return router.query.gameKey === 'shopkeeper' ? <ShopkeeperGame /> : <ChampionGamePage />;
+}
+
+function ChampionGamePage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const client = useQueryClient();
@@ -203,17 +210,7 @@ export default function DailyGamePage() {
                       >
                         {busy ? 'Starting…' : 'Play a practice round'}
                       </button>
-                      <div className="essence-form-actions">
-                        <Link
-                          className="essence-button"
-                          href={`/games/${gameKey === 'archive' ? 'soundcheck' : 'archive'}`}
-                        >
-                          Play {gameKey === 'archive' ? 'Soundcheck' : 'Champion Archive'} →
-                        </Link>
-                        <Link className="essence-text-button" href="/games">
-                          All games
-                        </Link>
-                      </div>
+                      <GameLinks current={gameKey} />
                     </div>
                   </div>
                 ) : null}
@@ -340,7 +337,7 @@ export default function DailyGamePage() {
                     <h2>Every guess leaves a clue.</h2>
                     <p>
                       Match the role, resource, range and number of skins to narrow it down. Base
-                      appearances don’t count as skins.
+                      appearances and chromas don’t count as skins.
                     </p>
                   </div>
                 ) : null}

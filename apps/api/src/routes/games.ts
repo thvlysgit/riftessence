@@ -20,13 +20,21 @@ import {
   championById,
   champions,
   GAME_KEYS,
+  GAME_TITLES,
   MAX_GUESSES,
-  presentRound,
+  presentGameRound as presentRound,
   selectAnswer,
   sounds,
   roundReward,
 } from '../services/dailyGames';
 import catalog from '../data/game-catalog.json';
+import {
+  createItemPuzzle,
+  readItemPuzzle,
+  itemScore,
+  presentItemRound,
+  ITEM_COMPARISONS,
+} from '../services/itemPriceGame';
 
 export default async function gameRoutes(app: FastifyInstance) {
   app.get('/games/catalog', async () => ({
@@ -59,10 +67,12 @@ export default async function gameRoutes(app: FastifyInstance) {
         ),
         games: GAME_KEYS.map((key) => ({
           key,
-          title: key === 'archive' ? 'Champion Archive' : 'Soundcheck',
+          title: GAME_TITLES[key],
           reward: settings.gameRewardsEnabled
             ? key === 'archive'
               ? settings.championReward
+              : key === 'shopkeeper'
+              ? settings.itemReward
               : settings.soundReward
             : 0,
           round: rounds.find((round: { gameKey: string }) => round.gameKey === key)
@@ -118,11 +128,17 @@ export default async function gameRoutes(app: FastifyInstance) {
             userId,
             gameKey,
             day,
-            championId: selectAnswer(gameKey, today, practice, secret),
+            championId:
+              gameKey === 'shopkeeper' ? '' : selectAnswer(gameKey, today, practice, secret),
+            ...(gameKey === 'shopkeeper'
+              ? { itemPuzzle: createItemPuzzle(today, practice, secret) }
+              : {}),
             rewardOffer:
               !practice && settings.gameRewardsEnabled
                 ? gameKey === 'archive'
                   ? settings.championReward
+                  : gameKey === 'shopkeeper'
+                  ? settings.itemReward
                   : settings.soundReward
                 : 0,
           },
@@ -151,6 +167,8 @@ export default async function gameRoutes(app: FastifyInstance) {
             where: { id: request.params.roundId, userId },
           });
           if (!round) throw new EconomyError('Puzzle not found.', 404);
+          if (round.gameKey === 'shopkeeper')
+            throw new EconomyError('Choose higher or lower for this game.');
           if (round.finished) return round;
           const practice = round.day.startsWith('practice:');
           if (!practice && round.day !== utcDay())
@@ -198,6 +216,75 @@ export default async function gameRoutes(app: FastifyInstance) {
         });
         reply.header('Cache-Control', 'private, no-store');
         return presentRound(updated);
+      } catch (error) {
+        return economyFailure(request, reply, error);
+      }
+    },
+  );
+
+  app.post<{ Params: { roundId: string } }>(
+    '/games/rounds/:roundId/price',
+    async (request, reply) => {
+      try {
+        const userId = await getUserIdFromRequest(request, reply);
+        if (!userId) return;
+        const input = z
+          .object({
+            index: z
+              .number()
+              .int()
+              .min(0)
+              .max(ITEM_COMPARISONS - 1),
+            choice: z.enum(['higher', 'lower']),
+          })
+          .parse(request.body);
+        const updated = await withWallet(userId, async (tx, wallet) => {
+          const round = await tx.gameRound.findFirst({
+            where: { id: request.params.roundId, userId, gameKey: 'shopkeeper' },
+          });
+          if (!round) throw new EconomyError('Puzzle not found.', 404);
+          const practice = round.day.startsWith('practice:');
+          if (!practice && round.day !== utcDay())
+            throw new EconomyError('This daily puzzle has ended. Open today’s puzzle.', 409);
+          // The comparison index makes retries and double-clicks idempotent.
+          if (round.finished || input.index < round.guesses.length) return round;
+          if (input.index !== round.guesses.length)
+            throw new EconomyError('Refresh to answer the current comparison.', 409);
+          const puzzle = readItemPuzzle(round);
+          const guesses = [...round.guesses, input.choice];
+          const score = itemScore(puzzle, guesses);
+          const finished = guesses.length === ITEM_COMPARISONS;
+          let rewardPaid = 0;
+          if (finished && !practice) {
+            const settings = await readSettings(tx);
+            const earned = await tx.gameRound.aggregate({
+              where: { userId, day: round.day },
+              _sum: { rewardPaid: true },
+            });
+            rewardPaid = settings.gameRewardsEnabled
+              ? Math.max(
+                  0,
+                  Math.min(
+                    Math.floor((round.rewardOffer * score) / ITEM_COMPARISONS),
+                    settings.dailyGameCap - (earned._sum.rewardPaid || 0),
+                  ),
+                )
+              : 0;
+            if (rewardPaid)
+              await postEntry(tx, wallet, rewardPaid, 'GAME_REWARD', 'Shopkeeper completed', {
+                roundId: round.id,
+                gameKey: round.gameKey,
+                day: round.day,
+                score,
+              });
+          }
+          return tx.gameRound.update({
+            where: { id: round.id },
+            data: { guesses, finished, won: finished && score === ITEM_COMPARISONS, rewardPaid },
+          });
+        });
+        reply.header('Cache-Control', 'private, no-store');
+        return presentItemRound(updated);
       } catch (error) {
         return economyFailure(request, reply, error);
       }

@@ -3,8 +3,14 @@ import { GameRound } from '@prisma/client';
 import catalog from '../data/game-catalog.json';
 import soundcheck from '../data/soundcheck.json';
 import { EconomyError } from './economy';
+import { presentItemRound } from './itemPriceGame';
 
-export const GAME_KEYS = ['archive', 'soundcheck'] as const;
+export const GAME_KEYS = ['archive', 'soundcheck', 'shopkeeper'] as const;
+export const GAME_TITLES = {
+  archive: 'Champion Archive',
+  soundcheck: 'Soundcheck',
+  shopkeeper: 'Shopkeeper',
+};
 export type GameKey = (typeof GAME_KEYS)[number];
 export type Champion = (typeof catalog.champions)[number];
 export const champions = catalog.champions;
@@ -78,6 +84,9 @@ export function compareChampion(guess: Champion, answer: Champion) {
       },
     ],
   };
+}
+export function presentGameRound(round: GameRound) {
+  return round.gameKey === 'shopkeeper' ? presentItemRound(round) : presentRound(round);
 }
 export function presentRound(round: GameRound) {
   const answer = championById.get(round.championId);

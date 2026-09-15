@@ -76,6 +76,7 @@ suite('PE economy against PostgreSQL', () => {
         dailySocial: 40,
         championReward: 60,
         soundReward: 60,
+        itemReward: 60,
         dailyGameCap: 120,
         gameRewardsEnabled: true,
       },
@@ -291,6 +292,108 @@ suite('PE economy against PostgreSQL', () => {
         .statusCode,
     ).toBe(409);
   });
+  test('Shopkeeper protects hidden prices and pays a scored round once despite concurrent retries', async () => {
+    const user = await createUser();
+    const other = await createUser();
+    expect((await call(null, 'POST', '/games/shopkeeper/start', {})).statusCode).toBe(401);
+    const start = (await call(user, 'POST', '/games/shopkeeper/start', {})).json();
+    expect(start.current.challenger).not.toHaveProperty('price');
+    expect((await call(user, 'POST', '/games/shopkeeper/start', {})).json().id).toBe(start.id);
+    const stored = await db.gameRound.findUnique({ where: { id: start.id } });
+    const directions = stored.itemPuzzle.pairs.map((p: any) =>
+      p.challenger.price > p.reference.price ? 'higher' : 'lower',
+    );
+    expect(
+      (await call(other, 'POST', `/games/rounds/${start.id}/price`, { index: 0, choice: 'higher' }))
+        .statusCode,
+    ).toBe(404);
+    expect(
+      (await call(user, 'POST', `/games/rounds/${start.id}/price`, { index: 1, choice: 'higher' }))
+        .statusCode,
+    ).toBe(409);
+    expect(
+      (await call(user, 'POST', `/games/rounds/${start.id}/price`, { index: 0, choice: 'equal' }))
+        .statusCode,
+    ).toBe(400);
+    expect(
+      (await call(user, 'POST', `/games/rounds/${start.id}/guess`, { championId: 'Ahri' }))
+        .statusCode,
+    ).toBe(400);
+    const wrong = directions[0] === 'higher' ? 'lower' : 'higher';
+    const first = await Promise.all(
+      [1, 2].map(() =>
+        call(user, 'POST', `/games/rounds/${start.id}/price`, { index: 0, choice: wrong }),
+      ),
+    );
+    expect(first.map((r) => r.json().index)).toEqual([1, 1]);
+    expect(first[0].json().history[0].challenger.price).toBe(
+      stored.itemPuzzle.pairs[0].challenger.price,
+    );
+    expect((await call(user, 'POST', '/games/shopkeeper/start', {})).json().index).toBe(1);
+    for (let index = 1; index < 5; index++)
+      await call(user, 'POST', `/games/rounds/${start.id}/price`, {
+        index,
+        choice: directions[index],
+      });
+    const completed = await Promise.all(
+      [1, 2].map(() =>
+        call(user, 'POST', `/games/rounds/${start.id}/price`, { index: 5, choice: directions[5] }),
+      ),
+    );
+    expect(completed.map((r) => r.json().rewardPaid)).toEqual([50, 50]);
+    expect(completed[0].json()).toMatchObject({ finished: true, score: 5, current: null });
+    expect(
+      await db.walletTransaction.count({
+        where: { userId: user, type: 'GAME_REWARD', amount: 50 },
+      }),
+    ).toBe(1);
+    expect((await call(user, 'GET', '/games')).json().games).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'shopkeeper',
+          round: expect.objectContaining({ rewardPaid: 50 }),
+        }),
+      ]),
+    );
+  });
+  test('Shopkeeper respects practice, the shared cap, reward pause, and expiration', async () => {
+    const user = await createUser();
+    const solve = async (round: any) => {
+      const stored = await db.gameRound.findUnique({ where: { id: round.id } });
+      let result: any;
+      for (let index = 0; index < 6; index++) {
+        const pair = stored.itemPuzzle.pairs[index];
+        result = await call(user, 'POST', `/games/rounds/${round.id}/price`, {
+          index,
+          choice: pair.challenger.price > pair.reference.price ? 'higher' : 'lower',
+        });
+      }
+      return result.json();
+    };
+    const practice = (
+      await call(user, 'POST', '/games/shopkeeper/start', { practice: true })
+    ).json();
+    expect((await solve(practice)).rewardPaid).toBe(0);
+    const archive = (await call(user, 'POST', '/games/archive/start', {})).json();
+    await call(user, 'POST', `/games/rounds/${archive.id}/guess`, {
+      championId: (await db.gameRound.findUnique({ where: { id: archive.id } })).championId,
+    });
+    await db.economySettings.update({ where: { id: 'global' }, data: { dailyGameCap: 75 } });
+    const daily = (await call(user, 'POST', '/games/shopkeeper/start', {})).json();
+    expect((await solve(daily)).rewardPaid).toBe(15);
+    await db.gameRound.update({ where: { id: daily.id }, data: { day: '2000-01-01' } });
+    expect(
+      (await call(user, 'POST', `/games/rounds/${daily.id}/price`, { index: 0, choice: 'higher' }))
+        .statusCode,
+    ).toBe(409);
+    const paused = (await call(user, 'POST', '/games/shopkeeper/start', {})).json();
+    await db.economySettings.update({
+      where: { id: 'global' },
+      data: { gameRewardsEnabled: false },
+    });
+    expect((await solve(paused)).rewardPaid).toBe(0);
+  });
+
   test('Archive penalties persist, duplicate guesses are free, and the ledger pays the reduced reward once', async () => {
     const user = await createUser();
     const { id } = (await call(user, 'POST', '/games/archive/start', {})).json();

@@ -1,0 +1,2 @@
+ALTER TABLE "GameRound" ADD COLUMN "itemPuzzle" JSONB;
+ALTER TABLE "EconomySettings" ADD COLUMN "itemReward" INTEGER NOT NULL DEFAULT 60;

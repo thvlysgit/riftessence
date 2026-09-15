@@ -89,7 +89,7 @@ jobs:
       # This disposable database tests current schema/transactions, not the
       # historical migration chain. Never run db push against production.
       - run: pnpm exec prisma db push --schema=prisma/schema.prisma --skip-generate
-      - run: pnpm exec jest --runInBand --config jest.config.cjs --runTestsByPath apps/api/__tests__/dailyGames.test.ts apps/api/__tests__/economy.integration.test.ts
+      - run: pnpm exec jest --runInBand --config jest.config.cjs --runTestsByPath apps/api/__tests__/dailyGames.test.ts apps/api/__tests__/itemPriceGame.test.ts apps/api/__tests__/economy.integration.test.ts
 
   container-build:
     name: Validate container images

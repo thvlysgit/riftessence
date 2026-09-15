@@ -841,7 +841,8 @@ model GameRound {
   userId      String
   gameKey     String
   day         String
-  championId  String
+  championId  String // Empty for item-price rounds; those use itemPuzzle.
+  itemPuzzle  Json? // Pinned item pairs and prices survive catalog updates.
   guesses     String[] @default([])
   listenedSlots Int[]  @default([])
   won         Boolean  @default(false)
@@ -888,6 +889,7 @@ model EconomySettings {
   dailySocial        Int      @default(40)
   championReward     Int      @default(60)
   soundReward        Int      @default(60)
+  itemReward         Int      @default(60)
   dailyGameCap       Int      @default(120)
   gameRewardsEnabled Boolean  @default(true)
   version            Int      @default(1)

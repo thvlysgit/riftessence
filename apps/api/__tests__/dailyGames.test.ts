@@ -1,4 +1,5 @@
 import { GameRound } from '@prisma/client';
+const { countSkins } = require('../../../scripts/sync-game-catalog.cjs');
 import {
   championById,
   compareChampion,
@@ -10,6 +11,31 @@ import {
 
 describe('daily game rules and public payloads', () => {
   const ahri = championById.get('Ahri')!;
+  test('skin counts exclude base appearances and chromas, including base-skin chromas', () => {
+    expect(
+      countSkins([
+        { num: 0, name: 'default', chromas: true },
+        { num: 1, name: 'Original skin', chromas: true },
+        { num: 8, name: 'Original skin (Ruby)', parentSkin: 1 },
+        { num: 10, name: 'Base (Emerald)', parentSkin: 0 },
+        { num: 65, name: 'Prestige skin (2022)', chromas: false },
+      ]),
+    ).toBe(2);
+    expect(() => countSkins([{ name: 'missing number' }])).toThrow();
+  });
+  test('Archive displays each guessed champion’s own skin count', () => {
+    const aatrox = championById.get('Aatrox')!;
+    expect(ahri.skinCount).toBe(21);
+    expect(aatrox.skinCount).toBe(12);
+    expect(compareChampion(ahri, aatrox).clues[3]).toMatchObject({
+      value: '21',
+      direction: 'lower',
+    });
+    expect(compareChampion(aatrox, ahri).clues[3]).toMatchObject({
+      value: '12',
+      direction: 'higher',
+    });
+  });
   test('daily answers are deterministic and sound answers have real clips', () => {
     expect(selectAnswer('archive', '2026-09-07', false, 'test-secret')).toBe(
       selectAnswer('archive', '2026-09-07', false, 'test-secret'),

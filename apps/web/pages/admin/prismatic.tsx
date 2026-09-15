@@ -23,11 +23,13 @@ const fields: {
   { key: 'dailySocial', label: 'Daily conversation', max: 500 },
   { key: 'championReward', label: 'Champion Archive', max: 500 },
   { key: 'soundReward', label: 'Soundcheck', max: 500 },
+  { key: 'itemReward', label: 'Shopkeeper (perfect score)', max: 500 },
   { key: 'dailyGameCap', label: 'Daily game cap', max: 1000 },
 ];
 const sourceLabels: Record<string, string> = {
   archive: 'Champion Archive',
   soundcheck: 'Soundcheck',
+  shopkeeper: 'Shopkeeper',
   quests: 'Challenges',
   welcome: 'Welcome grants',
   cosmetics: 'Cosmetics',
@@ -364,7 +366,7 @@ export default function AdminEconomyPage() {
                               (draft.gameRewardsEnabled
                                 ? Math.min(
                                     draft.dailyGameCap,
-                                    draft.championReward + draft.soundReward,
+                                    draft.championReward + draft.soundReward + draft.itemReward,
                                   )
                                 : 0),
                           )}{' '}
@@ -457,6 +459,9 @@ export default function AdminEconomyPage() {
               </div>
               <section className="essence-panel essence-section">
                 <h2>Daily game completion</h2>
+                <p className="essence-muted essence-small">
+                  Shopkeeper counts as solved with a perfect score of six.
+                </p>
                 <table className="essence-table">
                   <thead>
                     <tr>
@@ -467,7 +472,7 @@ export default function AdminEconomyPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {['archive', 'soundcheck'].map((key) => {
+                    {['archive', 'soundcheck', 'shopkeeper'].map((key) => {
                       const rows = data.games.filter((game) => game.gameKey === key);
                       const started = rows.reduce((n, row) => n + row._count._all, 0);
                       const won = rows

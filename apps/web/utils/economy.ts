@@ -99,7 +99,15 @@ export type GamesOverview = {
   dailyCap: number;
   earnedToday: number;
   rewardsEnabled: boolean;
-  games: { key: string; title: string; reward: number; round: GameRound | null }[];
+  games: {
+    key: string;
+    title: string;
+    reward: number;
+    round: Pick<
+      GameRound,
+      'id' | 'finished' | 'won' | 'rewardPaid' | 'rewardOffer' | 'rewardAvailable'
+    > | null;
+  }[];
 };
 export type EconomySettings = {
   starterGrant: number;
@@ -107,6 +115,7 @@ export type EconomySettings = {
   dailySocial: number;
   championReward: number;
   soundReward: number;
+  itemReward: number;
   dailyGameCap: number;
   gameRewardsEnabled: boolean;
   version: number;
