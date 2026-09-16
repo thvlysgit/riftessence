@@ -402,6 +402,44 @@ suite('PE economy against PostgreSQL', () => {
       50,
     );
   });
+  test('Recipe Rush repairs untouched saved trays on resume and rejects stale replaced item keys without a penalty', async () => {
+    const user = await createUser();
+    const start = (await call(user, 'POST', '/games/recipe-rush/start', {})).json();
+    const stored = await db.gameRound.findUnique({ where: { id: start.id } });
+    const recipe = stored.recipePuzzle.recipes[0];
+    const old = recipe.tray.find((p: any) => !recipe.ingredientIds.includes(p.item.id));
+    const oldKey = old.key;
+    old.item = { id: '1053', name: 'Vampiric Scepter', image: '1053.png' };
+    recipe.trayVersion = 0;
+    await db.gameRound.update({
+      where: { id: start.id },
+      data: { recipePuzzle: stored.recipePuzzle },
+    });
+    const url = `/games/rounds/${start.id}/recipe`;
+    expect(
+      (
+        await call(user, 'POST', url, {
+          action: 'add',
+          index: 0,
+          step: 0,
+          revision: 0,
+          pieceKey: oldKey,
+        })
+      ).statusCode,
+    ).toBe(400);
+    const resumed = (await call(user, 'POST', '/games/recipe-rush/start', {})).json();
+    expect(resumed).toMatchObject({
+      id: start.id,
+      rewardAvailable: 60,
+      mistakes: 0,
+      finished: false,
+    });
+    expect(resumed.current.tray.some((p: any) => p.key === oldKey)).toBe(false);
+    const repaired = await db.gameRound.findUnique({ where: { id: start.id } });
+    expect(repaired.recipePuzzle.recipes[0].trayVersion).toBe(3);
+    expect(repaired.recipePuzzle.recipes[0].ingredientIds).toEqual(recipe.ingredientIds);
+    expect((await solveRecipes(user, start.id)).rewardPaid).toBe(60);
+  });
   test('Recipe Rush accounts for revealed crafts, shared caps, reward pause and expired daily rounds', async () => {
     const user = await createUser();
     const start = (await call(user, 'POST', '/games/recipe-rush/start', {})).json();

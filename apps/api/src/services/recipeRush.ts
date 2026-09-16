@@ -11,6 +11,7 @@ const STAGES = ['Simple', 'Skilled', 'Masterwork'];
 const itemSchema = z.object({ id: z.string(), name: z.string(), image: z.string() });
 const craftSchema = z.object({
   target: itemSchema,
+  trayVersion: z.number().int().default(0),
   ingredientIds: z.array(z.string()).min(1).max(4),
   tray: z
     .array(z.object({ key: z.string(), item: itemSchema }))
@@ -51,6 +52,109 @@ if (
 )
   throw new Error('Refresh recipe-catalog.json after updating the item catalog.');
 
+// Tear/Dark Seal are starter items in the shop but basic ingredients in recipes.
+const ingredientTier = (id: string) => {
+  const tier = items.get(id)!.tier;
+  return tier === 'starter' ? 'component' : tier;
+};
+const usedAsIngredient = new Set(recipes.flatMap((recipe) => recipe.ingredientIds));
+const statFamilies = [
+  ['Damage', 'AttackSpeed', 'CriticalStrike', 'LifeSteal', 'ArmorPenetration'],
+  ['SpellDamage', 'Mana', 'ManaRegen', 'CooldownReduction'],
+  ['Health', 'HealthRegen', 'Armor', 'SpellBlock'],
+];
+
+export function createRecipeTray(
+  targetId: string,
+  ingredientIds: string[],
+  rank: (value: string) => string,
+) {
+  const unique = [...new Set(ingredientIds)].map((id) => items.get(id)!);
+  const tiers = [...new Set(ingredientIds.map(ingredientTier))].sort();
+  const selected = [...unique];
+  for (const [tierIndex, tier] of tiers.entries()) {
+    const ingredients = unique.filter((item) => ingredientTier(item.id) === tier);
+    const pool = itemCatalog.items.filter(
+      (item) =>
+        ingredientTier(item.id) === tier &&
+        item.id !== targetId &&
+        !ingredientIds.includes(item.id) &&
+        (item.tier !== 'starter' || usedAsIngredient.has(item.id)),
+    );
+    const overlap = (a: string, b: string) =>
+      (traits[a] || []).filter((tag) => (traits[b] || []).includes(tag)).length;
+    const score = (item: (typeof itemCatalog.items)[number]) =>
+      Math.max(
+        ...ingredients.map((ingredient) => {
+          const bases = recipeByItem.get(ingredient.id)?.ingredientIds || [ingredient.id];
+          const otherBases = recipeByItem.get(item.id)?.ingredientIds || [item.id];
+          const related = statFamilies.some(
+            (family) =>
+              family.some((tag) => (traits[ingredient.id] || []).includes(tag)) &&
+              family.some((tag) => (traits[item.id] || []).includes(tag)),
+          );
+          return (
+            overlap(item.id, ingredient.id) * 4 +
+            overlap(item.id, targetId) * 2 +
+            bases.filter((id) => otherBases.includes(id)).length * 3 +
+            (related ? 1.5 : 0) +
+            1 / (1 + Math.abs(item.price - ingredient.price) / 300)
+          );
+        }),
+      );
+    const shuffled = pool
+      .map((item) => ({ item, rank: rank('decoy:' + item.id), score: score(item) }))
+      .sort((a, b) => a.rank.localeCompare(b.rank));
+    // Keep several alternatives in EVERY relevant tier, irrespective of recipe multiplicities.
+    const slots = Math.floor(10 / tiers.length) + (tierIndex < 10 % tiers.length ? 1 : 0);
+    const needed = slots - ingredients.length;
+    const traps = [...shuffled]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, Math.min(needed, tiers.length === 1 ? 4 : 2));
+    selected.push(
+      ...[...traps, ...shuffled.filter((entry) => !traps.includes(entry))]
+        .slice(0, needed)
+        .map((entry) => entry.item),
+    );
+  }
+  if (selected.length !== 10) throw new EconomyError('The forge is temporarily unavailable.', 503);
+  return selected
+    .map((item) => ({ item, rank: rank('tray:' + item.id) }))
+    .sort((a, b) => a.rank.localeCompare(b.rank))
+    .map(({ item }, n) => ({ key: 'piece-' + n, item: itemSchema.parse(item) }));
+}
+
+export function repairRecipeTrays(puzzle: RecipePuzzle, roundId: string) {
+  if (puzzle.version !== recipeCatalog.version) return false;
+  let changed = false;
+  puzzle.recipes.forEach((recipe, index) => {
+    if (!recipe.reusable || recipe.status !== 'playing') return;
+    [...recipe.preparations, recipe].forEach((craft, step) => {
+      if (
+        craft.trayVersion >= 3 ||
+        craft.status !== 'playing' ||
+        craft.accepted.length ||
+        craft.rejected.length
+      )
+        return;
+      const oldKeys = new Map(craft.tray.map((piece) => [piece.item.id, piece.key]));
+      const replacement = createRecipeTray(craft.target.id, craft.ingredientIds, (value) =>
+        createHmac('sha256', roundId)
+          .update('tray-v3:' + index + ':' + step + ':' + value)
+          .digest('hex'),
+      );
+      // Never repurpose an old key for a different item: stale clicks must not select or charge for its replacement.
+      craft.tray = replacement.map((piece) => ({
+        ...piece,
+        key: oldKeys.get(piece.item.id) || 'trap-v3-' + piece.item.id,
+      }));
+      craft.trayVersion = 3;
+      changed = true;
+    });
+  });
+  return changed;
+}
+
 export function createRecipePuzzle(
   day: string,
   practice: boolean,
@@ -69,42 +173,12 @@ export function createRecipePuzzle(
       .sort((a, b) => a.rank.localeCompare(b.rank))
       .map(({ entry }) => entry);
   const makeCraft = (recipe: (typeof recipes)[number], label: string): Craft => {
-    const ingredients = recipe.ingredientIds.map((id) => items.get(id)!);
-    const unique = [...new Map(ingredients.map((i) => [i.id, i])).values()];
-    const overlap = (a: string, b: string) =>
-      (traits[a] || []).filter((tag) => (traits[b] || []).includes(tag)).length;
-    const pool = itemCatalog.items.filter(
-      (i) =>
-        ['component', 'epic'].includes(i.tier) &&
-        i.id !== recipe.targetId &&
-        !recipe.ingredientIds.includes(i.id),
-    );
-    // Related stats, shared base ingredients, and similar prices make credible traps.
-    const plausibility = (item: (typeof itemCatalog.items)[number]) =>
-      Math.max(
-        ...ingredients.map((ingredient) => {
-          const bases = recipeByItem.get(ingredient.id)?.ingredientIds || [ingredient.id];
-          const otherBases = recipeByItem.get(item.id)?.ingredientIds || [item.id];
-          return (
-            overlap(item.id, ingredient.id) * 4 +
-            overlap(item.id, recipe.targetId) * 2 +
-            bases.filter((id) => otherBases.includes(id)).length * 3 +
-            (item.tier === ingredient.tier ? 1 : 0) +
-            1 / (1 + Math.abs(item.price - ingredient.price) / 300)
-          );
-        }),
-      );
-    const shuffled = pickOrder(pool, (i) => `decoy:${label}:${i.id}`);
-    const traps = [...shuffled].sort((a, b) => plausibility(b) - plausibility(a)).slice(0, 4);
-    const varied = shuffled.filter((i) => !traps.includes(i));
-    const decoys = [...traps, ...varied].slice(0, 10 - unique.length);
-    if (decoys.length + unique.length !== 10)
-      throw new EconomyError('The forge is temporarily unavailable.', 503);
-    const tray = pickOrder([...unique, ...decoys], (i) => `tray:${label}:${i.id}`).map(
-      (item, n) => ({ key: `piece-${n}`, item: itemSchema.parse(item) }),
+    const tray = createRecipeTray(recipe.targetId, recipe.ingredientIds, (value) =>
+      rank(`${label}:${value}`),
     );
     return {
       target: itemSchema.parse(items.get(recipe.targetId)),
+      trayVersion: 3,
       ingredientIds: recipe.ingredientIds,
       tray,
       accepted: [],

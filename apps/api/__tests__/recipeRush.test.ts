@@ -1,9 +1,12 @@
 import { GameRound } from '@prisma/client';
+import { createHash } from 'crypto';
 import {
   activeCraft,
   applyRecipeAction,
   craftRevision,
   createRecipePuzzle,
+  createRecipeTray,
+  repairRecipeTrays,
   expireRecipes,
   presentRecipeRound,
   readRecipePuzzle,
@@ -46,7 +49,6 @@ function asRound(puzzle: RecipePuzzle) {
 
 test('daily recipes vary in depth; every crafting step has ten unique reusable choices with plausible traps', () => {
   const ids = new Map(items.items.map((i) => [i.id, i]));
-  const traits = recipes.traits as Record<string, string[]>;
   const first = createRecipePuzzle('2026-09-17', false, 'test');
   expect(createRecipePuzzle('2026-09-17', false, 'test')).toEqual(first);
   const targets = new Set<string>();
@@ -76,13 +78,15 @@ test('daily recipes vary in depth; every crafting step has ten unique reusable c
         if (new Set(craft.ingredientIds).size < craft.ingredientIds.length) repeated++;
         const decoys = craft.tray.filter((p) => !craft.ingredientIds.includes(p.item.id));
         expect(decoys.length).toBeGreaterThanOrEqual(6);
-        expect(
-          decoys.some((p) =>
-            craft.ingredientIds.some((id) =>
-              traits[id].some((tag) => traits[p.item.id].includes(tag)),
-            ),
-          ),
-        ).toBe(true);
+        const tier = (id: string) =>
+          ids.get(id)!.tier === 'starter' ? 'component' : ids.get(id)!.tier;
+        const allowed = new Set(craft.ingredientIds.map(tier));
+        expect(decoys.every((p) => allowed.has(tier(p.item.id)))).toBe(true);
+        for (const value of allowed) {
+          expect(craft.tray.filter((p) => tier(p.item.id) === value).length).toBeGreaterThanOrEqual(
+            Math.floor(10 / allowed.size),
+          );
+        }
       }
       for (const prep of recipe.preparations) expect(ids.get(prep.target.id)?.tier).toBe('epic');
     }
@@ -91,6 +95,70 @@ test('daily recipes vary in depth; every crafting step has ten unique reusable c
   expect(complex).toBeGreaterThan(50);
   expect(direct).toBeGreaterThan(100);
   expect(repeated).toBeGreaterThan(0);
+});
+
+test('Serrated Dirk offers basic alternatives, including other weapons, without epic giveaways', () => {
+  const dirk = recipes.recipes.find((r) => r.targetId === '3134')!;
+  const byId = new Map(items.items.map((item) => [item.id, item]));
+  for (let n = 0; n < 20; n++) {
+    const tray = createRecipeTray(dirk.targetId, dirk.ingredientIds, (value) =>
+      createHash('sha256').update(`${n}:${value}`).digest('hex'),
+    );
+    expect(tray).toHaveLength(10);
+    expect(tray.every((p) => ['component', 'starter'].includes(byId.get(p.item.id)!.tier))).toBe(
+      true,
+    );
+    expect(tray.map((p) => p.item.name)).toEqual(
+      expect.arrayContaining(['Long Sword', 'Pickaxe', 'B. F. Sword', 'Dagger']),
+    );
+    expect(tray.filter((p) => p.item.id === '1036')).toHaveLength(1);
+  }
+});
+
+test('every catalog recipe has balanced decoys drawn only from its actual ingredient tiers', () => {
+  const byId = new Map(items.items.map((item) => [item.id, item]));
+  const tier = (id: string) =>
+    byId.get(id)!.tier === 'starter' ? 'component' : byId.get(id)!.tier;
+  for (const recipe of recipes.recipes) {
+    const tray = createRecipeTray(recipe.targetId, recipe.ingredientIds, (value) => value);
+    const allowed = new Set(recipe.ingredientIds.map(tier));
+    expect(tray).toHaveLength(10);
+    expect(new Set(tray.map((p) => p.item.id)).size).toBe(10);
+    expect(tray.every((p) => allowed.has(tier(p.item.id)))).toBe(true);
+    for (const value of allowed)
+      expect(tray.filter((p) => tier(p.item.id) === value)).toHaveLength(10 / allowed.size);
+  }
+});
+
+test('untouched saved trays repair once without changing answers, played steps, penalties, or old item keys', () => {
+  const puzzle = createRecipePuzzle('0', false, 'test');
+  const recipe = puzzle.recipes[0];
+  const decoy = recipe.tray.find((p) => !recipe.ingredientIds.includes(p.item.id))!;
+  const oldKey = decoy.key;
+  decoy.item = { id: '1053', name: 'Vampiric Scepter', image: '1053.png' };
+  recipe.trayVersion = 0;
+  const correctKeys = recipe.tray.filter((p) => recipe.ingredientIds.includes(p.item.id));
+  const beforeAnswers = puzzle.recipes.map((r) => r.ingredientIds);
+  expect(repairRecipeTrays(puzzle, 'saved-round')).toBe(true);
+  expect(recipe.tray.some((p) => p.key === oldKey)).toBe(false);
+  expect(recipe.tray).toEqual(expect.arrayContaining(correctKeys));
+  expect(puzzle.recipes.map((r) => r.ingredientIds)).toEqual(beforeAnswers);
+  expect(recipeReward(puzzle, 60, true)).toBe(60);
+  expect(() =>
+    applyRecipeAction(puzzle, { action: 'add', index: 0, step: 0, revision: 0, pieceKey: oldKey }),
+  ).toThrow(/Choose an ingredient/);
+  expect(repairRecipeTrays(puzzle, 'saved-round')).toBe(false);
+  add(puzzle, 0, recipe.ingredientIds[0]);
+  recipe.trayVersion = 0;
+  const snapshot = JSON.stringify(recipe);
+  expect(repairRecipeTrays(puzzle, 'saved-round')).toBe(false);
+  expect(JSON.stringify(recipe)).toBe(snapshot);
+  const legacy = createRecipePuzzle('old', false, 'test');
+  legacy.recipes.forEach((r) => {
+    r.reusable = false;
+    r.trayVersion = 0;
+  });
+  expect(repairRecipeTrays(legacy, 'legacy')).toBe(false);
 });
 
 test('each add places one copy and replenishes; stale/repeated requests cannot add extra copies or penalties', () => {

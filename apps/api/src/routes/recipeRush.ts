@@ -19,18 +19,21 @@ import {
   recipeIndex,
   recipeReward,
   recipeMistakes,
+  repairRecipeTrays,
   RECIPE_COUNT,
 } from '../services/recipeRush';
 
 export async function resumeRecipeRound(tx: EconomyTx, round: GameRound) {
   if (round.gameKey !== 'recipe-rush' || round.finished) return round;
   const puzzle = readRecipePuzzle(round);
-  if (!expireRecipes(puzzle)) return round;
+  const expired = expireRecipes(puzzle);
+  const repaired = repairRecipeTrays(puzzle, round.id);
+  if (!expired && !repaired) return round;
   return tx.gameRound.update({
     where: { id: round.id },
     data: {
       recipePuzzle: puzzle,
-      finished: true,
+      finished: expired,
       won: false,
     },
   });
@@ -54,6 +57,7 @@ export default async function recipeRushRoutes(app: FastifyInstance) {
             throw new EconomyError('This daily puzzle has ended. Open today’s puzzle.', 409);
           if (round.finished) return round;
           const puzzle = readRecipePuzzle(round);
+          repairRecipeTrays(puzzle, round.id);
           if (!expireRecipes(puzzle)) applyRecipeAction(puzzle, input);
           const finished = recipeIndex(puzzle) === RECIPE_COUNT;
           let rewardPaid = 0;
