@@ -327,6 +327,7 @@
   top: 50%;
 }
 .archive-portrait {
+  align-self: start;
   position: relative;
   z-index: 1;
   background: #dbd1b8;
@@ -361,7 +362,7 @@
 }
 .archive-clues {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   align-items: center;
   gap: 10px;
   z-index: 1;
@@ -936,4 +937,26 @@
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+.archive-selected-clues {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 22px;
+}
+.archive-selected-clues > span,
+.archive-selected-clues > small {
+  color: #a8b9bd;
+  font-size: 11px;
+}
+.archive-selected-clues > strong {
+  border: 1px solid #627c7770;
+  border-radius: 4px;
+  padding: 6px 9px;
+  color: #d5e6dd;
+  font-size: 12px;
+  font-weight: 500;
+  background: #223e3333;
 }

@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import Fastify, { FastifyInstance } from 'fastify';
 import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
+import { comparisonToken } from '../src/services/itemPriceGame';
 
 // Opt in with a dedicated, migrated PostgreSQL database. Never use DATABASE_URL
 // implicitly: these tests change global settings and must not touch a live app.
@@ -292,6 +293,77 @@ suite('PE economy against PostgreSQL', () => {
         .statusCode,
     ).toBe(409);
   });
+  test('Archive persists five clue types across retries, guesses and practice resumes', async () => {
+    const user = await createUser();
+    const start = (await call(user, 'POST', '/games/archive/start', {})).json();
+    expect(start.clueTypes).toHaveLength(5);
+    expect(new Set(start.clueTypes.map((c: any) => c.key)).size).toBe(5);
+    const saved = await db.gameRound.findUnique({ where: { id: start.id } });
+    expect(saved.clueTypes).toEqual(start.clueTypes.map((c: any) => c.key));
+    const guessed = (
+      await call(user, 'POST', `/games/rounds/${start.id}/guess`, { championId: 'Ashe' })
+    ).json();
+    expect(guessed.attempts[0].clues.map((c: any) => c.label)).toEqual(
+      start.clueTypes.map((c: any) => c.label),
+    );
+    expect((await call(user, 'POST', '/games/archive/start', {})).json().clueTypes).toEqual(
+      start.clueTypes,
+    );
+    const practice = (await call(user, 'POST', '/games/archive/start', { practice: true })).json();
+    expect(practice.clueTypes).toHaveLength(5);
+    expect((await call(user, 'POST', '/games/archive/start', { practice: true })).json()).toEqual(
+      practice,
+    );
+  });
+  test('legacy mixed-tier Shopkeeper rounds resume safely and reject stale answers without charging', async () => {
+    const user = await createUser();
+    const start = (await call(user, 'POST', '/games/shopkeeper/start', {})).json();
+    const { default: catalog } = await import('../src/data/item-catalog.json');
+    const legacy = {
+      version: catalog.version,
+      pairs: Array.from({ length: 6 }, () => ({
+        reference: { ...catalog.items.find((i) => i.id === '1036')!, tier: 'legendary' },
+        challenger: catalog.items.find((i) => i.id === '3031')!,
+      })),
+    };
+    await db.gameRound.update({
+      where: { id: start.id },
+      data: { itemPuzzle: legacy, guesses: ['higher'] },
+    });
+    const current = (await call(user, 'POST', '/games/shopkeeper/start', {})).json();
+    expect(current.current.reference.tier).toBe(current.current.challenger.tier);
+    expect(current.history[0]).toMatchObject({
+      correct: true,
+      reference: { id: '1036' },
+      challenger: { id: '3031' },
+    });
+    const stale = await call(user, 'POST', `/games/rounds/${start.id}/price`, {
+      index: 1,
+      choice: 'higher',
+      comparisonToken: comparisonToken(legacy as any, 1),
+    });
+    expect(stale.statusCode).toBe(409);
+    expect((await db.gameRound.findUnique({ where: { id: start.id } })).guesses).toEqual([
+      'higher',
+    ]);
+    expect(
+      (await call(user, 'POST', `/games/rounds/${start.id}/price`, { index: 1, choice: 'higher' }))
+        .statusCode,
+    ).toBe(409);
+    const accepted = await call(user, 'POST', `/games/rounds/${start.id}/price`, {
+      index: 1,
+      choice: 'higher',
+      comparisonToken: current.current.token,
+    });
+    expect(accepted.statusCode).toBe(200);
+    expect(accepted.json().index).toBe(2);
+    const saved = await db.gameRound.findUnique({ where: { id: start.id } });
+    expect(
+      saved.itemPuzzle.pairs.slice(1).every((p: any) => p.reference.tier === p.challenger.tier),
+    ).toBe(true);
+    expect(saved.rewardPaid).toBe(0);
+    expect(saved.itemPuzzle.pairs[0]).toEqual(legacy.pairs[0]);
+  });
   test('Shopkeeper protects hidden prices and pays a scored round once despite concurrent retries', async () => {
     const user = await createUser();
     const other = await createUser();
@@ -322,7 +394,11 @@ suite('PE economy against PostgreSQL', () => {
     const wrong = directions[0] === 'higher' ? 'lower' : 'higher';
     const first = await Promise.all(
       [1, 2].map(() =>
-        call(user, 'POST', `/games/rounds/${start.id}/price`, { index: 0, choice: wrong }),
+        call(user, 'POST', `/games/rounds/${start.id}/price`, {
+          index: 0,
+          choice: wrong,
+          comparisonToken: start.current.token,
+        }),
       ),
     );
     expect(first.map((r) => r.json().index)).toEqual([1, 1]);
@@ -334,10 +410,15 @@ suite('PE economy against PostgreSQL', () => {
       await call(user, 'POST', `/games/rounds/${start.id}/price`, {
         index,
         choice: directions[index],
+        comparisonToken: comparisonToken(stored.itemPuzzle, index),
       });
     const completed = await Promise.all(
       [1, 2].map(() =>
-        call(user, 'POST', `/games/rounds/${start.id}/price`, { index: 5, choice: directions[5] }),
+        call(user, 'POST', `/games/rounds/${start.id}/price`, {
+          index: 5,
+          choice: directions[5],
+          comparisonToken: comparisonToken(stored.itemPuzzle, 5),
+        }),
       ),
     );
     expect(completed.map((r) => r.json().rewardPaid)).toEqual([50, 50]);
@@ -366,6 +447,7 @@ suite('PE economy against PostgreSQL', () => {
         result = await call(user, 'POST', `/games/rounds/${round.id}/price`, {
           index,
           choice: pair.challenger.price > pair.reference.price ? 'higher' : 'lower',
+          comparisonToken: comparisonToken(stored.itemPuzzle, index),
         });
       }
       return result.json();

@@ -4,6 +4,7 @@ import catalog from '../data/game-catalog.json';
 import soundcheck from '../data/soundcheck.json';
 import { EconomyError } from './economy';
 import { presentItemRound } from './itemPriceGame';
+import { CLUE_LABELS, ClueType, LEGACY_CLUES, compareClue, roundClueTypes } from './archiveClues';
 
 export const GAME_KEYS = ['archive', 'soundcheck', 'shopkeeper'] as const;
 export const GAME_TITLES = {
@@ -45,44 +46,15 @@ export function selectAnswer(
       pool.length;
   return pool[index].id;
 }
-export function compareChampion(guess: Champion, answer: Champion) {
-  const common = guess.roles.filter((role) => answer.roles.includes(role));
+export function compareChampion(
+  guess: Champion,
+  answer: Champion,
+  types: ClueType[] = LEGACY_CLUES,
+) {
   return {
     champion: { id: guess.id, name: guess.name },
     correct: guess.id === answer.id,
-    clues: [
-      {
-        label: 'Role',
-        value: guess.roles.join(' / '),
-        match:
-          common.length === guess.roles.length && common.length === answer.roles.length
-            ? 'correct'
-            : common.length
-            ? 'partial'
-            : 'wrong',
-      },
-      {
-        label: 'Resource',
-        value: guess.resource,
-        match: guess.resource === answer.resource ? 'correct' : 'wrong',
-      },
-      {
-        label: 'Range',
-        value: guess.range,
-        match: guess.range === answer.range ? 'correct' : 'wrong',
-      },
-      {
-        label: 'Skins',
-        value: String(guess.skinCount),
-        match: guess.skinCount === answer.skinCount ? 'correct' : 'wrong',
-        direction:
-          guess.skinCount < answer.skinCount
-            ? 'higher'
-            : guess.skinCount > answer.skinCount
-            ? 'lower'
-            : null,
-      },
-    ],
+    clues: types.map((type) => compareClue(type, guess, answer)),
   };
 }
 export function presentGameRound(round: GameRound) {
@@ -91,7 +63,9 @@ export function presentGameRound(round: GameRound) {
 export function presentRound(round: GameRound) {
   const answer = championById.get(round.championId);
   if (!answer) throw new EconomyError('This puzzle is no longer available.', 503);
+  const types = round.gameKey === 'archive' ? roundClueTypes(round) : [];
   return {
+    clueTypes: types.map((key) => ({ key, label: CLUE_LABELS[key] })),
     id: round.id,
     gameKey: round.gameKey,
     day: round.day,
@@ -108,7 +82,7 @@ export function presentRound(round: GameRound) {
     attempts: round.guesses.map((id) => {
       const guess = championById.get(id)!;
       return round.gameKey === 'archive'
-        ? compareChampion(guess, answer)
+        ? compareChampion(guess, answer, types)
         : { champion: { id: guess.id, name: guess.name }, correct: id === answer.id, clues: [] };
     }),
     audioSlots: round.gameKey === 'soundcheck' ? (sounds[answer.id] || []).map((_, i) => i) : [],
@@ -118,7 +92,7 @@ export function presentRound(round: GameRound) {
           id: answer.id,
           name: answer.name,
           title: answer.title,
-          clues: round.gameKey === 'archive' ? compareChampion(answer, answer).clues : [],
+          clues: round.gameKey === 'archive' ? compareChampion(answer, answer, types).clues : [],
           abilities:
             round.gameKey === 'soundcheck'
               ? sounds[answer.id].map((s) => ({ key: s.key, name: s.name }))

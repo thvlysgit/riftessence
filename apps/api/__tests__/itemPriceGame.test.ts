@@ -4,6 +4,8 @@ import {
   presentItemRound,
   priceDirection,
   itemScore,
+  readItemPuzzle,
+  comparisonToken,
 } from '../src/services/itemPriceGame';
 import catalog from '../src/data/item-catalog.json';
 
@@ -45,6 +47,34 @@ describe('Shopkeeper item comparisons', () => {
     expect(byId.get('3133')?.tier).toBe('epic');
     expect(byId.get('3031')?.tier).toBe('legendary');
     expect(byId.get('3006')?.tier).toBe('boots');
+    expect(byId.get('1001')?.tier).toBe('component');
+    expect(byId.get('3070')?.tier).toBe('starter');
+  });
+  test('repairs legacy and incorrectly labelled pairs, preserving answered history and prices', () => {
+    const byId = new Map(catalog.items.map((item) => [item.id, item]));
+    const legacy = {
+      version: catalog.version,
+      pairs: Array.from({ length: 6 }, () => ({
+        reference: { ...byId.get('1036')!, tier: 'legendary' },
+        challenger: byId.get('3031')!,
+      })),
+    };
+    const round = { guesses: ['higher'], itemPuzzle: legacy } as unknown as GameRound;
+    const repaired = readItemPuzzle(round);
+    expect(repaired.pairs[0]).toEqual(legacy.pairs[0]);
+    expect(
+      repaired.pairs
+        .slice(1)
+        .every(
+          (p) => p.reference.tier === p.challenger.tier && p.reference.price !== p.challenger.price,
+        ),
+    ).toBe(true);
+    expect(new Set(repaired.pairs.flatMap((p) => [p.reference.id, p.challenger.id])).size).toBe(12);
+    expect(itemScore(repaired, round.guesses)).toBe(1);
+    expect(readItemPuzzle(round)).toEqual(repaired);
+    expect(readItemPuzzle({ ...round, itemPuzzle: repaired as any })).toEqual(repaired);
+    expect(comparisonToken(repaired, 1)).not.toBe(comparisonToken(legacy as any, 1));
+    expect(legacy.pairs[1].reference.id).toBe('1036');
   });
   test('payload hides the challenger price and all future pairs, then reveals answered prices', () => {
     const round = {

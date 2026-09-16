@@ -38,7 +38,7 @@ export default function GamesPage() {
         {
           key: 'archive',
           title: 'Champion Archive',
-          text: 'One champion, six guesses. Follow the roles, resources and range to find your answer.',
+          text: 'One champion, six guesses. Five clue types drawn for each new case. Follow the evidence.',
           art: 'Ahri',
           credit: 'LoLdle',
           url: 'https://loldle.net/',

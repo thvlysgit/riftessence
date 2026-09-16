@@ -28,12 +28,14 @@ import {
   roundReward,
 } from '../services/dailyGames';
 import catalog from '../data/game-catalog.json';
+import { selectClueTypes } from '../services/archiveClues';
 import {
   createItemPuzzle,
   readItemPuzzle,
   itemScore,
   presentItemRound,
   ITEM_COMPARISONS,
+  comparisonToken,
 } from '../services/itemPriceGame';
 
 export default async function gameRoutes(app: FastifyInstance) {
@@ -128,6 +130,7 @@ export default async function gameRoutes(app: FastifyInstance) {
             userId,
             gameKey,
             day,
+            clueTypes: gameKey === 'archive' ? selectClueTypes(today, practice, secret) : [],
             championId:
               gameKey === 'shopkeeper' ? '' : selectAnswer(gameKey, today, practice, secret),
             ...(gameKey === 'shopkeeper'
@@ -236,6 +239,7 @@ export default async function gameRoutes(app: FastifyInstance) {
               .min(0)
               .max(ITEM_COMPARISONS - 1),
             choice: z.enum(['higher', 'lower']),
+            comparisonToken: z.string().max(64).optional(),
           })
           .parse(request.body);
         const updated = await withWallet(userId, async (tx, wallet) => {
@@ -251,6 +255,11 @@ export default async function gameRoutes(app: FastifyInstance) {
           if (input.index !== round.guesses.length)
             throw new EconomyError('Refresh to answer the current comparison.', 409);
           const puzzle = readItemPuzzle(round);
+          if (input.comparisonToken !== comparisonToken(puzzle, input.index))
+            throw new EconomyError(
+              'This comparison was updated. Refresh the puzzle to continue.',
+              409,
+            );
           const guesses = [...round.guesses, input.choice];
           const score = itemScore(puzzle, guesses);
           const finished = guesses.length === ITEM_COMPARISONS;
@@ -280,7 +289,13 @@ export default async function gameRoutes(app: FastifyInstance) {
           }
           return tx.gameRound.update({
             where: { id: round.id },
-            data: { guesses, finished, won: finished && score === ITEM_COMPARISONS, rewardPaid },
+            data: {
+              itemPuzzle: puzzle,
+              guesses,
+              finished,
+              won: finished && score === ITEM_COMPARISONS,
+              rewardPaid,
+            },
           });
         });
         reply.header('Cache-Control', 'private, no-store');

@@ -84,6 +84,7 @@ export type GameRound = {
   listenedSlots: number[];
   rewardPaid: number;
   maxGuesses: number;
+  clueTypes: { key: string; label: string }[];
   attempts: Guess[];
   audioSlots: number[];
   answer: {

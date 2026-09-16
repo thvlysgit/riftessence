@@ -6,7 +6,7 @@
       "name": "Boots",
       "price": 300,
       "image": "1001.png",
-      "tier": "boots"
+      "tier": "component"
     },
     {
       "id": "1004",
@@ -468,7 +468,7 @@
       "name": "Tear of the Goddess",
       "price": 400,
       "image": "3070.png",
-      "tier": "component"
+      "tier": "starter"
     },
     {
       "id": "3071",

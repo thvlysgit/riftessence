@@ -13,6 +13,7 @@ import { EffectsToggle, RewardCount, useGameEffects } from './GameEffects';
 
 type Item = { id: string; name: string; imageUrl: string; price?: number; tier?: string };
 type Comparison = {
+  version: string;
   reference: Item;
   challenger: Item;
   choice: string;
@@ -32,7 +33,7 @@ type Round = {
   score: number;
   total: number;
   index: number;
-  current: { reference: Item; challenger: Item } | null;
+  current: { token: string; version: string; reference: Item; challenger: Item } | null;
   history: Comparison[];
 };
 
@@ -87,7 +88,7 @@ export default function ShopkeeperGame() {
     try {
       const next = await economyApi<Round>(`/games/rounds/${round.id}/price`, {
         method: 'POST',
-        body: JSON.stringify({ index: round.index, choice }),
+        body: JSON.stringify({ index: round.index, choice, comparisonToken: round.current?.token }),
       });
       if (next.practice) setPractice(next);
       else client.setQueryData(key, next);
@@ -151,7 +152,9 @@ export default function ShopkeeperGame() {
             error={error || daily.error}
             retry={() => {
               setError(null);
-              void daily.refetch();
+              setRevealed(null);
+              if (practice) void startPractice();
+              else void daily.refetch();
             }}
           />
           {daily.isLoading ? (
@@ -195,8 +198,11 @@ export default function ShopkeeperGame() {
                   </strong>
                 </div>
                 <p className="essence-muted essence-small">
-                  Total shop prices · Patch {round.version}.{' '}
-                  {comparison?.reference.tier ? 'Same tier. Different prices.' : 'Saved round.'}
+                  Total shop prices · Patch {comparison?.version || round.version}.{' '}
+                  {comparison?.reference.tier &&
+                  comparison.reference.tier === comparison.challenger.tier
+                    ? 'Same tier. Different prices.'
+                    : 'Saved round.'}
                 </p>
                 <ol className="shop-coin-tray" aria-label="Your six comparisons">
                   {Array.from({ length: round.total }, (_, i) => (

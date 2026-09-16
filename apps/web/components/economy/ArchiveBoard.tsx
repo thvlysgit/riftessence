@@ -59,6 +59,13 @@ export default function ArchiveBoard({
             : `${round.maxGuesses - round.attempts.length} GUESSES LEFT`}
         </span>
       </div>
+      <div className="archive-selected-clues" aria-label="This round’s clue types">
+        <span>THIS CASE’S EVIDENCE</span>
+        {(round.clueTypes || []).map((clue) => (
+          <strong key={clue.key}>{clue.label}</strong>
+        ))}
+        <small>Fixed for this round</small>
+      </div>
       {round.attempts.length ? (
         <ol className="archive-evidence" aria-label="Your evidence">
           {round.attempts.map((attempt, n) => (
@@ -93,7 +100,9 @@ export default function ArchiveBoard({
                         : clue.match === 'partial'
                         ? '≈ PARTIAL'
                         : clue.direction
-                        ? `${clue.direction === 'higher' ? '↑' : '↓'} GO ${clue.direction.toUpperCase()}`
+                        ? `${
+                            clue.direction === 'higher' ? '↑' : '↓'
+                          } GO ${clue.direction.toUpperCase()}`
                         : '× NO MATCH'}
                     </small>
                   </div>
@@ -110,8 +119,19 @@ export default function ArchiveBoard({
         </div>
       )}
       <p className="archive-board-note">
-        Each clue belongs to your guess. Arrows point toward the answer. Skin counts exclude chromas
-        and base appearances.
+        Each clue belongs to your guess. Arrows point toward the answer.
+        {(round.clueTypes || []).some((c) => c.key === 'skins')
+          ? ' Skin counts exclude chromas and base appearances.'
+          : ''}
+        {(round.clueTypes || []).some((c) => c.key === 'lanes')
+          ? ' Lanes are typical positions, not live pick rates.'
+          : ''}
+        {(round.clueTypes || []).some((c) => c.key === 'region')
+          ? ' Lore regions follow regional affiliation, not necessarily birthplace.'
+          : ''}
+        {(round.clueTypes || []).some((c) => c.key === 'release')
+          ? ' For release dates, ↑ means later and ↓ means earlier.'
+          : ''}
       </p>
       {round.finished && !round.won && round.answer?.clues ? (
         <div className="archive-answer-evidence">

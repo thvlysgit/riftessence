@@ -1,5 +1,6 @@
 import React, { ReactNode, useEffect } from 'react';
 import '../styles/globals.css';
+import '../styles/cosmetic-fonts.css';
 import '../styles/economy.css';
 import '../styles/game-play.css';
 import NextApp, { AppContext, AppInitialProps, AppProps } from 'next/app';

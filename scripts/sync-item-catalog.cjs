@@ -1,6 +1,7 @@
 // Pin item prices and artwork to one Riot Data Dragon patch. No runtime fetches.
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const tiers = require('./item-tiers.json');
 async function main() {
   const version = process.argv[2];
   if (!/^\d+\.\d+\.\d+$/.test(version || ''))
@@ -27,23 +28,15 @@ async function main() {
       !item.requiredChampion &&
       item.inStore !== false,
   );
-  const eligibleIds = new Set(eligible.map(([id]) => id));
+  // Explicit reviewed tiers: recipe edges do not reliably express item tiers.
+  // Refuse new IDs until classified, rather than silently guessing a tier.
+  for (const [id] of eligible) if (!tiers[id]) throw new Error('Unclassified item: ' + id);
   const items = eligible.map(([id, item]) => ({
     id,
     name: item.name,
     price: item.gold.total,
     image: item.image.full,
-    tier: item.tags.includes('Boots')
-      ? 'boots'
-      : item.tags.includes('Consumable')
-      ? 'consumable'
-      : ['1054', '1055', '1056', '1082', '1083'].includes(id)
-      ? 'starter'
-      : !item.from?.length
-      ? 'component'
-      : item.into?.some((next) => eligibleIds.has(next))
-      ? 'epic'
-      : 'legendary',
+    tier: tiers[id],
   }));
   if (items.length < 20) throw new Error('Not enough eligible shop items');
   await fs.writeFile(

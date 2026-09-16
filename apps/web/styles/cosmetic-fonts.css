@@ -1,0 +1,52 @@
+/* Self-hosted Google Fonts (SIL Open Font License; see public/fonts/licenses).
+   Declared globally so previews and equipped usernames use the same font.
+   Browsers fetch only the families used on the current page. */
+@font-face {
+  font-family: 'Orbitron';
+  src: url('/fonts/orbitron.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Cinzel';
+  src: url('/fonts/cinzel.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Exo 2';
+  src: url('/fonts/exo2.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Rajdhani';
+  src: url('/fonts/rajdhani.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Audiowide';
+  src: url('/fonts/audiowide.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Unbounded';
+  src: url('/fonts/unbounded.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Bebas Neue';
+  src: url('/fonts/bebasneue.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}

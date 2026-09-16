@@ -1,0 +1,2145 @@
+{
+  "sources": [
+    "https://github.com/meraki-analytics/lolstaticdata",
+    "https://gist.github.com/Kerrders/0067d88dfd982c272e20dcb496f4dbc7",
+    "https://www.leagueoflegends.com/en-us/news/game-updates/patch-25-23-notes/"
+  ],
+  "reviewedAt": "2026-09-16",
+  "champions": {
+    "Aatrox": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2013-06-13"
+    },
+    "Ahri": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2011-12-14"
+    },
+    "Akali": {
+      "lanes": [
+        "Mid",
+        "Top"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2010-05-11"
+    },
+    "Akshan": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Shurima"
+      ],
+      "releaseDate": "2021-07-22"
+    },
+    "Alistar": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Ambessa": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2024-11-06"
+    },
+    "Amumu": {
+      "lanes": [
+        "Jungle",
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Shurima"
+      ],
+      "releaseDate": "2009-06-26"
+    },
+    "Anivia": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2009-07-10"
+    },
+    "Annie": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Aphelios": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Targon"
+      ],
+      "releaseDate": "2019-12-11"
+    },
+    "Ashe": {
+      "lanes": [
+        "Bot",
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "AurelionSol": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Targon"
+      ],
+      "releaseDate": "2016-03-24"
+    },
+    "Aurora": {
+      "lanes": [
+        "Mid",
+        "Top"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2024-07-17"
+    },
+    "Azir": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Shurima"
+      ],
+      "releaseDate": "2014-09-16"
+    },
+    "Bard": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2015-03-12"
+    },
+    "Belveth": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "The Void"
+      ],
+      "releaseDate": "2022-06-09"
+    },
+    "Blitzcrank": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Other"
+      ],
+      "regions": [
+        "Zaun"
+      ],
+      "releaseDate": "2009-09-02"
+    },
+    "Brand": {
+      "lanes": [
+        "Jungle",
+        "Mid",
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2011-04-12"
+    },
+    "Braum": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2014-05-12"
+    },
+    "Briar": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2023-09-14"
+    },
+    "Caitlyn": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Piltover"
+      ],
+      "releaseDate": "2011-01-04"
+    },
+    "Camille": {
+      "lanes": [
+        "Support",
+        "Top"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Piltover"
+      ],
+      "releaseDate": "2016-12-07"
+    },
+    "Cassiopeia": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2010-12-14"
+    },
+    "Chogath": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Other"
+      ],
+      "regions": [
+        "The Void"
+      ],
+      "releaseDate": "2009-06-26"
+    },
+    "Corki": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Bandle City"
+      ],
+      "releaseDate": "2009-09-19"
+    },
+    "Darius": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2012-05-23"
+    },
+    "Diana": {
+      "lanes": [
+        "Jungle",
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Targon"
+      ],
+      "releaseDate": "2012-08-07"
+    },
+    "Draven": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2012-06-06"
+    },
+    "DrMundo": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Zaun"
+      ],
+      "releaseDate": "2009-09-02"
+    },
+    "Ekko": {
+      "lanes": [
+        "Jungle",
+        "Mid"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Zaun"
+      ],
+      "releaseDate": "2015-05-29"
+    },
+    "Elise": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Shadow Isles"
+      ],
+      "releaseDate": "2012-10-26"
+    },
+    "Evelynn": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2009-05-01"
+    },
+    "Ezreal": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Piltover"
+      ],
+      "releaseDate": "2010-03-16"
+    },
+    "Fiddlesticks": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Other"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Fiora": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2012-02-29"
+    },
+    "Fizz": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Bilgewater"
+      ],
+      "releaseDate": "2011-11-15"
+    },
+    "Galio": {
+      "lanes": [
+        "Mid",
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2010-08-10"
+    },
+    "Gangplank": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Bilgewater"
+      ],
+      "releaseDate": "2009-08-19"
+    },
+    "Garen": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2010-04-27"
+    },
+    "Gnar": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2014-08-14"
+    },
+    "Gragas": {
+      "lanes": [
+        "Jungle",
+        "Mid",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2010-02-02"
+    },
+    "Graves": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Bilgewater"
+      ],
+      "releaseDate": "2011-10-19"
+    },
+    "Gwen": {
+      "lanes": [
+        "Jungle",
+        "Top"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Shadow Isles"
+      ],
+      "releaseDate": "2021-04-15"
+    },
+    "Hecarim": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Shadow Isles"
+      ],
+      "releaseDate": "2012-04-18"
+    },
+    "Heimerdinger": {
+      "lanes": [
+        "Mid",
+        "Support",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Piltover"
+      ],
+      "releaseDate": "2009-10-10"
+    },
+    "Hwei": {
+      "lanes": [
+        "Mid",
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2023-12-05"
+    },
+    "Illaoi": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Bilgewater"
+      ],
+      "releaseDate": "2015-11-24"
+    },
+    "Irelia": {
+      "lanes": [
+        "Mid",
+        "Top"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2010-11-16"
+    },
+    "Ivern": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2016-10-05"
+    },
+    "Janna": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Zaun"
+      ],
+      "releaseDate": "2009-09-02"
+    },
+    "JarvanIV": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2011-03-01"
+    },
+    "Jax": {
+      "lanes": [
+        "Jungle",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Jayce": {
+      "lanes": [
+        "Mid",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Piltover"
+      ],
+      "releaseDate": "2012-07-07"
+    },
+    "Jhin": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2016-02-01"
+    },
+    "Jinx": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Zaun"
+      ],
+      "releaseDate": "2013-10-10"
+    },
+    "Kaisa": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "The Void"
+      ],
+      "releaseDate": "2018-03-07"
+    },
+    "Kalista": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Shadow Isles"
+      ],
+      "releaseDate": "2014-11-20"
+    },
+    "Karma": {
+      "lanes": [
+        "Mid",
+        "Support",
+        "Top"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2011-02-01"
+    },
+    "Karthus": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Shadow Isles"
+      ],
+      "releaseDate": "2009-06-12"
+    },
+    "Kassadin": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "The Void"
+      ],
+      "releaseDate": "2009-08-07"
+    },
+    "Katarina": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2009-09-19"
+    },
+    "Kayle": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Kayn": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2017-07-12"
+    },
+    "Kennen": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2010-04-08"
+    },
+    "Khazix": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "The Void"
+      ],
+      "releaseDate": "2012-09-27"
+    },
+    "Kindred": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Female",
+        "Male"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2015-10-14"
+    },
+    "Kled": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2016-08-10"
+    },
+    "KogMaw": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "The Void"
+      ],
+      "releaseDate": "2010-06-24"
+    },
+    "KSante": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Shurima"
+      ],
+      "releaseDate": "2022-11-02"
+    },
+    "Leblanc": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2010-11-02"
+    },
+    "LeeSin": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2011-04-01"
+    },
+    "Leona": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Targon"
+      ],
+      "releaseDate": "2011-07-13"
+    },
+    "Lillia": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2020-07-22"
+    },
+    "Lissandra": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2013-04-30"
+    },
+    "Lucian": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2013-08-22"
+    },
+    "Lulu": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Bandle City"
+      ],
+      "releaseDate": "2012-03-20"
+    },
+    "Lux": {
+      "lanes": [
+        "Mid",
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2010-10-19"
+    },
+    "Malphite": {
+      "lanes": [
+        "Mid",
+        "Support",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ixtal"
+      ],
+      "releaseDate": "2009-09-02"
+    },
+    "Malzahar": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "The Void"
+      ],
+      "releaseDate": "2010-06-01"
+    },
+    "Maokai": {
+      "lanes": [
+        "Jungle",
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Shadow Isles"
+      ],
+      "releaseDate": "2011-02-16"
+    },
+    "MasterYi": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Mel": {
+      "lanes": [
+        "Mid",
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2025-01-23"
+    },
+    "Milio": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ixtal"
+      ],
+      "releaseDate": "2023-03-23"
+    },
+    "MissFortune": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Bilgewater"
+      ],
+      "releaseDate": "2010-09-08"
+    },
+    "MonkeyKing": {
+      "lanes": [
+        "Jungle",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2011-07-26"
+    },
+    "Mordekaiser": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2010-02-24"
+    },
+    "Morgana": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Naafiri": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Shurima"
+      ],
+      "releaseDate": "2023-07-19"
+    },
+    "Nami": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2012-12-07"
+    },
+    "Nasus": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Shurima"
+      ],
+      "releaseDate": "2009-10-01"
+    },
+    "Nautilus": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Bilgewater"
+      ],
+      "releaseDate": "2012-02-14"
+    },
+    "Neeko": {
+      "lanes": [
+        "Mid",
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Ixtal"
+      ],
+      "releaseDate": "2018-12-05"
+    },
+    "Nidalee": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Ixtal"
+      ],
+      "releaseDate": "2009-12-17"
+    },
+    "Nilah": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2022-07-13"
+    },
+    "Nocturne": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Other"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2011-03-15"
+    },
+    "Nunu": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Olaf": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2010-06-09"
+    },
+    "Orianna": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Piltover"
+      ],
+      "releaseDate": "2011-06-01"
+    },
+    "Ornn": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2017-08-23"
+    },
+    "Pantheon": {
+      "lanes": [
+        "Jungle",
+        "Mid",
+        "Support",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Targon"
+      ],
+      "releaseDate": "2010-02-02"
+    },
+    "Poppy": {
+      "lanes": [
+        "Jungle",
+        "Top"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2010-01-13"
+    },
+    "Pyke": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Bilgewater"
+      ],
+      "releaseDate": "2018-05-31"
+    },
+    "Qiyana": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Ixtal"
+      ],
+      "releaseDate": "2019-06-28"
+    },
+    "Quinn": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2013-03-01"
+    },
+    "Rakan": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2017-04-19"
+    },
+    "Rammus": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Shurima"
+      ],
+      "releaseDate": "2009-07-10"
+    },
+    "RekSai": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "The Void"
+      ],
+      "releaseDate": "2014-12-11"
+    },
+    "Rell": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2020-12-10"
+    },
+    "Renata": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Zaun"
+      ],
+      "releaseDate": "2022-02-17"
+    },
+    "Renekton": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Shurima"
+      ],
+      "releaseDate": "2011-01-18"
+    },
+    "Rengar": {
+      "lanes": [
+        "Jungle",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ixtal"
+      ],
+      "releaseDate": "2012-08-21"
+    },
+    "Riven": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2011-09-14"
+    },
+    "Rumble": {
+      "lanes": [
+        "Mid",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Bandle City"
+      ],
+      "releaseDate": "2011-04-26"
+    },
+    "Ryze": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Samira": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2020-09-21"
+    },
+    "Sejuani": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2012-01-17"
+    },
+    "Senna": {
+      "lanes": [
+        "Bot",
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2019-11-10"
+    },
+    "Seraphine": {
+      "lanes": [
+        "Bot",
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Piltover"
+      ],
+      "releaseDate": "2020-10-29"
+    },
+    "Sett": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2020-01-14"
+    },
+    "Shaco": {
+      "lanes": [
+        "Jungle",
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2009-10-10"
+    },
+    "Shen": {
+      "lanes": [
+        "Support",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2010-03-24"
+    },
+    "Shyvana": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2011-11-01"
+    },
+    "Singed": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Zaun"
+      ],
+      "releaseDate": "2009-04-18"
+    },
+    "Sion": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Sivir": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Shurima"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Skarner": {
+      "lanes": [
+        "Jungle",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ixtal"
+      ],
+      "releaseDate": "2011-08-09"
+    },
+    "Smolder": {
+      "lanes": [
+        "Bot",
+        "Mid",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2024-01-31"
+    },
+    "Sona": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2010-09-21"
+    },
+    "Soraka": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Targon"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Swain": {
+      "lanes": [
+        "Bot",
+        "Mid",
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2010-10-05"
+    },
+    "Sylas": {
+      "lanes": [
+        "Mid",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2019-01-25"
+    },
+    "Syndra": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2012-09-13"
+    },
+    "TahmKench": {
+      "lanes": [
+        "Support",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Bilgewater"
+      ],
+      "releaseDate": "2015-07-09"
+    },
+    "Taliyah": {
+      "lanes": [
+        "Jungle",
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Shurima"
+      ],
+      "releaseDate": "2016-05-18"
+    },
+    "Talon": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2011-08-24"
+    },
+    "Taric": {
+      "lanes": [
+        "Mid",
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Targon"
+      ],
+      "releaseDate": "2009-08-19"
+    },
+    "Teemo": {
+      "lanes": [
+        "Jungle",
+        "Support",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Bandle City"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Thresh": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Shadow Isles"
+      ],
+      "releaseDate": "2013-01-23"
+    },
+    "Tristana": {
+      "lanes": [
+        "Bot",
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Bandle City"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Trundle": {
+      "lanes": [
+        "Jungle",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2010-12-01"
+    },
+    "Tryndamere": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2009-05-01"
+    },
+    "TwistedFate": {
+      "lanes": [
+        "Bot",
+        "Mid",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Bilgewater"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Twitch": {
+      "lanes": [
+        "Bot",
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Zaun"
+      ],
+      "releaseDate": "2009-05-01"
+    },
+    "Udyr": {
+      "lanes": [
+        "Jungle",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2009-12-02"
+    },
+    "Urgot": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Zaun"
+      ],
+      "releaseDate": "2010-08-24"
+    },
+    "Varus": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2012-05-08"
+    },
+    "Vayne": {
+      "lanes": [
+        "Bot",
+        "Top"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2011-05-10"
+    },
+    "Veigar": {
+      "lanes": [
+        "Mid",
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Bandle City"
+      ],
+      "releaseDate": "2009-07-24"
+    },
+    "Velkoz": {
+      "lanes": [
+        "Mid",
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "The Void"
+      ],
+      "releaseDate": "2014-02-27"
+    },
+    "Vex": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Shadow Isles"
+      ],
+      "releaseDate": "2021-09-23"
+    },
+    "Vi": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Piltover"
+      ],
+      "releaseDate": "2012-12-19"
+    },
+    "Viego": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Shadow Isles"
+      ],
+      "releaseDate": "2021-01-21"
+    },
+    "Viktor": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Zaun"
+      ],
+      "releaseDate": "2011-12-29"
+    },
+    "Vladimir": {
+      "lanes": [
+        "Mid",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Noxus"
+      ],
+      "releaseDate": "2010-07-27"
+    },
+    "Volibear": {
+      "lanes": [
+        "Jungle",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Freljord"
+      ],
+      "releaseDate": "2011-11-29"
+    },
+    "Warwick": {
+      "lanes": [
+        "Jungle",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Zaun"
+      ],
+      "releaseDate": "2009-02-21"
+    },
+    "Xayah": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2017-04-19"
+    },
+    "Xerath": {
+      "lanes": [
+        "Mid",
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Shurima"
+      ],
+      "releaseDate": "2011-10-05"
+    },
+    "XinZhao": {
+      "lanes": [
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Demacia"
+      ],
+      "releaseDate": "2010-07-13"
+    },
+    "Yasuo": {
+      "lanes": [
+        "Bot",
+        "Mid",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2013-12-13"
+    },
+    "Yone": {
+      "lanes": [
+        "Mid",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2020-08-06"
+    },
+    "Yorick": {
+      "lanes": [
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Shadow Isles"
+      ],
+      "releaseDate": "2011-06-22"
+    },
+    "Yunara": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2025-07-16"
+    },
+    "Yuumi": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Bandle City"
+      ],
+      "releaseDate": "2019-05-14"
+    },
+    "Zaahen": {
+      "lanes": [
+        "Top",
+        "Jungle"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2025-11-19"
+    },
+    "Zac": {
+      "lanes": [
+        "Jungle",
+        "Support",
+        "Top"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Zaun"
+      ],
+      "releaseDate": "2013-03-29"
+    },
+    "Zed": {
+      "lanes": [
+        "Jungle",
+        "Mid"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Ionia"
+      ],
+      "releaseDate": "2012-11-13"
+    },
+    "Zeri": {
+      "lanes": [
+        "Bot"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Zaun"
+      ],
+      "releaseDate": "2022-01-20"
+    },
+    "Ziggs": {
+      "lanes": [
+        "Bot",
+        "Mid"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Zaun"
+      ],
+      "releaseDate": "2012-02-01"
+    },
+    "Zilean": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Male"
+      ],
+      "regions": [
+        "Runeterra"
+      ],
+      "releaseDate": "2009-04-18"
+    },
+    "Zoe": {
+      "lanes": [
+        "Mid"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Targon"
+      ],
+      "releaseDate": "2017-11-21"
+    },
+    "Zyra": {
+      "lanes": [
+        "Support"
+      ],
+      "genders": [
+        "Female"
+      ],
+      "regions": [
+        "Ixtal"
+      ],
+      "releaseDate": "2012-07-24"
+    }
+  }
+}

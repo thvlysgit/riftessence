@@ -843,6 +843,7 @@ model GameRound {
   day         String
   championId  String // Empty for item-price rounds; those use itemPuzzle.
   itemPuzzle  Json? // Pinned item pairs and prices survive catalog updates.
+  clueTypes   String[] @default([]) // Archive clue selection, fixed for the entire round.
   guesses     String[] @default([])
   listenedSlots Int[]  @default([])
   won         Boolean  @default(false)
