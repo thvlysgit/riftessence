@@ -15,7 +15,7 @@ async function main() {
     if (
       !['epic', 'legendary'].includes(item.tier) ||
       !from ||
-      from.length < 2 ||
+      from.length < 1 ||
       from.length > 4 ||
       from.some((id) => !items.has(id))
     )
@@ -40,7 +40,17 @@ async function main() {
   }
   await fs.writeFile(
     path.join(__dirname, '../apps/api/src/data/recipe-catalog.json'),
-    JSON.stringify({ version: catalog.version, recipes }, null, 2) + '\n',
+    JSON.stringify(
+      {
+        version: catalog.version,
+        recipes,
+        traits: Object.fromEntries(
+          catalog.items.map((item) => [item.id, data[item.id]?.tags || []]),
+        ),
+      },
+      null,
+      2,
+    ) + '\n',
   );
   console.log(`Saved ${recipes.length} direct recipes for patch ${catalog.version}.`);
 }

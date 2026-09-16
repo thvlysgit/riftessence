@@ -129,6 +129,9 @@ export default function RecipeRushGame() {
             : 'Recipe revealed. This craft earns no PE.',
         );
         effects.play(crafted ? 'win' : 'miss');
+      } else if (next.current && round.current && next.current.step > round.current.step) {
+        setMessage(`${round.current.target.name} forged! Now craft ${next.current.target.name}.`);
+        effects.play('win');
       } else {
         const wrong = next.mistakes > round.mistakes;
         setMessage(
@@ -263,6 +266,33 @@ export default function RecipeRushGame() {
                 </div>
                 {!finishedView && target ? (
                   <>
+                    {current && !feedback && current.stepCount > 1 ? (
+                      <div className="recipe-build-path" aria-label="Crafting sequence">
+                        <div>
+                          <strong>Building {current.finalTarget.name}</strong>
+                          <span>
+                            Step {current.step + 1} of {current.stepCount} ·{' '}
+                            {current.step < current.stepCount - 1
+                              ? 'Forge a component first'
+                              : 'Final assembly'}
+                          </span>
+                        </div>
+                        <div className="recipe-prepared">
+                          {current.completedSteps.map((step, i) => (
+                            <span key={i} title={`${step.target.name} forged`}>
+                              <Image
+                                src={step.target.imageUrl}
+                                width={32}
+                                height={32}
+                                alt={step.target.name}
+                                unoptimized
+                              />
+                              <span aria-hidden="true">✓</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="recipe-stage">
                       <Image
                         className="recipe-forge-art"
@@ -324,6 +354,8 @@ export default function RecipeRushGame() {
                       <p className="recipe-instruction">
                         {feedback
                           ? 'The direct ingredients. No combine gold needed.'
+                          : current?.reusable
+                          ? 'Drag or tap to add one. Tray items replenish after every use.'
                           : 'Drag ingredients onto the forge. Or tap an item to add it.'}
                       </p>
                     </div>
@@ -359,24 +391,34 @@ export default function RecipeRushGame() {
                         </div>
                       ) : current ? (
                         <RecipeTray
-                          key={`${round.id}-${round.index}`}
+                          key={`${round.id}-${round.index}-${current.step}`}
                           pieces={current.tray}
+                          reusable={current.reusable}
                           forge={forge}
                           disabled={busy}
                           onAdd={(pieceKey) =>
-                            void send({ action: 'add', index: round.index, pieceKey })
+                            void send({
+                              action: 'add',
+                              index: round.index,
+                              pieceKey,
+                              step: current.step,
+                              revision: current.revision,
+                            })
                           }
                         />
                       ) : null}
                       <p className="recipe-status" role="status" aria-live="polite">
                         {busy
                           ? 'Working the forge…'
-                          : message || 'The tray has everything you need, plus a few decoys.'}
+                          : message ||
+                            (current?.reusable
+                              ? 'Choose carefully. One button per item; use it again when the recipe needs another.'
+                              : 'The tray has everything you need, plus a few decoys.')}
                       </p>
                       <p className="recipe-rule">
                         {round.practice
                           ? 'Practice is free and earns no PE.'
-                          : 'Wrong ingredients cost 10 PE. Repeated mistakes with the same piece are free.'}{' '}
+                          : 'Wrong or extra ingredients cost 10 PE. The same wrong choice is charged once per crafting step.'}{' '}
                         Direct recipes · Patch {round.version}.
                       </p>
                       <div className="recipe-bottom-row">
@@ -384,7 +426,7 @@ export default function RecipeRushGame() {
                           <div className="recipe-reveal">
                             {revealConfirm ? (
                               <>
-                                <span>Reveal this recipe? It will earn no PE.</span>
+                                <span>Reveal this whole recipe? It will earn no PE.</span>
                                 <button
                                   className="essence-text-button"
                                   disabled={busy}
@@ -477,6 +519,17 @@ export default function RecipeRushGame() {
                               : 'Revealed'}
                           </span>
                           <p>{entry.ingredients.map((i) => i.name).join(' + ')}</p>
+                          {entry.preparations.length ? (
+                            <details className="recipe-preparation-details">
+                              <summary>Component recipes ({entry.preparations.length})</summary>
+                              {entry.preparations.map((step, i) => (
+                                <p key={i}>
+                                  <strong>{step.target.name}</strong>:{' '}
+                                  {step.ingredients.map((item) => item.name).join(' + ')}
+                                </p>
+                              ))}
+                            </details>
+                          ) : null}
                         </article>
                       ))}
                     </div>

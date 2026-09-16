@@ -18,6 +18,7 @@ import {
   recipeActionSchema,
   recipeIndex,
   recipeReward,
+  recipeMistakes,
   RECIPE_COUNT,
 } from '../services/recipeRush';
 
@@ -77,7 +78,7 @@ export default async function recipeRushRoutes(app: FastifyInstance) {
                 gameKey: round.gameKey,
                 day: round.day,
                 crafted: puzzle.recipes.filter((r) => r.status === 'crafted').length,
-                mistakes: puzzle.recipes.reduce((sum, r) => sum + r.rejected.length, 0),
+                mistakes: puzzle.recipes.reduce((sum, r) => sum + recipeMistakes(r), 0),
               });
           }
           return tx.gameRound.update({

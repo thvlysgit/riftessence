@@ -7,11 +7,13 @@ export default function RecipeTray({
   forge,
   disabled,
   onAdd,
+  reusable,
 }: {
   pieces: RecipePiece[];
   forge: RefObject<HTMLDivElement | null>;
   disabled: boolean;
   onAdd: (key: string) => void;
+  reusable: boolean;
 }) {
   const gesture = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
@@ -48,11 +50,10 @@ export default function RecipeTray({
                 ? 'Incorrect'
                 : 'Add'
             } ${piece.item.name}, piece ${i + 1}`}
-            onClick={() => {
-              if (suppressClick.current) {
-                suppressClick.current = false;
-                return;
-              }
+            onClick={(event) => {
+              const suppressPointerClick = suppressClick.current;
+              suppressClick.current = false;
+              if (suppressPointerClick && event.detail > 0) return;
               onAdd(piece.key);
             }}
             onPointerDown={(e) => {
@@ -87,7 +88,7 @@ export default function RecipeTray({
             }}
             onLostPointerCapture={clear}
           >
-            <span className="recipe-piece-art">
+            <span className="recipe-piece-art" key={`${piece.key}-${piece.used}`}>
               <Image
                 src={piece.item.imageUrl}
                 width={64}
@@ -107,7 +108,9 @@ export default function RecipeTray({
               {piece.state === 'accepted'
                 ? 'In the forge'
                 : piece.state === 'rejected'
-                ? 'Not in this recipe'
+                ? 'Not needed here'
+                : reusable && piece.used
+                ? `Added ${piece.used} · use again`
                 : 'Drag or tap'}
             </small>
           </button>

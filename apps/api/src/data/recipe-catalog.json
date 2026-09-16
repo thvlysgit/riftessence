@@ -2,6 +2,36 @@
   "version": "16.18.1",
   "recipes": [
     {
+      "targetId": "1011",
+      "ingredientIds": [
+        "1028"
+      ]
+    },
+    {
+      "targetId": "1031",
+      "ingredientIds": [
+        "1029"
+      ]
+    },
+    {
+      "targetId": "1043",
+      "ingredientIds": [
+        "1042"
+      ]
+    },
+    {
+      "targetId": "1053",
+      "ingredientIds": [
+        "1036"
+      ]
+    },
+    {
+      "targetId": "1057",
+      "ingredientIds": [
+        "1033"
+      ]
+    },
+    {
       "targetId": "2019",
       "ingredientIds": [
         "1029",
@@ -65,6 +95,12 @@
       "ingredientIds": [
         "3211",
         "1057"
+      ]
+    },
+    {
+      "targetId": "2508",
+      "ingredientIds": [
+        "1052"
       ]
     },
     {
@@ -137,6 +173,12 @@
       ]
     },
     {
+      "targetId": "3041",
+      "ingredientIds": [
+        "1082"
+      ]
+    },
+    {
       "targetId": "3044",
       "ingredientIds": [
         "1028",
@@ -176,10 +218,22 @@
       ]
     },
     {
+      "targetId": "3057",
+      "ingredientIds": [
+        "2022"
+      ]
+    },
+    {
       "targetId": "3065",
       "ingredientIds": [
         "3211",
         "3067"
+      ]
+    },
+    {
+      "targetId": "3066",
+      "ingredientIds": [
+        "1028"
       ]
     },
     {
@@ -371,6 +425,18 @@
       ]
     },
     {
+      "targetId": "3113",
+      "ingredientIds": [
+        "1052"
+      ]
+    },
+    {
+      "targetId": "3114",
+      "ingredientIds": [
+        "1004"
+      ]
+    },
+    {
       "targetId": "3115",
       "ingredientIds": [
         "1043",
@@ -399,6 +465,12 @@
         "3070",
         "1011",
         "3067"
+      ]
+    },
+    {
+      "targetId": "3123",
+      "ingredientIds": [
+        "1036"
       ]
     },
     {
@@ -445,6 +517,12 @@
         "3140",
         "1037",
         "1053"
+      ]
+    },
+    {
+      "targetId": "3140",
+      "ingredientIds": [
+        "1033"
       ]
     },
     {
@@ -644,6 +722,12 @@
       ]
     },
     {
+      "targetId": "3916",
+      "ingredientIds": [
+        "1052"
+      ]
+    },
+    {
       "targetId": "4005",
       "ingredientIds": [
         "1052",
@@ -673,6 +757,12 @@
         "3067",
         "3113",
         "3108"
+      ]
+    },
+    {
+      "targetId": "4630",
+      "ingredientIds": [
+        "1052"
       ]
     },
     {
@@ -862,6 +952,12 @@
       ]
     },
     {
+      "targetId": "6690",
+      "ingredientIds": [
+        "1036"
+      ]
+    },
+    {
       "targetId": "6692",
       "ingredientIds": [
         "3133",
@@ -926,5 +1022,890 @@
         "1057"
       ]
     }
-  ]
+  ],
+  "traits": {
+    "1001": [
+      "Boots"
+    ],
+    "1004": [
+      "ManaRegen"
+    ],
+    "1006": [
+      "HealthRegen"
+    ],
+    "1011": [
+      "Health"
+    ],
+    "1018": [
+      "CriticalStrike"
+    ],
+    "1026": [
+      "SpellDamage"
+    ],
+    "1027": [
+      "Mana"
+    ],
+    "1028": [
+      "Health"
+    ],
+    "1029": [
+      "Armor"
+    ],
+    "1031": [
+      "Armor"
+    ],
+    "1033": [
+      "SpellBlock"
+    ],
+    "1036": [
+      "Damage",
+      "Lane"
+    ],
+    "1037": [
+      "Damage"
+    ],
+    "1038": [
+      "Damage"
+    ],
+    "1042": [
+      "AttackSpeed"
+    ],
+    "1043": [
+      "AttackSpeed",
+      "OnHit"
+    ],
+    "1052": [
+      "SpellDamage"
+    ],
+    "1053": [
+      "Damage",
+      "LifeSteal"
+    ],
+    "1054": [
+      "Health",
+      "HealthRegen",
+      "Lane"
+    ],
+    "1055": [
+      "Health",
+      "Damage",
+      "LifeSteal",
+      "SpellVamp",
+      "Lane"
+    ],
+    "1056": [
+      "Health",
+      "Lane",
+      "ManaRegen",
+      "SpellDamage"
+    ],
+    "1057": [
+      "SpellBlock"
+    ],
+    "1058": [
+      "SpellDamage"
+    ],
+    "1082": [
+      "Health",
+      "SpellDamage",
+      "Lane"
+    ],
+    "1083": [
+      "Damage",
+      "OnHit",
+      "Lane"
+    ],
+    "2003": [
+      "HealthRegen",
+      "Consumable",
+      "Lane",
+      "Jungle"
+    ],
+    "2019": [
+      "Armor",
+      "Damage"
+    ],
+    "2020": [
+      "Damage",
+      "CooldownReduction",
+      "ArmorPenetration"
+    ],
+    "2021": [
+      "Health",
+      "Damage"
+    ],
+    "2022": [
+      "CooldownReduction"
+    ],
+    "2031": [
+      "HealthRegen",
+      "Consumable",
+      "Active",
+      "Lane",
+      "Jungle"
+    ],
+    "2055": [
+      "Consumable",
+      "Lane",
+      "Stealth",
+      "Vision"
+    ],
+    "2065": [
+      "SpellDamage",
+      "ManaRegen",
+      "Active",
+      "CooldownReduction",
+      "NonbootsMovement",
+      "AbilityHaste"
+    ],
+    "2138": [
+      "Health",
+      "Consumable",
+      "NonbootsMovement",
+      "Tenacity"
+    ],
+    "2139": [
+      "Consumable",
+      "ManaRegen",
+      "SpellDamage"
+    ],
+    "2140": [
+      "Consumable",
+      "Damage",
+      "LifeSteal",
+      "SpellVamp"
+    ],
+    "2420": [
+      "Armor",
+      "SpellDamage",
+      "Active"
+    ],
+    "2501": [
+      "Health",
+      "Damage"
+    ],
+    "2502": [
+      "Health",
+      "Armor",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "2503": [
+      "SpellDamage",
+      "Mana",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "2504": [
+      "Health",
+      "SpellBlock",
+      "HealthRegen"
+    ],
+    "2508": [
+      "SpellDamage"
+    ],
+    "3003": [
+      "SpellDamage",
+      "Mana",
+      "AbilityHaste"
+    ],
+    "3004": [
+      "Damage",
+      "Mana",
+      "CooldownReduction",
+      "OnHit",
+      "AbilityHaste"
+    ],
+    "3006": [
+      "AttackSpeed",
+      "Boots"
+    ],
+    "3009": [
+      "Boots"
+    ],
+    "3020": [
+      "Boots",
+      "MagicPenetration"
+    ],
+    "3024": [
+      "Armor",
+      "Mana",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "3026": [
+      "Armor",
+      "Damage"
+    ],
+    "3031": [
+      "CriticalStrike",
+      "Damage"
+    ],
+    "3032": [
+      "Damage",
+      "CriticalStrike",
+      "AttackSpeed"
+    ],
+    "3033": [
+      "Damage",
+      "CriticalStrike",
+      "ArmorPenetration"
+    ],
+    "3035": [
+      "ArmorPenetration",
+      "Damage"
+    ],
+    "3036": [
+      "Damage",
+      "CriticalStrike",
+      "ArmorPenetration"
+    ],
+    "3041": [
+      "Health",
+      "SpellDamage",
+      "NonbootsMovement"
+    ],
+    "3044": [
+      "Health",
+      "Damage",
+      "NonbootsMovement"
+    ],
+    "3046": [
+      "CriticalStrike",
+      "AttackSpeed",
+      "NonbootsMovement"
+    ],
+    "3047": [
+      "Armor",
+      "Boots"
+    ],
+    "3050": [
+      "Health",
+      "SpellBlock",
+      "Armor",
+      "AbilityHaste"
+    ],
+    "3051": [
+      "Damage",
+      "AttackSpeed"
+    ],
+    "3053": [
+      "Health",
+      "Damage",
+      "Tenacity"
+    ],
+    "3057": [
+      "OnHit",
+      "AbilityHaste"
+    ],
+    "3065": [
+      "Health",
+      "SpellBlock",
+      "HealthRegen",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "3066": [
+      "Health",
+      "NonbootsMovement"
+    ],
+    "3067": [
+      "Health",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "3068": [
+      "Health",
+      "Armor",
+      "Aura",
+      "AbilityHaste"
+    ],
+    "3070": [
+      "Mana",
+      "ManaRegen"
+    ],
+    "3071": [
+      "Health",
+      "Damage",
+      "CooldownReduction",
+      "OnHit",
+      "NonbootsMovement",
+      "ArmorPenetration",
+      "AbilityHaste"
+    ],
+    "3072": [
+      "Damage",
+      "LifeSteal"
+    ],
+    "3073": [
+      "Health",
+      "Damage",
+      "AttackSpeed",
+      "CooldownReduction",
+      "NonbootsMovement",
+      "AbilityHaste"
+    ],
+    "3074": [
+      "Damage",
+      "LifeSteal",
+      "CooldownReduction",
+      "OnHit",
+      "AbilityHaste"
+    ],
+    "3075": [
+      "Health",
+      "Armor"
+    ],
+    "3076": [
+      "Armor"
+    ],
+    "3077": [
+      "Damage",
+      "OnHit"
+    ],
+    "3078": [
+      "Health",
+      "Damage",
+      "AttackSpeed",
+      "CooldownReduction",
+      "OnHit",
+      "NonbootsMovement",
+      "AbilityHaste"
+    ],
+    "3082": [
+      "Armor"
+    ],
+    "3083": [
+      "Health",
+      "HealthRegen"
+    ],
+    "3084": [
+      "Health",
+      "HealthRegen"
+    ],
+    "3085": [
+      "CriticalStrike",
+      "AttackSpeed",
+      "OnHit",
+      "NonbootsMovement"
+    ],
+    "3086": [
+      "CriticalStrike",
+      "AttackSpeed",
+      "NonbootsMovement"
+    ],
+    "3087": [
+      "Damage",
+      "AttackSpeed",
+      "SpellDamage",
+      "OnHit",
+      "NonbootsMovement"
+    ],
+    "3089": [
+      "SpellDamage"
+    ],
+    "3091": [
+      "SpellBlock",
+      "AttackSpeed",
+      "OnHit",
+      "Tenacity"
+    ],
+    "3094": [
+      "CriticalStrike",
+      "AttackSpeed",
+      "NonbootsMovement"
+    ],
+    "3100": [
+      "SpellDamage",
+      "OnHit",
+      "NonbootsMovement",
+      "AbilityHaste"
+    ],
+    "3102": [
+      "SpellBlock",
+      "SpellDamage"
+    ],
+    "3107": [
+      "SpellDamage",
+      "ManaRegen",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "3108": [
+      "SpellDamage",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "3109": [
+      "Health",
+      "HealthRegen",
+      "Armor",
+      "Aura",
+      "Active",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "3110": [
+      "Armor",
+      "Mana",
+      "Aura",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "3111": [
+      "Boots",
+      "SpellBlock",
+      "Tenacity"
+    ],
+    "3113": [
+      "NonbootsMovement",
+      "SpellDamage"
+    ],
+    "3114": [
+      "ManaRegen"
+    ],
+    "3115": [
+      "AttackSpeed",
+      "SpellDamage",
+      "OnHit",
+      "AbilityHaste"
+    ],
+    "3116": [
+      "Health",
+      "SpellDamage",
+      "Slow"
+    ],
+    "3118": [
+      "SpellDamage",
+      "Mana",
+      "AbilityHaste"
+    ],
+    "3119": [
+      "Health",
+      "Mana",
+      "AbilityHaste"
+    ],
+    "3123": [
+      "Damage"
+    ],
+    "3124": [
+      "Damage",
+      "AttackSpeed",
+      "SpellDamage",
+      "OnHit"
+    ],
+    "3133": [
+      "Damage",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "3134": [
+      "Damage",
+      "ArmorPenetration"
+    ],
+    "3135": [
+      "MagicPenetration",
+      "SpellDamage"
+    ],
+    "3137": [
+      "SpellDamage",
+      "MagicPenetration",
+      "AbilityHaste"
+    ],
+    "3139": [
+      "SpellBlock",
+      "Damage",
+      "LifeSteal",
+      "Active",
+      "NonbootsMovement",
+      "Tenacity"
+    ],
+    "3140": [
+      "Active",
+      "SpellBlock"
+    ],
+    "3142": [
+      "Damage",
+      "Active",
+      "NonbootsMovement",
+      "ArmorPenetration"
+    ],
+    "3143": [
+      "Health",
+      "Armor",
+      "Active",
+      "Slow"
+    ],
+    "3144": [
+      "AttackSpeed"
+    ],
+    "3145": [
+      "SpellDamage"
+    ],
+    "3147": [
+      "Health",
+      "SpellDamage"
+    ],
+    "3152": [
+      "Health",
+      "SpellDamage",
+      "Active",
+      "CooldownReduction",
+      "NonbootsMovement",
+      "AbilityHaste"
+    ],
+    "3153": [
+      "Damage",
+      "AttackSpeed",
+      "LifeSteal",
+      "Slow",
+      "OnHit"
+    ],
+    "3155": [
+      "Damage",
+      "SpellBlock"
+    ],
+    "3156": [
+      "SpellBlock",
+      "Damage",
+      "LifeSteal",
+      "SpellVamp",
+      "AbilityHaste"
+    ],
+    "3157": [
+      "Armor",
+      "SpellDamage",
+      "Active"
+    ],
+    "3158": [
+      "Boots",
+      "CooldownReduction"
+    ],
+    "3161": [
+      "Health",
+      "Damage",
+      "AbilityHaste"
+    ],
+    "3165": [
+      "Health",
+      "SpellDamage",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "3179": [
+      "Damage",
+      "Vision",
+      "CooldownReduction",
+      "ArmorPenetration",
+      "AbilityHaste"
+    ],
+    "3181": [
+      "Health",
+      "Damage",
+      "NonbootsMovement"
+    ],
+    "3190": [
+      "Health",
+      "SpellBlock",
+      "Armor",
+      "Aura",
+      "Active",
+      "MagicResist",
+      "AbilityHaste"
+    ],
+    "3211": [
+      "Health",
+      "HealthRegen",
+      "SpellBlock"
+    ],
+    "3222": [
+      "Health",
+      "ManaRegen",
+      "Active",
+      "CooldownReduction",
+      "Tenacity",
+      "AbilityHaste"
+    ],
+    "3302": [
+      "Damage",
+      "AttackSpeed",
+      "OnHit",
+      "MagicPenetration",
+      "ArmorPenetration"
+    ],
+    "3504": [
+      "AttackSpeed",
+      "SpellDamage",
+      "ManaRegen",
+      "NonbootsMovement"
+    ],
+    "3508": [
+      "Damage",
+      "CriticalStrike",
+      "ManaRegen",
+      "CooldownReduction",
+      "OnHit",
+      "AbilityHaste"
+    ],
+    "3742": [
+      "Health",
+      "Armor",
+      "Slow",
+      "NonbootsMovement"
+    ],
+    "3748": [
+      "Health",
+      "HealthRegen",
+      "Damage",
+      "OnHit"
+    ],
+    "3801": [
+      "Health",
+      "HealthRegen"
+    ],
+    "3802": [
+      "SpellDamage",
+      "Mana",
+      "ManaRegen",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "3803": [
+      "Health",
+      "HealthRegen",
+      "Mana",
+      "ManaRegen"
+    ],
+    "3814": [
+      "Health",
+      "Damage",
+      "ArmorPenetration"
+    ],
+    "3916": [
+      "SpellDamage"
+    ],
+    "4005": [
+      "SpellDamage",
+      "ManaRegen",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "4401": [
+      "Health",
+      "SpellBlock",
+      "NonbootsMovement"
+    ],
+    "4628": [
+      "SpellDamage",
+      "AbilityHaste"
+    ],
+    "4629": [
+      "Health",
+      "SpellDamage",
+      "NonbootsMovement",
+      "AbilityHaste"
+    ],
+    "4630": [
+      "MagicPenetration",
+      "SpellDamage"
+    ],
+    "4632": [
+      "SpellBlock",
+      "SpellDamage"
+    ],
+    "4633": [
+      "Health",
+      "SpellDamage",
+      "CooldownReduction",
+      "SpellVamp"
+    ],
+    "4642": [
+      "SpellDamage",
+      "ManaRegen",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "4645": [
+      "SpellDamage",
+      "MagicPenetration"
+    ],
+    "4646": [
+      "SpellDamage",
+      "GoldPer",
+      "NonbootsMovement",
+      "MagicPenetration"
+    ],
+    "6333": [
+      "Armor",
+      "Damage",
+      "AbilityHaste"
+    ],
+    "6609": [
+      "Health",
+      "Damage",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "6610": [
+      "Health",
+      "Damage",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "6616": [
+      "SpellDamage",
+      "ManaRegen",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "6617": [
+      "Health",
+      "SpellDamage",
+      "ManaRegen",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "6620": [
+      "Health",
+      "SpellDamage",
+      "ManaRegen",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "6621": [
+      "SpellDamage",
+      "ManaRegen"
+    ],
+    "6631": [
+      "Health",
+      "Damage",
+      "AttackSpeed",
+      "Slow"
+    ],
+    "6653": [
+      "Health",
+      "SpellDamage"
+    ],
+    "6655": [
+      "SpellDamage",
+      "Mana",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "6657": [
+      "Health",
+      "HealthRegen",
+      "SpellDamage",
+      "Mana",
+      "ManaRegen"
+    ],
+    "6660": [
+      "Health",
+      "AbilityHaste"
+    ],
+    "6662": [
+      "Health",
+      "Armor",
+      "CooldownReduction",
+      "Slow",
+      "OnHit",
+      "AbilityHaste"
+    ],
+    "6664": [
+      "Health",
+      "SpellBlock",
+      "HealthRegen",
+      "Aura",
+      "MagicResist",
+      "AbilityHaste"
+    ],
+    "6665": [
+      "Health",
+      "SpellBlock",
+      "Armor",
+      "MagicResist"
+    ],
+    "6670": [
+      "Damage",
+      "CriticalStrike"
+    ],
+    "6672": [
+      "Damage",
+      "AttackSpeed",
+      "OnHit",
+      "NonbootsMovement"
+    ],
+    "6673": [
+      "Damage",
+      "CriticalStrike"
+    ],
+    "6675": [
+      "CriticalStrike",
+      "AttackSpeed",
+      "NonbootsMovement"
+    ],
+    "6676": [
+      "Damage",
+      "CriticalStrike",
+      "ArmorPenetration"
+    ],
+    "6690": [
+      "Damage",
+      "NonbootsMovement"
+    ],
+    "6692": [
+      "Damage",
+      "CooldownReduction",
+      "AbilityHaste"
+    ],
+    "6694": [
+      "Damage",
+      "CooldownReduction",
+      "ArmorPenetration",
+      "AbilityHaste"
+    ],
+    "6695": [
+      "Damage",
+      "ArmorPenetration"
+    ],
+    "6696": [
+      "Damage",
+      "ArmorPenetration",
+      "AbilityHaste"
+    ],
+    "6697": [
+      "Damage",
+      "Active",
+      "CooldownReduction",
+      "ArmorPenetration",
+      "AbilityHaste"
+    ],
+    "6698": [
+      "Damage",
+      "Active",
+      "CooldownReduction",
+      "ArmorPenetration",
+      "AbilityHaste"
+    ],
+    "6699": [
+      "Damage",
+      "Active",
+      "CooldownReduction",
+      "ArmorPenetration",
+      "AbilityHaste"
+    ],
+    "8010": [
+      "Health",
+      "SpellDamage",
+      "CooldownReduction",
+      "MagicPenetration"
+    ],
+    "8020": [
+      "Health",
+      "SpellBlock",
+      "CooldownReduction",
+      "MagicResist",
+      "AbilityHaste"
+    ]
+  }
 }

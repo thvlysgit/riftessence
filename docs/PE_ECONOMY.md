@@ -26,7 +26,7 @@ Existing starter grants are not reissued. Positive legacy RiftCoins convert 1:1 
 - `/games/archive`: six guesses using five clue types selected at round creation from role, typical lanes, gender, lore region, skins, range, resource and release date. The selected types are shown before guessing and remain fixed through reloads. Existing cases retain their previous four clues. Lanes are typical positions rather than live pick-rate rankings. Each row displays the guessed champion’s own skin count; the arrow compares it to the answer. Inspired by [LoLdle](https://loldle.net/), credited in-game. Each guess after the first reduces the offered reward by 10 PE.
 - `/games/soundcheck`: guess a champion from their actual Q/W/E/R ability sounds, not music or voice lines. Inspired by [League of Listen by Lynge](https://lynge.tv/listen/), credited in-game. Initial curated pool: 26 champions, 104 audio clips.
 - `/games/shopkeeper`: six higher-or-lower comparisons using total shop prices from Riot's Data Dragon, pinned to patch 16.18.1. Each pair has different prices; twelve distinct items appear per round. Both prices are revealed after each answer. Completing all six awards `floor(offered reward × correct answers / 6)` (10 PE per correct answer by default), subject to the shared daily cap. Practice pays nothing. The admin report counts a perfect score as solved. Item pairs and prices are saved with the round. Valid pairs keep their pinned prices; invalid unplayed legacy pairs are repaired on read. Completed comparisons and rewards are preserved.
-- `/games/recipe-rush`: three direct item recipes (two-component epic, two-component legendary, then a legendary with at least three ingredients). Drag a piece onto the forge, tap it, or focus it and press Enter/Space. Correct pieces lock in; the final ingredient automatically crafts the target. The tray contains every required copy and four decoys. Duplicate components require separate pieces. Recipes and tray state are pinned with the round.
+- `/games/recipe-rush`: three final items (two-component epic, two-component legendary, then a legendary with at least three ingredients). Some legendary rounds require crafting their epic components first, including nested epic recipes, before final assembly. Drag a piece onto the forge, tap it, or focus it and press Enter/Space. Each action adds exactly one copy. New rounds have ten unique tray items that replenish after use; duplicate ingredients require deliberate repeated uses of the same button. Four decoy slots prioritize related stats, shared build ingredients, and similar prices, with remaining decoys drawn more broadly from components and epics. Recipes, crafting steps, and tray state are pinned with the round. Already-started original rounds retain their previous rules and progress.
 - Champion data/artwork and ability demonstration audio originate from Riot Games. The game implementations are independent; neither original game's code or recordings were copied. Third-party assets are not covered by this repository's software license. See `apps/api/assets/soundcheck/README.md`.
 
 Each daily game is persisted once per account/game/UTC date. The daily answer is selected server-side with HMAC using the existing `JWT_SECRET`; use the same secret and catalog across API replicas. Do not rotate the secret or replace the catalog mid-day unless accepting that newly started rounds may receive a different answer. Practice uses random answers, pays no PE, reuses unfinished rounds, and is limited to 100 new rounds per account/day.
@@ -59,13 +59,17 @@ The item sync uses a curated standard-shop ID list, filtered to purchasable Summ
 Collection font previews and equipped usernames use self-hosted font files in `apps/web/public/fonts`, loaded by `cosmetic-fonts.css`. Each family has its own SIL Open Font License under `fonts/licenses`. Browsers fetch a font only when the current page uses it.
 
 Recipe Rush awards once when all three recipes have been crafted or revealed:
-`max(0, floor(rewardOffer × crafted / 3) - 10 × distinct wrong pieces)`, then applies
+`max(0, floor(rewardOffer × crafted / 3) - 10 × mistakes)`, then applies
 the current shared daily cap and rewards switch. At the default offer, each craft
-is worth 20 PE and each mistake deducts 10 PE from the round. Revealed recipes earn
-no share. Retry requests, repeat wrong pieces, and stale recipe indexes never
-charge again or affect the next recipe. Cross-game answer endpoints are rejected.
-The recipe contents and future targets remain server-only until their turn;
-completed/revealed recipes show their direct ingredients for learning.
+is worth 20 PE and each mistake deducts 10 PE from the round, including mistakes
+while preparing components. Wrong items and surplus copies count as mistakes;
+each wrong item is charged only once per crafting step. Revealing skips the whole
+remaining build and earns no share for that final item. New add requests include
+the saved step and revision: retries and stale requests cannot add an extra copy,
+charge again, or answer the next step. Cross-game answer endpoints are rejected.
+The current step's target and final item are visible; unfinished ingredient lists
+and future rounds stay server-only. Completed steps and results show recipes for
+learning. Preparing components does not award a separate reward.
 
 The daily forge is untimed. Free practice and the optional 90-second challenge
 have separate resumable rounds and pay no PE. The challenge deadline is stored
@@ -79,8 +83,9 @@ Refresh recipe data after syncing the item catalog:
 node scripts/sync-recipe-catalog.cjs
 ```
 
-The generator preserves direct Data Dragon recipe multiplicities, checks every
-ingredient against the curated shop catalog, and verifies all three stage pools.
+The generator preserves direct Data Dragon recipe multiplicities (including
+single-ingredient epic upgrades), pins item stat tags for decoy selection, checks
+every ingredient against the curated shop catalog, and verifies all three stage pools.
 Both catalogs must have the same patch. The generated forge backdrop lives in
 `apps/web/public/assets/games/recipe-forge.png`; see its adjacent attribution file.
 

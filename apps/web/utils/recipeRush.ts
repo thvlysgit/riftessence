@@ -3,6 +3,12 @@ export type RecipePiece = {
   key: string;
   item: RecipeItem;
   state: 'ready' | 'accepted' | 'rejected';
+  used: number;
+};
+export type RecipeCraft = {
+  target: RecipeItem;
+  status: 'crafted' | 'revealed' | 'timeout';
+  ingredients: RecipeItem[];
 };
 export type RecipeHistory = {
   target: RecipeItem;
@@ -10,6 +16,7 @@ export type RecipeHistory = {
   status: 'crafted' | 'revealed' | 'timeout';
   ingredients: RecipeItem[];
   mistakes: number;
+  preparations: RecipeCraft[];
 };
 export type RecipeRound = {
   id: string;
@@ -29,6 +36,12 @@ export type RecipeRound = {
   crafted: number;
   current: {
     target: RecipeItem;
+    finalTarget: RecipeItem;
+    step: number;
+    stepCount: number;
+    revision: number;
+    reusable: boolean;
+    completedSteps: RecipeCraft[];
     stage: string;
     slots: number;
     tray: RecipePiece[];
@@ -37,6 +50,6 @@ export type RecipeRound = {
   history: RecipeHistory[];
 };
 export type RecipeAction =
-  | { action: 'add'; index: number; pieceKey: string }
+  | { action: 'add'; index: number; pieceKey: string; step: number; revision: number }
   | { action: 'reveal'; index: number }
   | { action: 'sync' };

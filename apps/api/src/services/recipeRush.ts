@@ -9,16 +9,20 @@ export const RECIPE_COUNT = 3;
 export const RECIPE_TIMER_SECONDS = 90;
 const STAGES = ['Simple', 'Skilled', 'Masterwork'];
 const itemSchema = z.object({ id: z.string(), name: z.string(), image: z.string() });
-const recipeSchema = z.object({
+const craftSchema = z.object({
   target: itemSchema,
-  ingredientIds: z.array(z.string()).min(2).max(4),
+  ingredientIds: z.array(z.string()).min(1).max(4),
   tray: z
     .array(z.object({ key: z.string(), item: itemSchema }))
     .min(6)
-    .max(8),
+    .max(10),
   accepted: z.array(z.string()).default([]),
   rejected: z.array(z.string()).default([]),
   status: z.enum(['playing', 'crafted', 'revealed', 'timeout']).default('playing'),
+});
+const recipeSchema = craftSchema.extend({
+  reusable: z.boolean().default(false),
+  preparations: z.array(craftSchema).default([]),
 });
 const puzzleSchema = z.object({
   version: z.string(),
@@ -28,6 +32,19 @@ const puzzleSchema = z.object({
 export type RecipePuzzle = z.infer<typeof puzzleSchema>;
 const items = new Map(itemCatalog.items.map((item) => [item.id, item]));
 const recipes = recipeCatalog.recipes;
+const recipeByItem = new Map(recipes.map((r) => [r.targetId, r]));
+const traits = recipeCatalog.traits as Record<string, string[]>;
+type Craft = z.infer<typeof craftSchema>;
+export function activeCraft(recipe: RecipePuzzle['recipes'][number]) {
+  const step = recipe.preparations.findIndex((p) => p.status === 'playing');
+  return {
+    craft: step === -1 ? recipe : recipe.preparations[step],
+    step: step === -1 ? recipe.preparations.length : step,
+  };
+}
+export const craftRevision = (craft: Craft) => craft.accepted.length + craft.rejected.length;
+export const recipeMistakes = (recipe: RecipePuzzle['recipes'][number]) =>
+  [recipe, ...recipe.preparations].reduce((sum, craft) => sum + craft.rejected.length, 0);
 if (
   recipeCatalog.version !== itemCatalog.version ||
   recipes.some((r) => !items.has(r.targetId) || r.ingredientIds.some((id) => !items.has(id)))
@@ -44,35 +61,46 @@ export function createRecipePuzzle(
   const seed = practice ? randomUUID() : day;
   const rank = (value: string) =>
     createHmac('sha256', secret)
-      .update(`recipe-rush:v1:${recipeCatalog.version}:${seed}:${value}`)
+      .update(`recipe-rush:v2:${recipeCatalog.version}:${seed}:${value}`)
       .digest('hex');
   const pickOrder = <T>(pool: T[], key: (entry: T, i: number) => string) =>
     pool
       .map((entry, i) => ({ entry, rank: rank(key(entry, i)) }))
       .sort((a, b) => a.rank.localeCompare(b.rank))
       .map(({ entry }) => entry);
-  const selected = STAGES.map((_, index) => {
-    const eligible = recipes.filter((r) => {
-      const tier = items.get(r.targetId)!.tier;
-      return index === 0
-        ? tier === 'epic' && r.ingredientIds.length === 2
-        : index === 1
-        ? tier === 'legendary' && r.ingredientIds.length === 2
-        : tier === 'legendary' && r.ingredientIds.length >= 3;
-    });
-    const recipe = pickOrder(eligible, (r) => `target:${index}:${r.targetId}`)[0];
-    if (!recipe) throw new EconomyError('The forge is temporarily unavailable.', 503);
+  const makeCraft = (recipe: (typeof recipes)[number], label: string): Craft => {
     const ingredients = recipe.ingredientIds.map((id) => items.get(id)!);
-    const tiers = new Set(ingredients.map((i) => i.tier));
-    const decoys = pickOrder(
-      itemCatalog.items.filter(
-        (i) =>
-          tiers.has(i.tier) && i.id !== recipe.targetId && !recipe.ingredientIds.includes(i.id),
-      ),
-      (i) => `decoy:${index}:${i.id}`,
-    ).slice(0, 4);
-    if (decoys.length < 4) throw new EconomyError('The forge is temporarily unavailable.', 503);
-    const tray = pickOrder([...ingredients, ...decoys], (i, n) => `tray:${index}:${i.id}:${n}`).map(
+    const unique = [...new Map(ingredients.map((i) => [i.id, i])).values()];
+    const overlap = (a: string, b: string) =>
+      (traits[a] || []).filter((tag) => (traits[b] || []).includes(tag)).length;
+    const pool = itemCatalog.items.filter(
+      (i) =>
+        ['component', 'epic'].includes(i.tier) &&
+        i.id !== recipe.targetId &&
+        !recipe.ingredientIds.includes(i.id),
+    );
+    // Related stats, shared base ingredients, and similar prices make credible traps.
+    const plausibility = (item: (typeof itemCatalog.items)[number]) =>
+      Math.max(
+        ...ingredients.map((ingredient) => {
+          const bases = recipeByItem.get(ingredient.id)?.ingredientIds || [ingredient.id];
+          const otherBases = recipeByItem.get(item.id)?.ingredientIds || [item.id];
+          return (
+            overlap(item.id, ingredient.id) * 4 +
+            overlap(item.id, recipe.targetId) * 2 +
+            bases.filter((id) => otherBases.includes(id)).length * 3 +
+            (item.tier === ingredient.tier ? 1 : 0) +
+            1 / (1 + Math.abs(item.price - ingredient.price) / 300)
+          );
+        }),
+      );
+    const shuffled = pickOrder(pool, (i) => `decoy:${label}:${i.id}`);
+    const traps = [...shuffled].sort((a, b) => plausibility(b) - plausibility(a)).slice(0, 4);
+    const varied = shuffled.filter((i) => !traps.includes(i));
+    const decoys = [...traps, ...varied].slice(0, 10 - unique.length);
+    if (decoys.length + unique.length !== 10)
+      throw new EconomyError('The forge is temporarily unavailable.', 503);
+    const tray = pickOrder([...unique, ...decoys], (i) => `tray:${label}:${i.id}`).map(
       (item, n) => ({ key: `piece-${n}`, item: itemSchema.parse(item) }),
     );
     return {
@@ -81,7 +109,39 @@ export function createRecipePuzzle(
       tray,
       accepted: [],
       rejected: [],
-      status: 'playing' as const,
+      status: 'playing',
+    };
+  };
+  const selected = STAGES.map((_, index) => {
+    const complex = index > 0 && parseInt(rank(`complex:${index}`).slice(0, 2), 16) % 3 < index;
+    const eligible = recipes.filter((r) => {
+      const tier = items.get(r.targetId)!.tier;
+      const eligibleStage =
+        index === 0
+          ? tier === 'epic' && r.ingredientIds.length === 2
+          : index === 1
+          ? tier === 'legendary' && r.ingredientIds.length === 2
+          : tier === 'legendary' && r.ingredientIds.length >= 3;
+      return (
+        eligibleStage &&
+        (!complex ||
+          r.ingredientIds.some((id) => items.get(id)?.tier === 'epic' && recipeByItem.has(id)))
+      );
+    });
+    const recipe = pickOrder(eligible, (r) => `target:${index}:${r.targetId}`)[0];
+    if (!recipe) throw new EconomyError('The forge is temporarily unavailable.', 503);
+    const preparations: Craft[] = [];
+    const prepare = (id: string, ancestors: string[]) => {
+      const sub = recipeByItem.get(id);
+      if (items.get(id)?.tier !== 'epic' || !sub || ancestors.includes(id)) return;
+      sub.ingredientIds.forEach((child) => prepare(child, [...ancestors, id]));
+      preparations.push(makeCraft(sub, `${index}:prep:${preparations.length}`));
+    };
+    if (complex) recipe.ingredientIds.forEach((id) => prepare(id, [recipe.targetId]));
+    return {
+      ...makeCraft(recipe, `${index}:final`),
+      reusable: true,
+      preparations,
     };
   });
   return {
@@ -107,6 +167,9 @@ export function expireRecipes(puzzle: RecipePuzzle, now = Date.now()) {
   for (const recipe of puzzle.recipes)
     if (recipe.status === 'playing') {
       recipe.status = 'timeout';
+      recipe.preparations.forEach((p) => {
+        if (p.status === 'playing') p.status = 'timeout';
+      });
       changed = true;
     }
   return changed;
@@ -115,7 +178,7 @@ export function recipeReward(puzzle: RecipePuzzle, offer: number, potential = fa
   const eligible = puzzle.recipes.filter(
     (r) => r.status === 'crafted' || (potential && r.status === 'playing'),
   ).length;
-  const mistakes = puzzle.recipes.reduce((sum, r) => sum + r.rejected.length, 0);
+  const mistakes = puzzle.recipes.reduce((sum, r) => sum + recipeMistakes(r), 0);
   return Math.max(0, Math.floor((offer * eligible) / RECIPE_COUNT) - 10 * mistakes);
 }
 
@@ -124,6 +187,8 @@ export const recipeActionSchema = z.discriminatedUnion('action', [
     action: z.literal('add'),
     index: z.number().int().min(0).max(2),
     pieceKey: z.string().max(32),
+    step: z.number().int().min(0).max(20).optional(),
+    revision: z.number().int().min(0).max(100).optional(),
   }),
   z.object({ action: z.literal('reveal'), index: z.number().int().min(0).max(2) }),
   z.object({ action: z.literal('sync') }),
@@ -137,21 +202,36 @@ export function applyRecipeAction(puzzle: RecipePuzzle, input: z.infer<typeof re
   const recipe = puzzle.recipes[index];
   if (input.action === 'reveal') {
     recipe.status = 'revealed';
+    recipe.preparations.forEach((p) => {
+      if (p.status === 'playing') p.status = 'revealed';
+    });
     return;
   }
-  const piece = recipe.tray.find((entry) => entry.key === input.pieceKey);
+  const { craft, step } = activeCraft(recipe);
+  if (recipe.reusable) {
+    if (input.step === undefined || input.revision === undefined)
+      throw new EconomyError('Refresh to use the replenishing ingredient tray.', 409);
+    if (input.step < step || (input.step === step && input.revision < craftRevision(craft))) return;
+    if (input.step !== step || input.revision !== craftRevision(craft))
+      throw new EconomyError('Refresh to play the current crafting step.', 409);
+  }
+  const piece = craft.tray.find((entry) => entry.key === input.pieceKey);
   if (!piece) throw new EconomyError('Choose an ingredient from this tray.');
-  if (recipe.accepted.includes(piece.key) || recipe.rejected.includes(piece.key)) return;
-  const needed = recipe.ingredientIds.filter((id) => id === piece.item.id).length;
-  const added = recipe.accepted.filter(
-    (key) => recipe.tray.find((p) => p.key === key)!.item.id === piece.item.id,
+  if (
+    (!recipe.reusable && craft.accepted.includes(piece.key)) ||
+    craft.rejected.includes(piece.key)
+  )
+    return;
+  const needed = craft.ingredientIds.filter((id) => id === piece.item.id).length;
+  const added = craft.accepted.filter(
+    (key) => craft.tray.find((p) => p.key === key)!.item.id === piece.item.id,
   ).length;
   if (added >= needed) {
-    recipe.rejected.push(piece.key);
+    craft.rejected.push(piece.key);
     return;
   }
-  recipe.accepted.push(piece.key);
-  if (recipe.accepted.length === recipe.ingredientIds.length) recipe.status = 'crafted';
+  craft.accepted.push(piece.key);
+  if (craft.accepted.length === craft.ingredientIds.length) craft.status = 'crafted';
 }
 
 export function presentRecipeRound(round: GameRound, now = Date.now()) {
@@ -165,6 +245,13 @@ export function presentRecipeRound(round: GameRound, now = Date.now()) {
     imageUrl: `https://ddragon.leagueoflegends.com/cdn/${puzzle.version}/img/item/${item.image}`,
   });
   const recipe = puzzle.recipes[index];
+  const active = recipe ? activeCraft(recipe) : null;
+  const craft = active?.craft;
+  const presentCraft = (c: Craft) => ({
+    target: imageItem(c.target),
+    status: c.status,
+    ingredients: c.ingredientIds.map((id) => imageItem(c.tray.find((p) => p.item.id === id)!.item)),
+  });
   return {
     id: round.id,
     gameKey: 'recipe-rush' as const,
@@ -180,26 +267,35 @@ export function presentRecipeRound(round: GameRound, now = Date.now()) {
     version: puzzle.version,
     index,
     total: RECIPE_COUNT,
-    mistakes: puzzle.recipes.reduce((sum, r) => sum + r.rejected.length, 0),
+    mistakes: puzzle.recipes.reduce((sum, r) => sum + recipeMistakes(r), 0),
     crafted: puzzle.recipes.filter((r) => r.status === 'crafted').length,
     current:
-      !finished && recipe
+      !finished && recipe && craft && active
         ? {
-            target: imageItem(recipe.target),
+            target: imageItem(craft.target),
+            finalTarget: imageItem(recipe.target),
+            step: active.step,
+            stepCount: recipe.preparations.length + 1,
+            revision: craftRevision(craft),
+            reusable: recipe.reusable,
+            completedSteps: recipe.preparations
+              .filter((p) => p.status === 'crafted')
+              .map(presentCraft),
             stage: STAGES[index],
-            slots: recipe.ingredientIds.length,
-            tray: recipe.tray.map((piece) => ({
+            slots: craft.ingredientIds.length,
+            tray: craft.tray.map((piece) => ({
               key: piece.key,
               item: imageItem(piece.item),
-              state: recipe.accepted.includes(piece.key)
-                ? 'accepted'
-                : recipe.rejected.includes(piece.key)
+              used: craft.accepted.filter((key) => key === piece.key).length,
+              state: craft.rejected.includes(piece.key)
                 ? 'rejected'
+                : !recipe.reusable && craft.accepted.includes(piece.key)
+                ? 'accepted'
                 : 'ready',
             })),
-            accepted: recipe.accepted.map((key) => ({
+            accepted: craft.accepted.map((key) => ({
               key,
-              item: imageItem(recipe.tray.find((p) => p.key === key)!.item),
+              item: imageItem(craft.tray.find((p) => p.key === key)!.item),
             })),
           }
         : null,
@@ -212,7 +308,8 @@ export function presentRecipeRound(round: GameRound, now = Date.now()) {
         ingredients: recipe.ingredientIds.map((id) =>
           imageItem(recipe.tray.find((p) => p.item.id === id)!.item),
         ),
-        mistakes: recipe.rejected.length,
+        preparations: recipe.preparations.map(presentCraft),
+        mistakes: recipeMistakes(recipe),
       })),
   };
 }

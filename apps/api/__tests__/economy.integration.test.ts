@@ -294,23 +294,45 @@ suite('PE economy against PostgreSQL', () => {
         .statusCode,
     ).toBe(409);
   });
-  const solveRecipes = async (user: string, id: string, skip = 0) => {
+  const solveRecipes = async (user: string, id: string, skip = 0, concurrentFinal = false) => {
     const stored = await db.gameRound.findUnique({ where: { id } });
-    let result: any;
+    let result = (
+      await call(user, 'POST', '/games/recipe-rush/start', {
+        practice: stored.day.startsWith('practice:'),
+        timedPractice: stored.day.startsWith('practice:rush:'),
+      })
+    ).json();
     for (let index = skip; index < 3; index++) {
       const recipe = stored.recipePuzzle.recipes[index];
-      for (const piece of recipe.tray.filter((p: any) =>
-        recipe.ingredientIds.includes(p.item.id),
-      )) {
-        result = await call(user, 'POST', `/games/rounds/${id}/recipe`, {
-          action: 'add',
-          index,
-          pieceKey: piece.key,
-        });
-        expect(result.statusCode).toBe(200);
+      const steps = [...recipe.preparations, recipe];
+      for (let step = 0; step < steps.length; step++) {
+        const craft = steps[step];
+        for (let n = 0; n < craft.ingredientIds.length; n++) {
+          const input = {
+            action: 'add',
+            index,
+            step,
+            revision: result.current.revision,
+            pieceKey: craft.tray.find((p: any) => p.item.id === craft.ingredientIds[n]).key,
+          };
+          const responses = await Promise.all(
+            (concurrentFinal &&
+            index === 2 &&
+            step === steps.length - 1 &&
+            n === craft.ingredientIds.length - 1
+              ? [1, 2, 3]
+              : [1]
+            ).map(() => call(user, 'POST', `/games/rounds/${id}/recipe`, input)),
+          );
+          responses.forEach((response) => expect(response.statusCode).toBe(200));
+          result = responses[0].json();
+          responses.forEach((response) =>
+            expect(response.json().rewardPaid).toBe(result.rewardPaid),
+          );
+        }
       }
     }
-    return result.json();
+    return result;
   };
   test('Recipe Rush validates ownership and ingredients; concurrent mistakes and final submissions charge/pay once', async () => {
     const user = await createUser(),
@@ -328,7 +350,15 @@ suite('PE economy against PostgreSQL', () => {
       url = `/games/rounds/${id}/recipe`;
     expect((await call(other, 'POST', url, { action: 'reveal', index: 0 })).statusCode).toBe(404);
     expect(
-      (await call(user, 'POST', url, { action: 'add', index: 0, pieceKey: 'fake' })).statusCode,
+      (
+        await call(user, 'POST', url, {
+          action: 'add',
+          index: 0,
+          step: 0,
+          revision: 0,
+          pieceKey: 'fake',
+        })
+      ).statusCode,
     ).toBe(400);
     expect((await call(user, 'POST', url, { action: 'reveal', index: 1 })).statusCode).toBe(409);
     expect(
@@ -343,26 +373,21 @@ suite('PE economy against PostgreSQL', () => {
     const wrong = first.tray.find((p: any) => !first.ingredientIds.includes(p.item.id));
     const wrongResponses = await Promise.all(
       [1, 2, 3].map(() =>
-        call(user, 'POST', url, { action: 'add', index: 0, pieceKey: wrong.key }),
+        call(user, 'POST', url, {
+          action: 'add',
+          index: 0,
+          step: 0,
+          revision: 0,
+          pieceKey: wrong.key,
+        }),
       ),
     );
     expect(wrongResponses.map((r) => r.json().mistakes)).toEqual([1, 1, 1]);
     expect((await call(user, 'POST', '/games/recipe-rush/start', {})).json().rewardAvailable).toBe(
       50,
     );
-    let last: any;
-    for (let index = 0; index < 3; index++) {
-      const recipe = stored.recipePuzzle.recipes[index];
-      const correct = recipe.tray.filter((p: any) => recipe.ingredientIds.includes(p.item.id));
-      for (let n = 0; n < correct.length; n++) {
-        const input = { action: 'add', index, pieceKey: correct[n].key };
-        if (index === 2 && n === correct.length - 1) {
-          const results = await Promise.all([1, 2, 3].map(() => call(user, 'POST', url, input)));
-          expect(results.map((r) => r.json().rewardPaid)).toEqual([50, 50, 50]);
-          last = results[0].json();
-        } else expect((await call(user, 'POST', url, input)).statusCode).toBe(200);
-      }
-    }
+    const last = await solveRecipes(user, id, 0, true);
+    expect(last.rewardPaid).toBe(50);
     expect(last).toMatchObject({
       finished: true,
       won: true,
