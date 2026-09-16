@@ -15,11 +15,13 @@ import ChampionSearch from '../../components/economy/ChampionSearch';
 import AbilityPlayer from '../../components/economy/AbilityPlayer';
 import PuzzleCountdown from '../../components/economy/PuzzleCountdown';
 import ShopkeeperGame from '../../components/economy/ShopkeeperGame';
+import RecipeRushGame from '../../components/economy/RecipeRushGame';
 import GameLinks from '../../components/economy/GameLinks';
 import { economyApi, GameRound, pe, walletChanged } from '../../utils/economy';
 
 export default function DailyGamePage() {
   const router = useRouter();
+  if (router.query.gameKey === 'recipe-rush') return <RecipeRushGame />;
   return router.query.gameKey === 'shopkeeper' ? <ShopkeeperGame /> : <ChampionGamePage />;
 }
 

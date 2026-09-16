@@ -118,6 +118,7 @@ export type EconomySettings = {
   championReward: number;
   soundReward: number;
   itemReward: number;
+  recipeReward: number;
   dailyGameCap: number;
   gameRewardsEnabled: boolean;
   version: number;

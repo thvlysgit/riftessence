@@ -841,8 +841,9 @@ model GameRound {
   userId      String
   gameKey     String
   day         String
-  championId  String // Empty for item-price rounds; those use itemPuzzle.
+  championId  String // Empty for Shopkeeper and Recipe Rush, which use pinned item puzzles.
   itemPuzzle  Json? // Pinned item pairs and prices survive catalog updates.
+  recipePuzzle Json? // Pinned recipes, tray pieces, and forge progress.
   clueTypes   String[] @default([]) // Archive clue selection, fixed for the entire round.
   guesses     String[] @default([])
   listenedSlots Int[]  @default([])
@@ -891,6 +892,7 @@ model EconomySettings {
   championReward     Int      @default(60)
   soundReward        Int      @default(60)
   itemReward         Int      @default(60)
+  recipeReward       Int      @default(60)
   dailyGameCap       Int      @default(120)
   gameRewardsEnabled Boolean  @default(true)
   version            Int      @default(1)

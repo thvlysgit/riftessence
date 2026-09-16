@@ -29,6 +29,8 @@ import {
 } from '../services/dailyGames';
 import catalog from '../data/game-catalog.json';
 import { selectClueTypes } from '../services/archiveClues';
+import { createRecipePuzzle } from '../services/recipeRush';
+import recipeRushRoutes, { resumeRecipeRound } from './recipeRush';
 import {
   createItemPuzzle,
   readItemPuzzle,
@@ -39,6 +41,7 @@ import {
 } from '../services/itemPriceGame';
 
 export default async function gameRoutes(app: FastifyInstance) {
+  await recipeRushRoutes(app);
   app.get('/games/catalog', async () => ({
     version: catalog.version,
     champions: champions.map((c) => ({ id: c.id, name: c.name })),
@@ -75,6 +78,8 @@ export default async function gameRoutes(app: FastifyInstance) {
               ? settings.championReward
               : key === 'shopkeeper'
               ? settings.itemReward
+              : key === 'recipe-rush'
+              ? settings.recipeReward
               : settings.soundReward
             : 0,
           round: rounds.find((round: { gameKey: string }) => round.gameKey === key)
@@ -92,23 +97,27 @@ export default async function gameRoutes(app: FastifyInstance) {
       const userId = await getUserIdFromRequest(request, reply);
       if (!userId) return;
       const gameKey = z.enum(GAME_KEYS).parse(request.params.gameKey);
-      const { practice } = z
-        .object({ practice: z.boolean().default(false) })
+      const { practice, timedPractice } = z
+        .object({ practice: z.boolean().default(false), timedPractice: z.boolean().default(false) })
         .parse(request.body || {});
+      if (timedPractice && (!practice || gameKey !== 'recipe-rush'))
+        throw new EconomyError('The timer is only available in Recipe Rush practice.');
       const today = utcDay();
       const round = await withWallet(userId, async (tx) => {
-        const day = practice ? `practice:${randomUUID()}` : today;
+        const practicePrefix =
+          gameKey === 'recipe-rush' ? `practice:${timedPractice ? 'rush' : 'forge'}:` : 'practice:';
+        const day = practice ? `${practicePrefix}${randomUUID()}` : today;
         const previous = await tx.gameRound.findUnique({
           where: { userId_gameKey_day: { userId, gameKey, day } },
         });
-        if (previous) return previous;
+        if (previous) return resumeRecipeRound(tx, previous);
         if (practice) {
           // Reuse an unfinished practice round, so accidental retries don't spawn extras.
           const open = await tx.gameRound.findFirst({
-            where: { userId, gameKey, day: { startsWith: 'practice:' }, finished: false },
+            where: { userId, gameKey, day: { startsWith: practicePrefix }, finished: false },
             orderBy: { createdAt: 'desc' },
           });
-          if (open) return open;
+          if (open) return resumeRecipeRound(tx, open);
           const count = await tx.gameRound.count({
             where: {
               userId,
@@ -132,7 +141,12 @@ export default async function gameRoutes(app: FastifyInstance) {
             day,
             clueTypes: gameKey === 'archive' ? selectClueTypes(today, practice, secret) : [],
             championId:
-              gameKey === 'shopkeeper' ? '' : selectAnswer(gameKey, today, practice, secret),
+              gameKey === 'shopkeeper' || gameKey === 'recipe-rush'
+                ? ''
+                : selectAnswer(gameKey, today, practice, secret),
+            ...(gameKey === 'recipe-rush'
+              ? { recipePuzzle: createRecipePuzzle(today, practice, secret, timedPractice) }
+              : {}),
             ...(gameKey === 'shopkeeper'
               ? { itemPuzzle: createItemPuzzle(today, practice, secret) }
               : {}),
@@ -142,6 +156,8 @@ export default async function gameRoutes(app: FastifyInstance) {
                   ? settings.championReward
                   : gameKey === 'shopkeeper'
                   ? settings.itemReward
+                  : gameKey === 'recipe-rush'
+                  ? settings.recipeReward
                   : settings.soundReward
                 : 0,
           },
@@ -172,6 +188,8 @@ export default async function gameRoutes(app: FastifyInstance) {
           if (!round) throw new EconomyError('Puzzle not found.', 404);
           if (round.gameKey === 'shopkeeper')
             throw new EconomyError('Choose higher or lower for this game.');
+          if (round.gameKey === 'recipe-rush')
+            throw new EconomyError('Choose ingredients from the forge tray for this game.');
           if (round.finished) return round;
           const practice = round.day.startsWith('practice:');
           if (!practice && round.day !== utcDay())

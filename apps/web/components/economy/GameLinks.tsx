@@ -5,6 +5,7 @@ export const GAME_LINKS = [
   { key: 'archive', title: 'Champion Archive' },
   { key: 'soundcheck', title: 'Soundcheck' },
   { key: 'shopkeeper', title: 'Shopkeeper' },
+  { key: 'recipe-rush', title: 'Recipe Rush' },
 ];
 
 export default function GameLinks({ current }: { current: string }) {

@@ -16,7 +16,7 @@ export default function GamesPage() {
     economyApi<GamesOverview>('/games', { signal }),
   );
   return (
-    <EconomyLayout title="Know the Rift." description="Three daily games. A fresh reason to play.">
+    <EconomyLayout title="Know the Rift." description="Four daily games. A fresh reason to play.">
       <EconomyError error={overview.error} retry={() => overview.refetch()} />
       {overview.isLoading ? <EconomyLoading /> : null}
       {overview.data ? (
@@ -52,6 +52,14 @@ export default function GamesPage() {
           url: 'https://developer.riotgames.com/docs/lol#data-dragon_items',
         },
         {
+          key: 'recipe-rush',
+          title: 'Recipe Rush',
+          text: 'Three recipes. One forge. Drag the right ingredients into place and craft items from memory.',
+          art: '',
+          credit: 'Riot Games item data',
+          url: 'https://developer.riotgames.com/docs/lol#data-dragon_items',
+        },
+        {
           key: 'soundcheck',
           title: 'Soundcheck',
           text: 'You’ve heard it a thousand times. Can you name the champion from their ability sounds?',
@@ -65,12 +73,21 @@ export default function GamesPage() {
           <article className="essence-game-feature" key={game.key}>
             <Image
               className="essence-game-art"
-              src={`https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${game.art}_0.jpg`}
+              src={
+                game.key === 'recipe-rush'
+                  ? '/assets/games/recipe-forge.png'
+                  : `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${game.art}_0.jpg`
+              }
               width={640}
               height={380}
               sizes="(max-width: 720px) 100vw, 560px"
               priority={game.key === 'archive'}
-              alt={`${game.art} artwork by Riot Games`}
+              unoptimized={game.key === 'recipe-rush'}
+              alt={
+                game.key === 'recipe-rush'
+                  ? 'The Recipe Rush forge'
+                  : `${game.art} artwork by Riot Games`
+              }
             />
             <div className="essence-game-intro">
               <h2>{game.title}</h2>
@@ -87,7 +104,7 @@ export default function GamesPage() {
                 available
               </p>
               <p className="essence-small">
-                {game.key === 'shopkeeper' ? 'Powered by ' : 'Inspired by '}
+                {['shopkeeper', 'recipe-rush'].includes(game.key) ? 'Powered by ' : 'Inspired by '}
                 <a href={game.url} target="_blank" rel="noopener noreferrer">
                   {game.credit}
                 </a>

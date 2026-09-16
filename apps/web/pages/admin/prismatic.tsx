@@ -24,12 +24,14 @@ const fields: {
   { key: 'championReward', label: 'Champion Archive', max: 500 },
   { key: 'soundReward', label: 'Soundcheck', max: 500 },
   { key: 'itemReward', label: 'Shopkeeper (perfect score)', max: 500 },
+  { key: 'recipeReward', label: 'Recipe Rush (flawless crafts)', max: 500 },
   { key: 'dailyGameCap', label: 'Daily game cap', max: 1000 },
 ];
 const sourceLabels: Record<string, string> = {
   archive: 'Champion Archive',
   soundcheck: 'Soundcheck',
   shopkeeper: 'Shopkeeper',
+  'recipe-rush': 'Recipe Rush',
   quests: 'Challenges',
   welcome: 'Welcome grants',
   cosmetics: 'Cosmetics',
@@ -366,7 +368,10 @@ export default function AdminEconomyPage() {
                               (draft.gameRewardsEnabled
                                 ? Math.min(
                                     draft.dailyGameCap,
-                                    draft.championReward + draft.soundReward + draft.itemReward,
+                                    draft.championReward +
+                                      draft.soundReward +
+                                      draft.itemReward +
+                                      draft.recipeReward,
                                   )
                                 : 0),
                           )}{' '}
@@ -472,7 +477,7 @@ export default function AdminEconomyPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {['archive', 'soundcheck', 'shopkeeper'].map((key) => {
+                    {['archive', 'soundcheck', 'shopkeeper', 'recipe-rush'].map((key) => {
                       const rows = data.games.filter((game) => game.gameKey === key);
                       const started = rows.reduce((n, row) => n + row._count._all, 0);
                       const won = rows

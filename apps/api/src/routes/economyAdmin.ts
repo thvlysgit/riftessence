@@ -18,6 +18,7 @@ const rewardSettings = z.object({
   championReward: z.number().int().min(0).max(500),
   soundReward: z.number().int().min(0).max(500),
   itemReward: z.number().int().min(0).max(500),
+  recipeReward: z.number().int().min(0).max(500),
   dailyGameCap: z.number().int().min(0).max(1000),
   gameRewardsEnabled: z.boolean(),
   version: z.number().int().min(1),

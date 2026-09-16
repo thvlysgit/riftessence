@@ -4,13 +4,15 @@ import catalog from '../data/game-catalog.json';
 import soundcheck from '../data/soundcheck.json';
 import { EconomyError } from './economy';
 import { presentItemRound } from './itemPriceGame';
+import { presentRecipeRound } from './recipeRush';
 import { CLUE_LABELS, ClueType, LEGACY_CLUES, compareClue, roundClueTypes } from './archiveClues';
 
-export const GAME_KEYS = ['archive', 'soundcheck', 'shopkeeper'] as const;
+export const GAME_KEYS = ['archive', 'soundcheck', 'shopkeeper', 'recipe-rush'] as const;
 export const GAME_TITLES = {
   archive: 'Champion Archive',
   soundcheck: 'Soundcheck',
   shopkeeper: 'Shopkeeper',
+  'recipe-rush': 'Recipe Rush',
 };
 export type GameKey = (typeof GAME_KEYS)[number];
 export type Champion = (typeof catalog.champions)[number];
@@ -58,6 +60,7 @@ export function compareChampion(
   };
 }
 export function presentGameRound(round: GameRound) {
+  if (round.gameKey === 'recipe-rush') return presentRecipeRound(round);
   return round.gameKey === 'shopkeeper' ? presentItemRound(round) : presentRound(round);
 }
 export function presentRound(round: GameRound) {

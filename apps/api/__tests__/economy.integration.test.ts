@@ -78,6 +78,7 @@ suite('PE economy against PostgreSQL', () => {
         championReward: 60,
         soundReward: 60,
         itemReward: 60,
+        recipeReward: 60,
         dailyGameCap: 120,
         gameRewardsEnabled: true,
       },
@@ -292,6 +293,189 @@ suite('PE economy against PostgreSQL', () => {
       (await call(user, 'POST', `/games/rounds/${expired.id}/guess`, { championId: 'Ahri' }))
         .statusCode,
     ).toBe(409);
+  });
+  const solveRecipes = async (user: string, id: string, skip = 0) => {
+    const stored = await db.gameRound.findUnique({ where: { id } });
+    let result: any;
+    for (let index = skip; index < 3; index++) {
+      const recipe = stored.recipePuzzle.recipes[index];
+      for (const piece of recipe.tray.filter((p: any) =>
+        recipe.ingredientIds.includes(p.item.id),
+      )) {
+        result = await call(user, 'POST', `/games/rounds/${id}/recipe`, {
+          action: 'add',
+          index,
+          pieceKey: piece.key,
+        });
+        expect(result.statusCode).toBe(200);
+      }
+    }
+    return result.json();
+  };
+  test('Recipe Rush validates ownership and ingredients; concurrent mistakes and final submissions charge/pay once', async () => {
+    const user = await createUser(),
+      other = await createUser();
+    expect((await call(null, 'POST', '/games/recipe-rush/start', {})).statusCode).toBe(401);
+    const start = (await call(user, 'POST', '/games/recipe-rush/start', {})).json();
+    expect(start.current.slots).toBe(2);
+    expect(start).not.toHaveProperty('recipePuzzle');
+    expect(start.current).not.toHaveProperty('ingredientIds');
+    expect(start.history).toEqual([]);
+    expect((await call(user, 'GET', '/games')).json().games).toEqual(
+      expect.arrayContaining([expect.objectContaining({ key: 'recipe-rush', reward: 60 })]),
+    );
+    const id = start.id,
+      url = `/games/rounds/${id}/recipe`;
+    expect((await call(other, 'POST', url, { action: 'reveal', index: 0 })).statusCode).toBe(404);
+    expect(
+      (await call(user, 'POST', url, { action: 'add', index: 0, pieceKey: 'fake' })).statusCode,
+    ).toBe(400);
+    expect((await call(user, 'POST', url, { action: 'reveal', index: 1 })).statusCode).toBe(409);
+    expect(
+      (await call(user, 'POST', `/games/rounds/${id}/guess`, { championId: 'Ahri' })).statusCode,
+    ).toBe(400);
+    expect(
+      (await call(user, 'POST', `/games/rounds/${id}/price`, { index: 0, choice: 'higher' }))
+        .statusCode,
+    ).toBe(404);
+    const stored = await db.gameRound.findUnique({ where: { id } });
+    const first = stored.recipePuzzle.recipes[0];
+    const wrong = first.tray.find((p: any) => !first.ingredientIds.includes(p.item.id));
+    const wrongResponses = await Promise.all(
+      [1, 2, 3].map(() =>
+        call(user, 'POST', url, { action: 'add', index: 0, pieceKey: wrong.key }),
+      ),
+    );
+    expect(wrongResponses.map((r) => r.json().mistakes)).toEqual([1, 1, 1]);
+    expect((await call(user, 'POST', '/games/recipe-rush/start', {})).json().rewardAvailable).toBe(
+      50,
+    );
+    let last: any;
+    for (let index = 0; index < 3; index++) {
+      const recipe = stored.recipePuzzle.recipes[index];
+      const correct = recipe.tray.filter((p: any) => recipe.ingredientIds.includes(p.item.id));
+      for (let n = 0; n < correct.length; n++) {
+        const input = { action: 'add', index, pieceKey: correct[n].key };
+        if (index === 2 && n === correct.length - 1) {
+          const results = await Promise.all([1, 2, 3].map(() => call(user, 'POST', url, input)));
+          expect(results.map((r) => r.json().rewardPaid)).toEqual([50, 50, 50]);
+          last = results[0].json();
+        } else expect((await call(user, 'POST', url, input)).statusCode).toBe(200);
+      }
+    }
+    expect(last).toMatchObject({
+      finished: true,
+      won: true,
+      crafted: 3,
+      mistakes: 1,
+      current: null,
+    });
+    expect(await db.walletTransaction.count({ where: { userId: user, type: 'GAME_REWARD' } })).toBe(
+      1,
+    );
+    expect((await call(user, 'POST', url, { action: 'reveal', index: 0 })).json().rewardPaid).toBe(
+      50,
+    );
+  });
+  test('Recipe Rush accounts for revealed crafts, shared caps, reward pause and expired daily rounds', async () => {
+    const user = await createUser();
+    const start = (await call(user, 'POST', '/games/recipe-rush/start', {})).json();
+    const reveal = (
+      await call(user, 'POST', `/games/rounds/${start.id}/recipe`, { action: 'reveal', index: 0 })
+    ).json();
+    expect(reveal).toMatchObject({ index: 1, rewardAvailable: 40 });
+    expect(reveal.history[0].ingredients).toHaveLength(2);
+    expect(await solveRecipes(user, start.id, 1)).toMatchObject({
+      rewardPaid: 40,
+      won: false,
+      crafted: 2,
+    });
+    const capped = await createUser();
+    const archive = (await call(capped, 'POST', '/games/archive/start', {})).json();
+    const answer = (await db.gameRound.findUnique({ where: { id: archive.id } })).championId;
+    await call(capped, 'POST', `/games/rounds/${archive.id}/guess`, { championId: answer });
+    await db.economySettings.update({ where: { id: 'global' }, data: { dailyGameCap: 75 } });
+    const capRound = (await call(capped, 'POST', '/games/recipe-rush/start', {})).json();
+    expect((await solveRecipes(capped, capRound.id)).rewardPaid).toBe(15);
+    const paused = await createUser();
+    const pausedRound = (await call(paused, 'POST', '/games/recipe-rush/start', {})).json();
+    await db.economySettings.update({
+      where: { id: 'global' },
+      data: { gameRewardsEnabled: false },
+    });
+    expect((await solveRecipes(paused, pausedRound.id)).rewardPaid).toBe(0);
+    const expired = await createUser();
+    const expiredRound = (await call(expired, 'POST', '/games/recipe-rush/start', {})).json();
+    await db.gameRound.update({ where: { id: expiredRound.id }, data: { day: '2000-01-01' } });
+    expect(
+      (
+        await call(expired, 'POST', `/games/rounds/${expiredRound.id}/recipe`, {
+          action: 'reveal',
+          index: 0,
+        })
+      ).statusCode,
+    ).toBe(409);
+  });
+  test('Recipe Rush practice modes resume independently and the server enforces the timer', async () => {
+    const user = await createUser();
+    expect(
+      (await call(user, 'POST', '/games/recipe-rush/start', { timedPractice: true })).statusCode,
+    ).toBe(400);
+    const free = (await call(user, 'POST', '/games/recipe-rush/start', { practice: true })).json();
+    const timed = (
+      await call(user, 'POST', '/games/recipe-rush/start', { practice: true, timedPractice: true })
+    ).json();
+    expect(free.id).not.toBe(timed.id);
+    expect(free.deadlineAt).toBeNull();
+    expect(Date.parse(timed.deadlineAt) - Date.parse(timed.serverTime)).toBeGreaterThan(88000);
+    expect(
+      (await call(user, 'POST', '/games/recipe-rush/start', { practice: true })).json().id,
+    ).toBe(free.id);
+    expect(
+      (
+        await call(user, 'POST', '/games/recipe-rush/start', {
+          practice: true,
+          timedPractice: true,
+        })
+      ).json().deadlineAt,
+    ).toBe(timed.deadlineAt);
+    const stored = await db.gameRound.findUnique({ where: { id: timed.id } });
+    stored.recipePuzzle.deadlineAt = new Date(Date.now() - 1000).toISOString();
+    await db.gameRound.update({
+      where: { id: timed.id },
+      data: { recipePuzzle: stored.recipePuzzle },
+    });
+    const late = (
+      await call(user, 'POST', `/games/rounds/${timed.id}/recipe`, {
+        action: 'add',
+        index: 0,
+        pieceKey: stored.recipePuzzle.recipes[0].tray[0].key,
+      })
+    ).json();
+    expect(late).toMatchObject({ finished: true, crafted: 0, rewardPaid: 0 });
+    expect(late.history.every((r: any) => r.status === 'timeout')).toBe(true);
+    expect((await solveRecipes(user, free.id)).rewardPaid).toBe(0);
+    const expiredOnResume = (
+      await call(user, 'POST', '/games/recipe-rush/start', { practice: true, timedPractice: true })
+    ).json();
+    expect(expiredOnResume.id).not.toBe(timed.id);
+    const saved = await db.gameRound.findUnique({ where: { id: expiredOnResume.id } });
+    saved.recipePuzzle.deadlineAt = new Date(Date.now() - 1000).toISOString();
+    await db.gameRound.update({
+      where: { id: saved.id },
+      data: { recipePuzzle: saved.recipePuzzle },
+    });
+    expect(
+      (
+        await call(user, 'POST', '/games/recipe-rush/start', {
+          practice: true,
+          timedPractice: true,
+        })
+      ).json().finished,
+    ).toBe(true);
+    expect(await db.walletTransaction.count({ where: { userId: user, type: 'GAME_REWARD' } })).toBe(
+      0,
+    );
   });
   test('Archive persists five clue types across retries, guesses and practice resumes', async () => {
     const user = await createUser();

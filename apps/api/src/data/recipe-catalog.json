@@ -1,0 +1,930 @@
+{
+  "version": "16.18.1",
+  "recipes": [
+    {
+      "targetId": "2019",
+      "ingredientIds": [
+        "1029",
+        "1036",
+        "1029"
+      ]
+    },
+    {
+      "targetId": "2020",
+      "ingredientIds": [
+        "2022",
+        "1037"
+      ]
+    },
+    {
+      "targetId": "2021",
+      "ingredientIds": [
+        "1036",
+        "1028"
+      ]
+    },
+    {
+      "targetId": "2065",
+      "ingredientIds": [
+        "3113",
+        "4642"
+      ]
+    },
+    {
+      "targetId": "2420",
+      "ingredientIds": [
+        "1052",
+        "1029",
+        "1052"
+      ]
+    },
+    {
+      "targetId": "2501",
+      "ingredientIds": [
+        "2021",
+        "2021"
+      ]
+    },
+    {
+      "targetId": "2502",
+      "ingredientIds": [
+        "1031",
+        "3067",
+        "1028"
+      ]
+    },
+    {
+      "targetId": "2503",
+      "ingredientIds": [
+        "3802",
+        "2508"
+      ]
+    },
+    {
+      "targetId": "2504",
+      "ingredientIds": [
+        "3211",
+        "1057"
+      ]
+    },
+    {
+      "targetId": "3003",
+      "ingredientIds": [
+        "3070",
+        "3802",
+        "3108"
+      ]
+    },
+    {
+      "targetId": "3004",
+      "ingredientIds": [
+        "3070",
+        "3133",
+        "1036"
+      ]
+    },
+    {
+      "targetId": "3024",
+      "ingredientIds": [
+        "1029",
+        "1027",
+        "2022"
+      ]
+    },
+    {
+      "targetId": "3026",
+      "ingredientIds": [
+        "2019",
+        "1038"
+      ]
+    },
+    {
+      "targetId": "3031",
+      "ingredientIds": [
+        "1038",
+        "1037",
+        "1018"
+      ]
+    },
+    {
+      "targetId": "3032",
+      "ingredientIds": [
+        "1038",
+        "3144",
+        "1036"
+      ]
+    },
+    {
+      "targetId": "3033",
+      "ingredientIds": [
+        "3123",
+        "3035",
+        "1018"
+      ]
+    },
+    {
+      "targetId": "3035",
+      "ingredientIds": [
+        "1036",
+        "1036"
+      ]
+    },
+    {
+      "targetId": "3036",
+      "ingredientIds": [
+        "3035",
+        "6670"
+      ]
+    },
+    {
+      "targetId": "3044",
+      "ingredientIds": [
+        "1028",
+        "1036"
+      ]
+    },
+    {
+      "targetId": "3046",
+      "ingredientIds": [
+        "1042",
+        "3086",
+        "1042"
+      ]
+    },
+    {
+      "targetId": "3050",
+      "ingredientIds": [
+        "3067",
+        "1029",
+        "1033"
+      ]
+    },
+    {
+      "targetId": "3051",
+      "ingredientIds": [
+        "1036",
+        "1042",
+        "1036"
+      ]
+    },
+    {
+      "targetId": "3053",
+      "ingredientIds": [
+        "1037",
+        "2021",
+        "1028"
+      ]
+    },
+    {
+      "targetId": "3065",
+      "ingredientIds": [
+        "3211",
+        "3067"
+      ]
+    },
+    {
+      "targetId": "3067",
+      "ingredientIds": [
+        "1028",
+        "2022"
+      ]
+    },
+    {
+      "targetId": "3068",
+      "ingredientIds": [
+        "6660",
+        "1031",
+        "1028"
+      ]
+    },
+    {
+      "targetId": "3071",
+      "ingredientIds": [
+        "3044",
+        "3067",
+        "1037"
+      ]
+    },
+    {
+      "targetId": "3072",
+      "ingredientIds": [
+        "1038",
+        "1037",
+        "1053"
+      ]
+    },
+    {
+      "targetId": "3073",
+      "ingredientIds": [
+        "2021",
+        "1042",
+        "3044"
+      ]
+    },
+    {
+      "targetId": "3074",
+      "ingredientIds": [
+        "3077",
+        "1053",
+        "3133"
+      ]
+    },
+    {
+      "targetId": "3075",
+      "ingredientIds": [
+        "3076",
+        "1031",
+        "1028"
+      ]
+    },
+    {
+      "targetId": "3076",
+      "ingredientIds": [
+        "1029",
+        "1029"
+      ]
+    },
+    {
+      "targetId": "3077",
+      "ingredientIds": [
+        "1036",
+        "1036"
+      ]
+    },
+    {
+      "targetId": "3078",
+      "ingredientIds": [
+        "3057",
+        "3044",
+        "3051"
+      ]
+    },
+    {
+      "targetId": "3082",
+      "ingredientIds": [
+        "1029",
+        "1029"
+      ]
+    },
+    {
+      "targetId": "3083",
+      "ingredientIds": [
+        "1011",
+        "1011",
+        "3801"
+      ]
+    },
+    {
+      "targetId": "3084",
+      "ingredientIds": [
+        "1011",
+        "3801",
+        "1011"
+      ]
+    },
+    {
+      "targetId": "3085",
+      "ingredientIds": [
+        "3086",
+        "3144"
+      ]
+    },
+    {
+      "targetId": "3086",
+      "ingredientIds": [
+        "1018",
+        "1042"
+      ]
+    },
+    {
+      "targetId": "3087",
+      "ingredientIds": [
+        "3144",
+        "3113",
+        "1037"
+      ]
+    },
+    {
+      "targetId": "3089",
+      "ingredientIds": [
+        "1058",
+        "1058"
+      ]
+    },
+    {
+      "targetId": "3091",
+      "ingredientIds": [
+        "1043",
+        "1057",
+        "1043"
+      ]
+    },
+    {
+      "targetId": "3094",
+      "ingredientIds": [
+        "3086",
+        "3144"
+      ]
+    },
+    {
+      "targetId": "3100",
+      "ingredientIds": [
+        "3057",
+        "3113",
+        "1026"
+      ]
+    },
+    {
+      "targetId": "3102",
+      "ingredientIds": [
+        "1058",
+        "4632"
+      ]
+    },
+    {
+      "targetId": "3107",
+      "ingredientIds": [
+        "3108",
+        "3114"
+      ]
+    },
+    {
+      "targetId": "3108",
+      "ingredientIds": [
+        "1052",
+        "2022"
+      ]
+    },
+    {
+      "targetId": "3109",
+      "ingredientIds": [
+        "3067",
+        "1031",
+        "1006"
+      ]
+    },
+    {
+      "targetId": "3110",
+      "ingredientIds": [
+        "3082",
+        "3024"
+      ]
+    },
+    {
+      "targetId": "3115",
+      "ingredientIds": [
+        "1043",
+        "1026",
+        "3108"
+      ]
+    },
+    {
+      "targetId": "3116",
+      "ingredientIds": [
+        "1026",
+        "1011",
+        "1052"
+      ]
+    },
+    {
+      "targetId": "3118",
+      "ingredientIds": [
+        "3802",
+        "1026"
+      ]
+    },
+    {
+      "targetId": "3119",
+      "ingredientIds": [
+        "3070",
+        "1011",
+        "3067"
+      ]
+    },
+    {
+      "targetId": "3124",
+      "ingredientIds": [
+        "1052",
+        "1043",
+        "1037"
+      ]
+    },
+    {
+      "targetId": "3133",
+      "ingredientIds": [
+        "1036",
+        "2022",
+        "1036"
+      ]
+    },
+    {
+      "targetId": "3134",
+      "ingredientIds": [
+        "1036",
+        "1036"
+      ]
+    },
+    {
+      "targetId": "3135",
+      "ingredientIds": [
+        "4630",
+        "1026"
+      ]
+    },
+    {
+      "targetId": "3137",
+      "ingredientIds": [
+        "4630",
+        "3108",
+        "3108"
+      ]
+    },
+    {
+      "targetId": "3139",
+      "ingredientIds": [
+        "3140",
+        "1037",
+        "1053"
+      ]
+    },
+    {
+      "targetId": "3142",
+      "ingredientIds": [
+        "3134",
+        "6690",
+        "1036"
+      ]
+    },
+    {
+      "targetId": "3143",
+      "ingredientIds": [
+        "3082",
+        "1011"
+      ]
+    },
+    {
+      "targetId": "3144",
+      "ingredientIds": [
+        "1042",
+        "1042"
+      ]
+    },
+    {
+      "targetId": "3145",
+      "ingredientIds": [
+        "1052",
+        "1052"
+      ]
+    },
+    {
+      "targetId": "3147",
+      "ingredientIds": [
+        "1052",
+        "1028"
+      ]
+    },
+    {
+      "targetId": "3152",
+      "ingredientIds": [
+        "3145",
+        "3067",
+        "1028"
+      ]
+    },
+    {
+      "targetId": "3153",
+      "ingredientIds": [
+        "1053",
+        "1043",
+        "1037"
+      ]
+    },
+    {
+      "targetId": "3155",
+      "ingredientIds": [
+        "1036",
+        "1033",
+        "1036"
+      ]
+    },
+    {
+      "targetId": "3156",
+      "ingredientIds": [
+        "3155",
+        "3133"
+      ]
+    },
+    {
+      "targetId": "3157",
+      "ingredientIds": [
+        "1058",
+        "2420"
+      ]
+    },
+    {
+      "targetId": "3161",
+      "ingredientIds": [
+        "1037",
+        "2021",
+        "1028"
+      ]
+    },
+    {
+      "targetId": "3165",
+      "ingredientIds": [
+        "3916",
+        "1026",
+        "3067"
+      ]
+    },
+    {
+      "targetId": "3179",
+      "ingredientIds": [
+        "3134",
+        "3133"
+      ]
+    },
+    {
+      "targetId": "3181",
+      "ingredientIds": [
+        "2021",
+        "3066",
+        "1037"
+      ]
+    },
+    {
+      "targetId": "3190",
+      "ingredientIds": [
+        "3067",
+        "1029",
+        "1033"
+      ]
+    },
+    {
+      "targetId": "3211",
+      "ingredientIds": [
+        "1028",
+        "1033",
+        "1006"
+      ]
+    },
+    {
+      "targetId": "3222",
+      "ingredientIds": [
+        "3067",
+        "3114"
+      ]
+    },
+    {
+      "targetId": "3302",
+      "ingredientIds": [
+        "3051",
+        "1043"
+      ]
+    },
+    {
+      "targetId": "3504",
+      "ingredientIds": [
+        "3113",
+        "3114"
+      ]
+    },
+    {
+      "targetId": "3508",
+      "ingredientIds": [
+        "3057",
+        "3133",
+        "1018"
+      ]
+    },
+    {
+      "targetId": "3742",
+      "ingredientIds": [
+        "3066",
+        "1028",
+        "1031"
+      ]
+    },
+    {
+      "targetId": "3748",
+      "ingredientIds": [
+        "3077",
+        "2021",
+        "1011"
+      ]
+    },
+    {
+      "targetId": "3801",
+      "ingredientIds": [
+        "1028",
+        "1006"
+      ]
+    },
+    {
+      "targetId": "3802",
+      "ingredientIds": [
+        "1052",
+        "1027",
+        "2022"
+      ]
+    },
+    {
+      "targetId": "3803",
+      "ingredientIds": [
+        "1028",
+        "1028",
+        "1027"
+      ]
+    },
+    {
+      "targetId": "3814",
+      "ingredientIds": [
+        "3134",
+        "2021"
+      ]
+    },
+    {
+      "targetId": "4005",
+      "ingredientIds": [
+        "1052",
+        "4642",
+        "1052"
+      ]
+    },
+    {
+      "targetId": "4401",
+      "ingredientIds": [
+        "1057",
+        "1028",
+        "3066"
+      ]
+    },
+    {
+      "targetId": "4628",
+      "ingredientIds": [
+        "3108",
+        "3108",
+        "1052"
+      ]
+    },
+    {
+      "targetId": "4629",
+      "ingredientIds": [
+        "3067",
+        "3113",
+        "3108"
+      ]
+    },
+    {
+      "targetId": "4632",
+      "ingredientIds": [
+        "1052",
+        "1033",
+        "1052"
+      ]
+    },
+    {
+      "targetId": "4633",
+      "ingredientIds": [
+        "3147",
+        "3108"
+      ]
+    },
+    {
+      "targetId": "4642",
+      "ingredientIds": [
+        "1004",
+        "1052",
+        "2022"
+      ]
+    },
+    {
+      "targetId": "4645",
+      "ingredientIds": [
+        "3145",
+        "1058"
+      ]
+    },
+    {
+      "targetId": "4646",
+      "ingredientIds": [
+        "3145",
+        "3113"
+      ]
+    },
+    {
+      "targetId": "6333",
+      "ingredientIds": [
+        "2019",
+        "1037",
+        "3133"
+      ]
+    },
+    {
+      "targetId": "6609",
+      "ingredientIds": [
+        "3123",
+        "1011",
+        "3133"
+      ]
+    },
+    {
+      "targetId": "6610",
+      "ingredientIds": [
+        "2021",
+        "3133"
+      ]
+    },
+    {
+      "targetId": "6616",
+      "ingredientIds": [
+        "3108",
+        "3114"
+      ]
+    },
+    {
+      "targetId": "6617",
+      "ingredientIds": [
+        "3067",
+        "4642"
+      ]
+    },
+    {
+      "targetId": "6620",
+      "ingredientIds": [
+        "3067",
+        "4642"
+      ]
+    },
+    {
+      "targetId": "6621",
+      "ingredientIds": [
+        "1026",
+        "3114",
+        "3114"
+      ]
+    },
+    {
+      "targetId": "6631",
+      "ingredientIds": [
+        "3077",
+        "3044",
+        "1042"
+      ]
+    },
+    {
+      "targetId": "6653",
+      "ingredientIds": [
+        "3147",
+        "2508"
+      ]
+    },
+    {
+      "targetId": "6655",
+      "ingredientIds": [
+        "3802",
+        "3145"
+      ]
+    },
+    {
+      "targetId": "6657",
+      "ingredientIds": [
+        "1026",
+        "3803"
+      ]
+    },
+    {
+      "targetId": "6660",
+      "ingredientIds": [
+        "1028",
+        "2022"
+      ]
+    },
+    {
+      "targetId": "6662",
+      "ingredientIds": [
+        "3057",
+        "1028",
+        "1031"
+      ]
+    },
+    {
+      "targetId": "6664",
+      "ingredientIds": [
+        "6660",
+        "3211"
+      ]
+    },
+    {
+      "targetId": "6665",
+      "ingredientIds": [
+        "1011",
+        "1031",
+        "1057"
+      ]
+    },
+    {
+      "targetId": "6670",
+      "ingredientIds": [
+        "1036",
+        "1018"
+      ]
+    },
+    {
+      "targetId": "6672",
+      "ingredientIds": [
+        "6690",
+        "3051",
+        "1043"
+      ]
+    },
+    {
+      "targetId": "6673",
+      "ingredientIds": [
+        "1037",
+        "6670"
+      ]
+    },
+    {
+      "targetId": "6675",
+      "ingredientIds": [
+        "1042",
+        "3086",
+        "1042"
+      ]
+    },
+    {
+      "targetId": "6676",
+      "ingredientIds": [
+        "1037",
+        "3134",
+        "1018"
+      ]
+    },
+    {
+      "targetId": "6692",
+      "ingredientIds": [
+        "3133",
+        "1037",
+        "1036"
+      ]
+    },
+    {
+      "targetId": "6694",
+      "ingredientIds": [
+        "3133",
+        "3035"
+      ]
+    },
+    {
+      "targetId": "6695",
+      "ingredientIds": [
+        "3134",
+        "1037"
+      ]
+    },
+    {
+      "targetId": "6696",
+      "ingredientIds": [
+        "2020",
+        "3133"
+      ]
+    },
+    {
+      "targetId": "6697",
+      "ingredientIds": [
+        "3134",
+        "3133"
+      ]
+    },
+    {
+      "targetId": "6698",
+      "ingredientIds": [
+        "3077",
+        "2020"
+      ]
+    },
+    {
+      "targetId": "6699",
+      "ingredientIds": [
+        "2020",
+        "1036",
+        "1036"
+      ]
+    },
+    {
+      "targetId": "8010",
+      "ingredientIds": [
+        "3147",
+        "3108"
+      ]
+    },
+    {
+      "targetId": "8020",
+      "ingredientIds": [
+        "3067",
+        "1057"
+      ]
+    }
+  ]
+}

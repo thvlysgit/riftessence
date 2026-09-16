@@ -14,6 +14,7 @@ Default rewards (editable at `/admin/prismatic`):
 | Champion Archive daily solve |  60 |
 | Soundcheck daily solve       |  60 |
 | Shopkeeper perfect score     |  60 |
+| Recipe Rush flawless crafts  |  60 |
 | Combined daily game cap      | 120 |
 
 The recurring maximum is 220 PE per player per UTC day, excluding welcome grants and existing one-time milestones. One-way message spam does not qualify for the daily conversation reward. Enabling Discord DMs is no longer a rewarded action. Support-server membership requires a verified Discord guild-membership response; a community named “support” is insufficient.
@@ -25,13 +26,14 @@ Existing starter grants are not reissued. Positive legacy RiftCoins convert 1:1 
 - `/games/archive`: six guesses using five clue types selected at round creation from role, typical lanes, gender, lore region, skins, range, resource and release date. The selected types are shown before guessing and remain fixed through reloads. Existing cases retain their previous four clues. Lanes are typical positions rather than live pick-rate rankings. Each row displays the guessed champion’s own skin count; the arrow compares it to the answer. Inspired by [LoLdle](https://loldle.net/), credited in-game. Each guess after the first reduces the offered reward by 10 PE.
 - `/games/soundcheck`: guess a champion from their actual Q/W/E/R ability sounds, not music or voice lines. Inspired by [League of Listen by Lynge](https://lynge.tv/listen/), credited in-game. Initial curated pool: 26 champions, 104 audio clips.
 - `/games/shopkeeper`: six higher-or-lower comparisons using total shop prices from Riot's Data Dragon, pinned to patch 16.18.1. Each pair has different prices; twelve distinct items appear per round. Both prices are revealed after each answer. Completing all six awards `floor(offered reward × correct answers / 6)` (10 PE per correct answer by default), subject to the shared daily cap. Practice pays nothing. The admin report counts a perfect score as solved. Item pairs and prices are saved with the round. Valid pairs keep their pinned prices; invalid unplayed legacy pairs are repaired on read. Completed comparisons and rewards are preserved.
+- `/games/recipe-rush`: three direct item recipes (two-component epic, two-component legendary, then a legendary with at least three ingredients). Drag a piece onto the forge, tap it, or focus it and press Enter/Space. Correct pieces lock in; the final ingredient automatically crafts the target. The tray contains every required copy and four decoys. Duplicate components require separate pieces. Recipes and tray state are pinned with the round.
 - Champion data/artwork and ability demonstration audio originate from Riot Games. The game implementations are independent; neither original game's code or recordings were copied. Third-party assets are not covered by this repository's software license. See `apps/api/assets/soundcheck/README.md`.
 
 Each daily game is persisted once per account/game/UTC date. The daily answer is selected server-side with HMAC using the existing `JWT_SECRET`; use the same secret and catalog across API replicas. Do not rotate the secret or replace the catalog mid-day unless accepting that newly started rounds may receive a different answer. Practice uses random answers, pays no PE, reuses unfinished rounds, and is limited to 100 new rounds per account/day.
 
 The browser never decides whether an answer is correct or how much to award. It receives champion choices, prior guesses and comparisons, not an unfinished round's answer. Audio is authenticated, served as stripped audio-only MP3 bytes under opaque round/slot URLs, and marked private/no-store; source filenames and champion-specific ability names are withheld until completion. Like any daily puzzle, answers can still be shared between players. Rewards are capped, not claimed to be cheat-proof.
 
-Round base rewards are offered when the round starts. Changing reward values affects new rounds. Soundcheck records distinct ability slots when audio is served; each additional slot after the first reduces the offered reward by 10 PE. Replays and additional Soundcheck guesses are free. Deductions have a zero floor, persist across refreshes, and use the same transaction lock as guesses. Completed rewards are unchanged by subsequent listening. The current cap and pause switch apply when awarding every completed game, including an already-started round. Practice, failed champion rounds, expired daily rounds and repeated submissions never award PE. Shopkeeper pays for correct comparisons when its round is completed. Pausing rewards leaves games playable. The shared daily game cap remains 120 PE across all three games.
+Round base rewards are offered when the round starts. Changing reward values affects new rounds. Soundcheck records distinct ability slots when audio is served; each additional slot after the first reduces the offered reward by 10 PE. Replays and additional Soundcheck guesses are free. Deductions have a zero floor, persist across refreshes, and use the same transaction lock as guesses. Completed rewards are unchanged by subsequent listening. The current cap and pause switch apply when awarding every completed game, including an already-started round. Practice, failed champion rounds, expired daily rounds and repeated submissions never award PE. Shopkeeper pays for correct comparisons when its round is completed. Pausing rewards leaves games playable. The shared daily game cap remains 120 PE across all four games.
 
 Game pages display a countdown to the next UTC reset and links to another game after completion. Their suggestion banner accepts a free-form idea from signed-in users (10–3,000 characters, up to five submissions per rolling day). Suggestions and in-app admin notifications commit together; identical pending ideas are deduplicated. Admins review, mark reviewed, or reopen ideas at `/admin/game-suggestions`.
 
@@ -55,6 +57,32 @@ Review the generated catalog, audio manifest and every changed clip before relea
 The item sync uses a curated standard-shop ID list, filtered to purchasable Summoner's Rift items with a positive total price. Review that list when new items arrive; mode variants and free transformations are excluded. Item icons are loaded from the pinned Data Dragon CDN version.
 
 Collection font previews and equipped usernames use self-hosted font files in `apps/web/public/fonts`, loaded by `cosmetic-fonts.css`. Each family has its own SIL Open Font License under `fonts/licenses`. Browsers fetch a font only when the current page uses it.
+
+Recipe Rush awards once when all three recipes have been crafted or revealed:
+`max(0, floor(rewardOffer × crafted / 3) - 10 × distinct wrong pieces)`, then applies
+the current shared daily cap and rewards switch. At the default offer, each craft
+is worth 20 PE and each mistake deducts 10 PE from the round. Revealed recipes earn
+no share. Retry requests, repeat wrong pieces, and stale recipe indexes never
+charge again or affect the next recipe. Cross-game answer endpoints are rejected.
+The recipe contents and future targets remain server-only until their turn;
+completed/revealed recipes show their direct ingredients for learning.
+
+The daily forge is untimed. Free practice and the optional 90-second challenge
+have separate resumable rounds and pay no PE. The challenge deadline is stored
+on the server, survives reloads, and is checked before every action. Timeouts
+reveal remaining recipes. Both modes count toward the existing 100-practice-round
+limit. A practice URL retains its mode across reloads.
+
+Refresh recipe data after syncing the item catalog:
+
+```sh
+node scripts/sync-recipe-catalog.cjs
+```
+
+The generator preserves direct Data Dragon recipe multiplicities, checks every
+ingredient against the curated shop catalog, and verifies all three stage pools.
+Both catalogs must have the same patch. The generated forge backdrop lives in
+`apps/web/public/assets/games/recipe-forge.png`; see its adjacent attribution file.
 
 ## Wallet safety
 
@@ -80,6 +108,7 @@ New requests record `requestCreditsSpent = 0`. Existing requests retain null and
    Apply `20260907120000_game_feedback_and_rewards` before deploying the corresponding game and advertising changes; it adds listening history, game suggestions, and staff-only ad request fields.
    Apply `20260911090000_item_price_game` before deploying Shopkeeper; it adds saved item puzzles and the configurable perfect-score reward.
    Apply `20260916120000_archive_clue_types` before deploying variable Archive clues, then regenerate Prisma and rebuild both API and web. Shopkeeper clients must send the current comparison token.
+   Apply `20260916160000_recipe_rush` before deploying Recipe Rush; it adds saved forge puzzles and the independently configurable `recipeReward` (default 60). Regenerate Prisma and rebuild API/web together.
 4. Check the economy dashboard and make any deliberate reward adjustments with an audit reason.
 
 **Historical migration caveat:** replaying this repository's complete migration chain onto an empty database currently fails in pre-existing `0003_update_notification_system`, which references `Notification` before it exists. This change does not rewrite applied historical migrations. The new migration was separately verified against a schema generated from the preceding revision, with seeded legacy balance, counters, ownership and credits. Resolve fresh-install baselining separately; do not reset or `db push` a live database.
@@ -88,7 +117,7 @@ The `economy-safety` CI job uses an isolated PostgreSQL 15 service and the curre
 
 ```sh
 pnpm exec prisma generate --schema=prisma/schema.prisma
-pnpm exec jest --runInBand --config jest.config.cjs --runTestsByPath apps/api/__tests__/archiveClues.test.ts apps/api/__tests__/dailyGames.test.ts apps/api/__tests__/itemPriceGame.test.ts apps/api/__tests__/economy.integration.test.ts
+pnpm exec jest --runInBand --config jest.config.cjs --runTestsByPath apps/api/__tests__/recipeRush.test.ts apps/api/__tests__/archiveClues.test.ts apps/api/__tests__/dailyGames.test.ts apps/api/__tests__/itemPriceGame.test.ts apps/api/__tests__/economy.integration.test.ts
 ```
 
 Without `TEST_DATABASE_URL`, the database suite is skipped. It deliberately refuses arbitrary database names/remote hosts and never falls back to `DATABASE_URL`. It modifies global reward settings temporarily, restores them afterward, and deletes only its own generated records. Do not share its database with a running application.

@@ -3,6 +3,7 @@ import '../styles/globals.css';
 import '../styles/cosmetic-fonts.css';
 import '../styles/economy.css';
 import '../styles/game-play.css';
+import '../styles/recipe-rush.css';
 import NextApp, { AppContext, AppInitialProps, AppProps } from 'next/app';
 import Head from 'next/head';
 import Script from 'next/script';

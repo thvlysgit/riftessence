@@ -149,7 +149,7 @@ export default function WalletPage() {
               <span className="essence-kicker">Play for Prismatic Essence</span>
               <h2 id="wallet-games-heading">Know the Rift? Put it to the test.</h2>
               <p>
-                Guess champions, identify ability sounds, or compare item prices. Three daily games,
+                Guess champions, identify sounds, compare prices, or forge items. Four daily games,
                 fresh every day.
               </p>
               <p className="essence-wallet-games-reward">
@@ -190,6 +190,8 @@ export default function WalletPage() {
                         ? 'Guess the champion from a trail of clues.'
                         : game.key === 'shopkeeper'
                         ? 'Compare item prices: higher or lower?'
+                        : game.key === 'recipe-rush'
+                        ? 'Build three items from their ingredients.'
                         : 'Name the champion from their ability sounds.'}
                     </p>
                   </div>
