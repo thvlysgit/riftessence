@@ -705,7 +705,7 @@ export default function CommunityDetailPage() {
               >
                 <div className="flex items-center gap-3">
                   <Link
-                    href={`/profile/${member.username}`}
+                    href={`/profile/${encodeURIComponent(member.username)}`}
                     className="flex items-center gap-3 flex-1 min-w-0"
                   >
                     <div

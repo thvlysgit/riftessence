@@ -3755,6 +3755,46 @@ function normalizeDiscordWebhookUrl(rawUrl: string | null | undefined): string |
     return null;
   }
 }
+
+async function pollBugReports() {
+  const result = await apiRequest('/api/discord/bug-reports/outgoing');
+  if (!result.ok || !Array.isArray(result.data.reports)) return;
+  const channelId = result.data.channelId;
+  if (typeof channelId !== 'string' || !/^\d{17,20}$/.test(channelId)) return;
+
+  let channel;
+  try {
+    channel = await client.channels.fetch(channelId);
+    if (!channel || !channel.isTextBased() || !('send' in channel)) throw new Error('Bot cannot post to this channel');
+  } catch (error: any) {
+    console.error('❌ Bug report channel unavailable:', error?.message || error);
+    return;
+  }
+
+  for (const report of result.data.reports) {
+    try {
+      const evidenceFields = report.evidenceUrls?.length
+        ? report.evidenceUrls.map((url: string, index: number) => ({ name: `Evidence ${index + 1}`, value: url }))
+        : [{ name: 'Evidence', value: 'None provided' }];
+      const embed = new EmbedBuilder()
+        .setTitle(`Bug report ${report.id}`)
+        .setDescription(report.description)
+        .setColor(0xe74c3c)
+        .addFields(
+          { name: 'Reporter', value: report.reporter?.username || 'Guest', inline: true },
+          { name: 'Discord contact', value: report.contactDiscord || report.reporter?.discordAccount?.username || 'Not provided', inline: true },
+          { name: 'Page', value: report.pageUrl || 'Unknown' },
+          ...evidenceFields,
+        )
+        .setTimestamp(new Date(report.createdAt));
+      const message = await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
+      const acknowledgment = await apiRequest(`/api/discord/bug-reports/${encodeURIComponent(report.id)}/forwarded`, 'PATCH', { messageId: message.id });
+      if (!acknowledgment.ok) throw new Error('Bug report delivery acknowledgment failed');
+    } catch (error: any) {
+      console.error(`❌ Could not forward bug report ${report.id}:`, error?.message || error);
+    }
+  }
+}
 const teamLastChannelPingCache = new Map<string, number>();
 
 function parseIsoDateToMs(value: string | null | undefined): number | null {
@@ -4788,6 +4828,7 @@ client.once(Events.ClientReady, async (c) => {
   // Start polling for Discord role forwarding sync
   console.log(`🏷️ Starting role forwarding sync poll (interval: ${ROLE_FORWARDING_POLL_INTERVAL_MS}ms)`);
   startGuardedPollLoop('role forwarding sync', pollRoleForwardingSync, ROLE_FORWARDING_POLL_INTERVAL_MS, 24000);
+  startGuardedPollLoop('bug reports', pollBugReports, 30000, 27000);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

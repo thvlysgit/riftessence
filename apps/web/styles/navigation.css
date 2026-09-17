@@ -464,6 +464,8 @@
 }
 .rn-search-field:focus-within {
   border-color: var(--color-border-hover);
+  outline: 2px solid color-mix(in srgb, var(--color-accent-1) 35%, transparent);
+  outline-offset: 2px;
 }
 .rn-search-field > svg {
   width: 16px;
@@ -480,6 +482,14 @@
   background: transparent;
   color: var(--color-text-primary);
   font-size: 13px;
+}
+.rift-navigation .rn-search-field input,
+.rift-navigation .rn-search-field input:focus {
+  appearance: none;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
 }
 .rn-search-field input::placeholder {
   color: var(--color-text-muted);

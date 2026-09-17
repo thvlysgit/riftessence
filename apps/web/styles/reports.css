@@ -1,0 +1,120 @@
+[data-theme] button.bug-report-trigger {
+  position: fixed;
+  z-index: 55;
+  right: 96px;
+  bottom: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 0 17px;
+  border: 1px solid var(--color-accent-1);
+  border-radius: 28px;
+  background: var(--color-bg-secondary);
+  color: var(--color-accent-1);
+  box-shadow: 0 4px 15px rgb(0 0 0 / 0.24);
+  font-size: 13px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+[data-theme] button.bug-report-trigger:hover {
+  background: var(--color-bg-tertiary);
+  transform: translateY(-2px);
+}
+.bug-report-trigger svg {
+  width: 18px;
+  height: 18px;
+}
+
+.report-modal-backdrop {
+  position: fixed;
+  z-index: 1001;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.72);
+}
+.report-modal {
+  width: min(100%, 540px);
+  max-height: min(90dvh, 760px);
+  overflow-y: auto;
+  padding: clamp(18px, 4vw, 28px);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  box-shadow: 0 22px 60px rgb(0 0 0 / 0.38);
+}
+.report-modal h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 750;
+}
+.report-modal p {
+  margin: 0 0 18px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+.report-modal label,
+.report-evidence-fields label {
+  display: grid;
+  gap: 7px;
+  margin: 15px 0;
+}
+.report-modal label strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+.report-modal label span {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+.report-modal input,
+.report-modal textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  resize: vertical;
+}
+.report-modal .report-form-error {
+  margin: 8px 0;
+  color: var(--color-error, #f87171);
+}
+.report-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+[data-theme] .report-modal-actions button {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+[data-theme] .report-modal-actions button[type='submit'] {
+  border-color: var(--color-accent-1);
+  background: var(--color-accent-1);
+  color: var(--color-bg-primary);
+  font-weight: 700;
+}
+.report-modal-actions button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+@media (max-width: 550px) {
+  [data-theme] button.bug-report-trigger {
+    right: 88px;
+    bottom: 24px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+}

@@ -550,7 +550,7 @@ export default function CoachingPage() {
                           <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{p.region}</span>
                         </div>
                         <div className="flex gap-2">
-                          <Link href={`/profile?username=${encodeURIComponent(p.username)}`} className="px-3 py-1 rounded text-sm font-medium transition-colors border" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}>
+                          <Link href={`/profile/${encodeURIComponent(p.username)}`} className="px-3 py-1 rounded text-sm font-medium transition-colors border" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}>
                             {t('coaching.viewProfile')}
                           </Link>
                           {p.authorId !== currentUserId && (

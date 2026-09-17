@@ -34,6 +34,7 @@ import gameRoutes from './routes/games';
 import economyAdminRoutes from './routes/economyAdmin';
 import inputControlRoutes from './routes/inputControl';
 import diagnosticsRoutes from './routes/diagnostics';
+import bugReportRoutes from './routes/bugReports';
 import bcrypt from 'bcryptjs';
 import { env } from './env';
 import { RegisterSchema, LoginSchema, SetPasswordSchema, validateRequest, TurnstileVerifySchema, RatingSchema, BroadcastMessageSchema } from './validation';
@@ -41,7 +42,7 @@ import { getUserIdFromRequest } from './middleware/auth';
 import { logError, logInfo } from './middleware/logger';
 import { Errors } from './middleware/errors';
 import { logAdminAction, AuditActions } from './utils/auditLog';
-import { normalizeDiscordWebhookUrl } from './utils/discord-webhook';
+import { parseDiscordContact, parseReportEvidence } from './utils/reportEvidence';
 import { getSessionCookieToken } from './utils/sessionCookie';
 import { collectInputControlTextFields, inspectInputControl } from './utils/inputControl';
 import { startRiotConnectionVerifier } from './services/riotConnectionVerifier';
@@ -580,87 +581,7 @@ async function build() {
   await server.register(economyAdminRoutes, { prefix: '/api' });
   await server.register(inputControlRoutes, { prefix: '/api' });
   await server.register(diagnosticsRoutes, { prefix: '/api' });
-
-  server.post('/api/bug-report', {
-    config: {
-      rateLimit: {
-        max: 5,
-        timeWindow: '15 minutes',
-      },
-    },
-  }, async (request: any, reply: any) => {
-    try {
-      const configuredWebhook = process.env.DISCORD_BUG_WEBHOOK_URL || process.env.DISCORD_WEBHOOK_URL || '';
-      const webhookUrl = normalizeDiscordWebhookUrl(configuredWebhook);
-      if (!webhookUrl) {
-        return reply.code(503).send({ error: 'Bug reporting is not configured' });
-      }
-
-      const body = request.body && typeof request.body === 'object' ? request.body : {};
-      const description = String(body.description || '').trim();
-      const pageUrl = String(body.pageUrl || '').trim().slice(0, 500);
-
-      if (description.length < 10 || description.length > 2000) {
-        return reply.code(400).send({ error: 'Bug description must be between 10 and 2000 characters' });
-      }
-
-      const userId = await getUserIdFromRequest(request, reply, false);
-      const user = userId
-        ? await prisma.user.findUnique({
-            where: { id: userId },
-            select: {
-              username: true,
-              discordAccount: { select: { username: true } },
-              riotAccounts: {
-                where: { isMain: true },
-                select: { gameName: true, tagLine: true, summonerName: true, region: true },
-                take: 1,
-              },
-            },
-          })
-        : null;
-
-      const mainRiotAccount = user?.riotAccounts?.[0] || null;
-      const riotIdentity = mainRiotAccount
-        ? `${mainRiotAccount.gameName && mainRiotAccount.tagLine ? `${mainRiotAccount.gameName}#${mainRiotAccount.tagLine}` : mainRiotAccount.summonerName || 'Unknown'} (${mainRiotAccount.region})`
-        : 'Not linked';
-
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          allowed_mentions: { parse: [] },
-          embeds: [{
-            title: 'Bug Report',
-            description,
-            color: 15158332,
-            fields: [
-              {
-                name: 'User',
-                value: user
-                  ? `Username: ${user.username}\nRiot: ${riotIdentity}\nDiscord: ${user.discordAccount?.username || 'Not linked'}`
-                  : 'Not logged in',
-                inline: false,
-              },
-              { name: 'Page', value: pageUrl || 'Unknown', inline: false },
-              { name: 'User Agent', value: String(request.headers['user-agent'] || 'Unknown').slice(0, 200), inline: false },
-            ],
-            timestamp: new Date().toISOString(),
-          }],
-        }),
-      });
-
-      if (!response.ok) {
-        request.log.warn({ status: response.status }, 'Bug report webhook failed');
-        return reply.code(502).send({ error: 'Failed to submit bug report' });
-      }
-
-      return reply.send({ success: true });
-    } catch (error: any) {
-      logError(request, 'Failed to submit bug report', error);
-      return reply.code(500).send({ error: 'Failed to submit bug report' });
-    }
-  });
+  await server.register(bugReportRoutes, { prefix: '/api' });
 
   // Feedback endpoint
   server.post('/api/feedback', async (request: any, reply: any) => {
@@ -814,14 +735,19 @@ async function build() {
       const userId = await getUserIdFromRequest(request, reply);
       if (!userId) return;
 
-      const { reportedUserId, reason } = request.body as {
+      const { reportedUserId, reason, evidenceUrls, contactDiscord } = (request.body || {}) as {
         reportedUserId: string;
         reason: string;
+        evidenceUrls?: unknown;
+        contactDiscord?: unknown;
       };
 
-      if (!userId || !reportedUserId || !reason) {
+      if (typeof reportedUserId !== 'string' || typeof reason !== 'string' || !reason.trim() || reason.trim().length > 2000) {
         return reply.code(400).send({ error: 'Missing required fields' });
       }
+      const evidence = parseReportEvidence(evidenceUrls);
+      const discord = parseDiscordContact(contactDiscord);
+      if (evidence.error || discord.error) return reply.code(400).send({ error: evidence.error || discord.error });
 
       if (userId === reportedUserId) {
         return reply.code(400).send({ error: 'You cannot report yourself' });
@@ -858,7 +784,9 @@ async function build() {
         data: {
           reporterId: userId,
           reportedId: reportedUserId,
-          reason,
+          reason: reason.trim(),
+          evidenceUrls: evidence.urls,
+          contactDiscord: discord.contact,
           status: 'PENDING',
         },
       });

@@ -229,6 +229,11 @@ export const fr = {
     'report.other': 'Autre',
     'report.details': 'Détails',
     'report.provideDetails': 'Fournissez des détails supplémentaires...',
+    'report.discordContact': 'Pseudo Discord pour le suivi (fortement recommandé)',
+    'report.discordContactHint': 'Indiquez-le pour que nous puissions vous contacter et vous tenir au courant.',
+    'report.discordPlaceholder': 'Votre pseudo Discord',
+    'report.evidenceLinks': 'Liens de preuves (facultatif)',
+    'report.evidenceHint': 'Ajoutez des liens vers vos captures, vidéos ou fichiers. Un lien HTTPS par ligne, cinq maximum.',
     'report.submit': 'Envoyer le signalement',
     'report.submitting': 'Envoi...',
     

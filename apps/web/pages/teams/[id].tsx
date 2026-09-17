@@ -690,7 +690,7 @@ const TeamDetailPage: React.FC<TeamSharePageProps> = ({ ssrOgImage }) => {
                       👥 {team.members.length} member{team.members.length !== 1 ? 's' : ''}
                     </span>
                     <Link
-                      href={`/profile/${team.ownerUsername}`}
+                      href={`/profile/${encodeURIComponent(team.ownerUsername)}`}
                       className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium hover:opacity-80 transition-opacity"
                       style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}
                     >
@@ -991,7 +991,7 @@ const TeamDetailPage: React.FC<TeamSharePageProps> = ({ ssrOgImage }) => {
                               {/* Username - clickable */}
                               <div className="flex items-center gap-2 flex-wrap mb-1">
                                 <Link
-                                  href={`/profile/${member.username}`}
+                                  href={`/profile/${encodeURIComponent(member.username)}`}
                                   className="text-lg font-bold hover:underline transition-all"
                                   style={{ color: 'var(--color-accent-1)' }}
                                   title={`View ${member.username}'s profile`}

@@ -383,7 +383,7 @@ const MatchupDetailPage: React.FC = () => {
               className="text-center mb-4"
               style={{ color: 'var(--color-text-muted)' }}
             >
-              {t('matchups.author')}: <Link href={`/profile/${matchup.authorUsername}`} className="underline hover:opacity-75">{matchup.authorUsername}</Link>
+              {t('matchups.author')}: <Link href={`/profile/${encodeURIComponent(matchup.authorUsername)}`} className="underline hover:opacity-75">{matchup.authorUsername}</Link>
             </div>
           )}
           

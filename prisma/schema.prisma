@@ -168,6 +168,7 @@ model User {
   communityMemberships CommunityMembership[]
   reportsMade          Report[]              @relation("Reporter")
   reportsReceived      Report[]              @relation("Reported")
+  bugReports           BugReport[]
   lftPosts             LftPost[]
   coachingPosts        CoachingPost[]
 
@@ -621,16 +622,18 @@ enum InputControlRuleKind {
 }
 
 model Report {
-  id         String       @id @default(cuid())
-  reporter   User         @relation("Reporter", fields: [reporterId], references: [id])
-  reporterId String
-  reported   User         @relation("Reported", fields: [reportedId], references: [id])
-  reportedId String
-  reason     String
-  status     ReportStatus @default(PENDING)
-  createdAt  DateTime     @default(now())
-  resolvedAt DateTime?
-  resolvedBy String? // Admin userId who resolved
+  id             String       @id @default(cuid())
+  reporter       User         @relation("Reporter", fields: [reporterId], references: [id])
+  reporterId     String
+  reported       User         @relation("Reported", fields: [reportedId], references: [id])
+  reportedId     String
+  reason         String
+  evidenceUrls   String[]     @default([])
+  contactDiscord String?
+  status         ReportStatus @default(PENDING)
+  createdAt      DateTime     @default(now())
+  resolvedAt     DateTime?
+  resolvedBy     String? // Admin userId who resolved
 
   @@index([reportedId, status])
   @@index([status, createdAt])
@@ -870,6 +873,33 @@ model GameSuggestion {
 
   @@index([reviewed, createdAt])
   @@index([userId, createdAt])
+}
+
+model BugReport {
+  id               String   @id @default(cuid())
+  description      String
+  pageUrl          String?
+  userAgent        String?
+  reporterId       String?
+  reporter         User?    @relation(fields: [reporterId], references: [id], onDelete: SetNull)
+  contactDiscord   String?
+  evidenceUrls     String[] @default([])
+  status           String   @default("OPEN")
+  discordMessageId String?
+  forwardedAt      DateTime?
+  createdAt        DateTime @default(now())
+  resolvedAt       DateTime?
+  resolvedBy       String?
+
+  @@index([status, createdAt])
+  @@index([discordMessageId, createdAt])
+}
+
+model BugReportSettings {
+  id               String   @id @default("global")
+  discordChannelId String   @default("1374090454194323526")
+  updatedAt        DateTime @updatedAt
+  updatedBy        String?
 }
 
 model WalletOperation {

@@ -616,6 +616,11 @@ export const en = {
     'report.reasonRequired': 'Please provide a reason for the report.',
     'report.reasonLabel': 'Reason for report',
     'report.detailsPlaceholder': 'Describe why you are reporting this user...',
+    'report.discordContact': 'Discord username for follow-up (strongly recommended)',
+    'report.discordContactHint': 'Please include this so we can ask for details and keep you updated.',
+    'report.discordPlaceholder': 'Your Discord username',
+    'report.evidenceLinks': 'Evidence links (optional)',
+    'report.evidenceHint': 'Link screenshots, videos, or files hosted online. One HTTPS link per line, up to five.',
     
     // Admin
     'admin.broadcastTitle': 'Discord DM Broadcast',

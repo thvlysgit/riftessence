@@ -377,7 +377,7 @@ export default function LeaderboardsPage() {
         {!loading && !error && topThree.length > 0 && (
           <section className="leaderboard-podium" aria-label="Top ranked players">
             {topThree.map((entry) => (
-              <Link key={entry.id} href={`/profile/${entry.username}`} className="leaderboard-podium-card">
+              <Link key={entry.id} href={`/profile/${encodeURIComponent(entry.username)}`} className="leaderboard-podium-card">
                 <span className="leaderboard-podium-rank">{getMedalLabel(entry.position)}</span>
                 <Avatar entry={entry} size="large" />
                 <strong>{entry.username}</strong>
@@ -431,7 +431,7 @@ export default function LeaderboardsPage() {
                 return (
                   <Link
                     key={entry.id}
-                    href={`/profile/${entry.username}`}
+                    href={`/profile/${encodeURIComponent(entry.username)}`}
                     className={`leaderboard-row ${isCurrentUser ? 'leaderboard-row-current' : ''}`}
                   >
                     <div className="leaderboard-rank-cell">

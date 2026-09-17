@@ -29,7 +29,7 @@ export default function Toast({ open, message, type = 'info', onClose, duration 
 
   return (
     <div
-      style={{ position: 'fixed', right: 16, bottom: 16, zIndex: 1000 }}
+      style={{ position: 'fixed', right: 16, top: 80, zIndex: 1000, maxWidth: 'calc(100vw - 32px)' }}
       role="status"
       aria-live="polite"
     >

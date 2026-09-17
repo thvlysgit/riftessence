@@ -612,33 +612,20 @@ export default function ChatWidget() {
     sendMessageContent(message.content, message.id);
   };
 
-  const handleSubmitReport = async (reason: string) => {
+  const handleSubmitReport = async (report: { reason: string; evidenceUrls: string[]; contactDiscord: string }) => {
     if (!selectedConversation) return;
-
-    try {
-      const res = await fetch(`${API_URL}/api/report`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader(),
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          reportedUserId: selectedConversation.otherUser.id,
-          reason,
-        }),
-      });
-
-      if (res.ok) {
-        showToast(t('chat.reportSubmitted'), 'success');
-        setShowReportModal(false);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        showToast(data.error || t('chat.reportFailed'), 'error');
-      }
-    } catch (err) {
-      showToast(t('chat.reportFailed'), 'error');
+    const res = await fetch(`${API_URL}/api/report`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      credentials: 'include',
+      body: JSON.stringify({ reportedUserId: selectedConversation.otherUser.id, ...report }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || t('chat.reportFailed'));
     }
+    showToast(t('chat.reportSubmitted'), 'success');
+    setShowReportModal(false);
   };
 
   const handleBlockUser = async () => {

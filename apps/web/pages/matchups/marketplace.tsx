@@ -671,7 +671,7 @@ const MarketplacePage: React.FC = () => {
                       className="text-xs mb-4"
                       style={{ color: 'var(--color-text-muted)' }}
                     >
-                      {t('matchups.author')}: <Link href={`/profile/${matchup.authorUsername}`} onClick={(e) => e.stopPropagation()} className="underline hover:opacity-75">{matchup.authorUsername}</Link>
+                      {t('matchups.author')}: <Link href={`/profile/${encodeURIComponent(matchup.authorUsername)}`} onClick={(e) => e.stopPropagation()} className="underline hover:opacity-75">{matchup.authorUsername}</Link>
                     </div>
                     
                     {/* Stats & Actions */}

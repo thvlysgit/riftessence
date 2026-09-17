@@ -1,50 +1,55 @@
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
+import { FiFlag } from 'react-icons/fi';
 import { useGlobalUI } from './GlobalUI';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getAuthHeader } from '../utils/auth';
+import {
+  ReportEvidenceFields,
+  parseEvidenceLinks,
+} from './ReportEvidenceFields';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
 export default function BugReportButton() {
   const [isOpen, setIsOpen] = useState(false);
-  const [bugDescription, setBugDescription] = useState('');
+  const [description, setDescription] = useState('');
+  const [evidenceText, setEvidenceText] = useState('');
+  const [contactDiscord, setContactDiscord] = useState('');
+  const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const { showToast } = useGlobalUI();
   const { t } = useLanguage();
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-
-    if (!bugDescription.trim()) {
-      showToast(t('bug.pleaseDescribe'), 'error');
-      return;
-    }
-
-    setIsSubmitting(true);
+    if (description.trim().length < 10)
+      return setError(t('bug.pleaseDescribe'));
     try {
-      const pageUrl = typeof window !== 'undefined' ? window.location.href : 'Unknown';
+      const evidenceUrls = parseEvidenceLinks(evidenceText);
+      setError('');
+      setIsSubmitting(true);
       const response = await fetch(`${API_URL}/api/bug-report`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader(),
-        },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        credentials: 'include',
         body: JSON.stringify({
-          description: bugDescription,
-          pageUrl,
+          description: description.trim(),
+          pageUrl: window.location.href,
+          evidenceUrls,
+          contactDiscord: contactDiscord.trim(),
         }),
       });
-
       if (!response.ok) {
-        throw new Error('Failed to submit bug report');
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || t('bug.submitError'));
       }
-
       showToast(t('bug.submitSuccess'), 'success');
-      setBugDescription('');
+      setDescription('');
+      setEvidenceText('');
+      setContactDiscord('');
       setIsOpen(false);
-    } catch {
-      showToast(t('bug.submitError'), 'error');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t('bug.submitError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -52,168 +57,71 @@ export default function BugReportButton() {
 
   return (
     <>
-      <style>{`
-        @keyframes bugPulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(200, 170, 110, 0.4), 0 2px 8px rgba(0,0,0,0.2); }
-          50% { box-shadow: 0 0 0 8px rgba(200, 170, 110, 0), 0 2px 12px rgba(0,0,0,0.3); }
-        }
-        @keyframes tooltipFade {
-          from { opacity: 0; transform: translateX(10px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-      `}</style>
-
-      <div style={{ position: 'fixed', bottom: '24px', right: '88px', zIndex: 999 }}>
+      <button
+        type="button"
+        className="bug-report-trigger"
+        onClick={() => setIsOpen(true)}
+        aria-label={t('bug.reportBug')}
+      >
+        <FiFlag aria-hidden="true" /> <span>{t('bug.reportBug')}</span>
+      </button>
+      {isOpen ? (
         <div
-          style={{
-            position: 'absolute',
-            right: '56px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-main) 100%)',
-            border: '1px solid var(--accent-primary)',
-            borderRadius: '8px',
-            padding: '8px 14px',
-            whiteSpace: 'nowrap',
-            color: 'var(--accent-primary)',
-            fontSize: '13px',
-            fontWeight: 600,
-            boxShadow: '0 4px 16px rgba(0,0,0,0.3), 0 0 20px rgba(200, 170, 110, 0.15)',
-            opacity: isHovered ? 1 : 0,
-            pointerEvents: 'none',
-            animation: isHovered ? 'tooltipFade 0.25s ease-out' : 'none',
+          className="report-modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isSubmitting)
+              setIsOpen(false);
           }}
         >
-          {t('bug.reportBug')}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setIsOpen(true)}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-          style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '50%',
-            background: isHovered
-              ? 'linear-gradient(135deg, var(--accent-primary-bg) 0%, rgba(200, 170, 110, 0.2) 100%)'
-              : 'var(--accent-primary-bg)',
-            border: '2px solid var(--accent-primary)',
-            color: 'var(--accent-primary)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '20px',
-            boxShadow: isHovered
-              ? '0 0 20px rgba(200, 170, 110, 0.5), 0 4px 16px rgba(0,0,0,0.3)'
-              : '0 2px 8px rgba(0,0,0,0.2)',
-            transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-            transform: isHovered ? 'scale(1.15)' : 'scale(1)',
-            opacity: isHovered ? 1 : 0.8,
-            animation: isHovered ? 'bugPulse 1.5s ease-in-out infinite' : 'none',
-          }}
-          aria-label={t('bug.reportBug')}
-        >
-          !
-        </button>
-      </div>
-
-      {isOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.85)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '16px',
-          }}
-          onClick={() => setIsOpen(false)}
-        >
-          <div
-            style={{
-              background: 'var(--bg-main)',
-              border: '1px solid var(--border-card)',
-              borderRadius: '12px',
-              padding: '24px',
-              maxWidth: '500px',
-              width: '100%',
-              boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
-            }}
-            onClick={(event) => event.stopPropagation()}
+          <form
+            className="report-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bug-report-title"
+            onSubmit={handleSubmit}
           >
-            <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px' }}>
-              {t('bug.reportButton')}
-            </h2>
-            <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              {t('bug.description')}
-            </p>
-
-            <form onSubmit={handleSubmit}>
+            <h2 id="bug-report-title">{t('bug.reportButton')}</h2>
+            <p>{t('bug.description')}</p>
+            <label>
+              <strong>{t('report.details')}</strong>
               <textarea
-                value={bugDescription}
-                onChange={(event) => setBugDescription(event.target.value)}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
                 placeholder={t('bug.descriptionPlaceholder')}
-                style={{
-                  width: '100%',
-                  minHeight: '120px',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-card)',
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--text-main)',
-                  fontSize: '14px',
-                  resize: 'vertical',
-                  marginBottom: '16px',
-                }}
+                rows={5}
+                maxLength={2000}
+                required
                 disabled={isSubmitting}
                 autoFocus
               />
-
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  style={{
-                    padding: '10px 20px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-card)',
-                    background: 'transparent',
-                    color: 'var(--text-main)',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                  }}
-                  disabled={isSubmitting}
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '10px 20px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--accent-primary)',
-                    background: 'var(--accent-primary-bg)',
-                    color: 'var(--accent-primary)',
-                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    opacity: isSubmitting ? 0.6 : 1,
-                  }}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? t('bug.submitting') : t('common.submit')}
-                </button>
-              </div>
-            </form>
-          </div>
+            </label>
+            <ReportEvidenceFields
+              contactDiscord={contactDiscord}
+              onContactChange={setContactDiscord}
+              evidenceText={evidenceText}
+              onEvidenceChange={setEvidenceText}
+              disabled={isSubmitting}
+            />
+            {error ? (
+              <p className="report-form-error" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <div className="report-modal-actions">
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                disabled={isSubmitting}
+              >
+                {t('common.cancel')}
+              </button>
+              <button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? t('bug.submitting') : t('common.submit')}
+              </button>
+            </div>
+          </form>
         </div>
-      )}
+      ) : null}
     </>
   );
 }

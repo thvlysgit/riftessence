@@ -349,7 +349,7 @@ export default function AdminUsersPage() {
                       >
                         <td className="px-6 py-4">
                           <Link
-                            href={`/profile?id=${u.id}`}
+                            href={`/profile/${encodeURIComponent(u.username)}`}
                             className="font-medium"
                             style={{ color: 'var(--color-accent-1)' }}
                           >

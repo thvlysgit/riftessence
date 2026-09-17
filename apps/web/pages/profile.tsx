@@ -1699,33 +1699,20 @@ export default function ProfilePage() {
     }
   };
 
-  const handleSubmitReport = async (reason: string) => {
+  const handleSubmitReport = async (report: { reason: string; evidenceUrls: string[]; contactDiscord: string }) => {
     if (!user) return;
-    
-    try {
-      const res = await fetch(`${API_URL}/api/report`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...getAuthHeader(),
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          reportedUserId: user.id,
-          reason,
-        }),
-      });
-      
-      if (res.ok) {
-        showToast('Report submitted successfully!', 'success');
-        setShowReportModal(false);
-      } else {
-        const errorData = await res.json();
-        showToast(`Error: ${errorData.error || 'Failed to submit report'}`, 'error');
-      }
-    } catch (err) {
-      showToast('Network error. Please try again.', 'error');
+    const res = await fetch(`${API_URL}/api/report`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      credentials: 'include',
+      body: JSON.stringify({ reportedUserId: user.id, ...report }),
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to submit report');
     }
+    showToast('Report submitted successfully!', 'success');
+    setShowReportModal(false);
   };
 
   const handleToggleBlock = async () => {
@@ -3574,7 +3561,7 @@ export default function ProfilePage() {
                       <span className="text-xs font-medium">
                         {t('profile.feedbackBy')}{' '}
                         <Link
-                          href={`/profile/${fb.raterUsername}`}
+                          href={`/profile/${encodeURIComponent(fb.raterUsername)}`}
                           className="hover:underline"
                           style={{ color: 'var(--accent-primary)' }}
                         >

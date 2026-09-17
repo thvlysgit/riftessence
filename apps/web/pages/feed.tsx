@@ -1877,7 +1877,7 @@ export default function Feed() {
                   </div>
                   {!post.isAnonymous ? (
                     <div className="flex gap-2 flex-wrap">
-                      <Link href={`/profile?username=${encodeURIComponent(post.username)}`} className="px-3 py-1 rounded text-sm font-medium transition-colors border" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}>
+                      <Link href={`/profile/${encodeURIComponent(post.username)}`} className="px-3 py-1 rounded text-sm font-medium transition-colors border" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent-1)', borderColor: 'var(--color-border)' }}>
                         {t('feed.viewProfile')}
                       </Link>
                       {post.authorId !== currentUserId && (

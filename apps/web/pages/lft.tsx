@@ -1370,7 +1370,7 @@ export default function LFTPage() {
                               {p.username && (
                                 <div className="flex flex-wrap gap-2 pt-1">
                                   <Link
-                                    href={`/profile?username=${encodeURIComponent(p.username)}`}
+                                    href={`/profile/${encodeURIComponent(p.username)}`}
                                     className="px-3 py-1.5 rounded-lg text-sm font-medium border inline-flex items-center gap-1"
                                     style={{
                                       background: 'var(--color-bg-tertiary)',
