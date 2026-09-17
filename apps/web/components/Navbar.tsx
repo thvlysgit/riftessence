@@ -1,36 +1,116 @@
-// Full-featured responsive Navbar for League of Legends LFD + Social Rating Platform
-// Built with Next.js, TypeScript, and Tailwind CSS
-// Styled to match the Riot "Summoner Hub" dark theme
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import {
+  FiArrowUpRight,
+  FiAward,
+  FiBell,
+  FiBookOpen,
+  FiCalendar,
+  FiCheckCircle,
+  FiChevronDown,
+  FiDroplet,
+  FiFeather,
+  FiFlag,
+  FiGrid,
+  FiHexagon,
+  FiLogOut,
+  FiMenu,
+  FiMessageCircle,
+  FiMoon,
+  FiSearch,
+  FiSettings,
+  FiShield,
+  FiSun,
+  FiTarget,
+  FiUser,
+  FiUsers,
+  FiX,
+  FiZap,
+} from 'react-icons/fi';
+import type { IconType } from 'react-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getAuthHeader } from '../utils/auth';
 import { getProfileIconUrl } from '../utils/championData';
 import PrismaticEssenceIcon from '../src/components/PrismaticEssenceIcon';
-import { USERNAME_DECORATION_STYLES, USERNAME_FONT_FAMILIES, USERNAME_HOVER_EFFECT_CLASSES } from '../utils/cosmeticStyles';
+import {
+  USERNAME_DECORATION_STYLES,
+  USERNAME_FONT_FAMILIES,
+  USERNAME_HOVER_EFFECT_CLASSES,
+} from '../utils/cosmeticStyles';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-
 type SearchResult = {
   id: string;
   username: string;
   verified: boolean;
-  badges: Array<{ key: string; name: string }>;
   profileIconId?: number;
 };
-
-type WalletNavbarSummary = {
-  prismaticEssence: number;
+type NavItem = {
+  href: string;
+  label: string;
+  description?: string;
+  icon: IconType;
+  soon?: boolean;
 };
 
 function isActiveHref(asPath: string, href: string) {
   const path = asPath.split(/[?#]/)[0] || '/';
-  if (href === '/') return path === '/';
   return path === href || path.startsWith(`${href}/`);
+}
+
+const themeMarks = {
+  classic: FiHexagon,
+  'arcane-pastel': FiFeather,
+  nightshade: FiMoon,
+  'infernal-ember': FiZap,
+  'radiant-light': FiSun,
+  'ocean-depths': FiDroplet,
+};
+
+function Destination({
+  item,
+  path,
+  onNavigate,
+  soonLabel,
+}: {
+  item: NavItem;
+  path: string;
+  onNavigate: () => void;
+  soonLabel: string;
+}) {
+  const Icon = item.icon;
+  const content = (
+    <>
+      <Icon className="rn-destination-icon" aria-hidden="true" />
+      <span className="rn-destination-copy">
+        <span>{item.label}</span>
+        {item.description ? <small>{item.description}</small> : null}
+      </span>
+      {item.soon ? (
+        <span className="rn-soon">{soonLabel}</span>
+      ) : (
+        <FiArrowUpRight className="rn-arrow" aria-hidden="true" />
+      )}
+    </>
+  );
+  // Arena stays discoverable without inviting users into an unfinished feature.
+  return item.soon ? (
+    <div className="rn-destination rn-unavailable" aria-disabled="true">
+      {content}
+    </div>
+  ) : (
+    <Link
+      href={item.href}
+      className="rn-destination"
+      aria-current={isActiveHref(path, item.href) ? 'page' : undefined}
+      onClick={onNavigate}
+    >
+      {content}
+    </Link>
+  );
 }
 
 export default function Navbar() {
@@ -38,1056 +118,573 @@ export default function Navbar() {
   const { user, loading, logout } = useAuth();
   const { currentTheme } = useTheme();
   const { t, currentLanguage } = useLanguage();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isTeamsMenuOpen, setIsTeamsMenuOpen] = useState(false);
+  const fr = currentLanguage === 'fr';
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [openPanel, setOpenPanel] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [searchStatus, setSearchStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [unreadCount, setUnreadCount] = useState(0);
-  const [walletSummary, setWalletSummary] = useState<WalletNavbarSummary | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-
-  const navbarUsernameDecorationStyle = user?.activeUsernameDecoration
-    ? USERNAME_DECORATION_STYLES[user.activeUsernameDecoration] || undefined
-    : undefined;
-  const navbarUsernameFontFamily = user?.activeNameplateFont
-    ? USERNAME_FONT_FAMILIES[user.activeNameplateFont] || undefined
-    : undefined;
-  const navbarUsernameHoverClass = user?.activeHoverEffect
-    ? USERNAME_HOVER_EFFECT_CLASSES[user.activeHoverEffect] || ''
-    : '';
-
-  const userMenuRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLDivElement>(null);
-  const teamsMenuRef = useRef<HTMLDivElement>(null);
-
-  const formatCompactBalance = (value: number) => {
-    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-    if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-    return `${value}`;
+  const headerRef = useRef<HTMLElement>(null);
+  const lastTrigger = useRef<HTMLButtonElement | null>(null);
+  const mobileTrigger = useRef<HTMLButtonElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const ThemeMark = themeMarks[currentTheme];
+  const userId = user?.id;
+  const closeMenus = () => {
+    setOpenPanel(null);
+    setMobileOpen(false);
   };
-  const isTeamsTabActive =
-    isActiveHref(router.asPath, '/lft') ||
-    isActiveHref(router.asPath, '/teams');
-
-  // Theme-based logo SVG icon
-  const getThemeLogo = () => {
-    switch (currentTheme) {
-      case 'arcane-pastel':
-        // Lavender flower
-        return (
-          <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6">
-            <defs>
-              <linearGradient id="gradient-pastel" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="var(--color-accent-1)" />
-                <stop offset="100%" stopColor="var(--color-accent-2)" />
-              </linearGradient>
-            </defs>
-            <path d="M12 2C12 2 8 4 8 8C8 10 9 11 10 11.5C9 12 8 13 8 15C8 17 10 19 12 22C14 19 16 17 16 15C16 13 15 12 14 11.5C15 11 16 10 16 8C16 4 12 2 12 2Z" fill="url(#gradient-pastel)" />
-            <circle cx="12" cy="8" r="1.5" fill="var(--color-bg-primary)" opacity="0.3" />
-            <circle cx="12" cy="15" r="1.5" fill="var(--color-bg-primary)" opacity="0.3" />
-          </svg>
-        );
-      case 'infernal-ember':
-        // Flame
-        return (
-          <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6">
-            <defs>
-              <linearGradient id="gradient-ember" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="var(--color-accent-1)" />
-                <stop offset="100%" stopColor="var(--color-accent-2)" />
-              </linearGradient>
-            </defs>
-            <path d="M12 2C12 2 8 6 8 10C8 13 10 15 12 15C12 15 11 12 13 10C15 8 16 6 16 10C16 14 14 16 12 22C12 22 18 18 18 12C18 6 12 2 12 2Z" fill="url(#gradient-ember)" />
-            <path d="M12 8C12 8 10 10 10 12C10 13.5 11 14.5 12 14.5C12 14.5 13 12 12 8Z" fill="var(--color-bg-primary)" opacity="0.25" />
-          </svg>
-        );
-      case 'nightshade':
-        // Crescent moon with stars
-        return (
-          <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6">
-            <defs>
-              <linearGradient id="gradient-night" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="var(--color-accent-1)" />
-                <stop offset="100%" stopColor="var(--color-accent-2)" />
-              </linearGradient>
-            </defs>
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="url(#gradient-night)" />
-            <circle cx="18" cy="6" r="1" fill="var(--color-accent-1)" />
-            <circle cx="20" cy="9" r="0.8" fill="var(--color-accent-2)" />
-            <circle cx="16" cy="4" r="0.6" fill="var(--color-accent-1)" />
-          </svg>
-        );
-      case 'radiant-light':
-        // Sun with rays
-        return (
-          <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6">
-            <defs>
-              <linearGradient id="gradient-light" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="var(--color-accent-1)" />
-                <stop offset="100%" stopColor="var(--color-accent-2)" />
-              </linearGradient>
-            </defs>
-            <circle cx="12" cy="12" r="4" fill="url(#gradient-light)" />
-            <path d="M12 2v3M12 19v3M22 12h-3M5 12H2M19.07 4.93l-2.12 2.12M7.05 16.95l-2.12 2.12M19.07 19.07l-2.12-2.12M7.05 7.05L4.93 4.93" stroke="url(#gradient-light)" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        );
-      case 'classic':
-      default:
-        // Crossed swords
-        return (
-          <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6">
-            <defs>
-              <linearGradient id="gradient-classic" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="var(--color-accent-1)" />
-                <stop offset="100%" stopColor="var(--color-accent-2)" />
-              </linearGradient>
-            </defs>
-            <path d="M6.2 3L3 6.2L10.8 14L8 16.8L4.8 13.6L2 16.4L7.6 22L10.4 19.2L7.2 16L10 13.2L17.8 21L21 17.8L13.2 10L16 7.2L19.2 10.4L22 7.6L16.4 2L13.6 4.8L16.8 8L14 10.8L6.2 3Z" fill="url(#gradient-classic)" />
-          </svg>
-        );
-    }
+  const togglePanel = (name: string, button: HTMLButtonElement) => {
+    lastTrigger.current = button;
+    setOpenPanel((current) => (current === name ? null : name));
+    if (name === 'account' || name === 'search') setMobileOpen(false);
   };
+  const groups = [
+    {
+      id: 'teams',
+      label: t('navbar.teams'),
+      items: [
+        {
+          href: '/lft',
+          label: 'LFT',
+          description: t('navbar.findTeam'),
+          icon: FiUsers,
+        },
+        {
+          href: '/teams/dashboard',
+          label: t('navbar.teamsDashboard'),
+          icon: FiGrid,
+        },
+        {
+          href: '/teams/schedule',
+          label: t('navbar.teamSchedule'),
+          icon: FiCalendar,
+        },
+        {
+          href: '/teams/scrims',
+          label: t('navbar.scrimFinder'),
+          icon: FiTarget,
+        },
+        { href: '/teams/drafts', label: t('navbar.draftRoom'), icon: FiFlag },
+      ],
+    },
+    {
+      id: 'communities',
+      label: t('navbar.communities'),
+      items: [
+        {
+          href: '/communities',
+          label: t('navbar.communities'),
+          description: t('navbar.communitiesHint'),
+          icon: FiUsers,
+        },
+        {
+          href: '/advertise',
+          label: t('navbar.advertise'),
+          description: t('navbar.advertiseHint'),
+          icon: FiFlag,
+        },
+      ],
+    },
+    {
+      id: 'learn',
+      label: t('navbar.learn'),
+      items: [
+        {
+          href: '/matchups',
+          label: t('navbar.matchups'),
+          description: t('navbar.matchupsHint'),
+          icon: FiBookOpen,
+        },
+        {
+          href: '/coaching',
+          label: t('navbar.coaching'),
+          description: t('navbar.coachingHint'),
+          icon: FiMessageCircle,
+        },
+      ],
+    },
+    {
+      id: 'games',
+      label: t('navbar.games'),
+      items: [
+        {
+          href: '/games',
+          label: t('navbar.webGames'),
+          description: t('navbar.webGamesHint'),
+          icon: FiGrid,
+        },
+        { href: '/1v1', label: t('navbar.arena'), icon: FiTarget, soon: true },
+        {
+          href: '/leaderboards',
+          label: t('navbar.leaderboards'),
+          description: t('navbar.leaderboardsHint'),
+          icon: FiAward,
+        },
+      ],
+    },
+  ];
+  const accountItems: NavItem[] = [
+    { href: '/profile', label: t('navbar.myProfile'), icon: FiUser },
+    {
+      href: '/purse',
+      label: t('navbar.purse'),
+      icon: FiHexagon,
+      description:
+        balance === null ? undefined : `${balance.toLocaleString(fr ? 'fr-FR' : 'en-US')} PE`,
+    },
+    {
+      href: '/notifications',
+      label: t('nav.notifications'),
+      icon: FiBell,
+      description: unreadCount ? t('navbar.unreadCount', { count: unreadCount }) : undefined,
+    },
+    { href: '/settings', label: t('nav.settings'), icon: FiSettings },
+    ...(isAdmin ? [{ href: '/admin', label: t('navbar.adminDashboard'), icon: FiShield }] : []),
+  ];
 
-  // Close dropdowns when clicking outside
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setIsUserMenuOpen(false);
-      }
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setShowSearchResults(false);
-      }
-      if (teamsMenuRef.current && !teamsMenuRef.current.contains(event.target as Node)) {
-        setIsTeamsMenuOpen(false);
-      }
+    setOpenPanel(null);
+    setMobileOpen(false);
+    setSearchQuery('');
+  }, [router.asPath]);
+
+  useEffect(() => {
+    function outside(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (!headerRef.current?.contains(target)) {
+        setOpenPanel(null);
+        setMobileOpen(false);
+      } else if (!target.closest('[data-nav-disclosure]')) setOpenPanel(null);
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', outside);
+    // A menu opened on a phone must not reappear after resizing back from desktop.
+    const desktop = window.matchMedia('(min-width: 1100px)');
+    const reset = () => {
+      setMobileOpen(false);
+      setOpenPanel(null);
+    };
+    desktop.addEventListener('change', reset);
+    return () => {
+      document.removeEventListener('pointerdown', outside);
+      desktop.removeEventListener('change', reset);
+    };
   }, []);
 
-  // Fetch unread notification count
   useEffect(() => {
-    if (!user) return;
+    if (openPanel === 'search') searchInput.current?.focus();
+  }, [openPanel]);
 
-    const fetchUnreadCount = async () => {
-      try {
-        if (!user.id) return;
-
-        const res = await fetch(`${API_URL}/api/notifications?userId=${encodeURIComponent(user.id)}`);
-        if (res.ok) {
-          const data = await res.json();
-          const unread = data.notifications?.filter((n: any) => !n.read).length || 0;
-          setUnreadCount(unread);
-        }
-      } catch (err) {
-        console.error('Failed to fetch notifications:', err);
-      }
-    };
-
-    fetchUnreadCount();
-    // Poll every 30 seconds to keep count updated
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, [user]);
-
-  // Fetch wallet summary for Prismatic Essence navbar badge
   useEffect(() => {
-    if (!user) {
-      setWalletSummary(null);
-      return;
-    }
-
-    const fetchWalletSummary = async () => {
+    setUnreadCount(0);
+    if (!userId) return;
+    const controller = new AbortController();
+    const refresh = async () => {
       try {
-        if (!user.id) return;
-
-        const authHeader = getAuthHeader();
-        if (!('Authorization' in authHeader)) return;
-
-        const res = await fetch(`${API_URL}/api/wallet/summary`, {
-          headers: authHeader,
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          const prismaticEssence = Number(data?.wallet?.prismaticEssence || 0);
-          setWalletSummary({
-            prismaticEssence: Number.isFinite(prismaticEssence) ? prismaticEssence : 0,
-          });
-        }
-      } catch (err) {
-        console.error('Failed to fetch wallet summary:', err);
-      }
-    };
-
-    fetchWalletSummary();
-    const interval = setInterval(fetchWalletSummary, 45000);
-    window.addEventListener('riftessence:wallet-updated', fetchWalletSummary);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('riftessence:wallet-updated', fetchWalletSummary);
-    };
-  }, [user]);
-
-  // Check if user is admin
-  useEffect(() => {
-    if (!user) {
-      setIsAdmin(false);
-      return;
-    }
-
-    let cancelled = false;
-    let presenceInterval: number | undefined;
-
-    const checkAdminStatus = async (): Promise<boolean> => {
-      try {
-        if (!user.id) {
-          if (!cancelled) setIsAdmin(false);
-          return false;
-        }
-
-        const res = await fetch(`${API_URL}/api/user/check-admin?userId=${encodeURIComponent(user.id)}`, {
+        const res = await fetch(`${API_URL}/api/notifications`, {
           headers: getAuthHeader(),
           credentials: 'include',
+          signal: controller.signal,
         });
         if (res.ok) {
           const data = await res.json();
-          const admin = Boolean(data.isAdmin);
-          if (!cancelled) setIsAdmin(admin);
-          return admin;
-        } else {
-          if (!cancelled) setIsAdmin(false);
+          if (!controller.signal.aborted)
+            setUnreadCount(
+              data.notifications?.filter((n: { read: boolean }) => !n.read).length || 0,
+            );
         }
-      } catch (err) {
-        console.error('Failed to check admin status:', err);
-        if (!cancelled) setIsAdmin(false);
+      } catch {
+        /* Keep the last known count during temporary network failures. */
       }
-      return false;
     };
-
-    void checkAdminStatus().then((admin) => {
-      if (!admin || cancelled) return;
-      presenceInterval = window.setInterval(() => void checkAdminStatus(), 60_000);
-    });
-
+    void refresh();
+    const interval = window.setInterval(refresh, 30_000);
     return () => {
-      cancelled = true;
-      if (presenceInterval) window.clearInterval(presenceInterval);
+      controller.abort();
+      window.clearInterval(interval);
     };
-  }, [user]);
+  }, [userId]);
 
-  // Search users with debouncing
   useEffect(() => {
-    if (searchQuery.trim().length < 2) {
-      setSearchResults([]);
-      setShowSearchResults(false);
-      return;
-    }
-
-    const timeoutId = setTimeout(async () => {
+    setBalance(null);
+    if (!userId) return;
+    const controller = new AbortController();
+    const refresh = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/user/search?q=${encodeURIComponent(searchQuery)}&limit=5`);
+        const res = await fetch(`${API_URL}/api/wallet/summary`, {
+          headers: getAuthHeader(),
+          credentials: 'include',
+          signal: controller.signal,
+        });
         if (res.ok) {
           const data = await res.json();
-          setSearchResults(data.users || []);
-          setShowSearchResults(true);
+          const value = Number(data?.wallet?.prismaticEssence || 0);
+          if (!controller.signal.aborted) setBalance(Number.isFinite(value) ? value : 0);
         }
-      } catch (err) {
-        console.error('Search failed:', err);
+      } catch {
+        /* Keep the last known balance during temporary network failures. */
+      }
+    };
+    void refresh();
+    const interval = window.setInterval(refresh, 45_000);
+    window.addEventListener('riftessence:wallet-updated', refresh);
+    return () => {
+      controller.abort();
+      window.clearInterval(interval);
+      window.removeEventListener('riftessence:wallet-updated', refresh);
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    setIsAdmin(false);
+    if (!userId) return;
+    const controller = new AbortController();
+    let interval: number | undefined;
+    const check = async () => {
+      try {
+        const res = await fetch(
+          `${API_URL}/api/user/check-admin?userId=${encodeURIComponent(userId)}`,
+          {
+            headers: getAuthHeader(),
+            credentials: 'include',
+            signal: controller.signal,
+          },
+        );
+        const admin = res.ok && Boolean((await res.json()).isAdmin);
+        if (!controller.signal.aborted) setIsAdmin(admin);
+        return admin;
+      } catch {
+        return false;
+      }
+    };
+    void check().then((admin) => {
+      if (admin && !controller.signal.aborted) interval = window.setInterval(check, 60_000);
+    });
+    return () => {
+      controller.abort();
+      window.clearInterval(interval);
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    setSearchResults([]);
+    if (openPanel !== 'search' || query.length < 2) {
+      setSearchStatus('idle');
+      return;
+    }
+    setSearchStatus('loading');
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `${API_URL}/api/user/search?q=${encodeURIComponent(query)}&limit=5`,
+          { signal: controller.signal },
+        );
+        if (!res.ok) throw new Error('Search unavailable');
+        const data = await res.json();
+        if (!controller.signal.aborted) {
+          setSearchResults(data.users || []);
+          setSearchStatus('ready');
+        }
+      } catch {
+        if (!controller.signal.aborted) setSearchStatus('error');
       }
     }, 300);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [searchQuery, openPanel]);
 
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
-
-  const handleLogout = () => {
-    logout();
-    setIsUserMenuOpen(false);
-  };
-
-  const navigateToProfile = (username: string) => {
-    setSearchQuery('');
-    setShowSearchResults(false);
-    router.push(`/profile/${username}`);
+  const compactBalance =
+    balance === null
+      ? null
+      : new Intl.NumberFormat(fr ? 'fr-FR' : 'en-US', {
+          notation: 'compact',
+          maximumFractionDigits: 1,
+        }).format(balance);
+  const onDisclosureBlur = (event: React.FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpenPanel(null);
   };
 
   return (
-    <nav 
-      className="sticky top-0 z-50 border-b shadow-lg"
-      style={{
-        backgroundColor: 'var(--color-bg-primary)',
-        borderColor: 'var(--color-border)',
+    <header
+      ref={headerRef}
+      className="rift-navigation"
+      data-nav-theme={currentTheme}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        if (openPanel) {
+          setOpenPanel(null);
+          lastTrigger.current?.focus();
+        } else if (mobileOpen) {
+          setMobileOpen(false);
+          mobileTrigger.current?.focus();
+        }
+      }}
+      onBlur={(event) => {
+        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node))
+          closeMenus();
       }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          
-          {/* Left: Logo + Main Navigation */}
-          <div className="flex items-center space-x-8">
-            {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2 group">
-              <div 
-                className="w-10 h-10 flex items-center justify-center shadow-md group-hover:shadow-lg transition-all group-hover:scale-105"
-                style={{
-                  background: 'var(--color-bg-tertiary)',
-                  borderRadius: 'var(--border-radius)',
-                  border: '2px solid var(--color-accent-1)',
-                }}
-              >
-                {getThemeLogo()}
-              </div>
-              <span className="hidden sm:block font-bold text-lg" style={{ color: 'var(--color-accent-1)' }}>RiftEssence</span>
-            </Link>
-
-            {/* Desktop Navigation Links */}
-            <div className="rift-nav-shell hidden md:flex items-center">
-              <NavLink href="/feed">LFD</NavLink>
-
-              {/* Teams Dropdown */}
-              <div className="relative" ref={teamsMenuRef}>
-                <button
-                  onClick={() => setIsTeamsMenuOpen(!isTeamsMenuOpen)}
-                  className={`rift-nav-tab rift-nav-tab--menu ${isTeamsTabActive || isTeamsMenuOpen ? 'rift-nav-tab-active' : ''}`}
-                  aria-expanded={isTeamsMenuOpen}
-                  aria-current={isTeamsTabActive ? 'page' : undefined}
-                  type="button"
-                >
-                  <span>{t('navbar.teams')}</span>
-                  <svg className="rift-nav-tab__chevron w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                {isTeamsMenuOpen && (
-                  <div
-                    className="rift-tab-menu absolute left-0 mt-2 w-56 border py-2 z-50"
-                    style={{
-                      backgroundColor: 'var(--color-bg-tertiary)',
-                      borderColor: 'var(--color-border)',
-                      borderRadius: 'var(--border-radius)',
-                      boxShadow: 'var(--shadow)',
-                    }}
-                  >
-                    <Link
-                      href="/lft"
-                      onClick={() => setIsTeamsMenuOpen(false)}
-                      className={`rift-dropdown-link ${isActiveHref(router.asPath, '/lft') ? 'rift-dropdown-link-active' : ''}`}
-                      aria-current={isActiveHref(router.asPath, '/lft') ? 'page' : undefined}
-                    >
-                      LFT
-                    </Link>
-                    <Link
-                      href="/teams/dashboard"
-                      onClick={() => setIsTeamsMenuOpen(false)}
-                      className={`rift-dropdown-link ${isActiveHref(router.asPath, '/teams/dashboard') ? 'rift-dropdown-link-active' : ''}`}
-                      aria-current={isActiveHref(router.asPath, '/teams/dashboard') ? 'page' : undefined}
-                    >
-                      {t('navbar.teamsDashboard')}
-                    </Link>
-                    <Link
-                      href="/teams/schedule"
-                      onClick={() => setIsTeamsMenuOpen(false)}
-                      className={`rift-dropdown-link ${isActiveHref(router.asPath, '/teams/schedule') ? 'rift-dropdown-link-active' : ''}`}
-                      aria-current={isActiveHref(router.asPath, '/teams/schedule') ? 'page' : undefined}
-                    >
-                      {t('navbar.teamSchedule')}
-                    </Link>
-                    <Link
-                      href="/teams/scrims"
-                      onClick={() => setIsTeamsMenuOpen(false)}
-                      className={`rift-dropdown-link ${isActiveHref(router.asPath, '/teams/scrims') ? 'rift-dropdown-link-active' : ''}`}
-                      aria-current={isActiveHref(router.asPath, '/teams/scrims') ? 'page' : undefined}
-                    >
-                      {t('navbar.scrimFinder')}
-                    </Link>
-                    <Link
-                      href="/teams/drafts"
-                      onClick={() => setIsTeamsMenuOpen(false)}
-                      className={`rift-dropdown-link ${isActiveHref(router.asPath, '/teams/drafts') ? 'rift-dropdown-link-active' : ''}`}
-                      aria-current={isActiveHref(router.asPath, '/teams/drafts') ? 'page' : undefined}
-                    >
-                      {t('navbar.draftRoom')}
-                    </Link>
-                  </div>
-                )}
-              </div>
-
-              <NavLink href="/matchups">Matchups</NavLink>
-              <NavLink href="/coaching">Coaching</NavLink>
-              <NavLink href="/profile">{t('nav.profile')}</NavLink>
-            </div>
-          </div>
-
-          {/* Center: Search Bar (Desktop + Tablet) */}
-          <div className="hidden md:flex flex-1 max-w-md mx-8" ref={searchRef}>
-            <div className="relative w-full">
-              <input
-                type="text"
-                placeholder={t('navbar.searchPlaceholder')}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--color-border-hover)';
-                  searchQuery.length >= 2 && setShowSearchResults(true);
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--color-border)';
-                }}
-                className="w-full px-4 py-2 pl-10 border transition-colors text-sm"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  borderColor: 'var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                  borderRadius: 'var(--border-radius)',
-                }}
-              />
-              <svg className="absolute left-3 top-2.5 w-5 h-5" style={{ color: 'var(--color-text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-
-              {/* Search Results Dropdown */}
-              {showSearchResults && searchResults.length > 0 && (
-                <div 
-                  className="absolute top-full mt-2 w-full border py-2 z-50"
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    borderColor: 'var(--color-border)',
-                    borderRadius: 'var(--border-radius)',
-                    boxShadow: 'var(--shadow)',
-                  }}
-                >
-                  {searchResults.map((result) => (
-                    <button
-                      key={result.id}
-                      onClick={() => navigateToProfile(result.username)}
-                      className="w-full px-4 py-2 text-left transition-colors flex items-center gap-3"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
-                    >
-                      {result.profileIconId ? (
-                        <img
-                          src={getProfileIconUrl(result.profileIconId)}
-                          alt={result.username}
-                          className="w-8 h-8 rounded-full"
-                          style={{ objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div 
-                          className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
-                          style={{
-                            background: 'linear-gradient(to bottom right, var(--color-accent-1), var(--color-accent-2))',
-                            color: 'var(--color-bg-primary)',
-                          }}
-                        >
-                          {result.username[0].toUpperCase()}
-                        </div>
-                      )}
-                      <div className="flex-1">
-                        <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{result.username}</p>
-                        {result.verified && (
-                          <span className="text-xs text-green-400">✓ {t('common.verified')}</span>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {showSearchResults && searchQuery.length >= 2 && searchResults.length === 0 && (
-                <div 
-                  className="absolute top-full mt-2 w-full border py-4 px-4 z-50"
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    borderColor: 'var(--color-border)',
-                    borderRadius: 'var(--border-radius)',
-                    boxShadow: 'var(--shadow)',
-                  }}
-                >
-                  <p className="text-sm text-center" style={{ color: 'var(--color-text-muted)' }}>{t('navbar.noUsersFound')}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right: Notifications, User Menu */}
-          <div className="flex items-center space-x-3">
-
-            {/* Language Beta Badge */}
-            {currentLanguage === 'fr' && (
-              <div className="hidden md:flex items-center gap-2 px-2 py-1 rounded text-xs font-semibold" style={{
-                backgroundColor: 'rgba(251, 146, 60, 0.15)',
-                color: '#fb923c',
-                border: '1px solid rgba(251, 146, 60, 0.3)'
-              }}>
-                <span>🇫🇷</span>
-                <span>BETA</span>
-              </div>
-            )}
-
-            {/* Prismatic Purse */}
-            {user && (
-              <Link
-                href="/purse"
-                className="hidden md:flex relative p-2 rounded-lg transition-colors"
-                title={walletSummary ? `${t('navbar.purse')} • ${walletSummary.prismaticEssence.toLocaleString()} PE` : t('navbar.purse')}
-                style={{ color: 'var(--color-text-muted)' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = 'var(--color-accent-1)';
-                  e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = 'var(--color-text-muted)';
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                <PrismaticEssenceIcon className="w-5 h-5" />
-                {walletSummary && (
-                  <span
-                    className="absolute -top-1 -right-2 min-w-[22px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full"
-                    style={{
-                      backgroundColor: 'var(--color-accent-1)',
-                      color: 'var(--color-bg-primary)',
-                      padding: '0 6px',
-                    }}
-                  >
-                    {formatCompactBalance(walletSummary.prismaticEssence)}
-                  </span>
-                )}
-              </Link>
-            )}
-
-            {/* Notifications Bell */}
-            <Link
-              href="/notifications"
-              className="hidden md:block relative p-2 rounded-lg transition-colors"
-              title={t('nav.notifications')}
-              style={{ color: 'var(--color-text-muted)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--color-accent-1)';
-                e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'var(--color-text-muted)';
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              {/* Notification badge - show when there are unread notifications */}
-              {user && unreadCount > 0 && (
-                <span 
-                  className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full"
-                  style={{
-                    backgroundColor: '#C84040',
-                    color: '#fff',
-                    padding: '0 4px'
-                  }}
-                >
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </Link>
-
-            {/* User Menu or Login Button */}
-            {loading ? (
-              // Avoid flashing login button while auth state loads
-              <div className="w-20 h-8" />
-            ) : user ? (
-              <div className="relative" ref={userMenuRef}>
-                <button
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="account-menu-trigger flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  {/* User Avatar */}
-                  {user.profileIconId ? (
-                    <img
-                      src={getProfileIconUrl(user.profileIconId)}
-                      alt={user.username}
-                      className="w-8 h-8 rounded-full"
-                      style={{ objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <div 
-                      className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
-                      style={{
-                        background: 'linear-gradient(to bottom right, var(--color-accent-1), var(--color-accent-2))',
-                        color: 'var(--color-bg-primary)',
-                      }}
-                    >
-                      {user.username[0].toUpperCase()}
-                    </div>
-                  )}
-                  {/* Username (hidden on mobile) */}
-                  <span
-                    className={`hidden md:block text-sm font-medium username-hover-base ${navbarUsernameHoverClass}`.trim()}
-                    style={{
-                      color: 'var(--color-text-secondary)',
-                      fontFamily: navbarUsernameFontFamily || undefined,
-                      ...(navbarUsernameDecorationStyle || {}),
-                    }}
-                  >
-                    {user.username}
-                  </span>
-                  {/* Dropdown icon */}
-                  <svg className="hidden md:block w-4 h-4" style={{ color: 'var(--color-text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                {/* User Dropdown Menu */}
-                {isUserMenuOpen && (
-                  <div 
-                    className="account-menu-card absolute right-0 mt-3 w-60 border py-2 z-10"
-                    style={{
-                      backgroundColor: 'var(--color-bg-tertiary)',
-                      borderColor: 'var(--color-border)',
-                      borderRadius: 'var(--border-radius)',
-                      boxShadow: 'var(--shadow)',
-                    }}
-                  >
-                    <div className="account-menu-compact-header px-4 py-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                      <p className="text-sm font-medium" style={{ color: 'var(--color-accent-1)' }}>{user.username}</p>
-                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('navbar.viewProfile')}</p>
-                    </div>
-                    <DropdownLink href="/profile">{t('navbar.myProfile')}</DropdownLink>
-                    <DropdownLink href="/purse">
-                      <div className="flex items-center justify-between">
-                        <span>{t('navbar.purse')}</span>
-                        {walletSummary && (
-                          <span className="text-xs font-semibold" style={{ color: 'var(--color-accent-1)' }}>
-                            {formatCompactBalance(walletSummary.prismaticEssence)} PE
-                          </span>
-                        )}
-                      </div>
-                    </DropdownLink>
-                    <DropdownLink href="/notifications">
-                      <div className="flex items-center justify-between">
-                        <span>{t('nav.notifications')}</span>
-                        {unreadCount > 0 && (
-                          <span 
-                            className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full"
-                            style={{
-                              backgroundColor: '#C84040',
-                              color: '#fff',
-                              padding: '0 4px'
-                            }}
-                          >
-                            {unreadCount > 9 ? '9+' : unreadCount}
-                          </span>
-                        )}
-                      </div>
-                    </DropdownLink>
-                    <DropdownLink href="/settings">{t('nav.settings')}</DropdownLink>
-                    <DropdownLink href="/communities">{t('navbar.communities')}</DropdownLink>
-                    <DropdownLink href="/leaderboards">{t('navbar.leaderboards')}</DropdownLink>
-                    {isAdmin && <DropdownLink href="/admin">{t('navbar.adminDashboard')}</DropdownLink>}
-                    <hr className="my-1" style={{ borderColor: 'var(--color-border)' }} />
-                    <button
-                      onClick={handleLogout}
-                      className="account-menu-logout w-full text-left text-sm transition-colors"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
-                        e.currentTarget.style.color = '#C84040';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = 'var(--color-text-secondary)';
-                      }}
-                    >
-                      {t('nav.logout')}
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Login Button for logged-out users */
-              <Link
-                href="/login"
-                className="px-4 py-2 font-bold transition-all shadow-md text-sm"
-                style={{
-                  background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
-                  color: 'var(--color-bg-primary)',
-                  borderRadius: 'var(--border-radius)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.opacity = '0.9';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.opacity = '1';
-                }}
-              >
-                {t('nav.login')}
-              </Link>
-            )}
-
-            {/* Mobile Menu Toggle */}
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg transition-colors"
-              style={{ color: 'var(--color-text-muted)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--color-accent-1)';
-                e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'var(--color-text-muted)';
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-            >
-              {isMobileMenuOpen ? (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              ) : (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div 
-          className="md:hidden border-t shadow-lg"
-          style={{
-            backgroundColor: 'var(--color-bg-primary)',
-            borderColor: 'var(--color-border)',
-          }}
+      <div className="rn-bar">
+        <Link className="rn-brand" href="/" onClick={closeMenus} aria-label="RiftEssence — Home">
+          <span className="rn-brand-mark">
+            <ThemeMark aria-hidden="true" />
+          </span>
+          <span className="rn-wordmark">
+            Rift<span>Essence</span>
+          </span>
+        </Link>
+        <nav
+          id="rift-main-navigation"
+          className={`rn-primary${mobileOpen ? ' rn-mobile-open' : ''}`}
+          aria-label={t('navbar.mainNavigation')}
         >
-          <div className="rift-mobile-tabs px-4 py-4 space-y-1">
-            {/* Mobile Search */}
-            <div className="mb-4" ref={searchRef}>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder={t('navbar.searchPlaceholder')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--color-border-hover)';
-                    searchQuery.length >= 2 && setShowSearchResults(true);
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--color-border)';
-                  }}
-                  className="w-full px-4 py-2 pl-10 border transition-colors text-sm"
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    borderColor: 'var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                    borderRadius: 'var(--border-radius)',
-                  }}
-                />
-                <svg className="absolute left-3 top-2.5 w-5 h-5" style={{ color: 'var(--color-text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-
-                {/* Mobile Search Results */}
-                {showSearchResults && searchResults.length > 0 && (
-                  <div 
-                    className="absolute top-full mt-2 w-full border py-2 z-50"
-                    style={{
-                      backgroundColor: 'var(--color-bg-tertiary)',
-                      borderColor: 'var(--color-border)',
-                      borderRadius: 'var(--border-radius)',
-                      boxShadow: 'var(--shadow)',
-                    }}
-                  >
-                    {searchResults.map((result) => (
-                      <button
-                        key={result.id}
-                        onClick={() => {
-                          navigateToProfile(result.username);
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="w-full px-4 py-2 text-left transition-colors flex items-center gap-3"
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                        }}
-                      >
-                        <div 
-                          className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
-                          style={{
-                            background: 'linear-gradient(to bottom right, var(--color-accent-1), var(--color-accent-2))',
-                            color: 'var(--color-bg-primary)',
-                          }}
-                        >
-                          {result.username[0].toUpperCase()}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{result.username}</p>
-                          {result.verified && (
-                            <span className="text-xs text-green-400">✓ {t('common.verified')}</span>
-                          )}
-                        </div>
-                      </button>
+          <div className="rn-mobile-heading">{t('navbar.explore')}</div>
+          <Link
+            href="/feed"
+            className="rn-tab"
+            aria-current={isActiveHref(router.asPath, '/feed') ? 'page' : undefined}
+            onClick={closeMenus}
+          >
+            <span>LFD</span>
+            <span className="rn-mobile-hint">{t('navbar.findDuo')}</span>
+          </Link>
+          {groups.map((group) => {
+            const active =
+              (group.id === 'teams' && isActiveHref(router.asPath, '/teams')) ||
+              group.items.some((item) => isActiveHref(router.asPath, item.href));
+            const expanded = openPanel === group.id;
+            return (
+              <div
+                className="rn-group"
+                key={group.id}
+                data-nav-disclosure
+                onBlur={onDisclosureBlur}
+              >
+                <button
+                  type="button"
+                  className={`rn-tab${active ? ' rn-active' : ''}`}
+                  aria-expanded={expanded}
+                  aria-controls={`rn-${group.id}`}
+                  onClick={(event) => togglePanel(group.id, event.currentTarget)}
+                >
+                  <span>{group.label}</span>
+                  <FiChevronDown className="rn-chevron" aria-hidden="true" />
+                </button>
+                {expanded ? (
+                  <div id={`rn-${group.id}`} className="rn-panel rn-group-panel">
+                    <p className="rn-panel-label">{group.label}</p>
+                    {group.items.map((item) => (
+                      <Destination
+                        key={item.href}
+                        item={item}
+                        path={router.asPath}
+                        onNavigate={closeMenus}
+                        soonLabel={t('navbar.comingSoon')}
+                      />
                     ))}
                   </div>
-                )}
-
-                {showSearchResults && searchQuery.length >= 2 && searchResults.length === 0 && (
-                  <div 
-                    className="absolute top-full mt-2 w-full border py-4 px-4 z-50"
-                    style={{
-                      backgroundColor: 'var(--color-bg-tertiary)',
-                      borderColor: 'var(--color-border)',
-                      borderRadius: 'var(--border-radius)',
-                      boxShadow: 'var(--shadow)',
-                    }}
-                  >
-                    <p className="text-sm text-center" style={{ color: 'var(--color-text-muted)' }}>{t('navbar.noUsersFound')}</p>
-                  </div>
-                )}
+                ) : null}
               </div>
-            </div>
-            
-            {/* Mobile Navigation Links */}
-            <MobileNavLink href="/feed">LFD</MobileNavLink>
-            <div className="px-4 py-1">
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>{t('navbar.teams')}</p>
-            </div>
-            <MobileNavLink href="/lft">LFT</MobileNavLink>
-            <MobileNavLink href="/teams/dashboard">{t('navbar.teamsDashboard')}</MobileNavLink>
-            <MobileNavLink href="/teams/schedule">{t('navbar.teamSchedule')}</MobileNavLink>
-            <MobileNavLink href="/teams/scrims">{t('navbar.scrimFinder')}</MobileNavLink>
-            <MobileNavLink href="/teams/drafts">{t('navbar.draftRoom')}</MobileNavLink>
-            <MobileNavLink href="/matchups">Matchups</MobileNavLink>
-            <MobileNavLink href="/coaching">Coaching</MobileNavLink>
-            <MobileNavLink href="/profile">{t('nav.profile')}</MobileNavLink>
-            <MobileNavLink href="/communities">{t('navbar.communities')}</MobileNavLink>
-            <MobileNavLink href="/leaderboards">{t('navbar.leaderboards')}</MobileNavLink>
-            {user && (
-              <MobileNavLink href="/purse">
-                <div className="flex items-center justify-between">
-                  <span>{t('navbar.purse')}</span>
-                  {walletSummary && (
-                    <span className="text-xs font-semibold" style={{ color: 'var(--color-accent-1)' }}>
-                      {formatCompactBalance(walletSummary.prismaticEssence)} PE
-                    </span>
-                  )}
+            );
+          })}
+        </nav>
+        <div className="rn-utilities">
+          <div className="rn-search" data-nav-disclosure onBlur={onDisclosureBlur}>
+            <button
+              type="button"
+              className="rn-icon-button"
+              aria-label={t('navbar.searchPlaceholder')}
+              title={t('navbar.searchPlaceholder')}
+              aria-expanded={openPanel === 'search'}
+              aria-controls="rn-search-panel"
+              onClick={(event) => togglePanel('search', event.currentTarget)}
+            >
+              <FiSearch aria-hidden="true" />
+            </button>
+            {openPanel === 'search' ? (
+              <div id="rn-search-panel" className="rn-panel rn-search-panel">
+                <label className="rn-panel-label" htmlFor="rn-search-input">
+                  {t('navbar.searchPlaceholder')}
+                </label>
+                <div className="rn-search-field">
+                  <FiSearch aria-hidden="true" />
+                  <input
+                    ref={searchInput}
+                    id="rn-search-input"
+                    type="search"
+                    autoComplete="off"
+                    value={searchQuery}
+                    placeholder={t('navbar.searchHint')}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                  />
                 </div>
-              </MobileNavLink>
-            )}
-            <MobileNavLink href="/notifications">
-              <div className="flex items-center justify-between">
-                <span>{t('nav.notifications')}</span>
-                {user && unreadCount > 0 && (
-                  <span 
-                    className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold rounded-full"
-                    style={{
-                      backgroundColor: '#C84040',
-                      color: '#fff',
-                      padding: '0 4px'
-                    }}
+                <div role="status" className="rn-search-status">
+                  {searchStatus === 'loading'
+                    ? t('navbar.searching')
+                    : searchStatus === 'error'
+                    ? t('navbar.searchError')
+                    : searchStatus === 'idle'
+                    ? t('navbar.searchHint')
+                    : !searchResults.length
+                    ? t('navbar.noUsersFound')
+                    : null}
+                </div>
+                {searchResults.map((result) => (
+                  <Link
+                    href={`/profile/${encodeURIComponent(result.username)}`}
+                    key={result.id}
+                    className="rn-search-result"
+                    onClick={closeMenus}
                   >
+                    {result.profileIconId ? (
+                      <img
+                        src={getProfileIconUrl(result.profileIconId)}
+                        alt=""
+                        width={32}
+                        height={32}
+                      />
+                    ) : (
+                      <FiUser aria-hidden="true" />
+                    )}
+                    <span>{result.username}</span>
+                    {result.verified ? <FiCheckCircle aria-label={t('navbar.verified')} /> : null}
+                    <FiArrowUpRight className="rn-arrow" aria-hidden="true" />
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          {user ? (
+            <>
+              <Link
+                href="/purse"
+                className="rn-icon-button rn-wallet"
+                onClick={closeMenus}
+                aria-label={`${t('navbar.purse')}${balance !== null ? `: ${balance} PE` : ''}`}
+                title={t('navbar.purse')}
+              >
+                <PrismaticEssenceIcon className="rn-pe-icon" />
+                {compactBalance !== null ? (
+                  <span className="rn-balance">{compactBalance}</span>
+                ) : null}
+              </Link>
+              <Link
+                href="/notifications"
+                className="rn-icon-button rn-notifications"
+                onClick={closeMenus}
+                aria-label={`${t('nav.notifications')}${unreadCount ? ` (${unreadCount})` : ''}`}
+                title={t('nav.notifications')}
+              >
+                <FiBell aria-hidden="true" />
+                {unreadCount > 0 ? (
+                  <span className="rn-notification-count">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
+                ) : null}
+              </Link>
+            </>
+          ) : null}
+          {loading ? (
+            <span className="rn-auth-placeholder" />
+          ) : user ? (
+            <div className="rn-account" data-nav-disclosure onBlur={onDisclosureBlur}>
+              <button
+                type="button"
+                className="rn-account-trigger"
+                aria-label={`${t('navbar.account')}: ${user.username}`}
+                aria-expanded={openPanel === 'account'}
+                aria-controls="rn-account-panel"
+                onClick={(event) => togglePanel('account', event.currentTarget)}
+              >
+                {user.profileIconId ? (
+                  <img
+                    className="rn-avatar"
+                    src={getProfileIconUrl(user.profileIconId)}
+                    alt=""
+                    width={32}
+                    height={32}
+                  />
+                ) : (
+                  <span className="rn-avatar rn-avatar-fallback">
+                    {user.username[0]?.toUpperCase()}
+                  </span>
                 )}
-              </div>
-            </MobileNavLink>
-          </div>
+                <FiChevronDown className="rn-chevron" aria-hidden="true" />
+              </button>
+              {openPanel === 'account' ? (
+                <div id="rn-account-panel" className="rn-panel rn-account-panel">
+                  <div className="rn-account-heading">
+                    <span
+                      className={`username-hover-base ${
+                        user.activeHoverEffect
+                          ? USERNAME_HOVER_EFFECT_CLASSES[user.activeHoverEffect] || ''
+                          : ''
+                      }`}
+                      style={{
+                        fontFamily: user.activeNameplateFont
+                          ? USERNAME_FONT_FAMILIES[user.activeNameplateFont]
+                          : undefined,
+                        ...(user.activeUsernameDecoration
+                          ? USERNAME_DECORATION_STYLES[user.activeUsernameDecoration]
+                          : {}),
+                      }}
+                    >
+                      {user.username}
+                    </span>
+                    <small>{t('navbar.account')}</small>
+                  </div>
+                  {accountItems.map((item) => (
+                    <Destination
+                      key={item.href}
+                      item={item}
+                      path={router.asPath}
+                      onNavigate={closeMenus}
+                      soonLabel={t('navbar.comingSoon')}
+                    />
+                  ))}
+                  <button
+                    type="button"
+                    className="rn-logout"
+                    onClick={() => {
+                      logout();
+                      closeMenus();
+                    }}
+                  >
+                    <FiLogOut aria-hidden="true" />
+                    {t('nav.logout')}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <Link className="rn-login" href="/login" onClick={closeMenus}>
+              {t('nav.login')}
+            </Link>
+          )}
+          <button
+            ref={mobileTrigger}
+            type="button"
+            className="rn-icon-button rn-mobile-toggle"
+            aria-label={mobileOpen ? t('navbar.closeMenu') : t('navbar.openMenu')}
+            aria-expanded={mobileOpen}
+            aria-controls="rift-main-navigation"
+            onClick={() => {
+              setMobileOpen(!mobileOpen);
+              setOpenPanel(null);
+            }}
+          >
+            {mobileOpen ? <FiX aria-hidden="true" /> : <FiMenu aria-hidden="true" />}
+          </button>
         </div>
-      )}
-    </nav>
+      </div>
+    </header>
   );
 }
-
-// Desktop Navigation Link Component
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
-  const router = useRouter();
-  const isActive = isActiveHref(router.asPath, href);
-
-  return (
-    <Link
-      href={href}
-      className={`rift-nav-tab ${isActive ? 'rift-nav-tab-active' : ''}`}
-      aria-current={isActive ? 'page' : undefined}
-    >
-      {children}
-    </Link>
-  );
-}
-
-type AccountMenuIconName =
-  | 'profile'
-  | 'purse'
-  | 'notifications'
-  | 'settings'
-  | 'communities'
-  | 'leaderboards'
-  | 'admin';
-
-function getAccountIconForHref(href: string): AccountMenuIconName {
-  if (href.startsWith('/purse')) return 'purse';
-  if (href.startsWith('/notifications')) return 'notifications';
-  if (href.startsWith('/settings')) return 'settings';
-  if (href.startsWith('/communities')) return 'communities';
-  if (href.startsWith('/leaderboards')) return 'leaderboards';
-  if (href.startsWith('/admin')) return 'admin';
-  return 'profile';
-}
-
-function AccountMenuIcon({ icon }: { icon: AccountMenuIconName }) {
-  const common = {
-    className: 'account-menu-icon-svg',
-    fill: 'none',
-    stroke: 'currentColor',
-    viewBox: '0 0 24 24',
-  };
-
-  switch (icon) {
-    case 'purse':
-      return (
-        <svg {...common}>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 7.5h10a3 3 0 0 1 3 3v5.5a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V8.5A3.5 3.5 0 0 1 7.5 5H16" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 12h4m-4 3h.01" />
-        </svg>
-      );
-    case 'notifications':
-      return (
-        <svg {...common}>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 0 0-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17a3 3 0 0 0 6 0" />
-        </svg>
-      );
-    case 'settings':
-      return (
-        <svg {...common}>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 12a7.4 7.4 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a8 8 0 0 0-1.8-1L14.4 3h-4.8l-.3 3a8 8 0 0 0-1.8 1L5.1 6l-2 3.5 2 1.5a7.4 7.4 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a8 8 0 0 0 1.8 1l.3 3h4.8l.3-3a8 8 0 0 0 1.8-1l2.4 1 2-3.5-2-1.5c.1-.3.1-.7.1-1Z" />
-        </svg>
-      );
-    case 'communities':
-      return (
-        <svg {...common}>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8-1a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3.5 19a4.5 4.5 0 0 1 9 0m1-1.2a3.7 3.7 0 0 1 7 1.2" />
-        </svg>
-      );
-    case 'leaderboards':
-      return (
-        <svg {...common}>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 20V9h4v11H5Zm5 0V4h4v16h-4Zm5 0v-7h4v7h-4Z" />
-        </svg>
-      );
-    case 'admin':
-      return (
-        <svg {...common}>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 3 5 6v5c0 4.4 2.8 8.3 7 10 4.2-1.7 7-5.6 7-10V6l-7-3Z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="m9.5 12 1.7 1.7 3.5-4" />
-        </svg>
-      );
-    case 'profile':
-    default:
-      return (
-        <svg {...common}>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4.5 20a7.5 7.5 0 0 1 15 0" />
-        </svg>
-      );
-  }
-}
-
-// Dropdown Menu Link Component
-function DropdownLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="account-menu-link"
-    >
-      <AccountMenuIcon icon={getAccountIconForHref(href)} />
-      {children}
-    </Link>
-  );
-}
-
-// Mobile Navigation Link Component
-function MobileNavLink({ href, children }: { href: string; children: React.ReactNode }) {
-  const router = useRouter();
-  const isActive = isActiveHref(router.asPath, href);
-
-  return (
-    <Link
-      href={href}
-      className={`rift-mobile-tab ${isActive ? 'rift-mobile-tab-active' : ''}`}
-      aria-current={isActive ? 'page' : undefined}
-    >
-      {children}
-    </Link>
-  );
-}
-
-// ============================================================================
-// INTEGRATION NOTES FOR FUTURE DEVELOPMENT
-// ============================================================================
-
-/*
-1. AUTH INTEGRATION:
-   - Replace MOCK_USER with your auth context/hook
-   - Example with NextAuth:
-     import { useSession, signOut } from 'next-auth/react';
-     const { data: session } = useSession();
-     const user = session?.user;
-   - Update handleLogout to call your auth logout function
-
-2. SEARCH FUNCTIONALITY:
-   - Wire the search input onChange to a search handler
-   - Add debouncing for API calls
-   - Show search results dropdown below input
-   - Example:
-     const [searchQuery, setSearchQuery] = useState('');
-     const debouncedSearch = useDebounce(searchQuery, 300);
-
-3. NOTIFICATIONS:
-   - Fetch notification count from API
-   - Show badge with count: <span>{notificationCount}</span>
-   - Add dropdown panel with notification list
-   - Mark as read functionality
-
-4. THEME TOGGLE:
-   - Wire to theme context (e.g., next-themes)
-   - Example:
-     import { useTheme } from 'next-themes';
-     const { theme, setTheme } = useTheme();
-     onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-
-5. ACTIVE LINK HIGHLIGHTING:
-   - Use Next.js useRouter to get current path
-   - Add conditional className for active state
-   - Example:
-     const router = useRouter();
-     const isActive = router.pathname === href;
-     className={isActive ? 'text-[#C8AA6E] bg-[#2B2B2F]' : '...'}
-
-6. ANIMATIONS:
-   - Add framer-motion for smooth dropdown animations
-   - Add page transition effects
-   - Stagger mobile menu item animations
-
-7. ACCESSIBILITY:
-   - Add aria-labels to icon buttons
-   - Add keyboard navigation for dropdowns
-   - Add focus trap for mobile menu
-   - Test with screen readers
-*/

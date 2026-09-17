@@ -28,11 +28,13 @@ export default function EconomyLayout({
       </Head>
       <nav className="essence-nav" aria-label={fr ? 'Prismatic Essence' : 'Prismatic Essence'}>
         <div className="essence-width">
-          {[
-            ['/purse', fr ? 'Portefeuille' : 'Wallet'],
-            ['/games', fr ? 'Jeux' : 'Games'],
-            ['/cosmetics', fr ? 'Collection' : 'Collection'],
-          ].map(([href, label]) => (
+          {(pathname.startsWith('/games')
+            ? [['/games', fr ? 'Jeux web' : 'Web Games']]
+            : [
+                ['/purse', fr ? 'Portefeuille' : 'Wallet'],
+                ['/cosmetics', fr ? 'Collection' : 'Collection'],
+              ]
+          ).map(([href, label]) => (
             <Link
               key={href}
               href={href}

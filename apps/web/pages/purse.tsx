@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { FiArrowRight, FiPlay } from 'react-icons/fi';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import EconomyLayout, {
@@ -11,7 +10,6 @@ import EconomyLayout, {
 import CosmeticPreview from '../components/economy/CosmeticPreview';
 import {
   economyApi,
-  GamesOverview,
   LedgerEntry,
   pe,
   Quest,
@@ -43,11 +41,6 @@ export default function WalletPage() {
     ({ signal }) => economyApi<Shop>('/wallet/cosmetics', { signal }),
     { enabled },
   );
-  const games = useQuery(
-    ['economy', user?.id, 'games'],
-    ({ signal }) => economyApi<GamesOverview>('/games', { signal }),
-    { enabled },
-  );
   const ledger = useQuery(
     ['economy', user?.id, 'ledger', offset],
     ({ signal }) =>
@@ -62,16 +55,6 @@ export default function WalletPage() {
     .sort((a, b) => a.costPrismaticEssence - b.costPrismaticEssence)[0];
   const daily = quests.data?.quests.filter((quest) => quest.repeatWindow === 'DAILY') || [];
   const milestones = quests.data?.quests.filter((quest) => quest.repeatWindow === 'ONE_TIME') || [];
-  const gameRewardRemaining = games.data?.rewardsEnabled
-    ? Math.min(
-        Math.max(0, games.data.dailyCap - games.data.earnedToday),
-        games.data.games.reduce(
-          (total, game) =>
-            total + (game.round?.finished ? 0 : game.round?.rewardAvailable ?? game.reward),
-          0,
-        ),
-      )
-    : 0;
   const claim = async (quest: Quest) => {
     if (claiming) return;
     setClaiming(quest.key);
@@ -144,28 +127,6 @@ export default function WalletPage() {
               </Link>
             </div>
           ) : null}
-          <section className="essence-wallet-games" aria-labelledby="wallet-games-heading">
-            <div>
-              <span className="essence-kicker">Play for Prismatic Essence</span>
-              <h2 id="wallet-games-heading">Know the Rift? Put it to the test.</h2>
-              <p>
-                Guess champions, identify sounds, compare prices, or forge items. Four daily games,
-                fresh every day.
-              </p>
-              <p className="essence-wallet-games-reward">
-                {gameRewardRemaining > 0
-                  ? `Up to ${pe(gameRewardRemaining)} PE left to earn from games today.`
-                  : games.data?.games.every((game) => game.round?.finished)
-                  ? 'Today’s rounds are complete. Keep playing in practice.'
-                  : games.data?.rewardsEnabled && games.data.earnedToday >= games.data.dailyCap
-                  ? 'Today’s game reward cap is reached. Keep playing in practice.'
-                  : 'Try a daily puzzle or sharpen your skills in practice.'}
-              </p>
-            </div>
-            <Link className="essence-button essence-wallet-games-cta" href="/games">
-              <FiPlay aria-hidden="true" /> Play daily games <FiArrowRight aria-hidden="true" />
-            </Link>
-          </section>
           <div className="essence-columns essence-section">
             <section className="essence-panel">
               <div className="essence-section-head">
@@ -174,45 +135,6 @@ export default function WalletPage() {
               </div>
               <EconomyError error={quests.error} retry={() => quests.refetch()} />
               {quests.isLoading ? <EconomyLoading /> : daily.map(questRow)}
-              <EconomyError error={games.error} retry={() => games.refetch()} />
-              {games.data?.games.map((game) => (
-                <div className="essence-challenge" key={game.key}>
-                  <div className="essence-challenge-copy">
-                    <strong>{game.title}</strong>
-                    <p>
-                      {game.round?.finished
-                        ? game.round.won
-                          ? game.round.rewardPaid > 0
-                            ? 'Solved. Your reward is in your wallet.'
-                            : 'Solved. No PE was awarded for this round.'
-                          : 'Daily round complete. Practice is still open.'
-                        : game.key === 'archive'
-                        ? 'Guess the champion from a trail of clues.'
-                        : game.key === 'shopkeeper'
-                        ? 'Compare item prices: higher or lower?'
-                        : game.key === 'recipe-rush'
-                        ? 'Build three items from their ingredients.'
-                        : 'Name the champion from their ability sounds.'}
-                    </p>
-                  </div>
-                  <span className="essence-amount">
-                    {pe(
-                      game.round?.finished
-                        ? game.round.rewardPaid
-                        : game.round?.rewardOffer ?? game.reward,
-                    )}{' '}
-                    PE
-                  </span>
-                  <Link className="essence-button essence-secondary" href={`/games/${game.key}`}>
-                    {game.round?.finished ? 'View' : 'Play'}
-                  </Link>
-                </div>
-              ))}
-              {games.data ? (
-                <p className="essence-muted essence-small">
-                  Daily game rewards: {pe(games.data.earnedToday)} / {pe(games.data.dailyCap)} PE
-                </p>
-              ) : null}
             </section>
             <section className="essence-panel essence-next-unlock">
               <h2>Next unlock</h2>
