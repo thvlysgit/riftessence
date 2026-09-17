@@ -21,6 +21,37 @@ const formatCollection = (collection: any, userId?: string | null, isSaved = fal
   isSaved,
 });
 
+const publicCollectionView = (collection: any, preview = false) => {
+  const items = collection.items.filter((item: any) =>
+    item.matchup.isPublic || item.matchup.userId === collection.userId);
+  return {
+    ...collection,
+    items: preview ? items.slice(0, 3) : items,
+    _count: { ...collection._count, items: items.length },
+  };
+};
+
+const libraryItems = {
+  orderBy: { position: 'asc' as const },
+  include: {
+    matchup: {
+      select: {
+        id: true,
+        myChampion: true,
+        enemyChampion: true,
+        role: true,
+        difficulty: true,
+        title: true,
+        description: true,
+        isPublic: true,
+        userId: true,
+        updatedAt: true,
+        user: { select: { username: true } },
+      },
+    },
+  },
+};
+
 export default async function matchupRoutes(fastify: FastifyInstance) {
   // GET /api/matchup-collections - Get user's owned and saved collections
   fastify.get('/matchup-collections', async (request: any, reply: any) => {
@@ -39,15 +70,22 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
       offset: number;
     };
 
-    const filterWhere: any = {};
-    if (champion) filterWhere.champion = champion;
-    if (role) filterWhere.role = role;
+    const filterWhere: any = { AND: [] };
+    if (champion) filterWhere.AND.push({ OR: [
+      { champion },
+      { items: { some: { matchup: { myChampion: champion } } } },
+    ] });
+    if (role) filterWhere.AND.push({ OR: [
+      { role },
+      { items: { some: { matchup: { role } } } },
+    ] });
 
     try {
       const ownedCollections = await prisma.matchupCollection.findMany({
         where: { userId, ...filterWhere },
         include: {
           user: { select: { id: true, username: true } },
+          items: libraryItems,
           _count: { select: { items: true, savedBy: true } },
         },
         orderBy: { updatedAt: 'desc' },
@@ -59,6 +97,7 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
           collection: {
             include: {
               user: { select: { id: true, username: true } },
+              items: libraryItems,
               _count: { select: { items: true, savedBy: true } },
             },
           },
@@ -69,11 +108,14 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
       const savedCollections = savedCollectionRecords
         .filter((record: any) => {
           if (!record.collection) return false;
-          if (champion && record.collection.champion !== champion) return false;
-          if (role && record.collection.role !== role) return false;
+          if (!record.collection.isPublic) return false;
+          if (champion && record.collection.champion !== champion && !record.collection.items.some((item: any) =>
+            (item.matchup.isPublic || item.matchup.userId === record.collection.userId) && item.matchup.myChampion === champion)) return false;
+          if (role && record.collection.role !== role && !record.collection.items.some((item: any) =>
+            (item.matchup.isPublic || item.matchup.userId === record.collection.userId) && item.matchup.role === role)) return false;
           return true;
         })
-        .map((record: any) => formatCollection(record.collection, userId, true));
+        .map((record: any) => formatCollection(publicCollectionView(record.collection), userId, true));
 
       const ownedWithMeta = ownedCollections.map((collection: any) => formatCollection(collection, userId, false));
       const collections = [...ownedWithMeta, ...savedCollections].sort((a: any, b: any) => {
@@ -97,7 +139,7 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // POST /api/matchup-collections - Create a champion collection
+  // POST /api/matchup-collections - Create a collection
   fastify.post('/matchup-collections', async (request: any, reply: any) => {
     const userId = await getUserIdFromRequest(request, reply);
     if (!userId) return;
@@ -126,6 +168,58 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // POST /api/matchup-collections/group - Atomically group two library cards.
+  fastify.post('/matchup-collections/group', async (request: any, reply: any) => {
+    const userId = await getUserIdFromRequest(request, reply);
+    if (!userId) return;
+    const ids = request.body?.matchupIds;
+    if (!Array.isArray(ids) || ids.length !== 2 || ids.some((id) => typeof id !== 'string') || ids[0] === ids[1]) {
+      return reply.code(400).send({ error: 'Two different matchup IDs are required' });
+    }
+    const title = typeof request.body?.title === 'string' ? request.body.title.trim() : '';
+    if (title.length > 100) return reply.code(400).send({ error: 'Collection title is too long' });
+
+    try {
+      const matchups = await prisma.matchup.findMany({ where: { id: { in: ids } } });
+      const saved = await prisma.savedMatchup.findMany({
+        where: { userId, matchupId: { in: ids } },
+        select: { matchupId: true },
+      });
+      const savedIds = new Set(saved.map((item: { matchupId: string }) => item.matchupId));
+      if (matchups.length !== 2 || matchups.some((item: any) => item.userId !== userId && (!item.isPublic || !savedIds.has(item.id)))) {
+        return reply.code(403).send({ error: 'Both guides must be in your library' });
+      }
+
+      const [first, second] = ids.map((id) => matchups.find((item: any) => item.id === id)!);
+      const collection = await prisma.$transaction(async (tx: any) => {
+        await tx.matchupCollectionItem.deleteMany({
+          where: { matchupId: { in: ids }, collection: { userId } },
+        });
+        return tx.matchupCollection.create({
+          data: {
+            userId,
+            title: title || (first.myChampion === second.myChampion ? `${first.myChampion} guides` : 'New collection'),
+            champion: first.myChampion === second.myChampion ? first.myChampion : null,
+            role: first.role === second.role ? first.role : null,
+            isPublic: false,
+            items: {
+              create: ids.map((matchupId: string, position: number) => ({ matchupId, position })),
+            },
+          },
+          include: {
+            user: { select: { id: true, username: true } },
+            items: libraryItems,
+            _count: { select: { items: true, savedBy: true } },
+          },
+        });
+      });
+      return reply.code(201).send({ collection: formatCollection(collection, userId) });
+    } catch (error: any) {
+      request.log.error({ err: error, userId }, 'Failed to group matchups');
+      return reply.code(500).send({ error: 'Failed to group matchups' });
+    }
+  });
+
   // GET /api/matchup-collections/public - Browse shared collections
   fastify.get('/matchup-collections/public', async (request: any, reply: any) => {
     const userId = await getUserIdFromRequest(request, reply, false);
@@ -142,15 +236,22 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
       offset: number;
     };
 
-    const where: any = { isPublic: true };
-    if (champion) where.champion = champion;
-    if (role) where.role = role;
+    const where: any = { isPublic: true, AND: [] };
+    if (champion) where.AND.push({ OR: [
+      { champion },
+      { items: { some: { matchup: { myChampion: champion } } } },
+    ] });
+    if (role) where.AND.push({ OR: [
+      { role },
+      { items: { some: { matchup: { role } } } },
+    ] });
 
     try {
       const collections = await prisma.matchupCollection.findMany({
         where,
         include: {
           user: { select: { id: true, username: true } },
+          items: libraryItems,
           _count: { select: { items: true, savedBy: true } },
         },
         orderBy: { updatedAt: 'desc' },
@@ -170,7 +271,8 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
       const total = await prisma.matchupCollection.count({ where });
 
       return reply.send({
-        collections: collections.map((collection: any) => formatCollection(collection, userId, savedCollectionIds.has(collection.id))),
+        collections: collections.map((collection: any) => formatCollection(
+          publicCollectionView(collection, true), userId, savedCollectionIds.has(collection.id))),
         total,
         limit,
         offset,
@@ -214,7 +316,14 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
         return reply.code(403).send({ error: 'Access denied' });
       }
 
-      return reply.send({ collection: formatCollection(collection, userId) });
+      const isSaved = userId ? Boolean(await prisma.savedMatchupCollection.findUnique({
+        where: { userId_collectionId: { userId, collectionId: id } },
+        select: { id: true },
+      })) : false;
+      const visibleCollection = collection.userId === userId ? collection : publicCollectionView(collection);
+      return reply.send({
+        collection: formatCollection(visibleCollection, userId, isSaved),
+      });
     } catch (error: any) {
       request.log.error({ err: error, userId, collectionId: id }, 'Failed to fetch matchup collection');
       return reply.code(500).send({ error: 'Failed to fetch matchup collection' });
@@ -273,7 +382,7 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // POST /api/matchup-collections/:id/items - Add an accessible matchup to a champion collection
+  // POST /api/matchup-collections/:id/items - Move a library card into a collection
   fastify.post('/matchup-collections/:id/items', async (request: any, reply: any) => {
     const userId = await getUserIdFromRequest(request, reply);
     if (!userId) return;
@@ -291,25 +400,35 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
 
       const matchup = await prisma.matchup.findUnique({ where: { id: matchupId } });
       if (!matchup) return reply.code(404).send({ error: 'Matchup not found' });
-      if (!matchup.isPublic && matchup.userId !== userId) {
-        return reply.code(403).send({ error: 'Cannot add a private matchup you do not own' });
+      const saved = matchup.userId === userId ? true : Boolean(await prisma.savedMatchup.findUnique({
+        where: { userId_matchupId: { userId, matchupId } },
+        select: { id: true },
+      }));
+      if (!saved || (matchup.userId !== userId && !matchup.isPublic)) {
+        return reply.code(403).send({ error: 'Guide must be in your library' });
       }
-      if (matchup.myChampion !== collection.champion) {
-        return reply.code(400).send({ error: 'Matchup champion must match collection champion' });
-      }
-
       const lastItem = await prisma.matchupCollectionItem.findFirst({
         where: { collectionId: id },
         orderBy: { position: 'desc' },
         select: { position: true },
       });
 
-      const item = await prisma.matchupCollectionItem.create({
-        data: {
-          collectionId: id,
-          matchupId,
-          position: (lastItem?.position ?? -1) + 1,
-        },
+      const item = await prisma.$transaction(async (tx: any) => {
+        await tx.matchupCollectionItem.deleteMany({
+          where: { matchupId, collection: { userId } },
+        });
+        if (collection.champion && collection.champion !== matchup.myChampion) {
+          await tx.matchupCollection.update({
+            where: { id }, data: { champion: null, role: null },
+          });
+        }
+        return tx.matchupCollectionItem.create({
+          data: {
+            collectionId: id,
+            matchupId,
+            position: (lastItem?.position ?? -1) + 1,
+          },
+        });
       });
 
       return reply.code(201).send({ item });
@@ -456,6 +575,7 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
       const savedMatchups = savedMatchupRecords
         .filter((sm: any) => {
           if (!sm.matchup) return false; // Filter out null matchups (deleted originals)
+          if (!sm.matchup.isPublic) return false;
           
           // Apply filters
           if (myChampion && sm.matchup.myChampion !== myChampion) return false;
@@ -555,9 +675,16 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({ error: 'Matchup not found' });
       }
       
-      // Only owner can view private matchups
+      // Sharing a collection grants read access to its guides without listing
+      // individually private guides in Discover.
+      let sharedViaCollection = false;
       if (!matchup.isPublic && matchup.userId !== userId) {
-        return reply.code(403).send({ error: 'Access denied' });
+        const shared = await prisma.matchupCollectionItem.findFirst({
+          where: { matchupId: id, collection: { isPublic: true, userId: matchup.userId } },
+          select: { id: true },
+        });
+        if (!shared) return reply.code(403).send({ error: 'Access denied' });
+        sharedViaCollection = true;
       }
       
       // Format response with author info
@@ -572,6 +699,7 @@ export default async function matchupRoutes(fastify: FastifyInstance) {
         likeCount,
         dislikeCount,
         userVote: userVote ? (userVote.isLike ? 'like' : 'dislike') : null,
+        sharedViaCollection,
       };
       
       return reply.send({ matchup: formattedMatchup });

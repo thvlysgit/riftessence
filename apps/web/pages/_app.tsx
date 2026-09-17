@@ -5,6 +5,7 @@ import '../styles/economy.css';
 import '../styles/game-play.css';
 import '../styles/recipe-rush.css';
 import '../styles/navigation.css';
+import '../styles/matchup-library.css';
 import NextApp, { AppContext, AppInitialProps, AppProps } from 'next/app';
 import Head from 'next/head';
 import Script from 'next/script';

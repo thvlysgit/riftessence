@@ -81,6 +81,17 @@ interface PublicMatchup {
   isBestRated?: boolean;
 }
 
+interface SharedCollection {
+  id: string;
+  title: string;
+  description?: string | null;
+  authorUsername: string;
+  itemCount: number;
+  isSaved: boolean;
+  isOwned: boolean;
+  items?: Array<{ matchup: { myChampion: string; enemyChampion: string } }>;
+}
+
 const MarketplacePage: React.FC = () => {
   const router = useRouter();
   const { user } = useAuth();
@@ -88,6 +99,8 @@ const MarketplacePage: React.FC = () => {
   const { showToast } = useGlobalUI();
   
   const [matchups, setMatchups] = useState<PublicMatchup[]>([]);
+  const [sharedCollections, setSharedCollections] = useState<SharedCollection[]>([]);
+  const [savingCollection, setSavingCollection] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -102,6 +115,32 @@ const MarketplacePage: React.FC = () => {
   
   const limit = 12;
   const [offset, setOffset] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API_URL}/api/matchup-collections/public?limit=6`, {
+      headers: user ? getAuthHeader() as Record<string, string> : {},
+    }).then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data) => { if (alive) setSharedCollections(data.collections || []); })
+      .catch(() => { if (alive) setSharedCollections([]); });
+    return () => { alive = false; };
+  }, [user?.id]);
+
+  const saveCollection = async (collection: SharedCollection) => {
+    if (!user) { void router.push('/login'); return; }
+    if (savingCollection) return;
+    setSavingCollection(collection.id);
+    try {
+      const response = await fetch(`${API_URL}/api/matchup-collections/${collection.id}/save`, {
+        method: 'POST', headers: getAuthHeader() as Record<string, string>,
+      });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || t('common.error'));
+      setSharedCollections((previous) => previous.map((item) => item.id === collection.id ? { ...item, isSaved: true } : item));
+      showToast(t('matchups.collectionSaved'), 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : t('common.error'), 'error');
+    } finally { setSavingCollection(null); }
+  };
   
   // Check library count for create banner
   useEffect(() => {
@@ -324,7 +363,7 @@ const MarketplacePage: React.FC = () => {
         keywords="LoL matchup guides, League of Legends matchups, champion counters, LoL strategy guides, matchup tips"
       />
       <div 
-        className="min-h-screen py-8 px-4"
+        className="matchup-discovery-page min-h-screen py-8 px-4"
         style={{
           background:
             'linear-gradient(180deg, rgba(200,170,110,0.08) 0%, transparent 300px), var(--color-bg-primary)',
@@ -356,6 +395,27 @@ const MarketplacePage: React.FC = () => {
         </div>
 
         <MatchupWorkspaceTabs activeTab="discover" />
+
+        {sharedCollections.length > 0 ? (
+          <section className="matchup-discovery-collections" aria-labelledby="shared-collections-heading">
+            <h2 id="shared-collections-heading">{t('matchups.sharedCollections')}</h2>
+            <div className="matchup-shared-grid">
+              {sharedCollections.map((collection) => (
+                <article className="matchup-shared-card" key={collection.id}>
+                  <h3>{collection.title}</h3>
+                  <p>{collection.description || `${t('matchups.author')}: ${collection.authorUsername}`} · {t('matchups.collectionItemCount', { count: collection.itemCount })}</p>
+                  <div className="matchup-shared-portraits" aria-hidden="true">
+                    {(collection.items || []).map((item, index) => <Image key={`${item.matchup.myChampion}-${index}`} src={getChampionIconUrl(item.matchup.myChampion)} alt="" width={34} height={34} unoptimized />)}
+                  </div>
+                  <div className="matchup-shared-actions">
+                    <Link href={`/matchups/collections/${collection.id}`}>{t('matchups.openCollection')}</Link>
+                    {!collection.isOwned && !collection.isSaved ? <button type="button" disabled={savingCollection === collection.id} onClick={() => void saveCollection(collection)}>{t('matchups.saveCollection')}</button> : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
         
         {/* Create Your Own Banner - for users with < 5 guides */}
         {showCreateBanner && (

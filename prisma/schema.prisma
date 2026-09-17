@@ -1231,7 +1231,7 @@ model MatchupCollection {
   userId String
 
   // Collection scope
-  champion    String // All matchup cards inside must use this as myChampion
+  champion    String? // Optional legacy focus; collections can mix champions
   role        Role?
   title       String
   description String?

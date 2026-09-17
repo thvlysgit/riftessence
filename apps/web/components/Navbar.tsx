@@ -44,6 +44,72 @@ type SearchResult = {
   verified: boolean;
   profileIconId?: number;
 };
+type SearchStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+function SearchBox({
+  mobile,
+  query,
+  onQueryChange,
+  status,
+  results,
+  onNavigate,
+  labels,
+}: {
+  mobile?: boolean;
+  query: string;
+  onQueryChange: (value: string) => void;
+  status: SearchStatus;
+  results: SearchResult[];
+  onNavigate: () => void;
+  labels: { placeholder: string; searching: string; error: string; noUsers: string; verified: string };
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div
+      className={`rn-search ${mobile ? 'rn-search-mobile' : 'rn-search-desktop'}`}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false);
+      }}
+    >
+      <label className="rn-search-field">
+        <FiSearch aria-hidden="true" />
+        <span className="sr-only">{labels.placeholder}</span>
+        <input
+          type="search"
+          autoComplete="off"
+          value={query}
+          placeholder={labels.placeholder}
+          onFocus={() => setFocused(true)}
+          onChange={(event) => onQueryChange(event.target.value)}
+        />
+      </label>
+      {focused && query.trim().length >= 2 ? (
+        <div className="rn-panel rn-search-panel">
+          {status !== 'ready' || results.length === 0 ? (
+            <p className="rn-search-status" role="status">
+              {status === 'loading' || status === 'idle' ? labels.searching : status === 'error' ? labels.error : labels.noUsers}
+            </p>
+          ) : null}
+          {results.map((result) => (
+            <Link
+              href={`/profile/${encodeURIComponent(result.username)}`}
+              key={result.id}
+              className="rn-search-result"
+              onClick={onNavigate}
+            >
+              {result.profileIconId ? (
+                <img src={getProfileIconUrl(result.profileIconId)} alt="" width={32} height={32} />
+              ) : <FiUser aria-hidden="true" />}
+              <span>{result.username}</span>
+              {result.verified ? <FiCheckCircle aria-label={labels.verified} /> : null}
+              <FiArrowUpRight className="rn-arrow" aria-hidden="true" />
+            </Link>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 type NavItem = {
   href: string;
   label: string;
@@ -190,16 +256,13 @@ export default function Navbar() {
   const [openPanel, setOpenPanel] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [searchStatus, setSearchStatus] = useState<
-    'idle' | 'loading' | 'ready' | 'error'
-  >('idle');
+  const [searchStatus, setSearchStatus] = useState<SearchStatus>('idle');
   const [unreadCount, setUnreadCount] = useState(0);
   const [balance, setBalance] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const lastTrigger = useRef<HTMLButtonElement | null>(null);
   const mobileTrigger = useRef<HTMLButtonElement>(null);
-  const searchInput = useRef<HTMLInputElement>(null);
   const userId = user?.id;
   const closeMenus = () => {
     setOpenPanel(null);
@@ -208,7 +271,7 @@ export default function Navbar() {
   const togglePanel = (name: string, button: HTMLButtonElement) => {
     lastTrigger.current = button;
     setOpenPanel((current) => (current === name ? null : name));
-    if (name === 'account' || name === 'search') setMobileOpen(false);
+    if (name === 'account') setMobileOpen(false);
   };
   const groups = [
     {
@@ -350,10 +413,6 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    if (openPanel === 'search') searchInput.current?.focus();
-  }, [openPanel]);
-
-  useEffect(() => {
     setUnreadCount(0);
     if (!userId) return;
     const controller = new AbortController();
@@ -452,7 +511,7 @@ export default function Navbar() {
   useEffect(() => {
     const query = searchQuery.trim();
     setSearchResults([]);
-    if (openPanel !== 'search' || query.length < 2) {
+    if (query.length < 2) {
       setSearchStatus('idle');
       return;
     }
@@ -478,7 +537,7 @@ export default function Navbar() {
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [searchQuery, openPanel]);
+  }, [searchQuery]);
 
   const compactBalance =
     balance === null
@@ -487,6 +546,13 @@ export default function Navbar() {
           notation: 'compact',
           maximumFractionDigits: 1,
         }).format(balance);
+  const searchLabels = {
+    placeholder: t('navbar.searchPlaceholder'),
+    searching: t('navbar.searching'),
+    error: t('navbar.searchError'),
+    noUsers: t('navbar.noUsersFound'),
+    verified: t('navbar.verified'),
+  };
   const onDisclosureBlur = (event: React.FocusEvent<HTMLDivElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null))
       setOpenPanel(null);
@@ -535,6 +601,15 @@ export default function Navbar() {
           aria-label={t('navbar.mainNavigation')}
         >
           <div className="rn-mobile-heading">{t('navbar.explore')}</div>
+          <SearchBox
+            mobile
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            status={searchStatus}
+            results={searchResults}
+            onNavigate={closeMenus}
+            labels={searchLabels}
+          />
           <Link
             href="/feed"
             className="rn-tab"
@@ -594,77 +669,14 @@ export default function Navbar() {
           })}
         </nav>
         <div className="rn-utilities">
-          <div
-            className="rn-search"
-            data-nav-disclosure
-            onBlur={onDisclosureBlur}
-          >
-            <button
-              type="button"
-              className="rn-icon-button"
-              aria-label={t('navbar.searchPlaceholder')}
-              title={t('navbar.searchPlaceholder')}
-              aria-expanded={openPanel === 'search'}
-              aria-controls="rn-search-panel"
-              onClick={(event) => togglePanel('search', event.currentTarget)}
-            >
-              <FiSearch aria-hidden="true" />
-            </button>
-            {openPanel === 'search' ? (
-              <div id="rn-search-panel" className="rn-panel rn-search-panel">
-                <label className="rn-panel-label" htmlFor="rn-search-input">
-                  {t('navbar.searchPlaceholder')}
-                </label>
-                <div className="rn-search-field">
-                  <FiSearch aria-hidden="true" />
-                  <input
-                    ref={searchInput}
-                    id="rn-search-input"
-                    type="search"
-                    autoComplete="off"
-                    value={searchQuery}
-                    placeholder={t('navbar.searchHint')}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                  />
-                </div>
-                <div role="status" className="rn-search-status">
-                  {searchStatus === 'loading'
-                    ? t('navbar.searching')
-                    : searchStatus === 'error'
-                    ? t('navbar.searchError')
-                    : searchStatus === 'idle'
-                    ? t('navbar.searchHint')
-                    : !searchResults.length
-                    ? t('navbar.noUsersFound')
-                    : null}
-                </div>
-                {searchResults.map((result) => (
-                  <Link
-                    href={`/profile/${encodeURIComponent(result.username)}`}
-                    key={result.id}
-                    className="rn-search-result"
-                    onClick={closeMenus}
-                  >
-                    {result.profileIconId ? (
-                      <img
-                        src={getProfileIconUrl(result.profileIconId)}
-                        alt=""
-                        width={32}
-                        height={32}
-                      />
-                    ) : (
-                      <FiUser aria-hidden="true" />
-                    )}
-                    <span>{result.username}</span>
-                    {result.verified ? (
-                      <FiCheckCircle aria-label={t('navbar.verified')} />
-                    ) : null}
-                    <FiArrowUpRight className="rn-arrow" aria-hidden="true" />
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <SearchBox
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            status={searchStatus}
+            results={searchResults}
+            onNavigate={closeMenus}
+            labels={searchLabels}
+          />
           {user ? (
             <>
               <Link

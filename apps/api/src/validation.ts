@@ -306,7 +306,7 @@ export const PublicMatchupQuerySchema = z.object({
 });
 
 export const CreateMatchupCollectionSchema = z.object({
-  champion: z.string().min(1).max(50),
+  champion: z.string().min(1).max(50).optional(),
   role: z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FILL']).optional(),
   title: z.string().min(1).max(100),
   description: z.string().max(500).optional(),

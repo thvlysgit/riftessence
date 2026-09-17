@@ -62,6 +62,7 @@ interface MatchupDetail {
   runePages?: MatchupRunePage[];
   itemBuilds?: MatchupItemBuild[];
   isPublic: boolean;
+  sharedViaCollection?: boolean;
   title?: string;
   description?: string;
   authorId: string;
@@ -357,7 +358,7 @@ const MatchupDetailPage: React.FC = () => {
           </div>
           
           {/* Title & Description (if public) */}
-          {matchup.isPublic && matchup.title && (
+          {(matchup.isPublic || matchup.sharedViaCollection) && matchup.title && (
             <>
               <h1 
                 className="text-2xl font-bold text-center mb-3"
@@ -377,7 +378,7 @@ const MatchupDetailPage: React.FC = () => {
           )}
           
           {/* Author (if public) */}
-          {matchup.isPublic && matchup.authorUsername && (
+          {(matchup.isPublic || matchup.sharedViaCollection) && matchup.authorUsername && (
             <div 
               className="text-center mb-4"
               style={{ color: 'var(--color-text-muted)' }}
@@ -476,14 +477,7 @@ const MatchupDetailPage: React.FC = () => {
                   👎 {t('matchups.dislike')}
                 </button>
               </>
-            ) : (
-              <div 
-                className="text-center py-4"
-                style={{ color: 'var(--color-text-muted)' }}
-              >
-                {t('matchups.privateMatchup')}
-              </div>
-            )}
+            ) : null}
           </div>
         </div>
         

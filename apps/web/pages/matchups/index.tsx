@@ -1,22 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import {
+  FiChevronDown,
+  FiChevronRight,
+  FiFolder,
+  FiPlus,
+  FiSearch,
+  FiShare2,
+} from 'react-icons/fi';
 import SEOHead from '@components/SEOHead';
+import { LoadingSpinner } from '@components/LoadingSpinner';
+import { MatchupWorkspaceTabs } from '@components/MatchupWorkspaceTabs';
+import {
+  MatchupGuideTile,
+  type MatchupGuideSummary,
+} from '@components/MatchupGuideTile';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useGlobalUI } from '@components/GlobalUI';
-import { LoadingSpinner } from '@components/LoadingSpinner';
-import { MatchupCard, Matchup } from '@components/MatchupCard';
-import { MatchupWorkspaceTabs } from '@components/MatchupWorkspaceTabs';
-import { MatchupButton } from '@components/MatchupButton';
-import { ChampionAutocomplete } from '@components/ChampionAutocomplete';
-import { Checkbox } from '@components/Checkbox';
 import { getAuthHeader } from '../../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-
-const ROLES = ['ALL', 'TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
-
+const ROLES = ['ALL', 'TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FILL'];
 const DIFFICULTIES = [
   'ALL',
   'FREE_WIN',
@@ -28,10 +34,15 @@ const DIFFICULTIES = [
   'FREE_LOSE',
 ];
 
+interface CollectionItem {
+  id: string;
+  matchupId: string;
+  matchup: MatchupGuideSummary & { user?: { username: string } };
+}
+
 interface MatchupCollection {
   id: string;
-  champion: string;
-  role?: string | null;
+  champion?: string | null;
   title: string;
   description?: string | null;
   isPublic: boolean;
@@ -39,744 +50,813 @@ interface MatchupCollection {
   itemCount: number;
   isOwned: boolean;
   isSaved: boolean;
-  updatedAt: string;
+  items?: CollectionItem[];
 }
 
-const MatchupsPage: React.FC = () => {
+async function apiRequest(path: string, method = 'GET', body?: object) {
+  const response = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: {
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+      ...getAuthHeader(),
+    } as Record<string, string>,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || 'Request failed');
+  }
+  return response.status === 204 ? null : response.json();
+}
+
+async function fetchAllGuides(): Promise<MatchupGuideSummary[]> {
+  const guides: MatchupGuideSummary[] = [];
+  let offset = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const page = await apiRequest(`/api/matchups?limit=100&offset=${offset}`);
+    guides.push(...(page.matchups || []));
+    hasMore = Boolean(page.hasMore);
+    offset += 100;
+  }
+  return guides;
+}
+
+async function fetchAllCollections(): Promise<MatchupCollection[]> {
+  const collections: MatchupCollection[] = [];
+  let offset = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const page = await apiRequest(
+      `/api/matchup-collections?limit=100&offset=${offset}`,
+    );
+    collections.push(...(page.collections || []));
+    hasMore = Boolean(page.hasMore);
+    offset += 100;
+  }
+  return collections;
+}
+
+function collectionGuide(item: CollectionItem): MatchupGuideSummary {
+  return { ...item.matchup, authorUsername: item.matchup.user?.username };
+}
+
+export default function MatchupsPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { t } = useLanguage();
   const { showToast, confirm } = useGlobalUI();
-  
-  const [matchups, setMatchups] = useState<Matchup[]>([]);
+  const [guides, setGuides] = useState<MatchupGuideSummary[]>([]);
   const [collections, setCollections] = useState<MatchupCollection[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingCollections, setIsLoadingCollections] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [showCollectionForm, setShowCollectionForm] = useState(false);
-  const [collectionChampion, setCollectionChampion] = useState('');
-  const [collectionRole, setCollectionRole] = useState('');
-  const [collectionTitle, setCollectionTitle] = useState('');
-  const [collectionDescription, setCollectionDescription] = useState('');
-  const [collectionIsPublic, setCollectionIsPublic] = useState(false);
-  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
-  const [matchupForCollection, setMatchupForCollection] = useState<Matchup | null>(null);
-  const [selectedCollectionId, setSelectedCollectionId] = useState('');
-  const [isAddingToCollection, setIsAddingToCollection] = useState(false);
-  
-  // Filters
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('ALL');
-  const [difficultyFilter, setDifficultyFilter] = useState('ALL');
-  
-  const limit = 12;
-  const [offset, setOffset] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useState('');
+  const [role, setRole] = useState('ALL');
+  const [difficulty, setDifficulty] = useState('ALL');
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [dragOverCollection, setDragOverCollection] = useState<string | null>(
+    null,
+  );
+  const [organizeGuide, setOrganizeGuide] =
+    useState<MatchupGuideSummary | null>(null);
+  const [organizeDestination, setOrganizeDestination] = useState('new');
+  const [organizePartner, setOrganizePartner] = useState('');
+  const [organizeTitle, setOrganizeTitle] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [newCollectionTitle, setNewCollectionTitle] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
 
-  const activeTab = router.query.tab === 'collections' ? 'collections' : 'library';
+  const refresh = useCallback(async () => {
+    const [nextGuides, nextCollections] = await Promise.all([
+      fetchAllGuides(),
+      fetchAllCollections(),
+    ]);
+    setGuides(nextGuides);
+    setCollections(nextCollections);
+  }, []);
 
-  // Fetch matchups
-  const fetchMatchups = async (reset: boolean = false) => {
+  useEffect(() => {
+    if (authLoading) return;
     if (!user) {
-      router.push('/login');
+      void router.replace('/login');
       return;
     }
-    
-    try {
-      const currentOffset = reset ? 0 : offset;
-      if (reset) {
-        setIsLoading(true);
-      } else {
-        setIsLoadingMore(true);
-      }
-      
-      const params = new URLSearchParams();
-      params.append('limit', limit.toString());
-      params.append('offset', currentOffset.toString());
-      
-      if (searchTerm) {
-        params.append('myChampion', searchTerm);
-      }
-      if (roleFilter !== 'ALL') {
-        params.append('role', roleFilter);
-      }
-      if (difficultyFilter !== 'ALL') {
-        params.append('difficulty', difficultyFilter);
-      }
-      
-      const response = await fetch(`${API_URL}/api/matchups?${params.toString()}`, {
-        headers: getAuthHeader() as Record<string, string>,
+    let alive = true;
+    setLoading(true);
+    Promise.all([fetchAllGuides(), fetchAllCollections()])
+      .then(([nextGuides, nextCollections]) => {
+        if (alive) {
+          setGuides(nextGuides);
+          setCollections(nextCollections);
+          setCollapsed(
+            new Set(
+              nextCollections.slice(1).map((collection) => collection.id),
+            ),
+          );
+        }
+      })
+      .catch(() => {
+        if (alive) showToast(t('common.error'), 'error');
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch matchups');
-      }
-      
-      const data = await response.json();
-      
-      if (reset) {
-        setMatchups(data.matchups || []);
-        setOffset(limit);
-      } else {
-        setMatchups(prev => [...prev, ...(data.matchups || [])]);
-        setOffset(prev => prev + limit);
-      }
-      
-      setHasMore(data.hasMore || false);
+    return () => {
+      alive = false;
+    };
+  }, [authLoading, user?.id, router, showToast, t]);
+
+  useEffect(() => {
+    if (!organizeGuide) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOrganizeGuide(null);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [organizeGuide]);
+
+  const run = async (
+    operation: () => Promise<unknown>,
+    success?: string,
+  ): Promise<boolean> => {
+    setBusy(true);
+    try {
+      await operation();
+      await refresh();
+      if (success) showToast(success, 'success');
+      return true;
     } catch (error) {
-      console.error('Error fetching matchups:', error);
-      showToast(t('common.error'), 'error');
+      showToast(
+        error instanceof Error ? error.message : t('common.error'),
+        'error',
+      );
+      return false;
     } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
+      setBusy(false);
     }
   };
 
-  const fetchCollections = async () => {
-    if (!user) return;
+  const ownedCollections = collections.filter(
+    (collection) => collection.isOwned,
+  );
+  const groupedIds = new Set(
+    ownedCollections.flatMap((collection) =>
+      (collection.items || []).map((item) => item.matchupId),
+    ),
+  );
+  const query = search.trim().toLowerCase();
+  const matches = (guide: MatchupGuideSummary) =>
+    (role === 'ALL' || guide.role === role) &&
+    (difficulty === 'ALL' || guide.difficulty === difficulty) &&
+    (!query ||
+      [
+        guide.title,
+        guide.myChampion,
+        guide.enemyChampion,
+        guide.authorUsername,
+      ].some((value) => value?.toLowerCase().includes(query)));
+  const ungrouped = guides.filter(
+    (guide) => !groupedIds.has(guide.id) && matches(guide),
+  );
+  const visibleCollections = collections.filter((collection) =>
+    !query && role === 'ALL' && difficulty === 'ALL'
+      ? true
+      : (query &&
+          role === 'ALL' &&
+          difficulty === 'ALL' &&
+          collection.title.toLowerCase().includes(query)) ||
+        (collection.items || []).some((item) => matches(collectionGuide(item))),
+  );
+  const guideToCollection = useMemo(() => {
+    const map = new Map<string, string>();
+    ownedCollections.forEach((collection) =>
+      (collection.items || []).forEach((item) =>
+        map.set(item.matchupId, collection.id),
+      ),
+    );
+    return map;
+  }, [collections]);
+  const guideById = useMemo(
+    () => new Map(guides.map((guide) => [guide.id, guide])),
+    [guides],
+  );
 
-    setIsLoadingCollections(true);
+  const moveGuide = async (
+    guideId: string,
+    collectionId: string,
+  ): Promise<boolean> => {
+    if (busy) return false;
+    if (guideToCollection.get(guideId) === collectionId) return true;
+    return run(
+      () =>
+        apiRequest(`/api/matchup-collections/${collectionId}/items`, 'POST', {
+          matchupId: guideId,
+        }),
+      t('matchups.addedToCollection'),
+    );
+  };
+
+  const groupGuides = async (
+    sourceId: string,
+    targetId: string,
+    title?: string,
+  ) => {
+    if (
+      busy ||
+      sourceId === targetId ||
+      !guides.some((guide) => guide.id === sourceId) ||
+      !guides.some((guide) => guide.id === targetId)
+    )
+      return;
+    setBusy(true);
     try {
-      const response = await fetch(`${API_URL}/api/matchup-collections?limit=100`, {
-        headers: getAuthHeader() as Record<string, string>,
+      const data = await apiRequest('/api/matchup-collections/group', 'POST', {
+        matchupIds: [targetId, sourceId],
+        title,
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch collections');
-      }
-
-      const data = await response.json();
-      setCollections(data.collections || []);
+      await refresh();
+      setCollapsed((previous) => {
+        const next = new Set(previous);
+        next.delete(data.collection.id);
+        return next;
+      });
+      setOrganizeGuide(null);
+      showToast(t('matchups.collectionCreated'), 'success');
     } catch (error) {
-      console.error('Error fetching matchup collections:', error);
-      showToast(t('common.error'), 'error');
+      showToast(
+        error instanceof Error ? error.message : t('common.error'),
+        'error',
+      );
     } finally {
-      setIsLoadingCollections(false);
+      setBusy(false);
     }
   };
-  
-  // Initial fetch
-  useEffect(() => {
-    fetchMatchups(true);
-    fetchCollections();
-  }, [user]);
-  
-  // Refetch when filters change
-  useEffect(() => {
-    if (!isLoading) {
-      fetchMatchups(true);
-    }
-  }, [searchTerm, roleFilter, difficultyFilter]);
-  
-  // Handle delete
-  const handleDelete = async (matchupId: string) => {
-    const confirmed = await confirm({
-      title: t('matchups.delete'),
-      message: t('matchups.confirmDelete'),
-      confirmText: t('common.delete'),
+
+  const handleDropOnCard = (sourceId: string, targetId: string) => {
+    const destination = guideToCollection.get(targetId);
+    if (destination) void moveGuide(sourceId, destination);
+    else void groupGuides(sourceId, targetId);
+  };
+
+  const openOrganize = (guide: MatchupGuideSummary) => {
+    setOrganizeGuide(guide);
+    setOrganizeDestination(ownedCollections[0]?.id || 'new');
+    setOrganizePartner(
+      guides.find((candidate) => candidate.id !== guide.id)?.id || '',
+    );
+    setOrganizeTitle('');
+  };
+
+  const deleteGuide = async (guide: MatchupGuideSummary) => {
+    const approved = await confirm({
+      title: guide.isOwned
+        ? t('matchups.delete')
+        : t('matchups.removeFromLibrary'),
+      message: guide.isOwned
+        ? t('matchups.confirmDelete')
+        : t('matchups.confirmRemoveSaved'),
+      confirmText: guide.isOwned
+        ? t('common.delete')
+        : t('matchups.removeFromLibrary'),
       cancelText: t('common.cancel'),
     });
-    
-    if (!confirmed) return;
-    
-    try {
-      const response = await fetch(`${API_URL}/api/matchups/${matchupId}`, {
-        method: 'DELETE',
-        headers: getAuthHeader() as Record<string, string>,
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete matchup');
-      }
-      
-      // Remove from local state
-      setMatchups(prev => prev.filter(m => m.id !== matchupId));
-      showToast(t('matchups.deleted'), 'success');
-    } catch (error) {
-      console.error('Error deleting matchup:', error);
-      showToast(t('common.error'), 'error');
-    }
-  };
-  
-  // Handle remove (for saved matchups)
-  const handleRemove = async (matchupId: string) => {
-    try {
-      const response = await fetch(`${API_URL}/api/matchups/${matchupId}/saved`, {
-        method: 'DELETE',
-        headers: getAuthHeader() as Record<string, string>,
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to remove matchup from library');
-      }
-      
-      // Remove from local state
-      setMatchups(prev => prev.filter(m => m.id !== matchupId));
-      showToast(t('matchups.removedFromLibrary'), 'success');
-    } catch (error) {
-      console.error('Error removing matchup:', error);
-      showToast(t('common.error'), 'error');
-    }
-  };
-  
-  // Handle edit
-  const handleEdit = (matchupId: string) => {
-    router.push(`/matchups/create?id=${matchupId}`);
+    if (approved)
+      await run(() =>
+        apiRequest(
+          `/api/matchups/${guide.id}${guide.isOwned ? '' : '/saved'}`,
+          'DELETE',
+        ),
+      );
   };
 
-  const handleCreateCollection = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!collectionChampion || !collectionTitle.trim()) {
-      showToast(t('matchups.fieldsRequired'), 'error');
-      return;
-    }
-
-    setIsCreatingCollection(true);
-
-    try {
-      const response = await fetch(`${API_URL}/api/matchup-collections`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader(),
-        } as Record<string, string>,
-        body: JSON.stringify({
-          champion: collectionChampion,
-          role: collectionRole || undefined,
-          title: collectionTitle.trim(),
-          description: collectionDescription.trim() || undefined,
-          isPublic: collectionIsPublic,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create collection');
-      }
-
-      const data = await response.json();
-      setCollections(prev => [data.collection, ...prev]);
-      setCollectionChampion('');
-      setCollectionRole('');
-      setCollectionTitle('');
-      setCollectionDescription('');
-      setCollectionIsPublic(false);
-      setShowCollectionForm(false);
-      showToast(t('matchups.collectionCreated'), 'success');
-    } catch (error: any) {
-      console.error('Error creating matchup collection:', error);
-      showToast(error.message || t('common.error'), 'error');
-    } finally {
-      setIsCreatingCollection(false);
-    }
+  const renderGuide = (
+    guide: MatchupGuideSummary,
+    item?: CollectionItem,
+    collection?: MatchupCollection,
+  ) => {
+    const libraryGuide = guideById.get(guide.id);
+    const displayGuide = { ...guide, ...libraryGuide };
+    return (
+      <MatchupGuideTile
+        key={guide.id}
+        guide={displayGuide}
+        sharedInCollection={Boolean(
+          collection?.isPublic && !displayGuide.isPublic,
+        )}
+        onOrganize={
+          libraryGuide && collection?.isOwned !== false
+            ? openOrganize
+            : undefined
+        }
+        onDropGuide={
+          collection?.isOwned === false ? undefined : handleDropOnCard
+        }
+        onEdit={
+          displayGuide.isOwned ||
+          displayGuide.authorId === user?.id ||
+          displayGuide.userId === user?.id
+            ? () => void router.push(`/matchups/create?id=${guide.id}`)
+            : undefined
+        }
+        onDelete={
+          displayGuide.isOwned
+            ? () => void deleteGuide(displayGuide)
+            : undefined
+        }
+        onRemoveSaved={
+          displayGuide.isSaved && !displayGuide.isOwned
+            ? () => void deleteGuide(displayGuide)
+            : undefined
+        }
+        onUngroup={
+          item && collection?.isOwned
+            ? () =>
+                void run(() =>
+                  apiRequest(
+                    `/api/matchup-collections/${collection.id}/items/${item.id}`,
+                    'DELETE',
+                  ),
+                )
+            : undefined
+        }
+      />
+    );
   };
 
-  const compatibleCollections = matchupForCollection
-    ? collections.filter(collection => collection.isOwned && collection.champion === matchupForCollection.myChampion)
-    : [];
+  if (authLoading || !user) return null;
 
-  const handleOpenAddToCollection = (matchup: Matchup) => {
-    const firstCompatibleCollection = collections.find(collection => (
-      collection.isOwned && collection.champion === matchup.myChampion
-    ));
-
-    setMatchupForCollection(matchup);
-    setSelectedCollectionId(firstCompatibleCollection?.id || '');
-  };
-
-  const handleAddToCollection = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!matchupForCollection || !selectedCollectionId) {
-      showToast(t('matchups.noCompatibleCollections'), 'error');
-      return;
-    }
-
-    setIsAddingToCollection(true);
-
-    try {
-      const response = await fetch(`${API_URL}/api/matchup-collections/${selectedCollectionId}/items`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader(),
-        } as Record<string, string>,
-        body: JSON.stringify({ matchupId: matchupForCollection.id }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add matchup to collection');
-      }
-
-      setCollections(prev => prev.map(collection => (
-        collection.id === selectedCollectionId
-          ? { ...collection, itemCount: collection.itemCount + 1 }
-          : collection
-      )));
-      setMatchupForCollection(null);
-      setSelectedCollectionId('');
-      showToast(t('matchups.addedToCollection'), 'success');
-    } catch (error: any) {
-      console.error('Error adding matchup to collection:', error);
-      showToast(error.message || t('common.error'), 'error');
-    } finally {
-      setIsAddingToCollection(false);
-    }
-  };
-  
-  if (!user) {
-    return null;
-  }
-  
   return (
     <>
       <SEOHead
-        title="My Matchups"
-        description="Create and manage your League of Legends matchup guides. Share your champion knowledge and strategies with the community."
+        title="Matchup Library"
+        description="Organize your saved League of Legends matchup guides into shareable collections."
         path="/matchups"
-        keywords="LoL matchup guide creator, create matchup guide, League matchup database, champion matchup knowledge"
       />
-      <div 
-        className="min-h-screen py-8 px-4"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(200,170,110,0.08) 0%, transparent 300px), var(--color-bg-primary)',
-        }}
-      >
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 
-              className="text-3xl font-bold mb-2"
-              style={{ color: 'var(--color-text-primary)' }}
-            >
-              {activeTab === 'collections' ? t('matchups.collections') : t('matchups.myLibrary')}
-            </h1>
-            <p style={{ color: 'var(--color-text-secondary)' }}>
-              {t('matchups.title')}
-            </p>
-          </div>
-          
-          <div className="flex gap-3">
-            {activeTab === 'collections' ? (
-              <MatchupButton
-                onClick={() => setShowCollectionForm(prev => !prev)}
-                variant="primary"
-                size="lg"
-              >
-                + {t('matchups.createCollection')}
-              </MatchupButton>
-            ) : (
-              <Link href="/matchups/create">
-                <MatchupButton
-                  variant="primary"
-                  size="lg"
-                >
-                  + {t('matchups.createNew')}
-                </MatchupButton>
-              </Link>
-            )}
-          </div>
-        </div>
-
-        <MatchupWorkspaceTabs activeTab={activeTab} />
-
-        {activeTab === 'library' ? (
-          <>
-        {matchupForCollection && (
-          <form
-            onSubmit={handleAddToCollection}
-            className="rounded-lg p-5 mb-6 flex flex-col md:flex-row md:items-end gap-4"
-            style={{
-              backgroundColor: 'var(--color-bg-secondary)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                {t('matchups.addToCollection')}
-              </label>
-              {compatibleCollections.length > 0 ? (
-                <select
-                  value={selectedCollectionId}
-                  onChange={(e) => setSelectedCollectionId(e.target.value)}
-                  className="w-full p-3 rounded-lg transition-colors"
-                  style={{
-                    backgroundColor: 'var(--color-bg-tertiary)',
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                  }}
-                >
-                  {compatibleCollections.map(collection => (
-                    <option key={collection.id} value={collection.id}>
-                      {collection.title}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  {t('matchups.noCompatibleCollections')}
-                </p>
-              )}
-            </div>
-
-            <div className="flex gap-3">
-              <MatchupButton
-                type="button"
-                onClick={() => setMatchupForCollection(null)}
-                variant="secondary"
-                size="lg"
-              >
-                {t('common.cancel')}
-              </MatchupButton>
-              <MatchupButton
-                type="submit"
-                disabled={isAddingToCollection || compatibleCollections.length === 0}
-                variant="primary"
-                size="lg"
-              >
-                {isAddingToCollection ? t('common.saving') : t('matchups.addToCollection')}
-              </MatchupButton>
-            </div>
-          </form>
-        )}
-        
-        {/* Filters */}
-        <div 
-          className="rounded-lg p-6 mb-6"
-          style={{
-            backgroundColor: 'var(--color-bg-secondary)',
-            border: '1px solid var(--color-border)',
-          }}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Search */}
+      <main className="matchup-library-page">
+        <div className="matchup-library-width">
+          <header className="matchup-page-header">
+            <h1>{t('matchups.title')}</h1>
+            <Link className="matchup-primary-button" href="/matchups/create">
+              <FiPlus aria-hidden="true" /> {t('matchups.createNew')}
+            </Link>
+          </header>
+          <MatchupWorkspaceTabs activeTab="library" />
+          <div className="matchup-library-intro">
             <div>
-              <label 
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {t('common.search')}
+              <h2>{t('matchups.libraryHeading')}</h2>
+              <p>{t('matchups.libraryDescription')}</p>
+            </div>
+            <button
+              type="button"
+              className="matchup-secondary-button"
+              onClick={() => setShowCreate((value) => !value)}
+            >
+              <FiPlus aria-hidden="true" /> {t('matchups.createCollection')}
+            </button>
+          </div>
+
+          {showCreate ? (
+            <form
+              className="matchup-inline-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!newCollectionTitle.trim()) return;
+                void run(
+                  () =>
+                    apiRequest('/api/matchup-collections', 'POST', {
+                      title: newCollectionTitle.trim(),
+                      isPublic: false,
+                    }),
+                  t('matchups.collectionCreated'),
+                ).then((ok) => {
+                  if (ok) {
+                    setNewCollectionTitle('');
+                    setShowCreate(false);
+                  }
+                });
+              }}
+            >
+              <label htmlFor="new-collection-title">
+                {t('matchups.collectionTitle')}
               </label>
               <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={t('matchups.searchPlaceholder')}
-                className="w-full p-3 rounded-lg transition-colors"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
+                id="new-collection-title"
+                value={newCollectionTitle}
+                maxLength={100}
+                onChange={(event) => setNewCollectionTitle(event.target.value)}
+                autoFocus
               />
-            </div>
-            
-            {/* Role filter */}
-            <div>
-              <label 
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--color-text-primary)' }}
+              <button
+                type="submit"
+                disabled={busy || !newCollectionTitle.trim()}
               >
-                {t('matchups.role')}
-              </label>
+                {t('matchups.createCollection')}
+              </button>
+              <button type="button" onClick={() => setShowCreate(false)}>
+                {t('common.cancel')}
+              </button>
+            </form>
+          ) : null}
+
+          <div className="matchup-library-filters">
+            <label className="matchup-search-filter">
+              <FiSearch aria-hidden="true" />
+              <span className="sr-only">{t('common.search')}</span>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t('matchups.searchLibrary')}
+              />
+            </label>
+            <label>
+              <span className="sr-only">{t('matchups.role')}</span>
               <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-                className="w-full p-3 rounded-lg transition-colors"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
+                value={role}
+                onChange={(event) => setRole(event.target.value)}
               >
-                {ROLES.map(role => (
-                  <option key={role} value={role}>
-                    {role}
+                {ROLES.map((value) => (
+                  <option key={value} value={value}>
+                    {value === 'ALL' ? t('matchups.allRoles') : value}
                   </option>
                 ))}
               </select>
-            </div>
-            
-            {/* Difficulty filter */}
-            <div>
-              <label 
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {t('matchups.difficulty')}
-              </label>
+            </label>
+            <label>
+              <span className="sr-only">{t('matchups.difficulty')}</span>
               <select
-                value={difficultyFilter}
-                onChange={(e) => setDifficultyFilter(e.target.value)}
-                className="w-full p-3 rounded-lg transition-colors"
-                style={{
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
+                value={difficulty}
+                onChange={(event) => setDifficulty(event.target.value)}
               >
-                {DIFFICULTIES.map(difficulty => (
-                  <option key={difficulty} value={difficulty}>
-                    {difficulty === 'ALL' ? 'ALL' : t(`matchups.difficulty.${difficulty.toLowerCase()}` as any)}
+                {DIFFICULTIES.map((value) => (
+                  <option key={value} value={value}>
+                    {value === 'ALL'
+                      ? t('matchups.allDifficulties')
+                      : t(`matchups.difficulty.${value.toLowerCase()}` as any)}
                   </option>
                 ))}
               </select>
+            </label>
+          </div>
+
+          {loading ? (
+            <div className="matchup-loading">
+              <LoadingSpinner />
             </div>
-          </div>
-        </div>
-        
-        {/* Matchups grid */}
-        {isLoading ? (
-          <div className="flex justify-center py-12">
-            <LoadingSpinner />
-          </div>
-        ) : matchups.length === 0 ? (
-          <div 
-            className="text-center py-16 rounded-lg"
-            style={{
-              backgroundColor: 'var(--color-bg-secondary)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <p 
-              className="text-xl mb-4"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              {t('matchups.noMatchups')}
-            </p>
-            <Link href="/matchups/create">
-              <MatchupButton
-                variant="primary"
-                size="lg"
-              >
-                {t('matchups.createNew')}
-              </MatchupButton>
-            </Link>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-              {matchups.map(matchup => (
-                <MatchupCard
-                  key={matchup.id}
-                  matchup={matchup}
-                  editable
-                  onClick={() => router.push(`/matchups/${matchup.id}`)}
-                  onEdit={() => handleEdit(matchup.id)}
-                  onDelete={() => handleDelete(matchup.id)}
-                  onRemove={() => handleRemove(matchup.id)}
-                  onAddToCollection={() => handleOpenAddToCollection(matchup)}
-                />
-              ))}
-            </div>
-            
-            {/* Load More button */}
-            {hasMore && (
-              <div className="flex justify-center">
-                <MatchupButton
-                  onClick={() => fetchMatchups(false)}
-                  disabled={isLoadingMore}
-                  variant="secondary"
-                  size="lg"
-                >
-                  {isLoadingMore ? <LoadingSpinner compact /> : t('common.loadMore')}
-                </MatchupButton>
-              </div>
-            )}
-          </>
-        )}
-          </>
-        ) : (
-          <>
-            {showCollectionForm && (
-              <form
-                onSubmit={handleCreateCollection}
-                className="rounded-lg p-6 mb-6 space-y-5"
-                style={{
-                  backgroundColor: 'var(--color-bg-secondary)',
-                  border: '1px solid var(--color-border)',
-                }}
-              >
-                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  {t('matchups.createCollectionDesc')}
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <ChampionAutocomplete
-                    value={collectionChampion}
-                    onChange={setCollectionChampion}
-                    label={`${t('matchups.collectionChampion')} *`}
-                    placeholder={t('matchups.searchPlaceholder')}
-                  />
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                      {t('matchups.role')}
-                    </label>
-                    <select
-                      value={collectionRole}
-                      onChange={(e) => setCollectionRole(e.target.value)}
-                      className="w-full p-3 rounded-lg transition-colors"
-                      style={{
-                        backgroundColor: 'var(--color-bg-tertiary)',
-                        border: '1px solid var(--color-border)',
-                        color: 'var(--color-text-primary)',
-                      }}
-                    >
-                      <option value="">ALL</option>
-                      {ROLES.filter(role => role !== 'ALL').map(role => (
-                        <option key={role} value={role}>
-                          {role}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    {t('matchups.collectionTitle')} *
-                  </label>
-                  <input
-                    value={collectionTitle}
-                    onChange={(e) => setCollectionTitle(e.target.value.slice(0, 100))}
-                    className="w-full p-3 rounded-lg transition-colors"
-                    style={{
-                      backgroundColor: 'var(--color-bg-tertiary)',
-                      border: '1px solid var(--color-border)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    {t('matchups.collectionDescription')}
-                  </label>
-                  <textarea
-                    value={collectionDescription}
-                    onChange={(e) => setCollectionDescription(e.target.value.slice(0, 500))}
-                    rows={3}
-                    className="w-full p-3 rounded-lg resize-none transition-colors"
-                    style={{
-                      backgroundColor: 'var(--color-bg-tertiary)',
-                      border: '1px solid var(--color-border)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                  />
-                </div>
-
-                <Checkbox
-                  checked={collectionIsPublic}
-                  onChange={(e) => setCollectionIsPublic(e.target.checked)}
-                  className="text-sm font-medium"
-                  style={{ color: 'var(--color-text-primary)' }}
-                >
-                  {t('matchups.collectionPublic')}
-                </Checkbox>
-
-                <div className="flex justify-end gap-3">
-                  <MatchupButton
-                    type="button"
-                    onClick={() => setShowCollectionForm(false)}
-                    variant="secondary"
-                  >
-                    {t('common.cancel')}
-                  </MatchupButton>
-                  <MatchupButton
-                    type="submit"
-                    disabled={isCreatingCollection}
-                    variant="primary"
-                  >
-                    {isCreatingCollection ? t('common.saving') : t('matchups.createCollection')}
-                  </MatchupButton>
-                </div>
-              </form>
-            )}
-
-            {isLoadingCollections ? (
-              <div className="flex justify-center py-12">
-                <LoadingSpinner />
-              </div>
-            ) : collections.length === 0 ? (
-              <div
-                className="text-center py-16 rounded-lg"
-                style={{
-                  backgroundColor: 'var(--color-bg-secondary)',
-                  border: '1px solid var(--color-border)',
-                }}
-              >
-                <p className="text-xl mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-                  {t('matchups.noCollections')}
-                </p>
-                <MatchupButton
-                  onClick={() => setShowCollectionForm(true)}
-                  variant="primary"
-                  size="lg"
-                >
-                  {t('matchups.createCollection')}
-                </MatchupButton>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {collections.map(collection => (
-                  <div
+          ) : (
+            <>
+              {visibleCollections.map((collection) => {
+                const isCollapsed = collapsed.has(collection.id);
+                const items = (collection.items || []).filter((item) =>
+                  matches(collectionGuide(item)),
+                );
+                return (
+                  <section
+                    className={`matchup-collection${
+                      dragOverCollection === collection.id
+                        ? ' is-drop-target'
+                        : ''
+                    }`}
                     key={collection.id}
-                    className="rounded-xl p-5 transition-all hover:translate-y-[-2px] hover:shadow-lg"
-                    style={{
-                      backgroundColor: 'var(--color-bg-secondary)',
-                      border: '1px solid var(--color-border)',
-                      boxShadow: '0 12px 32px rgba(0,0,0,0.12)',
+                    onDragOver={(event) => {
+                      if (
+                        !collection.isOwned ||
+                        !event.dataTransfer.types.includes(
+                          'application/x-rift-guide',
+                        )
+                      )
+                        return;
+                      event.preventDefault();
+                      setDragOverCollection(collection.id);
+                    }}
+                    onDragLeave={(event) => {
+                      if (
+                        !event.currentTarget.contains(
+                          event.relatedTarget as Node | null,
+                        )
+                      )
+                        setDragOverCollection(null);
+                    }}
+                    onDrop={(event) => {
+                      if (!collection.isOwned) return;
+                      event.preventDefault();
+                      setDragOverCollection(null);
+                      const id = event.dataTransfer.getData(
+                        'application/x-rift-guide',
+                      );
+                      if (id) void moveGuide(id, collection.id);
                     }}
                   >
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                      <div>
-                        <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                          {collection.title}
-                        </h2>
-                        <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                          {collection.champion}{collection.role ? ` - ${collection.role}` : ''}
-                        </p>
+                    <div className="matchup-collection-header">
+                      <button
+                        type="button"
+                        className="matchup-collection-toggle"
+                        aria-expanded={!isCollapsed}
+                        onClick={() =>
+                          setCollapsed((previous) => {
+                            const next = new Set(previous);
+                            if (next.has(collection.id))
+                              next.delete(collection.id);
+                            else next.add(collection.id);
+                            return next;
+                          })
+                        }
+                      >
+                        {isCollapsed ? (
+                          <FiChevronRight aria-hidden="true" />
+                        ) : (
+                          <FiChevronDown aria-hidden="true" />
+                        )}
+                        <FiFolder aria-hidden="true" />
+                        <strong>{collection.title}</strong>
+                        <span>
+                          {t('matchups.collectionItemCount', {
+                            count: collection.itemCount,
+                          })}
+                        </span>
+                        <span>
+                          {collection.isPublic
+                            ? t('matchups.public')
+                            : t('matchups.private')}
+                        </span>
+                      </button>
+                      <div className="matchup-collection-tools">
+                        {collection.isOwned ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void run(
+                                  () =>
+                                    apiRequest(
+                                      `/api/matchup-collections/${collection.id}`,
+                                      'PUT',
+                                      { isPublic: !collection.isPublic },
+                                    ),
+                                  !collection.isPublic
+                                    ? t('matchups.collectionShared')
+                                    : t('matchups.collectionPrivate'),
+                                )
+                              }
+                            >
+                              {collection.isPublic
+                                ? t('matchups.makePrivate')
+                                : t('matchups.shareCollection')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingId(collection.id);
+                                setEditingTitle(collection.title);
+                              }}
+                            >
+                              {t('matchups.rename')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void confirm({
+                                  title: t('matchups.deleteCollection'),
+                                  message: t(
+                                    'matchups.confirmDeleteCollection',
+                                  ),
+                                  confirmText: t('common.delete'),
+                                  cancelText: t('common.cancel'),
+                                }).then((approved) => {
+                                  if (approved)
+                                    void run(() =>
+                                      apiRequest(
+                                        `/api/matchup-collections/${collection.id}`,
+                                        'DELETE',
+                                      ),
+                                    );
+                                })
+                              }
+                            >
+                              {t('matchups.delete')}
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void run(() =>
+                                apiRequest(
+                                  `/api/matchup-collections/${collection.id}/saved`,
+                                  'DELETE',
+                                ),
+                              )
+                            }
+                          >
+                            {t('matchups.removeFromLibrary')}
+                          </button>
+                        )}
+                        {collection.isPublic ? (
+                          <Link href={`/matchups/collections/${collection.id}`}>
+                            <FiShare2 aria-hidden="true" />{' '}
+                            {t('matchups.viewShareLink')}
+                          </Link>
+                        ) : null}
                       </div>
-                      <span
-                        className="text-xs px-2 py-1 rounded"
-                        style={{
-                          backgroundColor: collection.isPublic ? 'var(--color-accent-success-bg)' : 'var(--color-bg-tertiary)',
-                          color: collection.isPublic ? 'var(--color-success)' : 'var(--color-text-muted)',
+                    </div>
+                    {editingId === collection.id ? (
+                      <form
+                        className="matchup-inline-form"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          if (!editingTitle.trim()) return;
+                          void run(() =>
+                            apiRequest(
+                              `/api/matchup-collections/${collection.id}`,
+                              'PUT',
+                              { title: editingTitle.trim() },
+                            ),
+                          ).then((ok) => {
+                            if (ok) setEditingId(null);
+                          });
                         }}
                       >
-                        {collection.isPublic ? t('matchups.public') : t('matchups.private')}
-                      </span>
-                    </div>
+                        <label htmlFor={`rename-${collection.id}`}>
+                          {t('matchups.collectionTitle')}
+                        </label>
+                        <input
+                          id={`rename-${collection.id}`}
+                          value={editingTitle}
+                          maxLength={100}
+                          onChange={(event) =>
+                            setEditingTitle(event.target.value)
+                          }
+                          autoFocus
+                        />
+                        <button
+                          type="submit"
+                          disabled={busy || !editingTitle.trim()}
+                        >
+                          {t('common.save')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingId(null)}
+                        >
+                          {t('common.cancel')}
+                        </button>
+                      </form>
+                    ) : null}
+                    {!isCollapsed ? (
+                      <div className="matchup-collection-body">
+                        {collection.description ? (
+                          <p>{collection.description}</p>
+                        ) : null}
+                        {items.length ? (
+                          <div className="matchup-guide-grid">
+                            {items.map((item) =>
+                              renderGuide(
+                                collectionGuide(item),
+                                item,
+                                collection,
+                              ),
+                            )}
+                          </div>
+                        ) : (
+                          <p className="matchup-empty-collection">
+                            {collection.isOwned
+                              ? t('matchups.dropIntoCollection')
+                              : t('matchups.noMatchups')}
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
+                  </section>
+                );
+              })}
 
-                    {collection.description && (
-                      <p className="text-sm mb-4 line-clamp-3" style={{ color: 'var(--color-text-secondary)' }}>
-                        {collection.description}
-                      </p>
-                    )}
-
-                    <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
-                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                        {t('matchups.collectionItemCount').replace('{count}', String(collection.itemCount))}
-                      </span>
-                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                        {collection.isOwned ? t('common.you') : collection.authorUsername}
-                      </span>
-                    </div>
+              <section className="matchup-ungrouped">
+                <div className="matchup-section-heading">
+                  <h2>{t('matchups.ungrouped')}</h2>
+                  <span>
+                    {t('matchups.collectionItemCount', {
+                      count: ungrouped.length,
+                    })}
+                  </span>
+                </div>
+                {ungrouped.length ? (
+                  <div className="matchup-guide-grid">
+                    {ungrouped.map((guide) => renderGuide(guide))}
                   </div>
+                ) : (
+                  <div className="matchup-empty-collection">
+                    {guides.length ? (
+                      t('matchups.noUngrouped')
+                    ) : (
+                      <>
+                        <p>{t('matchups.noMatchups')}</p>
+                        <Link href="/matchups/marketplace">
+                          {t('matchups.discover')}
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+        </div>
+      </main>
+
+      {organizeGuide ? (
+        <div
+          className="matchup-dialog-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setOrganizeGuide(null);
+          }}
+        >
+          <form
+            className="matchup-organize-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="organize-title"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (organizeDestination === 'new') {
+                if (organizePartner)
+                  void groupGuides(
+                    organizeGuide.id,
+                    organizePartner,
+                    organizeTitle.trim(),
+                  );
+              } else {
+                void moveGuide(organizeGuide.id, organizeDestination).then(
+                  (ok) => {
+                    if (ok) setOrganizeGuide(null);
+                  },
+                );
+              }
+            }}
+          >
+            <h2 id="organize-title">
+              {t('matchups.organize')} · {organizeGuide.myChampion} vs{' '}
+              {organizeGuide.enemyChampion}
+            </h2>
+            <p>{t('matchups.organizeHint')}</p>
+            <label>
+              {t('matchups.destination')}
+              <select
+                value={organizeDestination}
+                onChange={(event) => setOrganizeDestination(event.target.value)}
+                autoFocus
+              >
+                <option value="new">{t('matchups.newWithGuide')}</option>
+                {ownedCollections.map((collection) => (
+                  <option key={collection.id} value={collection.id}>
+                    {collection.title}
+                  </option>
                 ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-      </div>
+              </select>
+            </label>
+            {organizeDestination === 'new' ? (
+              <>
+                <label>
+                  {t('matchups.secondGuide')}
+                  <select
+                    value={organizePartner}
+                    onChange={(event) => setOrganizePartner(event.target.value)}
+                  >
+                    {guides
+                      .filter((guide) => guide.id !== organizeGuide.id)
+                      .map((guide) => (
+                        <option key={guide.id} value={guide.id}>
+                          {guide.myChampion} vs {guide.enemyChampion}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label>
+                  {t('matchups.collectionTitle')}
+                  <input
+                    value={organizeTitle}
+                    onChange={(event) => setOrganizeTitle(event.target.value)}
+                    maxLength={100}
+                    placeholder={t('matchups.optionalName')}
+                  />
+                </label>
+              </>
+            ) : null}
+            <div className="matchup-dialog-actions">
+              <button type="button" onClick={() => setOrganizeGuide(null)}>
+                {t('common.cancel')}
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  busy || (organizeDestination === 'new' && !organizePartner)
+                }
+              >
+                {t('common.save')}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </>
   );
-};
-
-export default MatchupsPage;
+}
