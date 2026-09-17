@@ -1,6 +1,19 @@
 .essence-play-page .essence-main {
   padding-top: 24px;
 }
+/* Game boards retain dark stage artwork across themes. */
+.essence-shopkeeper,
+.archive-investigation,
+.sound-console {
+  --ep-bg: #101419;
+  --ep-surface: #191e24;
+  --ep-raised: #252c34;
+  --ep-text: #e9e4d9;
+  --ep-muted: #a0a6ad;
+  --ep-line: #444b53;
+  --ep-gold: #c6a66a;
+  --ep-on-accent: #161a1d;
+}
 .essence-play-page .essence-heading {
   margin-bottom: 20px;
 }
@@ -114,6 +127,7 @@
 }
 .shop-counter > .essence-item-price-card h2 {
   font-size: 24px;
+  color: var(--ep-text);
 }
 .price-tier {
   text-transform: uppercase;

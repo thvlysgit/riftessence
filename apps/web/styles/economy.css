@@ -1,17 +1,37 @@
 .essence-page {
-  --ep-bg: #101419;
-  --ep-surface: #191e24;
-  --ep-text: #e9e4d9;
-  --ep-muted: #a0a6ad;
-  --ep-line: #30363d;
-  --ep-gold: #c6a66a;
-  --ep-green: #8bbfa5;
+  --ep-bg: var(--color-bg-primary);
+  --ep-surface: var(--color-bg-secondary);
+  --ep-raised: var(--color-bg-tertiary);
+  --ep-text: var(--color-text-primary);
+  --ep-muted: var(--color-text-secondary);
+  --ep-line: var(--color-border);
+  --ep-gold: var(--color-accent-1);
+  --ep-green: var(--color-success);
+  --ep-error: var(--color-error);
+  --ep-on-accent: var(--color-bg-primary);
   background: var(--ep-bg);
   color: var(--ep-text);
   min-height: 75vh;
   font-family: 'Segoe UI', Arial, sans-serif;
   font-size: 15px;
   line-height: 1.6;
+}
+/* Theme ink stays legible on the light palettes while the economy pages
+   continue using the site's own surface and border tokens. */
+[data-theme='arcane-pastel'] .essence-page {
+  --ep-gold: #76539c;
+  --ep-on-accent: #ffffff;
+  --ep-green: #267455;
+  --ep-error: #b82f60;
+}
+[data-theme='radiant-light'] .essence-page {
+  --ep-gold: #2458d3;
+  --ep-on-accent: #ffffff;
+  --ep-green: #08764f;
+  --ep-error: #b72c3b;
+}
+[data-theme='infernal-ember'] .essence-page {
+  --ep-gold: #ff7540;
 }
 .essence-width {
   width: min(1120px, calc(100% - 64px));
@@ -108,7 +128,7 @@
   border: 1px solid var(--ep-gold);
   border-radius: 4px;
   background: var(--ep-gold);
-  color: #161a1d;
+  color: var(--ep-on-accent);
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
@@ -116,14 +136,14 @@
   transition: background 0.15s, border-color 0.15s;
 }
 .essence-button:hover {
-  background: #dbc28f;
+  background: color-mix(in srgb, var(--ep-gold) 84%, var(--ep-text));
 }
 .essence-button.essence-secondary {
   background: transparent;
   color: var(--ep-gold);
 }
 .essence-button.essence-secondary:hover {
-  background: #25282a;
+  background: var(--ep-raised);
 }
 .essence-text-button {
   color: var(--ep-muted);
@@ -216,7 +236,7 @@
   color: var(--ep-green);
 }
 .essence-negative {
-  color: #dfa4a1;
+  color: var(--ep-error);
 }
 .essence-small {
   font-size: 13px;
@@ -286,8 +306,8 @@
   text-decoration: underline;
 }
 .essence-error {
-  border-color: #d99b93;
-  color: #ebbbb5;
+  border-color: var(--ep-error);
+  color: var(--ep-error);
 }
 .essence-success {
   border-color: var(--ep-green);
@@ -516,15 +536,15 @@
 .essence-page select.essence-input,
 .essence-page textarea.essence-input {
   width: 100%;
-  border: 1px solid #444b53;
+  border: 1px solid var(--ep-line);
   border-radius: 4px;
-  background: var(--ep-bg);
+  background: var(--ep-raised);
   color: var(--ep-text);
   padding: 11px 13px;
   min-height: 44px;
 }
 .essence-input::placeholder {
-  color: #90969f;
+  color: var(--color-text-muted);
 }
 .essence-page textarea.essence-input {
   min-height: 110px;
@@ -538,8 +558,8 @@
   max-height: 260px;
   overflow-y: auto;
   z-index: 20;
-  background: #1d232a;
-  border: 1px solid #444b53;
+  background: var(--ep-surface);
+  border: 1px solid var(--ep-line);
   border-radius: 4px;
   box-shadow: 0 15px 30px #0007;
 }
@@ -556,7 +576,7 @@
 }
 .essence-option[data-selected='true'],
 .essence-option:hover {
-  background: #303942;
+  background: var(--ep-raised);
   color: var(--ep-gold);
 }
 .essence-option img {
@@ -637,7 +657,7 @@
 .essence-attempt-dot {
   width: 10px;
   height: 10px;
-  border: 1px solid #747b82;
+  border: 1px solid var(--ep-muted);
   border-radius: 50%;
 }
 .essence-attempt-dot.used {
@@ -912,7 +932,7 @@
   min-height: 0;
 }
 .essence-bar.spent {
-  background: #6eaaa0;
+  background: var(--ep-green);
 }
 .essence-chart-labels {
   display: flex;
@@ -937,7 +957,7 @@
   margin-right: 7px;
 }
 .essence-chart-legend span:last-child::before {
-  background: #6eaaa0;
+  background: var(--ep-green);
 }
 .essence-form-grid {
   display: grid;

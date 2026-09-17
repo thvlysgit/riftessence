@@ -1,4 +1,12 @@
 .recipe-game {
+  --ep-bg: #101419;
+  --ep-surface: #191e24;
+  --ep-raised: #252c34;
+  --ep-text: #e9e4d9;
+  --ep-muted: #a0a6ad;
+  --ep-line: #444b53;
+  --ep-gold: #c6a66a;
+  --ep-on-accent: #161a1d;
   color: #e9e4d8;
   font-family: 'Segoe UI', Arial, sans-serif;
   background: #10171d;

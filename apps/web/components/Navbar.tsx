@@ -10,27 +10,23 @@ import {
   FiCheckCircle,
   FiChevronDown,
   FiDroplet,
-  FiFeather,
   FiFlag,
   FiGrid,
   FiHexagon,
   FiLogOut,
   FiMenu,
   FiMessageCircle,
-  FiMoon,
   FiSearch,
   FiSettings,
   FiShield,
-  FiSun,
   FiTarget,
   FiUser,
   FiUsers,
   FiX,
-  FiZap,
 } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme, type ThemeName } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getAuthHeader } from '../utils/auth';
 import { getProfileIconUrl } from '../utils/championData';
@@ -61,14 +57,85 @@ function isActiveHref(asPath: string, href: string) {
   return path === href || path.startsWith(`${href}/`);
 }
 
-const themeMarks = {
-  classic: FiHexagon,
-  'arcane-pastel': FiFeather,
-  nightshade: FiMoon,
-  'infernal-ember': FiZap,
-  'radiant-light': FiSun,
-  'ocean-depths': FiDroplet,
-};
+function ThemeMark({ theme }: { theme: ThemeName }) {
+  if (theme === 'ocean-depths') return <FiDroplet aria-hidden="true" />;
+  const mark = 'url(#rift-navbar-mark)';
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient
+          id="rift-navbar-mark"
+          x1="0%"
+          y1="0%"
+          x2="100%"
+          y2="100%"
+        >
+          <stop offset="0%" stopColor="var(--color-accent-1)" />
+          <stop offset="100%" stopColor="var(--color-accent-2)" />
+        </linearGradient>
+      </defs>
+      {theme === 'arcane-pastel' ? (
+        <>
+          <path
+            d="M12 2C12 2 8 4 8 8C8 10 9 11 10 11.5C9 12 8 13 8 15C8 17 10 19 12 22C14 19 16 17 16 15C16 13 15 12 14 11.5C15 11 16 10 16 8C16 4 12 2 12 2Z"
+            fill={mark}
+          />
+          <circle
+            cx="12"
+            cy="8"
+            r="1.5"
+            fill="var(--color-bg-primary)"
+            opacity="0.3"
+          />
+          <circle
+            cx="12"
+            cy="15"
+            r="1.5"
+            fill="var(--color-bg-primary)"
+            opacity="0.3"
+          />
+        </>
+      ) : theme === 'infernal-ember' ? (
+        <>
+          <path
+            d="M12 2C12 2 8 6 8 10C8 13 10 15 12 15C12 15 11 12 13 10C15 8 16 6 16 10C16 14 14 16 12 22C12 22 18 18 18 12C18 6 12 2 12 2Z"
+            fill={mark}
+          />
+          <path
+            d="M12 8C12 8 10 10 10 12C10 13.5 11 14.5 12 14.5C12 14.5 13 12 12 8Z"
+            fill="var(--color-bg-primary)"
+            opacity="0.25"
+          />
+        </>
+      ) : theme === 'nightshade' ? (
+        <>
+          <path
+            d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+            fill={mark}
+          />
+          <circle cx="18" cy="6" r="1" fill="var(--color-accent-1)" />
+          <circle cx="20" cy="9" r="0.8" fill="var(--color-accent-2)" />
+          <circle cx="16" cy="4" r="0.6" fill="var(--color-accent-1)" />
+        </>
+      ) : theme === 'radiant-light' ? (
+        <>
+          <circle cx="12" cy="12" r="4" fill={mark} />
+          <path
+            d="M12 2v3M12 19v3M22 12h-3M5 12H2M19.07 4.93l-2.12 2.12M7.05 16.95l-2.12 2.12M19.07 19.07l-2.12-2.12M7.05 7.05L4.93 4.93"
+            stroke={mark}
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </>
+      ) : (
+        <path
+          d="M6.2 3L3 6.2L10.8 14L8 16.8L4.8 13.6L2 16.4L7.6 22L10.4 19.2L7.2 16L10 13.2L17.8 21L21 17.8L13.2 10L16 7.2L19.2 10.4L22 7.6L16.4 2L13.6 4.8L16.8 8L14 10.8L6.2 3Z"
+          fill={mark}
+        />
+      )}
+    </svg>
+  );
+}
 
 function Destination({
   item,
@@ -123,7 +190,9 @@ export default function Navbar() {
   const [openPanel, setOpenPanel] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [searchStatus, setSearchStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [searchStatus, setSearchStatus] = useState<
+    'idle' | 'loading' | 'ready' | 'error'
+  >('idle');
   const [unreadCount, setUnreadCount] = useState(0);
   const [balance, setBalance] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -131,7 +200,6 @@ export default function Navbar() {
   const lastTrigger = useRef<HTMLButtonElement | null>(null);
   const mobileTrigger = useRef<HTMLButtonElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
-  const ThemeMark = themeMarks[currentTheme];
   const userId = user?.id;
   const closeMenus = () => {
     setOpenPanel(null);
@@ -234,16 +302,22 @@ export default function Navbar() {
       label: t('navbar.purse'),
       icon: FiHexagon,
       description:
-        balance === null ? undefined : `${balance.toLocaleString(fr ? 'fr-FR' : 'en-US')} PE`,
+        balance === null
+          ? undefined
+          : `${balance.toLocaleString(fr ? 'fr-FR' : 'en-US')} PE`,
     },
     {
       href: '/notifications',
       label: t('nav.notifications'),
       icon: FiBell,
-      description: unreadCount ? t('navbar.unreadCount', { count: unreadCount }) : undefined,
+      description: unreadCount
+        ? t('navbar.unreadCount', { count: unreadCount })
+        : undefined,
     },
     { href: '/settings', label: t('nav.settings'), icon: FiSettings },
-    ...(isAdmin ? [{ href: '/admin', label: t('navbar.adminDashboard'), icon: FiShield }] : []),
+    ...(isAdmin
+      ? [{ href: '/admin', label: t('navbar.adminDashboard'), icon: FiShield }]
+      : []),
   ];
 
   useEffect(() => {
@@ -294,7 +368,8 @@ export default function Navbar() {
           const data = await res.json();
           if (!controller.signal.aborted)
             setUnreadCount(
-              data.notifications?.filter((n: { read: boolean }) => !n.read).length || 0,
+              data.notifications?.filter((n: { read: boolean }) => !n.read)
+                .length || 0,
             );
         }
       } catch {
@@ -323,7 +398,8 @@ export default function Navbar() {
         if (res.ok) {
           const data = await res.json();
           const value = Number(data?.wallet?.prismaticEssence || 0);
-          if (!controller.signal.aborted) setBalance(Number.isFinite(value) ? value : 0);
+          if (!controller.signal.aborted)
+            setBalance(Number.isFinite(value) ? value : 0);
         }
       } catch {
         /* Keep the last known balance during temporary network failures. */
@@ -347,7 +423,9 @@ export default function Navbar() {
     const check = async () => {
       try {
         const res = await fetch(
-          `${API_URL}/api/user/check-admin?userId=${encodeURIComponent(userId)}`,
+          `${API_URL}/api/user/check-admin?userId=${encodeURIComponent(
+            userId,
+          )}`,
           {
             headers: getAuthHeader(),
             credentials: 'include',
@@ -362,7 +440,8 @@ export default function Navbar() {
       }
     };
     void check().then((admin) => {
-      if (admin && !controller.signal.aborted) interval = window.setInterval(check, 60_000);
+      if (admin && !controller.signal.aborted)
+        interval = window.setInterval(check, 60_000);
     });
     return () => {
       controller.abort();
@@ -409,7 +488,8 @@ export default function Navbar() {
           maximumFractionDigits: 1,
         }).format(balance);
   const onDisclosureBlur = (event: React.FocusEvent<HTMLDivElement>) => {
-    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpenPanel(null);
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+      setOpenPanel(null);
   };
 
   return (
@@ -428,14 +508,22 @@ export default function Navbar() {
         }
       }}
       onBlur={(event) => {
-        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node))
+        if (
+          event.relatedTarget &&
+          !event.currentTarget.contains(event.relatedTarget as Node)
+        )
           closeMenus();
       }}
     >
       <div className="rn-bar">
-        <Link className="rn-brand" href="/" onClick={closeMenus} aria-label="RiftEssence — Home">
+        <Link
+          className="rn-brand"
+          href="/"
+          onClick={closeMenus}
+          aria-label="RiftEssence — Home"
+        >
           <span className="rn-brand-mark">
-            <ThemeMark aria-hidden="true" />
+            <ThemeMark theme={currentTheme} />
           </span>
           <span className="rn-wordmark">
             Rift<span>Essence</span>
@@ -450,7 +538,9 @@ export default function Navbar() {
           <Link
             href="/feed"
             className="rn-tab"
-            aria-current={isActiveHref(router.asPath, '/feed') ? 'page' : undefined}
+            aria-current={
+              isActiveHref(router.asPath, '/feed') ? 'page' : undefined
+            }
             onClick={closeMenus}
           >
             <span>LFD</span>
@@ -459,7 +549,9 @@ export default function Navbar() {
           {groups.map((group) => {
             const active =
               (group.id === 'teams' && isActiveHref(router.asPath, '/teams')) ||
-              group.items.some((item) => isActiveHref(router.asPath, item.href));
+              group.items.some((item) =>
+                isActiveHref(router.asPath, item.href),
+              );
             const expanded = openPanel === group.id;
             return (
               <div
@@ -473,13 +565,18 @@ export default function Navbar() {
                   className={`rn-tab${active ? ' rn-active' : ''}`}
                   aria-expanded={expanded}
                   aria-controls={`rn-${group.id}`}
-                  onClick={(event) => togglePanel(group.id, event.currentTarget)}
+                  onClick={(event) =>
+                    togglePanel(group.id, event.currentTarget)
+                  }
                 >
                   <span>{group.label}</span>
                   <FiChevronDown className="rn-chevron" aria-hidden="true" />
                 </button>
                 {expanded ? (
-                  <div id={`rn-${group.id}`} className="rn-panel rn-group-panel">
+                  <div
+                    id={`rn-${group.id}`}
+                    className="rn-panel rn-group-panel"
+                  >
                     <p className="rn-panel-label">{group.label}</p>
                     {group.items.map((item) => (
                       <Destination
@@ -497,7 +594,11 @@ export default function Navbar() {
           })}
         </nav>
         <div className="rn-utilities">
-          <div className="rn-search" data-nav-disclosure onBlur={onDisclosureBlur}>
+          <div
+            className="rn-search"
+            data-nav-disclosure
+            onBlur={onDisclosureBlur}
+          >
             <button
               type="button"
               className="rn-icon-button"
@@ -555,7 +656,9 @@ export default function Navbar() {
                       <FiUser aria-hidden="true" />
                     )}
                     <span>{result.username}</span>
-                    {result.verified ? <FiCheckCircle aria-label={t('navbar.verified')} /> : null}
+                    {result.verified ? (
+                      <FiCheckCircle aria-label={t('navbar.verified')} />
+                    ) : null}
                     <FiArrowUpRight className="rn-arrow" aria-hidden="true" />
                   </Link>
                 ))}
@@ -568,7 +671,9 @@ export default function Navbar() {
                 href="/purse"
                 className="rn-icon-button rn-wallet"
                 onClick={closeMenus}
-                aria-label={`${t('navbar.purse')}${balance !== null ? `: ${balance} PE` : ''}`}
+                aria-label={`${t('navbar.purse')}${
+                  balance !== null ? `: ${balance} PE` : ''
+                }`}
                 title={t('navbar.purse')}
               >
                 <PrismaticEssenceIcon className="rn-pe-icon" />
@@ -580,7 +685,9 @@ export default function Navbar() {
                 href="/notifications"
                 className="rn-icon-button rn-notifications"
                 onClick={closeMenus}
-                aria-label={`${t('nav.notifications')}${unreadCount ? ` (${unreadCount})` : ''}`}
+                aria-label={`${t('nav.notifications')}${
+                  unreadCount ? ` (${unreadCount})` : ''
+                }`}
                 title={t('nav.notifications')}
               >
                 <FiBell aria-hidden="true" />
@@ -595,7 +702,11 @@ export default function Navbar() {
           {loading ? (
             <span className="rn-auth-placeholder" />
           ) : user ? (
-            <div className="rn-account" data-nav-disclosure onBlur={onDisclosureBlur}>
+            <div
+              className="rn-account"
+              data-nav-disclosure
+              onBlur={onDisclosureBlur}
+            >
               <button
                 type="button"
                 className="rn-account-trigger"
@@ -617,15 +728,21 @@ export default function Navbar() {
                     {user.username[0]?.toUpperCase()}
                   </span>
                 )}
+                <span className="rn-account-name">{user.username}</span>
                 <FiChevronDown className="rn-chevron" aria-hidden="true" />
               </button>
               {openPanel === 'account' ? (
-                <div id="rn-account-panel" className="rn-panel rn-account-panel">
+                <div
+                  id="rn-account-panel"
+                  className="rn-panel rn-account-panel"
+                >
                   <div className="rn-account-heading">
                     <span
                       className={`username-hover-base ${
                         user.activeHoverEffect
-                          ? USERNAME_HOVER_EFFECT_CLASSES[user.activeHoverEffect] || ''
+                          ? USERNAME_HOVER_EFFECT_CLASSES[
+                              user.activeHoverEffect
+                            ] || ''
                           : ''
                       }`}
                       style={{
@@ -633,7 +750,9 @@ export default function Navbar() {
                           ? USERNAME_FONT_FAMILIES[user.activeNameplateFont]
                           : undefined,
                         ...(user.activeUsernameDecoration
-                          ? USERNAME_DECORATION_STYLES[user.activeUsernameDecoration]
+                          ? USERNAME_DECORATION_STYLES[
+                              user.activeUsernameDecoration
+                            ]
                           : {}),
                       }}
                     >
@@ -673,7 +792,9 @@ export default function Navbar() {
             ref={mobileTrigger}
             type="button"
             className="rn-icon-button rn-mobile-toggle"
-            aria-label={mobileOpen ? t('navbar.closeMenu') : t('navbar.openMenu')}
+            aria-label={
+              mobileOpen ? t('navbar.closeMenu') : t('navbar.openMenu')
+            }
             aria-expanded={mobileOpen}
             aria-controls="rift-main-navigation"
             onClick={() => {
@@ -681,7 +802,11 @@ export default function Navbar() {
               setOpenPanel(null);
             }}
           >
-            {mobileOpen ? <FiX aria-hidden="true" /> : <FiMenu aria-hidden="true" />}
+            {mobileOpen ? (
+              <FiX aria-hidden="true" />
+            ) : (
+              <FiMenu aria-hidden="true" />
+            )}
           </button>
         </div>
       </div>
