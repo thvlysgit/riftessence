@@ -9,6 +9,7 @@ import '../styles/navigation.css';
 import '../styles/matchup-library.css';
 import '../styles/reports.css';
 import '../styles/playstyles.css';
+import '../styles/legal.css';
 import NextApp, { AppContext, AppInitialProps, AppProps } from 'next/app';
 import Head from 'next/head';
 import Script from 'next/script';
@@ -25,8 +26,8 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { LanguageProvider } from '../contexts/LanguageContext';
 import { ChatProvider } from '../contexts/ChatContext';
-import { trackNewVisitor } from '../utils/analytics';
-import { Analytics } from '@vercel/analytics/react';
+import { CookieConsentProvider } from '../contexts/CookieConsentContext';
+import LegalAcceptanceGate from '../components/LegalAcceptanceGate';
 import { OnboardingProvider } from '../contexts/OnboardingContext';
 import GlobalOnboardingModal from '../components/GlobalOnboardingModal';
 import { globalOgImageUrl } from '../utils/ogImage';
@@ -196,6 +197,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/terms': 'Terms of Service | RiftEssence',
   '/privacy': 'Privacy Policy | RiftEssence',
   '/cookies': 'Cookie Policy | RiftEssence',
+  '/legal': 'Legal Notice | RiftEssence',
   '/admin': 'Admin Dashboard | RiftEssence',
   '/admin/users': 'User Management | RiftEssence',
   '/admin/reports': 'Reports | RiftEssence',
@@ -239,7 +241,6 @@ export default function App({ Component, pageProps, router }: AppProps) {
   // Track new visitors on app load
   useEffect(() => {
     installApiFetchCredentials(API_URL);
-    trackNewVisitor();
   }, []);
 
   // Enforce IP blacklist redirects for unauthenticated browsing as well.
@@ -310,31 +311,34 @@ export default function App({ Component, pageProps, router }: AppProps) {
         <link rel="alternate icon" type="image/png" href="/favicon.png" />
         
       </Head>
-      <Script
+      {['/register', '/login', '/forgot-password', '/reset-password'].includes(router.pathname) ? <Script
         src="https://challenges.cloudflare.com/turnstile/v0/api.js"
         strategy="afterInteractive"
-      />
+      /> : null}
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <ThemedAppFrame>
             <LanguageProvider>
+              <CookieConsentProvider>
               <AuthProvider>
                  <OnboardingProvider>
                 <ChatProvider>
                   <GlobalUIProvider>
                     <Navbar />
                     <BugReportButton /> {/* TODO: TEMPORARY - Remove after bug reporting period */}
+                    <LegalAcceptanceGate>
                     <ChatWidget />
                      <GlobalOnboardingModal />
                     <RouteAccessGate>
                       <Component {...pageProps} />
                     </RouteAccessGate>
+                    </LegalAcceptanceGate>
                     <Footer />
-                    <Analytics />
                   </GlobalUIProvider>
                 </ChatProvider>
                  </OnboardingProvider>
               </AuthProvider>
+              </CookieConsentProvider>
             </LanguageProvider>
           </ThemedAppFrame>
         </ThemeProvider>

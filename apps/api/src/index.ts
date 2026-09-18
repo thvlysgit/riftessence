@@ -35,6 +35,8 @@ import economyAdminRoutes from './routes/economyAdmin';
 import inputControlRoutes from './routes/inputControl';
 import diagnosticsRoutes from './routes/diagnostics';
 import bugReportRoutes from './routes/bugReports';
+import legalRoutes from './routes/legal';
+import { enforceLegalAcceptance } from './services/legal';
 import bcrypt from 'bcryptjs';
 import { env } from './env';
 import { RegisterSchema, LoginSchema, SetPasswordSchema, validateRequest, TurnstileVerifySchema, RatingSchema, BroadcastMessageSchema } from './validation';
@@ -95,6 +97,7 @@ function isBypassBanCheckRoute(pathname: string): boolean {
 function isInputControlBypassRoute(pathname: string): boolean {
   if (!pathname) return true;
   return isBypassBanCheckRoute(pathname)
+    || pathname.startsWith('/api/legal/')
     || pathname.startsWith('/api/admin')
     || pathname.startsWith('/api/auth/discord')
     || pathname.startsWith('/api/auth/riot')
@@ -451,6 +454,8 @@ async function build() {
     }),
   });
 
+  server.addHook('preHandler', enforceLegalAcceptance);
+
   server.addHook('preHandler', async (request: any, reply: any) => {
     const method = String(request.method || '').toUpperCase();
     if (!['POST', 'PUT', 'PATCH'].includes(method)) {
@@ -550,6 +555,7 @@ async function build() {
   });
 
   // Register auth routes (login, register, set-password, refresh token)
+  await server.register(legalRoutes, { prefix: '/api' });
   await server.register(authRoutes, { prefix: '/api/auth' });
 
   // Register Discord OAuth routes

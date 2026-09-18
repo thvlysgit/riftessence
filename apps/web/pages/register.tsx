@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { setAuthToken } from '../utils/auth';
+import LegalAcceptanceFields, { emptyLegalAcceptance, legalFormComplete } from '../components/LegalAcceptanceFields';
 import { DiscordIcon } from '../src/components/DiscordBrand';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -12,6 +13,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const { user, refreshUser } = useAuth();
   const { t } = useLanguage();
+  const [legalAcceptance, setLegalAcceptance] = useState(emptyLegalAcceptance);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,6 +33,8 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!legalFormComplete(legalAcceptance)) { setError('Please review the legal documents and confirm your age before registering.'); return; }
 
     // Client-side validation
     if (password !== confirmPassword) {
@@ -71,7 +75,7 @@ export default function RegisterPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ username, email, password, turnstileToken }),
+        body: JSON.stringify({ username, email, password, turnstileToken, legalAcceptance }),
       });
 
       const data = await res.json();
@@ -255,6 +259,8 @@ export default function RegisterPage() {
               />
             </div>
 
+            <LegalAcceptanceFields value={legalAcceptance} onChange={setLegalAcceptance} />
+
             {/* Turnstile CAPTCHA Widget */}
             <div className="flex justify-center my-4">
               <div
@@ -267,7 +273,7 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !legalFormComplete(legalAcceptance)}
               className="w-full py-3 font-bold transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',

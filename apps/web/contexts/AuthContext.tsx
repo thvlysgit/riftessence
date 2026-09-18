@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/router';
+import type { LegalAcceptanceInput } from '../utils/legalPolicy';
 import { getAuthToken, setAuthToken, clearAllAuthState, getAuthHeader, isTokenExpiringSoon, isTokenExpired, refreshAuthToken, markCookieSessionPresent } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
@@ -26,7 +27,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (usernameOrEmail: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (username: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (username: string, email: string, password: string, legalAcceptance: LegalAcceptanceInput) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -225,13 +226,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (username: string, email: string, password: string) => {
+  const register = async (username: string, email: string, password: string, legalAcceptance: LegalAcceptanceInput) => {
     try {
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ username, email, password, legalAcceptance }),
       });
 
       const data = await res.json();

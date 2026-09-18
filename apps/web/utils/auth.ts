@@ -246,6 +246,9 @@ export function installApiFetchCredentials(apiUrl: string): void {
     return nativeFetch(input, {
       ...init,
       credentials: init?.credentials || 'include',
+    }).then(response => {
+      if (response.status === 428) window.dispatchEvent(new Event('legal-acceptance-required'));
+      return response;
     });
   };
 }

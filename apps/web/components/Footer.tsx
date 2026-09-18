@@ -4,10 +4,12 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useCookieConsent } from '../contexts/CookieConsentContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function Footer() {
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  const { openSettings } = useCookieConsent();
   const currentYear = new Date().getFullYear();
 
   return (
@@ -48,6 +50,8 @@ export default function Footer() {
               {t('footer.legal')}
             </h3>
             <ul className="space-y-2">
+              <li><button type="button" onClick={openSettings} className="text-sm underline" style={{ color: 'var(--color-text-muted)', background: 'none', border: 0, boxShadow: 'none', padding: 0 }}>{currentLanguage === 'fr' ? 'Choix des cookies' : 'Cookie settings'}</button></li>
+              <li><Link href="/legal" className="text-sm hover:underline" style={{ color: 'var(--color-text-muted)' }}>{currentLanguage === 'fr' ? 'Mentions légales' : 'Legal notice'}</Link></li>
               <li>
                 <Link
                   href="/privacy"

@@ -1,4 +1,6 @@
 import React, { useEffect, useRef } from 'react';
+import { useCookieConsent } from '../contexts/CookieConsentContext';
+import { COOKIE_CONSENT_VERSION, hasCookieConsent } from '../utils/cookieConsent';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -23,23 +25,25 @@ interface AdSpotProps {
 }
 
 export function AdSpot({ ad, feed, userId, onDismiss }: AdSpotProps) {
+  const { choices } = useCookieConsent();
   const containerRef = useRef<HTMLDivElement>(null);
   const impressionTrackedFor = useRef<string | null>(null);
 
   useEffect(() => {
     const element = containerRef.current;
-    if (!element || !('IntersectionObserver' in window)) return;
+    if (!choices.advertising || !element || !('IntersectionObserver' in window)) return;
     let visibleTimer: ReturnType<typeof setTimeout> | null = null;
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && entry.intersectionRatio >= 0.5 && impressionTrackedFor.current !== ad.id) {
         if (visibleTimer) return;
         visibleTimer = setTimeout(() => {
+          if (!hasCookieConsent('advertising')) return;
           impressionTrackedFor.current = ad.id;
           visibleTimer = null;
           fetch(`${API_URL}/api/ads/impression`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adId: ad.id, feed, userId }),
+            body: JSON.stringify({ adId: ad.id, feed, userId, measurementConsent: COOKIE_CONSENT_VERSION }),
           }).catch(err => console.error('Failed to track impression:', err));
         }, 1000);
       } else if (visibleTimer) {
@@ -49,14 +53,15 @@ export function AdSpot({ ad, feed, userId, onDismiss }: AdSpotProps) {
     }, { threshold: [0, 0.5, 1] });
     observer.observe(element);
     return () => { observer.disconnect(); if (visibleTimer) clearTimeout(visibleTimer); };
-  }, [ad.id, feed, userId]);
+  }, [ad.id, feed, userId, choices.advertising]);
 
   const handleClick = () => {
+    if (!hasCookieConsent('advertising')) return;
     // Track click
     fetch(`${API_URL}/api/ads/click`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adId: ad.id, feed, userId }),
+      body: JSON.stringify({ adId: ad.id, feed, userId, measurementConsent: COOKIE_CONSENT_VERSION }),
     }).catch(err => console.error('Failed to track click:', err));
   };
 
@@ -96,11 +101,12 @@ export function AdSpot({ ad, feed, userId, onDismiss }: AdSpotProps) {
           
           {/* Ad image */}
           <div className="w-full flex items-center justify-center">
-            <img
+            {choices.advertising ? <img
               src={ad.imageUrl}
               alt={ad.title}
               className="w-full h-auto"
-            />
+              referrerPolicy="no-referrer"
+            /> : <div className="h-12 w-full" />}
           </div>
         </div>
         

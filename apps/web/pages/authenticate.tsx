@@ -40,7 +40,7 @@ export default function AuthenticatePage(): JSX.Element {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('discord') === 'success' && !discordCallbackHandled.current) {
+    if ((params.get('discord') === 'success' || params.get('rso') === 'success') && !discordCallbackHandled.current) {
       discordCallbackHandled.current = true;
       markCookieSessionPresent();
       void refreshUser().then(() => router.replace(safeReturnUrl(params.get('returnUrl'))));
@@ -48,7 +48,7 @@ export default function AuthenticatePage(): JSX.Element {
   }, [refreshUser, router]);
 
   useEffect(() => {
-    if (!loading && !user && router.query.discord !== 'success') void router.replace(`/login?returnUrl=${encodeURIComponent(router.asPath)}`);
+    if (!loading && !user && router.query.discord !== 'success' && router.query.rso !== 'success') void router.replace(`/login?returnUrl=${encodeURIComponent(router.asPath)}`);
   }, [loading, router, user]);
 
   useEffect(() => {

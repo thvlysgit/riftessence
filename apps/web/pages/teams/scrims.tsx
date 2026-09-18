@@ -1,3 +1,4 @@
+import ExternalMediaConsent from '../../components/ExternalMediaConsent';
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import SEOHead from '@components/SEOHead';
@@ -228,7 +229,7 @@ function toYoutubeEmbedUrl(rawUrl: string): string | null {
       return null;
     }
 
-    return `https://www.youtube.com/embed/${videoId}?rel=0`;
+    return `https://www.youtube-nocookie.com/embed/${videoId}?rel=0`;
   } catch {
     return null;
   }
@@ -1112,7 +1113,7 @@ export default function TeamsScrimsPage() {
 
             {scrimsExplainerEmbedUrl ? (
               <div className="mt-4 rounded-xl overflow-hidden border" style={{ borderColor: 'var(--color-border)' }}>
-                <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
+                <ExternalMediaConsent><div className="relative w-full" style={{ paddingTop: '56.25%' }}>
                   <iframe
                     src={scrimsExplainerEmbedUrl}
                     title="Scrim Finder explainer"
@@ -1120,7 +1121,7 @@ export default function TeamsScrimsPage() {
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
                   />
-                </div>
+                </div></ExternalMediaConsent>
               </div>
             ) : (
               <div

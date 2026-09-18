@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../prisma';
+import { isValidLegalAcceptance, legalAcceptanceData, legalRequiredResponse } from '../services/legal';
 import bcrypt from 'bcryptjs';
 import {
   RegisterSchema,
@@ -161,6 +162,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
       }
 
       const { username, email, password } = validation.data;
+      if (!isValidLegalAcceptance(request.body?.legalAcceptance)) {
+        return reply.code(400).send(legalRequiredResponse);
+      }
 
       // Verify CAPTCHA token when Turnstile is configured.
       const turnstileToken = (request.body as any)?.turnstileToken;
@@ -222,6 +226,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           email,
           password: hashedPassword,
           lastKnownIp: clientIp,
+          ...legalAcceptanceData(request.body.legalAcceptance, 'password-registration'),
         },
       });
 

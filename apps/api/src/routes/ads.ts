@@ -2,6 +2,7 @@ import prisma from '../prisma';
 import { getUserIdFromRequest } from '../middleware/auth';
 import { logAdminAction } from '../utils/auditLog';
 import crypto from 'crypto';
+import { LEGAL_VERSION } from '../utils/legalPolicy';
 import { EconomyError, economyFailure, operationKey, postEntry, walletOperation, withWallet } from '../services/economy';
 
 const MIN_AD_PE = 500;
@@ -369,6 +370,7 @@ export default async function adsRoutes(fastify: any) {
   // POST /api/ads/impression - Track an ad impression
   fastify.post('/ads/impression', { config: { rateLimit: { max: 60, timeWindow: '15 minutes' } } }, async (request: any, reply: any) => {
     try {
+      if (request.body?.measurementConsent !== LEGAL_VERSION) return reply.send({ success: true, counted: false });
       const { adId, feed } = (request.body || {}) as { adId: string; feed: string };
       const userId = await getUserIdFromRequest(request as any, reply as any, false);
       if (typeof adId !== 'string' || !adId || !['duo', 'lft'].includes(feed)) {
@@ -406,6 +408,7 @@ export default async function adsRoutes(fastify: any) {
   // POST /api/ads/click - Track an ad click
   fastify.post('/ads/click', { config: { rateLimit: { max: 60, timeWindow: '15 minutes' } } }, async (request: any, reply: any) => {
     try {
+      if (request.body?.measurementConsent !== LEGAL_VERSION) return reply.send({ success: true, counted: false });
       const { adId, feed } = (request.body || {}) as { adId: string; feed: string };
       const userId = await getUserIdFromRequest(request as any, reply as any, false);
       

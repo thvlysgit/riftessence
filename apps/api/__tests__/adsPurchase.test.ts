@@ -67,6 +67,15 @@ describe('PE impression campaigns', () => {
     db.user.findMany.mockResolvedValue([]);
   });
 
+  test('views and clicks without optional measurement consent create no tracking records', async () => {
+    for (const path of ['impression', 'click']) {
+      const response = await app.inject({ method: 'POST', url: `/api/ads/${path}`, payload: { adId: 'ad-1', feed: 'duo' } });
+      expect(response.json()).toMatchObject({ counted: false });
+    }
+    expect(db.adImpression.create).not.toHaveBeenCalled();
+    expect(db.adClick.create).not.toHaveBeenCalled();
+  });
+
   test('requires at least 500 PE in 100 PE increments', async () => {
     for (const peAmount of [400, 550, -500]) {
       const response = await app.inject({
@@ -158,7 +167,7 @@ describe('PE impression campaigns', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/ads/impression',
-      payload: { adId: 'ad-1', feed: 'duo' },
+      payload: { adId: 'ad-1', feed: 'duo', measurementConsent: '2026-09-18' },
     });
     expect(response.json()).toEqual({ success: true, counted: true });
     expect(tx.ad.update).toHaveBeenCalledWith({
@@ -190,7 +199,7 @@ describe('PE impression campaigns', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/ads/impression',
-      payload: { adId: 'ad-1', feed: 'duo' },
+      payload: { adId: 'ad-1', feed: 'duo', measurementConsent: '2026-09-18' },
     });
     expect(response.json()).toEqual({ success: true, counted: false });
     expect(tx.adImpression.create).not.toHaveBeenCalled();

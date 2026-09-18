@@ -19,6 +19,8 @@ import { getChampionIconUrl, getProfileIconUrl } from '../utils/championData';
 import { DiscordIcon } from '../src/components/DiscordBrand';
 import LivingBadge from '../src/components/LivingBadge';
 import PlaystyleArtwork from '../components/PlaystyleArtwork';
+import ExternalMediaConsent, { isFirstPartyMedia } from '../components/ExternalMediaConsent';
+import { useCookieConsent } from '../contexts/CookieConsentContext';
 import NoAccess from '@components/NoAccess';
 import { USERNAME_DECORATION_STYLES, USERNAME_FONT_FAMILIES, USERNAME_HOVER_EFFECT_CLASSES } from '../utils/cosmeticStyles';
 
@@ -721,6 +723,7 @@ const uploadProfileMedia = async (kind: 'background' | 'song', file: File): Prom
 };
 
 export default function ProfilePage() {
+  const { choices: cookieChoices } = useCookieConsent();
   const router = useRouter();
   const routeUsername = typeof router.query?.username === 'string' ? router.query.username : null;
   const routeBioSlug = typeof router.query?.bioSlug === 'string'
@@ -1569,7 +1572,8 @@ export default function ProfilePage() {
   const usernameHoverEffectClass = user.activeHoverEffect
     ? USERNAME_HOVER_EFFECT_CLASSES[user.activeHoverEffect] || ''
     : '';
-  const profileBackgroundStyle = buildProfileBackgroundStyle(user.profileBackgroundType, user.profileBackgroundValue);
+  const allowBackground = user.profileBackgroundType !== 'IMAGE' || cookieChoices.media || isFirstPartyMedia(user.profileBackgroundValue || '');
+  const profileBackgroundStyle = buildProfileBackgroundStyle(allowBackground ? user.profileBackgroundType : 'DEFAULT', user.profileBackgroundValue);
   const profileTitle = isViewingOther ? `${user.username}'s Profile | RiftEssence` : 'My Profile | RiftEssence';
   const profileDescription = isViewingOther
     ? `View ${user.username}'s League of Legends profile on RiftEssence, including Riot account context, rank, roles, champion pool, and community feedback.`
@@ -2374,9 +2378,9 @@ export default function ProfilePage() {
                         <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
                           {user.profileSongTitle || 'Profile song'}
                         </p>
-                        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Best-effort autoplay with visitor controls</p>
+                        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Play this profile’s audio when you choose</p>
                       </div>
-                      <audio src={user.profileSongUrl} controls autoPlay preload="metadata" className="w-full" />
+                      <ExternalMediaConsent src={user.profileSongUrl}><audio src={user.profileSongUrl} controls preload="none" className="w-full" /></ExternalMediaConsent>
                     </div>
                   ) : (
                     <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No profile song selected.</p>

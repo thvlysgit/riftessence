@@ -57,7 +57,7 @@ function buildContentSecurityPolicy(nonce: string): string {
     "font-src 'self' data:",
     "media-src 'self' blob:",
     `connect-src ${connectSources.join(' ')}`,
-    "frame-src https://challenges.cloudflare.com https://www.youtube.com",
+    "frame-src https://challenges.cloudflare.com https://www.youtube.com https://www.youtube-nocookie.com",
     "form-action 'self'",
     "upgrade-insecure-requests",
   ].join('; ');

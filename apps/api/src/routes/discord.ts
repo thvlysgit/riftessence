@@ -169,8 +169,6 @@ export default async function discordRoutes(fastify: FastifyInstance) {
           return redirectDiscordError(reply, 'account_already_linked', 'This Discord account is already linked to another user');
         }
 
-        const isFirstLinkForUser = !existingLink;
-
         // Create or update Discord account link
         await prisma.discordAccount.upsert({
           where: { discordId: discordUser.id },
@@ -187,15 +185,8 @@ export default async function discordRoutes(fastify: FastifyInstance) {
           },
         });
 
-        if (isFirstLinkForUser) {
-          await prisma.user.update({
-            where: { id: stateData.userId },
-            data: { discordDmNotifications: true },
-          });
-        }
-
         await syncUserVerification(stateData.userId);
-        return reply.redirect(`${frontendUrl}/profile?discord=linked&promptDiscordDm=1`);
+        return reply.redirect(`${frontendUrl}/profile?discord=linked`);
       }
 
       // Register/login mode
@@ -214,7 +205,7 @@ export default async function discordRoutes(fastify: FastifyInstance) {
           data: {
             username,
             email: discordUser.email || null,
-            discordDmNotifications: true,
+            discordDmNotifications: false,
           },
         });
 
@@ -244,7 +235,7 @@ export default async function discordRoutes(fastify: FastifyInstance) {
       const returnUrl = typeof stateData.returnUrl === 'string' && stateData.returnUrl.startsWith('/')
         ? stateData.returnUrl
         : '/feed';
-      return reply.redirect(`${frontendUrl}/authenticate?discord=success&isNew=${isNew}&returnUrl=${encodeURIComponent(returnUrl)}&promptDiscordDm=1`);
+      return reply.redirect(`${frontendUrl}/authenticate?discord=success&isNew=${isNew}&returnUrl=${encodeURIComponent(returnUrl)}`);
     } catch (error: any) {
       request.log?.error(error);
       return redirectDiscordError(reply, 'callback_failed', 'Discord linking failed');

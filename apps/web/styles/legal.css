@@ -1,0 +1,48 @@
+.cookie-panel {
+  position: fixed; left: 20px; bottom: 20px; z-index: 11000;
+  width: min(650px, calc(100vw - 40px)); max-height: calc(100dvh - 40px); overflow-y: auto;
+  padding: 22px; border: 1px solid var(--border-card); border-radius: 12px;
+  background: var(--bg-card); color: var(--text-main); box-shadow: var(--shadow-lg);
+}
+.cookie-panel h2 { margin: 0 0 8px; font-size: 19px; font-weight: 650; }
+.cookie-panel p { font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
+.cookie-panel a, .legal-acceptance-fields a, .legal-page a { color: var(--accent-primary); text-decoration: underline; text-underline-offset: 3px; }
+.cookie-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.cookie-panel .cookie-actions button, .legal-review button, .external-media-consent button {
+  flex: 1; padding: 10px 14px; border: 1px solid var(--accent-primary-border); border-radius: 6px;
+  background: var(--bg-input); color: var(--text-main); font-weight: 600; font-size: 13px;
+  box-shadow: none; transform: none;
+}
+.cookie-panel .cookie-actions button:hover { background: var(--accent-primary-bg); transform: none; }
+.cookie-panel .cookie-panel-note { font-size: 11px; margin-top: 12px; }
+.cookie-categories { display: grid; gap: 16px; margin-top: 20px; }
+.cookie-categories label, .legal-acceptance-fields label { display: flex; align-items: flex-start; gap: 12px; font-size: 14px; line-height: 1.6; }
+.cookie-categories input, .legal-acceptance-fields input { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 3px; accent-color: var(--accent-primary); }
+.cookie-categories strong, .cookie-categories small { display: block; }
+.cookie-categories small { color: var(--text-secondary); font-size: 12px; }
+.legal-acceptance-fields { display: grid; gap: 16px; border: 1px solid var(--border-card); padding: 18px; border-radius: 8px; margin: 24px 0; color: var(--text-main); }
+.legal-acceptance-fields legend { padding: 0 6px; font-weight: 600; font-size: 14px; }
+.legal-acceptance-fields p { font-size: 12px; color: var(--text-secondary); }
+.legal-acceptance-fields .legal-age-field { display: grid; gap: 6px; }
+.legal-acceptance-fields select { padding: 8px; border: 1px solid var(--border-card); border-radius: 5px; color: var(--text-main); background: var(--bg-input); }
+.legal-review { max-width: 700px; margin: 48px auto; padding: 24px; color: var(--text-main); }
+.legal-review h1 { font-size: 28px; font-weight: 650; margin-bottom: 16px; }
+.legal-review > p { color: var(--text-secondary); line-height: 1.7; }
+.legal-review button:disabled { opacity: .5; cursor: not-allowed; }
+.legal-review .legal-decline { margin-top: 16px; }
+.legal-page { max-width: 900px; margin: 0 auto; padding: 48px 24px 80px; color: var(--text-main); }
+.legal-page header { margin-bottom: 32px; }
+.legal-page h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 700; margin: 16px 0 10px; }
+.legal-page h2 { font-size: 20px; font-weight: 650; margin: 30px 0 12px; color: var(--accent-primary); }
+.legal-page p, .legal-page li { line-height: 1.8; color: var(--text-secondary); font-size: 15px; margin-bottom: 12px; }
+.legal-page ul { list-style: disc; padding-left: 22px; }
+.legal-page nav { display: flex; gap: 18px; flex-wrap: wrap; margin: 18px 0; }
+.legal-page table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.legal-page th, .legal-page td { text-align: left; vertical-align: top; border: 1px solid var(--border-card); padding: 12px; }
+.legal-page .legal-table { overflow-x: auto; }
+.external-media-consent { display: grid; place-content: center; gap: 12px; padding: 24px; color: var(--text-secondary); background: var(--bg-card); font-size: 14px; }
+@media (max-width: 600px) {
+  .cookie-panel { left: 10px; bottom: 10px; width: calc(100vw - 20px); max-height: calc(100dvh - 20px); padding: 18px; }
+  .cookie-actions button { flex-basis: 42%; }
+  .legal-review { margin: 20px auto; padding: 18px; }
+}

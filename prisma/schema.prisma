@@ -122,7 +122,11 @@ model User {
   lastUsernameChange       DateTime?
   lastPostCreated          DateTime?
   onboardingCompleted      Boolean      @default(false) // Track if user completed onboarding
-  discordDmNotifications   Boolean      @default(true) // Default-on Discord DM forwarding; users can disable in settings
+  legalAcceptedVersion     String?
+  legalAcceptedAt          DateTime?
+  legalAgeGroup            String?
+  legalAcceptances          LegalAcceptance[]
+  discordDmNotifications   Boolean      @default(false) // Optional forwarding; new users opt in through settings.
   unlockedCosmetics        String[]     @default([]) // Cosmetic item keys unlocked through PE shop
   activeUsernameDecoration String?
   activeHoverEffect        String?
@@ -1118,6 +1122,22 @@ model Ad {
   @@index([isActive, startDate, endDate])
   @@index([createdBy])
   @@index([reviewStatus, createdAt])
+}
+
+model LegalAcceptance {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version               String
+  acceptedAt            DateTime @default(now())
+  locale                String
+  source                String
+  ageGroup              String
+  termsAccepted         Boolean
+  privacyAcknowledged   Boolean
+  eligibilityConfirmed  Boolean
+
+  @@unique([userId, version])
 }
 
 model AdPurchase {
