@@ -1,20 +1,23 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { EconomyError, EconomyLoading } from '../components/economy/EconomyLayout';
-import { economyApi } from '../utils/economy';
+import { economyApi, WalletSummary, walletChanged } from '../utils/economy';
 
 export default function AdvertisePage() {
   const { user, loading } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [peAmount, setPeAmount] = useState(500);
+  const operation = useRef<{ signature: string; key: string } | null>(null);
+  const wallet = useQuery(['advertising-wallet', user?.id], () => economyApi<WalletSummary>('/wallet/summary'), { enabled: Boolean(user) });
   const requests = useQuery(
     ['advertising', user?.id],
     () =>
-      economyApi<{ requests: { id: string; title: string; isActive: boolean; endDate: string }[] }>(
+      economyApi<{ requests: { id: string; title: string; isActive: boolean; endDate: string; reviewStatus: string; peSpent: number; impressionBudget: number | null }[] }>(
         '/ads/my-requests',
       ),
     { enabled: Boolean(user) },
@@ -24,15 +27,23 @@ export default function AdvertisePage() {
     if (busy) return;
     const form = event.currentTarget;
     const values = Object.fromEntries(new FormData(form));
+    const payload = { ...values, peAmount };
+    const signature = JSON.stringify(payload);
+    if (operation.current?.signature !== signature) operation.current = { signature, key: crypto.randomUUID() };
     setBusy(true);
     setError(null);
     try {
       await economyApi('/ads/request-slot', {
         method: 'POST',
-        body: JSON.stringify({ ...values, days: Number(values.days) }),
+        headers: { 'Idempotency-Key': operation.current.key },
+        body: signature,
       });
       setSubmitted(true);
       form.reset();
+      setPeAmount(500);
+      operation.current = null;
+      walletChanged();
+      await wallet.refetch();
       await requests.refetch();
     } catch (err) {
       setError(err);
@@ -50,14 +61,13 @@ export default function AdvertisePage() {
           <div>
             <h1>Reach your next teammate.</h1>
             <p>
-              Promote your community, team, or project on RiftEssence. Tell us what you have in mind
-              and our team will review your request.
+              Promote your community, team, or project on RiftEssence. Buy a fixed number of impressions with PE, then submit your creative for review.
             </p>
           </div>
         </header>
         <div className="essence-notice">
-          Advertising is handled separately from Prismatic Essence. Sending a request is free;
-          placement, availability and any terms are confirmed by the team before publication.
+          100 PE buys 3 counted impressions. The minimum campaign is 500 PE for 15 impressions. PE is charged when you submit and refunded in full if staff reject the ad. Approved campaigns run until their impression budget is used, unless paused.
+          <br />A view counts when at least half the ad is visible for one second; repeated views from the same connection within an hour are excluded.
         </div>
         {loading ? (
           <EconomyLoading />
@@ -75,13 +85,23 @@ export default function AdvertisePage() {
               <div className="essence-notice essence-success" role="status">
                 <strong>Request received.</strong>
                 <p>
-                  The team will review it. You’ll receive an account notification when a decision is
-                  made.
+                  The team will review it. You’ll receive an account notification when a decision is made. Your purchased impressions start only after approval.
                 </p>
               </div>
             ) : null}
             <form onSubmit={submit} className="essence-panel">
               <h2>Tell us about your project</h2>
+              <div className="essence-notice ad-pricing">
+                <label className="essence-field">
+                  Campaign budget (PE)
+                  <input className="essence-input" type="number" min={500} max={1000000} step={100} value={peAmount} onChange={(event) => setPeAmount(Number(event.target.value))} required />
+                </label>
+                <div>
+                  <strong>{Number.isSafeInteger(peAmount) && peAmount >= 500 && peAmount % 100 === 0 ? ((peAmount / 100) * 3).toLocaleString() : '—'} impressions</strong>
+                  <p className="essence-muted essence-small">3 impressions per 100 PE · minimum 500 PE · increments of 100 PE</p>
+                  <p className="essence-muted essence-small">Your balance: {wallet.data?.wallet.prismaticEssence.toLocaleString() ?? '…'} PE · <Link href="/purse">View wallet</Link></p>
+                </div>
+              </div>
               <div className="essence-form-grid">
                 <div className="essence-field full essence-notice">
                   <strong>Discord is the best way to arrange your ad.</strong>
@@ -170,14 +190,6 @@ export default function AdvertisePage() {
                     )}
                   </select>
                 </label>
-                <label className="essence-field">
-                  Requested duration
-                  <select className="essence-input" name="days" defaultValue="7">
-                    <option value="3">3 days</option>
-                    <option value="7">7 days</option>
-                    <option value="14">14 days</option>
-                  </select>
-                </label>
               </div>
               <label className="essence-field" style={{ marginTop: 20 }}>
                 Special requests (optional)
@@ -197,7 +209,7 @@ export default function AdvertisePage() {
                   {busy ? 'Sending…' : 'Send request'}
                 </button>
                 <span className="essence-muted essence-small">
-                  Up to three requests awaiting review.
+                  Up to three requests awaiting review. Rejected requests receive a full PE refund.
                 </span>
               </div>
             </form>
@@ -211,12 +223,10 @@ export default function AdvertisePage() {
                   <div className="essence-challenge" key={ad.id}>
                     <span className="essence-challenge-copy">{ad.title}</span>
                     <span className="essence-muted essence-small">
-                      {!ad.isActive
-                        ? 'Awaiting review'
-                        : new Date(ad.endDate).getTime() < Date.now()
-                        ? 'Ended'
-                        : 'Approved'}
+                      {ad.reviewStatus === 'PENDING' ? 'Awaiting review' : ad.reviewStatus === 'REJECTED' ? 'Rejected · refunded' : ad.isActive ? 'Running' : 'Completed or paused'}
+                      {ad.peSpent > 0 ? ` · ${ad.peSpent.toLocaleString()} PE / ${ad.impressionBudget} impressions` : ''}
                     </span>
+                    {ad.reviewStatus === 'APPROVED' ? <Link href={`/ads/dashboard/${encodeURIComponent(ad.id)}`}>View dashboard →</Link> : null}
                   </div>
                 ))
               ) : (
@@ -225,6 +235,7 @@ export default function AdvertisePage() {
                 </p>
               )}
             </section>
+            <Link href="/ads/dashboard" className="essence-button">Your ad dashboards →</Link>
           </>
         )}
       </main>

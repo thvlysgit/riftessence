@@ -369,7 +369,7 @@ export default async function walletRoutes(app: FastifyInstance) {
     reply
       .code(410)
       .send({
-        error: 'PE wagering and PE-funded advertising have retired. Visit Games or Advertise.',
+        error: 'This legacy route has retired. Visit Games or Advertise for current options.',
         gamesUrl: '/games',
         advertisingUrl: '/advertise',
       });

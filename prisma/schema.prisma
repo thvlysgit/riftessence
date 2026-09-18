@@ -424,6 +424,8 @@ enum WalletTransactionType {
   ADMIN_ADJUSTMENT
   GAME_REWARD
   LEGACY_CONVERSION
+  AD_PURCHASE
+  AD_REFUND
 }
 
 enum WalletQuestKey {
@@ -1091,7 +1093,7 @@ model Ad {
   targetMaxRank Rank? // Maximum rank to show ad to
   targetFeeds   String[] @default([]) // "duo", "lft" - empty = all feeds
 
-  // Time constraints
+  // Time constraints for legacy campaigns; paid campaigns stop at their impression budget.
   startDate DateTime
   endDate   DateTime
 
@@ -1101,7 +1103,11 @@ model Ad {
 
   // Admin tracking
   createdBy String // Admin userId who created the ad
-  requestCreditsSpent Int? // Null for legacy requests; new independent inquiries spend zero.
+  requestCreditsSpent Int? // Legacy ad-credit requests; paid campaigns use peSpent.
+  reviewStatus String @default("APPROVED") // PENDING, APPROVED, REJECTED
+  impressionBudget Int? // Null for legacy time-based campaigns
+  remainingImpressions Int?
+  peSpent Int @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1111,6 +1117,21 @@ model Ad {
 
   @@index([isActive, startDate, endDate])
   @@index([createdBy])
+  @@index([reviewStatus, createdAt])
+}
+
+model AdPurchase {
+  id String @id @default(cuid())
+  adId String
+  purchaserId String
+  peAmount Int
+  impressions Int
+  refundedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([adId, createdAt])
+  @@index([purchaserId, createdAt])
+  @@index([createdAt])
 }
 
 model AdImpression {

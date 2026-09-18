@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import {
   FiArrowUpRight,
   FiAward,
+  FiBarChart2,
   FiBell,
   FiBookOpen,
   FiCalendar,
@@ -317,6 +318,12 @@ export default function Navbar() {
           label: t('navbar.advertise'),
           description: t('navbar.advertiseHint'),
           icon: FiFlag,
+        },
+        {
+          href: '/ads/dashboard',
+          label: t('navbar.adDashboards'),
+          description: t('navbar.adDashboardsHint'),
+          icon: FiBarChart2,
         },
       ],
     },

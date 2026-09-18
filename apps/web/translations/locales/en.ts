@@ -902,6 +902,8 @@ export const en = {
     'navbar.arena': 'Arena',
     'navbar.comingSoon': 'Coming soon',
     'navbar.advertise': 'Advertise',
+    'navbar.adDashboards': 'Ad dashboards',
+    'navbar.adDashboardsHint': 'Follow your campaigns',
     'navbar.matchups': 'Matchups',
     'navbar.coaching': 'Coaching',
     'navbar.findTeam': 'Find a team or recruit players',

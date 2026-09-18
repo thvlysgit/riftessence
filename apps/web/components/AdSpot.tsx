@@ -23,18 +23,32 @@ interface AdSpotProps {
 }
 
 export function AdSpot({ ad, feed, userId, onDismiss }: AdSpotProps) {
-  const impressionTracked = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const impressionTrackedFor = useRef<string | null>(null);
 
   useEffect(() => {
-    // Track impression once when component mounts
-    if (!impressionTracked.current) {
-      impressionTracked.current = true;
-      fetch(`${API_URL}/api/ads/impression`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adId: ad.id, feed, userId }),
-      }).catch(err => console.error('Failed to track impression:', err));
-    }
+    const element = containerRef.current;
+    if (!element || !('IntersectionObserver' in window)) return;
+    let visibleTimer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.5 && impressionTrackedFor.current !== ad.id) {
+        if (visibleTimer) return;
+        visibleTimer = setTimeout(() => {
+          impressionTrackedFor.current = ad.id;
+          visibleTimer = null;
+          fetch(`${API_URL}/api/ads/impression`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adId: ad.id, feed, userId }),
+          }).catch(err => console.error('Failed to track impression:', err));
+        }, 1000);
+      } else if (visibleTimer) {
+        clearTimeout(visibleTimer);
+        visibleTimer = null;
+      }
+    }, { threshold: [0, 0.5, 1] });
+    observer.observe(element);
+    return () => { observer.disconnect(); if (visibleTimer) clearTimeout(visibleTimer); };
   }, [ad.id, feed, userId]);
 
   const handleClick = () => {
@@ -55,7 +69,7 @@ export function AdSpot({ ad, feed, userId, onDismiss }: AdSpotProps) {
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <a
         href={ad.targetUrl}
         target="_blank"

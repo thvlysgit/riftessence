@@ -903,6 +903,8 @@ export const fr = {
     'navbar.arena': 'Arène',
     'navbar.comingSoon': 'Bientôt',
     'navbar.advertise': 'Promouvoir',
+    'navbar.adDashboards': 'Tableaux de bord pubs',
+    'navbar.adDashboardsHint': 'Suivez vos campagnes',
     'navbar.matchups': 'Matchups',
     'navbar.coaching': 'Coaching',
     'navbar.findTeam': 'Trouver une équipe ou recruter',

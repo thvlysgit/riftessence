@@ -33,6 +33,9 @@ type Ad = {
   impressionCount: number;
   clickCount: number;
   ctr: string;
+  peSpent: number;
+  impressionBudget: number | null;
+  remainingImpressions: number | null;
 };
 
 type AdRequest = {
@@ -51,6 +54,8 @@ type AdRequest = {
   createdAt: string;
   requesterUsername?: string | null;
   requestedCredits?: number;
+  peSpent: number;
+  impressionBudget: number | null;
 };
 
 function getRequestedCredits(requestAd: AdRequest): number {
@@ -312,7 +317,7 @@ export default function AdsManagementPage() {
     const creditsToRefund = getRequestedCredits(requestAd);
     const ok = await confirm({
       title: 'Reject Ad Request',
-      message: creditsToRefund ? `Reject this request and refund ${creditsToRefund} legacy ad credit${creditsToRefund === 1 ? '' : 's'} to the requester?` : 'Reject this advertising inquiry? The requester will be notified. No PE or credits were charged.',
+      message: requestAd.peSpent > 0 ? `Reject this request and refund ${requestAd.peSpent.toLocaleString()} PE to the requester?` : creditsToRefund ? `Reject this request and refund ${creditsToRefund} legacy ad credit${creditsToRefund === 1 ? '' : 's'} to the requester?` : 'Reject this advertising inquiry? The requester will be notified.',
       confirmText: 'Reject',
     });
 
@@ -328,7 +333,7 @@ export default function AdsManagementPage() {
       if (res.ok) {
         const data = await res.json().catch(() => null);
         const refundedCredits = Number(data?.refundedCredits ?? creditsToRefund);
-        showToast(refundedCredits ? `Ad request rejected (${refundedCredits} legacy credits refunded)` : 'Advertising inquiry rejected', 'success');
+        showToast(data?.refundedPe ? `Ad request rejected (${data.refundedPe} PE refunded)` : refundedCredits ? `Ad request rejected (${refundedCredits} legacy credits refunded)` : 'Advertising inquiry rejected', 'success');
         loadRequests();
       } else {
         const data = await res.json().catch(() => null);
@@ -482,6 +487,7 @@ export default function AdsManagementPage() {
 
           {/* Create Ad Button */}
           <div className="mb-6">
+            <Link href="/admin/ads/analytics" className="inline-flex mr-3 px-6 py-3 rounded-lg font-medium" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}>Global ad analytics →</Link>
             <button
               onClick={() => setShowCreateModal(true)}
               className="px-6 py-3 rounded-lg font-medium transition-colors"
@@ -611,17 +617,19 @@ export default function AdsManagementPage() {
                             </span>
                           )}
                           <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
-                            {new Date(ad.startDate).toLocaleDateString()} - {new Date(ad.endDate).toLocaleDateString()}
+                            {ad.impressionBudget !== null ? `${ad.impressionBudget - (ad.remainingImpressions ?? 0)} / ${ad.impressionBudget} impressions · ${ad.peSpent} PE` : `${new Date(ad.startDate).toLocaleDateString()} - ${new Date(ad.endDate).toLocaleDateString()}`}
                           </span>
                         </div>
 
                         <div className="mt-4 flex gap-2">
+                          <Link href={`/ads/dashboard/${encodeURIComponent(ad.id)}`} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}>Dashboard</Link>
                           <button
                             onClick={() => handleToggleActive(ad)}
+                            disabled={!ad.isActive && ad.impressionBudget !== null && !ad.remainingImpressions}
                             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                             style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}
                           >
-                            {ad.isActive ? 'Deactivate' : 'Activate'}
+                            {ad.isActive ? 'Deactivate' : ad.impressionBudget !== null && !ad.remainingImpressions ? 'Budget complete' : 'Activate'}
                           </button>
                           <button
                             onClick={() => openEditModal(ad)}
@@ -630,13 +638,7 @@ export default function AdsManagementPage() {
                           >
                             Edit
                           </button>
-                          <button
-                            onClick={() => handleDeleteAd(ad.id)}
-                            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                            style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}
-                          >
-                            Delete
-                          </button>
+                          {!ad.peSpent ? <button onClick={() => handleDeleteAd(ad.id)} className="px-4 py-2 rounded-lg text-sm font-medium transition-colors" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}>Delete</button> : null}
                           <a
                             href={ad.targetUrl}
                             target="_blank"
@@ -699,10 +701,10 @@ export default function AdsManagementPage() {
                             Regions: {requestAd.targetRegions.length > 0 ? requestAd.targetRegions.join(', ') : 'all'}
                           </span>
                           <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}>
-                            Duration: {new Date(requestAd.startDate).toLocaleDateString()} - {new Date(requestAd.endDate).toLocaleDateString()}
+                            {requestAd.impressionBudget !== null ? `${requestAd.impressionBudget} impressions` : `Duration: ${new Date(requestAd.startDate).toLocaleDateString()} - ${new Date(requestAd.endDate).toLocaleDateString()}`}
                           </span>
                           <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'rgba(251,191,36,0.16)', color: '#fcd34d', border: '1px solid rgba(251,191,36,0.3)' }}>
-                            {getRequestedCredits(requestAd) ? `Legacy request: ${getRequestedCredits(requestAd)} credits` : 'Inquiry · no PE or credits charged'}
+                            {requestAd.peSpent > 0 ? `${requestAd.peSpent} PE paid · full refund if rejected` : getRequestedCredits(requestAd) ? `Legacy request: ${getRequestedCredits(requestAd)} credits` : 'Legacy inquiry'}
                           </span>
                         </div>
 

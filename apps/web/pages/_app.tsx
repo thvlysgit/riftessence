@@ -2,6 +2,7 @@ import React, { ReactNode, useEffect } from 'react';
 import '../styles/globals.css';
 import '../styles/cosmetic-fonts.css';
 import '../styles/economy.css';
+import '../styles/ads.css';
 import '../styles/game-play.css';
 import '../styles/recipe-rush.css';
 import '../styles/navigation.css';
@@ -98,6 +99,7 @@ function RouteAccessGate({ children }: { children: ReactNode }) {
     || pathname === '/settings'
     || pathname === '/notifications'
     || pathname === '/purse'
+    || pathname.startsWith('/ads/dashboard')
     || pathname.startsWith('/teams/dashboard');
   const isAdminUser = Boolean(user?.badges?.some((badge) => badge.key === 'admin'));
   const isBlocked = (!loading && isAdminRoute && !isAdminUser) || (!loading && requiresAccount && !user);
@@ -198,6 +200,8 @@ const ROUTE_TITLES: Record<string, string> = {
   '/admin/reports': 'Reports | RiftEssence',
   '/admin/badges': 'Badge Management | RiftEssence',
   '/admin/ads': 'Ad Management | RiftEssence',
+  '/admin/ads/analytics': 'Ad Analytics | RiftEssence',
+  '/ads/dashboard': 'Ad Dashboards | RiftEssence',
   '/admin/prismatic': 'Economy | RiftEssence',
   '/games': 'Daily Games | RiftEssence',
   '/advertise': 'Advertise | RiftEssence',
