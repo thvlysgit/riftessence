@@ -18,6 +18,7 @@ import { emptyJsonPostInit, getAuthToken, getUserIdFromToken, getAuthHeader } fr
 import { getChampionIconUrl, getProfileIconUrl } from '../utils/championData';
 import { DiscordIcon } from '../src/components/DiscordBrand';
 import LivingBadge from '../src/components/LivingBadge';
+import PlaystyleArtwork from '../components/PlaystyleArtwork';
 import NoAccess from '@components/NoAccess';
 import { USERNAME_DECORATION_STYLES, USERNAME_FONT_FAMILIES, USERNAME_HOVER_EFFECT_CLASSES } from '../utils/cosmeticStyles';
 
@@ -391,274 +392,13 @@ function getPlaystyleDescription(style: string): string {
   return PLAYSTYLE_DESCRIPTION_MAP[style] || style;
 }
 
-type PlaystyleTheme = {
-  icon: string;
-  baseBg: string;
-  baseBorder: string;
-  baseText: string;
-  selectedBg: string;
-  selectedBorder: string;
-  selectedText: string;
-  glow: string;
+const PLAYSTYLE_ACCENTS: Record<string, string> = {
+  'Controlled Chaos': '#e69557',
+  FUNDAMENTALS: '#689ce0',
+  CoinFlips: '#cba251',
+  Scaling: '#51b990',
+  Snowball: '#68b8c9',
 };
-
-const PLAYSTYLE_THEME_MAP: Record<string, PlaystyleTheme> = {
-  'Controlled Chaos': {
-    icon: '⚡',
-    baseBg: 'radial-gradient(circle at 16% 18%, rgba(251,146,60,0.26), rgba(220,38,38,0.18) 46%, rgba(120,53,15,0.24) 100%), repeating-linear-gradient(130deg, rgba(255,255,255,0.06) 0 8px, rgba(255,255,255,0) 8px 16px)',
-    baseBorder: 'rgba(249, 115, 22, 0.44)',
-    baseText: '#fdba74',
-    selectedBg: 'radial-gradient(circle at 16% 18%, rgba(251,146,60,0.48), rgba(220,38,38,0.36) 46%, rgba(120,53,15,0.46) 100%), repeating-linear-gradient(130deg, rgba(255,255,255,0.1) 0 8px, rgba(255,255,255,0) 8px 16px)',
-    selectedBorder: '#fb923c',
-    selectedText: '#ffedd5',
-    glow: 'rgba(249, 115, 22, 0.36)',
-  },
-  FUNDAMENTALS: {
-    icon: '🧭',
-    baseBg: 'linear-gradient(0deg, rgba(59,130,246,0.1), rgba(30,64,175,0.08)), repeating-linear-gradient(0deg, rgba(147,197,253,0.08) 0 1px, transparent 1px 10px), repeating-linear-gradient(90deg, rgba(147,197,253,0.08) 0 1px, transparent 1px 10px)',
-    baseBorder: 'rgba(59, 130, 246, 0.4)',
-    baseText: '#93c5fd',
-    selectedBg: 'linear-gradient(0deg, rgba(37,99,235,0.42), rgba(30,64,175,0.38)), repeating-linear-gradient(0deg, rgba(191,219,254,0.12) 0 1px, transparent 1px 10px), repeating-linear-gradient(90deg, rgba(191,219,254,0.12) 0 1px, transparent 1px 10px)',
-    selectedBorder: '#3b82f6',
-    selectedText: '#dbeafe',
-    glow: 'rgba(59, 130, 246, 0.3)',
-  },
-  CoinFlips: {
-    icon: '🪙',
-    baseBg: 'conic-gradient(from 210deg at 50% 50%, rgba(245,158,11,0.18), rgba(146,64,14,0.14), rgba(250,204,21,0.16), rgba(245,158,11,0.18))',
-    baseBorder: 'rgba(245, 158, 11, 0.4)',
-    baseText: '#fcd34d',
-    selectedBg: 'conic-gradient(from 210deg at 50% 50%, rgba(245,158,11,0.42), rgba(180,83,9,0.4), rgba(250,204,21,0.38), rgba(245,158,11,0.42))',
-    selectedBorder: '#f59e0b',
-    selectedText: '#fef3c7',
-    glow: 'rgba(245, 158, 11, 0.3)',
-  },
-  Scaling: {
-    icon: '📈',
-    baseBg: 'linear-gradient(160deg, rgba(16,185,129,0.16), rgba(5,150,105,0.12) 55%, rgba(4,120,87,0.14)), repeating-linear-gradient(-32deg, rgba(187,247,208,0.14) 0 6px, transparent 6px 14px)',
-    baseBorder: 'rgba(16, 185, 129, 0.44)',
-    baseText: '#6ee7b7',
-    selectedBg: 'linear-gradient(160deg, rgba(16,185,129,0.44), rgba(34,197,94,0.34) 55%, rgba(4,120,87,0.46)), repeating-linear-gradient(-32deg, rgba(187,247,208,0.24) 0 6px, transparent 6px 14px)',
-    selectedBorder: '#10b981',
-    selectedText: '#ecfdf5',
-    glow: 'rgba(16, 185, 129, 0.34)',
-  },
-  Snowball: {
-    icon: '❄️',
-    baseBg: 'radial-gradient(circle at 20% 24%, rgba(255,255,255,0.42) 0 2px, transparent 3px), radial-gradient(circle at 72% 64%, rgba(255,255,255,0.34) 0 2px, transparent 3px), linear-gradient(145deg, rgba(34,211,238,0.16), rgba(30,64,175,0.12))',
-    baseBorder: 'rgba(34, 211, 238, 0.42)',
-    baseText: '#67e8f9',
-    selectedBg: 'radial-gradient(circle at 20% 24%, rgba(255,255,255,0.6) 0 2px, transparent 3px), radial-gradient(circle at 72% 64%, rgba(255,255,255,0.5) 0 2px, transparent 3px), linear-gradient(145deg, rgba(8,145,178,0.46), rgba(12,74,110,0.42))',
-    selectedBorder: '#22d3ee',
-    selectedText: '#cffafe',
-    glow: 'rgba(34, 211, 238, 0.34)',
-  },
-};
-
-function getPlaystyleTheme(style: string): PlaystyleTheme {
-  return PLAYSTYLE_THEME_MAP[style] || {
-    icon: '⭐',
-    baseBg: 'rgba(148, 163, 184, 0.08)',
-    baseBorder: 'rgba(148, 163, 184, 0.34)',
-    baseText: '#cbd5e1',
-    selectedBg: 'linear-gradient(145deg, rgba(71,85,105,0.38), rgba(51,65,85,0.38))',
-    selectedBorder: '#94a3b8',
-    selectedText: '#f8fafc',
-    glow: 'rgba(148, 163, 184, 0.28)',
-  };
-}
-
-function renderPlaystyleIllustration(style: string, isSelected: boolean): React.ReactNode {
-  const opacity = isSelected ? 0.98 : 0.84;
-
-  if (style === 'Scaling') {
-    return (
-      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 300 140" preserveAspectRatio="none" style={{ opacity }}>
-        <g stroke="rgba(16,185,129,0.2)" strokeWidth="1">
-          <line x1="20" y1="18" x2="20" y2="124" />
-          <line x1="20" y1="124" x2="286" y2="124" />
-          <line x1="20" y1="96" x2="286" y2="96" />
-          <line x1="20" y1="68" x2="286" y2="68" />
-          <line x1="20" y1="40" x2="286" y2="40" />
-        </g>
-        <g fill="rgba(110,231,183,0.2)">
-          <rect x="38" y="104" width="16" height="20" rx="3" />
-          <rect x="66" y="92" width="16" height="32" rx="3" />
-          <rect x="94" y="80" width="16" height="44" rx="3" />
-          <rect x="122" y="68" width="16" height="56" rx="3" />
-        </g>
-        <polyline
-          points="28,116 62,108 98,94 134,86 170,70 206,52 242,34 280,18"
-          fill="none"
-          stroke="rgba(167,243,208,0.72)"
-          strokeWidth="6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeDasharray="8 6"
-          style={{ animation: 'playstyleSignalFlow 4.2s linear infinite' }}
-        />
-        <polyline
-          points="28,116 62,108 98,94 134,86 170,70 206,52 242,34 280,18"
-          fill="none"
-          stroke="rgba(16,185,129,0.94)"
-          strokeWidth="3.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path d="M270 18 L286 18 L286 34" fill="none" stroke="rgba(16,185,129,0.95)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  }
-
-  if (style === 'Snowball') {
-    return (
-      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 300 140" preserveAspectRatio="none" style={{ opacity }}>
-        <g stroke="rgba(207,250,254,0.75)" strokeWidth="1.6" strokeLinecap="round" style={{ animation: 'playstyleSnowSpin 11s linear infinite' }}>
-          <line x1="60" y1="26" x2="60" y2="54" />
-          <line x1="46" y1="40" x2="74" y2="40" />
-          <line x1="50" y1="30" x2="70" y2="50" />
-          <line x1="70" y1="30" x2="50" y2="50" />
-        </g>
-        <g stroke="rgba(224,242,254,0.82)" strokeWidth="1.5" strokeLinecap="round" style={{ animation: 'playstyleSnowSpin 9s linear infinite reverse' }}>
-          <line x1="122" y1="22" x2="122" y2="46" />
-          <line x1="110" y1="34" x2="134" y2="34" />
-          <line x1="113" y1="25" x2="131" y2="43" />
-          <line x1="131" y1="25" x2="113" y2="43" />
-        </g>
-        <g stroke="rgba(165,243,252,0.78)" strokeWidth="1.5" strokeLinecap="round" style={{ animation: 'playstyleSnowSpin 12s linear infinite' }}>
-          <line x1="232" y1="30" x2="232" y2="56" />
-          <line x1="219" y1="43" x2="245" y2="43" />
-          <line x1="222" y1="33" x2="242" y2="53" />
-          <line x1="242" y1="33" x2="222" y2="53" />
-        </g>
-        <path
-          d="M8 126 L30 114 L46 122 L68 104 L90 116 L116 96 L140 112 L166 90 L192 108 L218 86 L244 100 L270 82 L292 92"
-          fill="none"
-          stroke="rgba(186,230,253,0.9)"
-          strokeWidth="2.8"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-        <path
-          d="M28 126 L42 114 M66 124 L78 110 M108 118 L120 102 M152 114 L166 98 M194 110 L206 94 M238 102 L250 88"
-          fill="none"
-          stroke="rgba(224,242,254,0.8)"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
-
-  if (style === 'FUNDAMENTALS') {
-    return (
-      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 300 140" preserveAspectRatio="none" style={{ opacity }}>
-        <g stroke="rgba(147,197,253,0.16)" strokeWidth="1">
-          <line x1="18" y1="20" x2="282" y2="20" />
-          <line x1="18" y1="120" x2="282" y2="120" />
-          <line x1="28" y1="14" x2="28" y2="126" />
-          <line x1="272" y1="14" x2="272" y2="126" />
-        </g>
-        <path
-          d="M44 36 Q92 20 140 36 V112 Q92 96 44 112 Z"
-          fill="rgba(30,64,175,0.18)"
-          stroke="rgba(191,219,254,0.86)"
-          strokeWidth="2.6"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M156 36 Q204 20 252 36 V112 Q204 96 156 112 Z"
-          fill="rgba(30,64,175,0.2)"
-          stroke="rgba(191,219,254,0.86)"
-          strokeWidth="2.6"
-          strokeLinejoin="round"
-        />
-        <line x1="148" y1="32" x2="148" y2="114" stroke="rgba(219,234,254,0.92)" strokeWidth="2.2" />
-        <line x1="152" y1="32" x2="152" y2="114" stroke="rgba(219,234,254,0.92)" strokeWidth="2.2" />
-        <path d="M136 24 H164 V34 H136 Z" fill="rgba(96,165,250,0.72)" stroke="rgba(219,234,254,0.82)" strokeWidth="1.4" />
-        <path d="M146 24 H154 V52 L150 48 L146 52 Z" fill="rgba(59,130,246,0.96)" />
-        <g stroke="rgba(191,219,254,0.74)" strokeWidth="1.8" strokeLinecap="round">
-          <line x1="58" y1="52" x2="126" y2="46" />
-          <line x1="58" y1="64" x2="126" y2="58" />
-          <line x1="58" y1="76" x2="118" y2="72" />
-          <line x1="170" y1="52" x2="238" y2="46" />
-          <line x1="170" y1="64" x2="238" y2="58" />
-          <line x1="170" y1="76" x2="230" y2="72" />
-        </g>
-        <polyline
-          points="52,98 78,90 104,94 132,84"
-          fill="none"
-          stroke="rgba(191,219,254,0.8)"
-          strokeWidth="2.6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <polyline
-          points="168,98 194,90 220,94 248,84"
-          fill="none"
-          stroke="rgba(191,219,254,0.8)"
-          strokeWidth="2.6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
-  }
-
-  if (style === 'CoinFlips') {
-    return (
-      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 300 140" preserveAspectRatio="none" style={{ opacity }}>
-        <circle cx="72" cy="98" r="22" fill="rgba(250,204,21,0.24)" stroke="rgba(245,158,11,0.84)" strokeWidth="3" />
-        <circle cx="72" cy="98" r="14" fill="none" stroke="rgba(254,243,199,0.86)" strokeWidth="2" />
-        <text x="72" y="103" textAnchor="middle" fill="rgba(255,237,213,0.92)" fontSize="12" fontWeight="700">H</text>
-        <circle cx="228" cy="52" r="22" fill="rgba(250,204,21,0.22)" stroke="rgba(245,158,11,0.8)" strokeWidth="3" />
-        <circle cx="228" cy="52" r="14" fill="none" stroke="rgba(254,243,199,0.82)" strokeWidth="2" />
-        <text x="228" y="57" textAnchor="middle" fill="rgba(255,237,213,0.9)" fontSize="12" fontWeight="700">T</text>
-        <ellipse cx="150" cy="24" rx="15" ry="6" fill="rgba(250,204,21,0.38)" stroke="rgba(251,191,36,0.9)" strokeWidth="2.4" />
-        <ellipse cx="150" cy="24" rx="9" ry="3" fill="none" stroke="rgba(254,243,199,0.72)" strokeWidth="1.6" />
-        <path
-          d="M72 76 Q148 4 228 30"
-          fill="none"
-          stroke="rgba(254,243,199,0.86)"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeDasharray="8 6"
-          style={{ animation: 'playstyleCoinArc 3.5s linear infinite' }}
-        />
-        <path d="M228 30 L238 33 L230 40" fill="none" stroke="rgba(254,243,199,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M72 122 Q148 138 228 74" fill="none" stroke="rgba(245,158,11,0.74)" strokeWidth="2.4" strokeLinecap="round" />
-        <line x1="150" y1="12" x2="150" y2="126" stroke="rgba(251,191,36,0.52)" strokeWidth="1.8" strokeDasharray="6 6" />
-        <text x="150" y="136" textAnchor="middle" fill="rgba(255,237,213,0.86)" fontSize="11" fontWeight="700">Heads or Tails</text>
-      </svg>
-    );
-  }
-
-  if (style === 'Controlled Chaos') {
-    return (
-      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 300 140" preserveAspectRatio="none" style={{ opacity }}>
-        <g style={{ animation: 'playstyleBoltJitter 2.7s ease-in-out infinite' }}>
-          <path
-            d="M126 14 L94 68 H132 L104 126 L192 58 H152 L182 14 Z"
-            fill="rgba(249,115,22,0.38)"
-            stroke="rgba(251,146,60,0.96)"
-            strokeWidth="3"
-            strokeLinejoin="round"
-          />
-        </g>
-        <polyline points="24,30 58,20 90,36 120,22" fill="none" stroke="rgba(254,215,170,0.7)" strokeWidth="2.4" strokeLinecap="round" />
-        <polyline points="178,116 208,98 236,112 272,88" fill="none" stroke="rgba(254,215,170,0.74)" strokeWidth="2.4" strokeLinecap="round" />
-        <circle cx="82" cy="90" r="18" fill="none" stroke="rgba(249,115,22,0.5)" strokeWidth="2" />
-        <circle cx="82" cy="90" r="27" fill="none" stroke="rgba(249,115,22,0.34)" strokeWidth="1.6" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg className="absolute inset-0 h-full w-full" viewBox="0 0 300 140" preserveAspectRatio="none" style={{ opacity }}>
-      <circle cx="150" cy="70" r="30" fill="rgba(148,163,184,0.2)" stroke="rgba(226,232,240,0.48)" strokeWidth="2" />
-    </svg>
-  );
-}
 
 // Badge configuration with icons and styles
 type BadgeConfig = {
@@ -2648,7 +2388,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Playstyles Section */}
-        <div className="rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
+        <div className="profile-playstyles rounded-xl p-4 sm:p-6" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-card)', boxShadow: 'var(--shadow-lg)' }}>
           <h2 className="text-xl font-bold flex items-center mb-4" style={{ color: 'var(--accent-primary)' }}>
             <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -2663,7 +2403,7 @@ export default function ProfilePage() {
                 {AVAILABLE_PLAYSTYLES.map((style) => {
                   const isSelected = selectedPlaystyles.includes(style);
                   const isLocked = !isSelected && selectedPlaystyles.length >= 2;
-                  const theme = getPlaystyleTheme(style);
+                  const cardStyle = { '--playstyle-accent': PLAYSTYLE_ACCENTS[style] || '#94a3b8' } as React.CSSProperties;
                   const tooltipId = `playstyle-tooltip-${style.replace(/\s+/g, '-').toLowerCase()}`;
                   return (
                     <div key={style} className="relative group">
@@ -2677,31 +2417,17 @@ export default function ProfilePage() {
                           }
                         }}
                         aria-describedby={tooltipId}
-                        className="relative min-h-[96px] w-full p-3 rounded-lg border text-left transition-all overflow-hidden focus-visible:outline-none focus-visible:ring-2"
-                        style={{
-                          background: isSelected ? theme.selectedBg : theme.baseBg,
-                          borderColor: isSelected ? theme.selectedBorder : theme.baseBorder,
-                          color: isSelected ? theme.selectedText : theme.baseText,
-                          boxShadow: isSelected ? `0 10px 20px ${theme.glow}` : 'none',
-                          opacity: isLocked ? 0.72 : 1,
-                          cursor: isLocked ? 'not-allowed' : 'pointer',
-                        }}
+                        aria-pressed={isSelected}
+                        aria-disabled={isLocked}
+                        data-selected={isSelected}
+                        className="playstyle-card"
+                        style={cardStyle}
                       >
-                        <div className="absolute inset-0 pointer-events-none">
-                          {renderPlaystyleIllustration(style, isSelected)}
-                          <div
-                            className="absolute inset-0"
-                            style={{
-                              background: isSelected
-                                ? 'linear-gradient(180deg, rgba(2,6,23,0.04), rgba(2,6,23,0.36))'
-                                : 'linear-gradient(180deg, rgba(2,6,23,0.08), rgba(2,6,23,0.46))',
-                            }}
-                          />
-                        </div>
-                        <span className="relative z-10 inline-flex items-center gap-2 text-sm font-semibold">
-                          <span className="text-base drop-shadow-[0_0_6px_rgba(255,255,255,0.35)]">{theme.icon}</span>
+                        <span className="playstyle-card-heading">
                           <span>{style}</span>
+                          {isSelected ? <svg className="playstyle-card-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m3 8 3 3 7-7" /></svg> : null}
                         </span>
+                        <PlaystyleArtwork playstyle={style} />
                       </button>
                       <div
                         id={tooltipId}
@@ -2734,30 +2460,19 @@ export default function ProfilePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {user.playstyles.length > 0 ? (
                 user.playstyles.map((style) => {
-                  const theme = getPlaystyleTheme(style);
+                  const cardStyle = { '--playstyle-accent': PLAYSTYLE_ACCENTS[style] || '#94a3b8' } as React.CSSProperties;
                   const tooltipId = `playstyle-tooltip-${style.replace(/\s+/g, '-').toLowerCase()}`;
                   return (
                     <div key={style} className="relative group">
                       <div
                         tabIndex={0}
                         aria-describedby={tooltipId}
-                        className="relative min-h-[96px] px-3 py-2.5 border rounded-lg overflow-hidden focus-visible:outline-none focus-visible:ring-2"
-                        style={{
-                          background: theme.selectedBg,
-                          borderColor: theme.selectedBorder,
-                          boxShadow: `0 10px 20px ${theme.glow}`,
-                        }}
+                        className="playstyle-card"
+                        data-selected="true"
+                        style={cardStyle}
                       >
-                        <div className="absolute inset-0 pointer-events-none">
-                          {renderPlaystyleIllustration(style, true)}
-                          <div
-                            className="absolute inset-0"
-                            style={{ background: 'linear-gradient(180deg, rgba(2,6,23,0.06), rgba(2,6,23,0.36))' }}
-                          />
-                        </div>
-                        <p className="relative z-10 text-sm font-semibold" style={{ color: theme.selectedText }}>
-                          {theme.icon} {style}
-                        </p>
+                        <p className="playstyle-card-heading">{style}</p>
+                        <PlaystyleArtwork playstyle={style} />
                       </div>
                       <div
                         id={tooltipId}
