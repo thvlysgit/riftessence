@@ -96,44 +96,44 @@ enum Rank {
 }
 
 model User {
-  id                       String       @id @default(cuid())
-  email                    String?      @unique
-  username                 String       @unique
+  id                       String            @id @default(cuid())
+  email                    String?           @unique
+  username                 String            @unique
   password                 String? // Hashed password (bcrypt) - null if only using Riot login
   name                     String?
   bio                      String?
-  bioSlug                  String?      @unique
-  profileBackgroundType    String       @default("DEFAULT")
+  bioSlug                  String?           @unique
+  profileBackgroundType    String            @default("DEFAULT")
   profileBackgroundValue   String?
   profileSongUrl           String?
   profileSongTitle         String?
   profileSocialLinks       Json?
-  createdAt                DateTime     @default(now())
-  updatedAt                DateTime     @updatedAt
-  anonymous                Boolean      @default(false)
-  vcPreference             VCPreference @default(SOMETIMES)
-  languages                String[]     @default([])
-  playstyles               String[]     @default([])
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+  anonymous                Boolean           @default(false)
+  vcPreference             VCPreference      @default(SOMETIMES)
+  languages                String[]          @default([])
+  playstyles               String[]          @default([])
   primaryRole              Role?
   preferredRole            Role? // Auto-detected from match history (most played)
   secondaryRole            Role? // Auto-detected from match history (second most played)
   region                   Region?
-  verified                 Boolean      @default(false)
+  verified                 Boolean           @default(false)
   lastUsernameChange       DateTime?
   lastPostCreated          DateTime?
-  onboardingCompleted      Boolean      @default(false) // Track if user completed onboarding
+  onboardingCompleted      Boolean           @default(false) // Track if user completed onboarding
   legalAcceptedVersion     String?
   legalAcceptedAt          DateTime?
   legalAgeGroup            String?
-  legalAcceptances          LegalAcceptance[]
-  discordDmNotifications   Boolean      @default(false) // Optional forwarding; new users opt in through settings.
-  unlockedCosmetics        String[]     @default([]) // Cosmetic item keys unlocked through PE shop
+  legalAcceptances         LegalAcceptance[]
+  discordDmNotifications   Boolean           @default(false) // Optional forwarding; new users opt in through settings.
+  unlockedCosmetics        String[]          @default([]) // Cosmetic item keys unlocked through PE shop
   activeUsernameDecoration String?
   activeHoverEffect        String?
   activeVisualEffect       String?
   activeNameplateFont      String?
-  adCredits                Int          @default(0) // Consumable ad-space request credits
-  isBanned                 Boolean      @default(false)
+  adCredits                Int               @default(0) // Consumable ad-space request credits
+  isBanned                 Boolean           @default(false)
   bannedAt                 DateTime?
   bannedReason             String?
   bannedById               String?
@@ -155,26 +155,26 @@ model User {
   championTierlist Json? // JSON structure for tierlist {S: [...], A: [...], B: [...], C: [...]}
 
   // relations
-  riotAccounts         RiotAccount[]
-  discordAccount       DiscordAccount?
-  posts                Post[]
-  ratingsGiven         Rating[]              @relation("RatingGiver")
-  ratingsReceived      Rating[]              @relation("RatingReceiver")
-  matchHistories       MatchHistory[]        @relation("UserMatches")
-  badges               Badge[]
-  verificationRequests VerificationRequest[]
+  riotAccounts             RiotAccount[]
+  discordAccount           DiscordAccount?
+  posts                    Post[]
+  ratingsGiven             Rating[]                  @relation("RatingGiver")
+  ratingsReceived          Rating[]                  @relation("RatingReceiver")
+  matchHistories           MatchHistory[]            @relation("UserMatches")
+  badges                   Badge[]
+  verificationRequests     VerificationRequest[]
   riotVerificationAttempts RiotVerificationAttempt[]
-  pendingRatingsReceived PendingRating[]
-  guestRatingIdentity GuestRatingIdentity?
-  ratingAppeals        RatingAppeal[]
-  blocksSent           Block[]               @relation("Blocker")
-  blocksReceived       Block[]               @relation("Blocked")
-  communityMemberships CommunityMembership[]
-  reportsMade          Report[]              @relation("Reporter")
-  reportsReceived      Report[]              @relation("Reported")
-  bugReports           BugReport[]
-  lftPosts             LftPost[]
-  coachingPosts        CoachingPost[]
+  pendingRatingsReceived   PendingRating[]
+  guestRatingIdentity      GuestRatingIdentity?
+  ratingAppeals            RatingAppeal[]
+  blocksSent               Block[]                   @relation("Blocker")
+  blocksReceived           Block[]                   @relation("Blocked")
+  communityMemberships     CommunityMembership[]
+  reportsMade              Report[]                  @relation("Reporter")
+  reportsReceived          Report[]                  @relation("Reported")
+  bugReports               BugReport[]
+  lftPosts                 LftPost[]
+  coachingPosts            CoachingPost[]
 
   // Chat relations
   conversationsInitiated Conversation[] @relation("ConversationUser1")
@@ -199,6 +199,7 @@ model User {
   createdScrimPosts          ScrimPost[]                @relation("ScrimPostAuthor")
   sentScrimProposals         ScrimProposal[]            @relation("ScrimProposalSender")
   scrimProfiles              ScrimProfile[]             @relation("ScrimProfileOwner")
+  externalScrimTeamsManaged  ScrimExternalTeam[]        @relation("ExternalScrimTeamManager")
 
   // Wallet relations
   wallet             Wallet?
@@ -252,27 +253,27 @@ model RiotAccount {
 // Durable, server-owned schedule for profile-icon ownership verification.
 // A pending attempt is intentionally distinct from a verified RiotAccount.
 model RiotVerificationAttempt {
-  id                 String   @id @default(cuid())
-  user               User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId             String?
-  puuid              String
-  summonerName       String
-  gameName           String
-  tagLine            String
-  region             Region
-  targetIconId       Int
-  status             String   @default("AWAITING_CONFIRMATION") // AWAITING_CONFIRMATION | ACTIVE | VERIFIED | FAILED | CANCELLED
-  riotAccountId      String?
-  startedAt          DateTime?
-  nextCheckAt        DateTime?
-  checkCount         Int      @default(0)
-  observedAt5        DateTime?
-  observedAt15       DateTime?
-  observedAt30       DateTime?
-  failureReason      String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  pendingRatings     PendingRating[]
+  id             String          @id @default(cuid())
+  user           User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String?
+  puuid          String
+  summonerName   String
+  gameName       String
+  tagLine        String
+  region         Region
+  targetIconId   Int
+  status         String          @default("AWAITING_CONFIRMATION") // AWAITING_CONFIRMATION | ACTIVE | VERIFIED | FAILED | CANCELLED
+  riotAccountId  String?
+  startedAt      DateTime?
+  nextCheckAt    DateTime?
+  checkCount     Int             @default(0)
+  observedAt5    DateTime?
+  observedAt15   DateTime?
+  observedAt30   DateTime?
+  failureReason  String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  pendingRatings PendingRating[]
 
   @@index([userId, status])
   @@index([status, nextCheckAt])
@@ -289,25 +290,25 @@ model GuestRatingIdentity {
 // Never read by public feedback, score, reward, or notification queries.
 // A Rating is created only when both ownership and shared games are verified.
 model PendingRating {
-  id            String   @id @default(cuid())
-  attempt       RiotVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  attemptId     String
-  receiver      User     @relation(fields: [receiverId], references: [id], onDelete: Cascade)
-  receiverId    String
-  stars         Int?
-  moons         Int?
-  comment       String?
-  status        String   @default("DRAFT") // DRAFT | PENDING | PUBLISHED | REJECTED
-  failureReason String?
-  sharedMatchesCount Int      @default(0)
-  eligibleRaterPuuids String[] @default([])
-  eligibleReceiverAccountIds String[] @default([])
-  sharedMatchesCheckedAt DateTime?
-  ratingId      String?  @unique
-  submittedAt   DateTime?
-  nextPublishAt DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                         String                  @id @default(cuid())
+  attempt                    RiotVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  attemptId                  String
+  receiver                   User                    @relation(fields: [receiverId], references: [id], onDelete: Cascade)
+  receiverId                 String
+  stars                      Int?
+  moons                      Int?
+  comment                    String?
+  status                     String                  @default("DRAFT") // DRAFT | PENDING | PUBLISHED | REJECTED
+  failureReason              String?
+  sharedMatchesCount         Int                     @default(0)
+  eligibleRaterPuuids        String[]                @default([])
+  eligibleReceiverAccountIds String[]                @default([])
+  sharedMatchesCheckedAt     DateTime?
+  ratingId                   String?                 @unique
+  submittedAt                DateTime?
+  nextPublishAt              DateTime                @default(now())
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
 
   @@unique([attemptId, receiverId])
   @@index([status, nextPublishAt])
@@ -470,7 +471,7 @@ model Wallet {
   prismaticEssence     Int      @default(0)
   totalPrismaticEarned Int      @default(0) @map("totalRiftCoinsEarned")
   totalPrismaticSpent  Int      @default(0) @map("totalRiftCoinsSpent")
-  experience          Int      @default(0)
+  experience           Int      @default(0)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -846,55 +847,55 @@ model AuditLog {
 
 // Daily puzzle state is private to the API. The answer is never sent before completion.
 model GameRound {
-  id          String   @id @default(cuid())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId      String
-  gameKey     String
-  day         String
-  championId  String // Empty for Shopkeeper and Recipe Rush, which use pinned item puzzles.
-  itemPuzzle  Json? // Pinned item pairs and prices survive catalog updates.
-  recipePuzzle Json? // Pinned recipes, tray pieces, and forge progress.
-  clueTypes   String[] @default([]) // Archive clue selection, fixed for the entire round.
-  guesses     String[] @default([])
-  listenedSlots Int[]  @default([])
-  won         Boolean  @default(false)
-  finished    Boolean  @default(false)
-  rewardOffer Int
-  rewardPaid  Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+  gameKey       String
+  day           String
+  championId    String // Empty for Shopkeeper and Recipe Rush, which use pinned item puzzles.
+  itemPuzzle    Json? // Pinned item pairs and prices survive catalog updates.
+  recipePuzzle  Json? // Pinned recipes, tray pieces, and forge progress.
+  clueTypes     String[] @default([]) // Archive clue selection, fixed for the entire round.
+  guesses       String[] @default([])
+  listenedSlots Int[]    @default([])
+  won           Boolean  @default(false)
+  finished      Boolean  @default(false)
+  rewardOffer   Int
+  rewardPaid    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@unique([userId, gameKey, day])
   @@index([day, gameKey, won])
 }
 
 model GameSuggestion {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  idea        String
-  reviewed    Boolean  @default(false)
-  reviewedBy  String?
-  reviewedAt  DateTime?
-  createdAt   DateTime @default(now())
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idea       String
+  reviewed   Boolean   @default(false)
+  reviewedBy String?
+  reviewedAt DateTime?
+  createdAt  DateTime  @default(now())
 
   @@index([reviewed, createdAt])
   @@index([userId, createdAt])
 }
 
 model BugReport {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   description      String
   pageUrl          String?
   userAgent        String?
   reporterId       String?
-  reporter         User?    @relation(fields: [reporterId], references: [id], onDelete: SetNull)
+  reporter         User?     @relation(fields: [reporterId], references: [id], onDelete: SetNull)
   contactDiscord   String?
-  evidenceUrls     String[] @default([])
-  status           String   @default("OPEN")
+  evidenceUrls     String[]  @default([])
+  status           String    @default("OPEN")
   discordMessageId String?
   forwardedAt      DateTime?
-  createdAt        DateTime @default(now())
+  createdAt        DateTime  @default(now())
   resolvedAt       DateTime?
   resolvedBy       String?
 
@@ -940,11 +941,11 @@ model EconomySettings {
 // Durable API diagnostics retained across container/process restarts.
 // These rows deliberately contain sanitized operational context only.
 model SystemIncident {
-  id               String   @id @default(cuid())
-  fingerprint      String   @unique
+  id               String    @id @default(cuid())
+  fingerprint      String    @unique
   kind             String
-  severity         String   @default("ERROR")
-  status           String   @default("OPEN")
+  severity         String    @default("ERROR")
+  status           String    @default("OPEN")
   message          String
   stack            String?
   route            String?
@@ -955,16 +956,16 @@ model SystemIncident {
   instanceKey      String?
   release          String?
   metadata         Json?
-  occurrences      Int      @default(1)
-  firstSeenAt      DateTime @default(now())
-  lastSeenAt       DateTime @default(now())
+  occurrences      Int       @default(1)
+  firstSeenAt      DateTime  @default(now())
+  lastSeenAt       DateTime  @default(now())
   acknowledgedAt   DateTime?
   acknowledgedById String?
   resolvedAt       DateTime?
   resolvedById     String?
   resolutionNote   String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([status, severity, lastSeenAt])
   @@index([userId, lastSeenAt])
@@ -975,20 +976,20 @@ model SystemIncident {
 // One row per API process lifetime. An ACTIVE row left behind by the same
 // container/dyno is converted into an unclean-restart incident on next boot.
 model ApiProcessRun {
-  id            String   @id @default(cuid())
-  instanceKey   String
-  release       String?
-  status        String   @default("ACTIVE")
-  startedAt     DateTime @default(now())
-  heartbeatAt   DateTime @default(now())
-  stoppedAt     DateTime?
-  stopReason    String?
-  rssMb         Int?
-  heapUsedMb    Int?
-  heapTotalMb   Int?
-  externalMb    Int?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id          String    @id @default(cuid())
+  instanceKey String
+  release     String?
+  status      String    @default("ACTIVE")
+  startedAt   DateTime  @default(now())
+  heartbeatAt DateTime  @default(now())
+  stoppedAt   DateTime?
+  stopReason  String?
+  rssMb       Int?
+  heapUsedMb  Int?
+  heapTotalMb Int?
+  externalMb  Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([instanceKey, status])
   @@index([startedAt])
@@ -1007,9 +1008,10 @@ model DeveloperApiApplication {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  requests DeveloperApiRequest[]
-  keys     DeveloperApiKey[]
-  usage    DeveloperApiUsage[]
+  requests           DeveloperApiRequest[]
+  keys               DeveloperApiKey[]
+  usage              DeveloperApiUsage[]
+  externalScrimTeams ScrimExternalTeam[]
 
   @@index([priorityAccess, createdAt])
 }
@@ -1084,13 +1086,13 @@ model IpBlacklist {
 
 // Ad system for monetization
 model Ad {
-  id          String  @id @default(cuid())
-  title       String
-  description String?
-  discordContact String?
+  id              String  @id @default(cuid())
+  title           String
+  description     String?
+  discordContact  String?
   specialRequests String?
-  imageUrl    String
-  targetUrl   String
+  imageUrl        String
+  targetUrl       String
 
   // Targeting options
   targetRegions Region[] @default([]) // Empty = all regions
@@ -1107,14 +1109,14 @@ model Ad {
   isActive Boolean @default(true)
 
   // Admin tracking
-  createdBy String // Admin userId who created the ad
-  requestCreditsSpent Int? // Legacy ad-credit requests; paid campaigns use peSpent.
-  reviewStatus String @default("APPROVED") // PENDING, APPROVED, REJECTED
-  impressionBudget Int? // Null for legacy time-based campaigns
+  createdBy            String // Admin userId who created the ad
+  requestCreditsSpent  Int? // Legacy ad-credit requests; paid campaigns use peSpent.
+  reviewStatus         String   @default("APPROVED") // PENDING, APPROVED, REJECTED
+  impressionBudget     Int? // Null for legacy time-based campaigns
   remainingImpressions Int?
-  peSpent Int @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  peSpent              Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   // Analytics
   impressions AdImpression[]
@@ -1126,29 +1128,29 @@ model Ad {
 }
 
 model LegalAcceptance {
-  id                    String   @id @default(cuid())
-  userId                String
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  version               String
-  acceptedAt            DateTime @default(now())
-  locale                String
-  source                String
-  ageGroup              String
-  termsAccepted         Boolean
-  privacyAcknowledged   Boolean
-  eligibilityConfirmed  Boolean
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version              String
+  acceptedAt           DateTime @default(now())
+  locale               String
+  source               String
+  ageGroup             String
+  termsAccepted        Boolean
+  privacyAcknowledged  Boolean
+  eligibilityConfirmed Boolean
 
   @@unique([userId, version])
 }
 
 model AdPurchase {
-  id String @id @default(cuid())
-  adId String
+  id          String    @id @default(cuid())
+  adId        String
   purchaserId String
-  peAmount Int
+  peAmount    Int
   impressions Int
-  refundedAt DateTime?
-  createdAt DateTime @default(now())
+  refundedAt  DateTime?
+  createdAt   DateTime  @default(now())
 
   @@index([adId, createdAt])
   @@index([purchaserId, createdAt])
@@ -1481,14 +1483,17 @@ model ScrimPost {
   status             ScrimPostStatus @default(AVAILABLE)
   settledAt          DateTime?
 
-  discordMirrored Boolean @default(false)
-  source          String  @default("app")
+  discordMirrored    Boolean @default(false)
+  source             String  @default("app")
+  externalPostId     String?
+  externalContactUrl String?
 
   proposals ScrimProposal[]
   series    ScrimSeries[]
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
+  @@unique([source, externalPostId])
   @@index([teamId, createdAt])
   @@index([status, createdAt])
   @@index([region, status, createdAt])
@@ -1515,6 +1520,24 @@ model ScrimProfile {
   updatedAt          DateTime @updatedAt
 
   @@index([ownerId, createdAt])
+}
+
+// Stable mapping used by approved developer API clients to federate listings
+// without gaining access to a user's normal RiftEssence teams.
+model ScrimExternalTeam {
+  id            String                  @id @default(cuid())
+  application   DeveloperApiApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId String
+  externalId    String
+  team          Team                    @relation("ExternalScrimTeam", fields: [teamId], references: [id], onDelete: Cascade)
+  teamId        String                  @unique
+  manager       User                    @relation("ExternalScrimTeamManager", fields: [managerUserId], references: [id], onDelete: Cascade)
+  managerUserId String
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  @@unique([applicationId, externalId])
+  @@index([managerUserId, createdAt])
 }
 
 model ScrimProposal {
@@ -1629,12 +1652,12 @@ model ScrimDiscordNotification {
 }
 
 model Team {
-  id          String  @id @default(cuid())
-  name        String
-  tag         String? // Short team tag (e.g., "TSM")
-  description String?
-  iconUrl     String? // Custom team icon URL
-  region      Region
+  id             String  @id @default(cuid())
+  name           String
+  tag            String? // Short team tag (e.g., "TSM")
+  description    String?
+  iconUrl        String? // Custom team icon URL
+  region         Region
   isScrimProfile Boolean @default(false) // Internal backing identity for lightweight Scrim Profiles
 
   // Discord integration
@@ -1671,6 +1694,7 @@ model Team {
   scrimReviewsGiven      ScrimTeamReview[]          @relation("TeamScrimReviewsGiven")
   scrimReviewsReceived   ScrimTeamReview[]          @relation("TeamScrimReviewsReceived")
   scrimProfile           ScrimProfile?              @relation("ScrimProfileTeam")
+  externalScrimTeam      ScrimExternalTeam?         @relation("ExternalScrimTeam")
   notifications          TeamEventNotification[]
   eventReminders         TeamEventReminder[]
   drafts                 TeamDraft[]

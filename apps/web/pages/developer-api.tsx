@@ -6,8 +6,31 @@ import { useGlobalUI } from '@components/GlobalUI';
 import { getAuthHeader } from '../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
-const REGION_OPTIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'];
-const RANK_OPTIONS = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER', 'UNRANKED'];
+const REGION_OPTIONS = [
+  'NA',
+  'EUW',
+  'EUNE',
+  'KR',
+  'JP',
+  'OCE',
+  'LAN',
+  'LAS',
+  'BR',
+  'RU',
+];
+const RANK_OPTIONS = [
+  'IRON',
+  'BRONZE',
+  'SILVER',
+  'GOLD',
+  'PLATINUM',
+  'EMERALD',
+  'DIAMOND',
+  'MASTER',
+  'GRANDMASTER',
+  'CHALLENGER',
+  'UNRANKED',
+];
 
 type RequestFormState = {
   name: string;
@@ -24,7 +47,9 @@ export default function DeveloperApiPage() {
   const { showToast } = useGlobalUI();
   const [submitting, setSubmitting] = useState(false);
   const [issuedKey, setIssuedKey] = useState<string | null>(null);
-  const [activeExample, setActiveExample] = useState<'duo' | 'lft' | 'request'>('duo');
+  const [activeExample, setActiveExample] = useState<'duo' | 'lft' | 'request'>(
+    'duo',
+  );
   const [builder, setBuilder] = useState({
     endpoint: 'duo' as 'duo' | 'lft',
     region: '',
@@ -50,11 +75,13 @@ export default function DeveloperApiPage() {
   const builderUrl = useMemo(() => {
     const params = new URLSearchParams();
     if (builder.region.trim()) params.set('region', builder.region.trim());
-    if (builder.language.trim()) params.set('language', builder.language.trim());
+    if (builder.language.trim())
+      params.set('language', builder.language.trim());
     if (builder.rank.trim()) params.set('rank', builder.rank.trim());
     if (builder.minRank.trim()) params.set('minRank', builder.minRank.trim());
     if (builder.maxRank.trim()) params.set('maxRank', builder.maxRank.trim());
-    if (builder.verifiedOnly.trim()) params.set('verifiedOnly', builder.verifiedOnly.trim());
+    if (builder.verifiedOnly.trim())
+      params.set('verifiedOnly', builder.verifiedOnly.trim());
     if (builder.limit.trim()) params.set('limit', builder.limit.trim());
     if (builder.offset.trim()) params.set('offset', builder.offset.trim());
 
@@ -66,7 +93,10 @@ export default function DeveloperApiPage() {
   async function submitRequest(event: React.FormEvent) {
     event.preventDefault();
     if (!user) {
-      showToast('Please log in first. A RiftEssence account is required for API key requests.', 'error');
+      showToast(
+        'Please log in first. A RiftEssence account is required for API key requests.',
+        'error',
+      );
       return;
     }
 
@@ -103,12 +133,20 @@ export default function DeveloperApiPage() {
 
       if (!res.ok) {
         const explicitMessage = body?.error || body?.message;
-        const fallbackMessage = rawText && !body?.error ? rawText.slice(0, 180) : '';
-        throw new Error(explicitMessage || fallbackMessage || `Failed to submit API request (HTTP ${res.status})`);
+        const fallbackMessage =
+          rawText && !body?.error ? rawText.slice(0, 180) : '';
+        throw new Error(
+          explicitMessage ||
+            fallbackMessage ||
+            `Failed to submit API request (HTTP ${res.status})`,
+        );
       }
 
       setIssuedKey(body.apiKey || null);
-      showToast('Developer API key created successfully. Save it now, it is shown once.', 'success');
+      showToast(
+        'Developer API key created successfully. Save it now, it is shown once.',
+        'success',
+      );
       setForm((prev) => ({
         ...prev,
         useCase: '',
@@ -127,7 +165,10 @@ export default function DeveloperApiPage() {
       await navigator.clipboard.writeText(issuedKey);
       showToast('API key copied to clipboard', 'success');
     } catch {
-      showToast('Could not copy key automatically. Please copy it manually.', 'error');
+      showToast(
+        'Could not copy key automatically. Please copy it manually.',
+        'error',
+      );
     }
   }
 
@@ -136,77 +177,257 @@ export default function DeveloperApiPage() {
       await navigator.clipboard.writeText(builderUrl);
       showToast('Request URL copied to clipboard', 'success');
     } catch {
-      showToast('Could not copy URL automatically. Please copy it manually.', 'error');
+      showToast(
+        'Could not copy URL automatically. Please copy it manually.',
+        'error',
+      );
     }
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(to bottom right, var(--color-bg-primary), var(--color-bg-secondary), var(--color-bg-primary))' }}>
+    <div
+      className="min-h-screen"
+      style={{
+        background:
+          'linear-gradient(to bottom right, var(--color-bg-primary), var(--color-bg-secondary), var(--color-bg-primary))',
+      }}
+    >
       <Head>
         <title>Developer API • RiftEssence</title>
-        <meta name="description" content="RiftEssence Developer API docs, filters, auth requirements, and API key request form." />
+        <meta
+          name="description"
+          content="RiftEssence Developer API docs, filters, auth requirements, and API key request form."
+        />
       </Head>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>Developer API</h1>
-          <p className="text-base" style={{ color: 'var(--color-text-secondary)' }}>
-            Free public API access for live Duo and LFT posts with strict throttling to protect the core app.
+          <h1
+            className="text-3xl font-bold mb-3"
+            style={{ color: 'var(--color-text-primary)' }}
+          >
+            Developer API
+          </h1>
+          <p
+            className="text-base"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            Public API access for live Duo and LFT posts, plus two-way Scrim
+            Finder federation with strict throttling to protect the core app.
           </p>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <section className="xl:col-span-2 border rounded-xl p-6" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
-            <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>How It Works</h2>
-            <div className="space-y-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          <section
+            className="xl:col-span-2 border rounded-xl p-6"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              borderColor: 'var(--color-border)',
+            }}
+          >
+            <h2
+              className="text-xl font-semibold mb-4"
+              style={{ color: 'var(--color-text-primary)' }}
+            >
+              How It Works
+            </h2>
+            <div
+              className="space-y-3 text-sm"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
               <p>1. Log in to your RiftEssence account.</p>
-              <p>2. Submit the request form on this page to receive a non-priority key instantly.</p>
-              <p>3. Use your key in `x-api-key` or `Authorization: Bearer` headers.</p>
-              <p>4. Admins can promote your key to priority from the admin dashboard after review.</p>
+              <p>
+                2. Submit the request form on this page to receive a
+                non-priority key instantly.
+              </p>
+              <p>
+                3. Use your key in `x-api-key` or `Authorization: Bearer`
+                headers.
+              </p>
+              <p>
+                4. Admins can promote your key to priority from the admin
+                dashboard after review.
+              </p>
             </div>
 
             <div className="mt-6">
-              <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>Endpoints</h3>
-              <div className="space-y-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                <div className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)' }}>
-                  <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>GET /api/developer-api/duo/posts</div>
-                  <div>Read live Duo feed posts with filtering and pagination.</div>
+              <h3
+                className="text-lg font-semibold mb-3"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                Endpoints
+              </h3>
+              <div
+                className="space-y-3 text-sm"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                <div
+                  className="border rounded-lg p-3"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
+                  <div
+                    className="font-semibold"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
+                    GET /api/developer-api/duo/posts
+                  </div>
+                  <div>
+                    Read live Duo feed posts with filtering and pagination.
+                  </div>
                 </div>
-                <div className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)' }}>
-                  <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>GET /api/developer-api/lft/posts</div>
+                <div
+                  className="border rounded-lg p-3"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
+                  <div
+                    className="font-semibold"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
+                    GET /api/developer-api/lft/posts
+                  </div>
                   <div>Read live LFT posts for teams and players.</div>
                 </div>
-                <div className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)' }}>
-                  <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>POST /api/developer-api/requests</div>
-                  <div>Submit your app details and receive a one-time API key immediately.</div>
+                <div
+                  className="border rounded-lg p-3"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
+                  <div
+                    className="font-semibold"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
+                    GET /api/developer-api/scrims/posts
+                  </div>
+                  <div>
+                    Read live first-party and federated scrim availability by
+                    region and format.
+                  </div>
+                </div>
+                <div
+                  className="border rounded-lg p-3"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
+                  <div
+                    className="font-semibold"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
+                    PUT /api/developer-api/scrims/posts/:externalPostId
+                  </div>
+                  <div>
+                    Idempotently publish or update an external scrim slot. Use
+                    DELETE on the same URL to withdraw it.
+                  </div>
+                </div>
+                <div
+                  className="border rounded-lg p-3"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
+                  <div
+                    className="font-semibold"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
+                    POST /api/developer-api/requests
+                  </div>
+                  <div>
+                    Submit your app details and receive a one-time API key
+                    immediately.
+                  </div>
                 </div>
               </div>
             </div>
 
             <div className="mt-6">
-              <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>Query Parameters (Always Available)</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                <div className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)' }}>
+              <h3
+                className="text-lg font-semibold mb-3"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                Scrim Federation Contract
+              </h3>
+              <div
+                className="border rounded-lg p-4 text-sm space-y-2"
+                style={{
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                <p>
+                  <strong>Required:</strong> externalTeamId, teamName, region,
+                  format, future startTimeUtc, and an HTTPS contactUrl.
+                </p>
+                <p>
+                  <strong>Idempotency:</strong> your application and
+                  externalPostId form the stable identity. Repeating PUT updates
+                  the existing listing.
+                </p>
+                <p>
+                  <strong>Isolation:</strong> your key can update or delete only
+                  listings created by your application. RiftEssence webhook URLs
+                  are never exposed.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <h3
+                className="text-lg font-semibold mb-3"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                Query Parameters (Always Available)
+              </h3>
+              <div
+                className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                <div
+                  className="border rounded-lg p-3"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
                   <strong>region</strong>: comma-separated regions
-                  <div className="mt-1 text-xs">Options: NA, EUW, EUNE, KR, JP, OCE, LAN, LAS, BR, RU</div>
+                  <div className="mt-1 text-xs">
+                    Options: NA, EUW, EUNE, KR, JP, OCE, LAN, LAS, BR, RU
+                  </div>
                 </div>
-                <div className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)' }}>
+                <div
+                  className="border rounded-lg p-3"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
                   <strong>language</strong>: comma-separated languages
-                  <div className="mt-1 text-xs">Examples: English, French, Spanish, German</div>
+                  <div className="mt-1 text-xs">
+                    Examples: English, French, Spanish, German
+                  </div>
                 </div>
-                <div className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)' }}>
+                <div
+                  className="border rounded-lg p-3"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
                   <strong>rank</strong>: exact rank filter
-                  <div className="mt-1 text-xs">Options: IRON, BRONZE, SILVER, GOLD, PLATINUM, EMERALD, DIAMOND, MASTER, GRANDMASTER, CHALLENGER, UNRANKED</div>
+                  <div className="mt-1 text-xs">
+                    Options: IRON, BRONZE, SILVER, GOLD, PLATINUM, EMERALD,
+                    DIAMOND, MASTER, GRANDMASTER, CHALLENGER, UNRANKED
+                  </div>
                 </div>
-                <div className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)' }}>
+                <div
+                  className="border rounded-lg p-3"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
                   <strong>minRank/maxRank</strong>: rank range
-                  <div className="mt-1 text-xs">Use both for a range, e.g. minRank=GOLD&maxRank=DIAMOND</div>
+                  <div className="mt-1 text-xs">
+                    Use both for a range, e.g. minRank=GOLD&maxRank=DIAMOND
+                  </div>
                 </div>
-                <div className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)' }}>
+                <div
+                  className="border rounded-lg p-3"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
                   <strong>verifiedOnly</strong>: account verification filter
-                  <div className="mt-1 text-xs">Options: true, false (true means RiftEssence account + linked Riot account)</div>
+                  <div className="mt-1 text-xs">
+                    Options: true, false (true means RiftEssence account +
+                    linked Riot account)
+                  </div>
                 </div>
-                <div className="border rounded-lg p-3" style={{ borderColor: 'var(--color-border)' }}>
+                <div
+                  className="border rounded-lg p-3"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
                   <strong>limit/offset</strong>: pagination controls
                   <div className="mt-1 text-xs">limit: 1-50, offset: 0+</div>
                 </div>
@@ -214,138 +435,304 @@ export default function DeveloperApiPage() {
             </div>
 
             <div className="mt-6">
-              <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>Pagination (Offset Model)</h3>
-              <div className="border rounded-lg p-4 text-sm" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+              <h3
+                className="text-lg font-semibold mb-3"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                Pagination (Offset Model)
+              </h3>
+              <div
+                className="border rounded-lg p-4 text-sm"
+                style={{
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
                 <p>Every list endpoint returns:</p>
-                <pre className="mt-2 p-3 rounded text-xs overflow-x-auto" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}>
-{`"pagination": {
+                <pre
+                  className="mt-2 p-3 rounded text-xs overflow-x-auto"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  {`"pagination": {
   "total": 240,
   "limit": 20,
   "offset": 40,
   "hasMore": true
 }`}
                 </pre>
-                <p className="mt-3"><strong>How to request next page:</strong> set <code>offset = currentOffset + limit</code>. Example: from offset 40 with limit 20, next offset is 60.</p>
-                <p className="mt-2"><strong>When to stop:</strong> if <code>hasMore</code> is false, you reached the end.</p>
-                <p className="mt-2"><strong>Recommended default:</strong> limit=20 for best responsiveness.</p>
+                <p className="mt-3">
+                  <strong>How to request next page:</strong> set{' '}
+                  <code>offset = currentOffset + limit</code>. Example: from
+                  offset 40 with limit 20, next offset is 60.
+                </p>
+                <p className="mt-2">
+                  <strong>When to stop:</strong> if <code>hasMore</code> is
+                  false, you reached the end.
+                </p>
+                <p className="mt-2">
+                  <strong>Recommended default:</strong> limit=20 for best
+                  responsiveness.
+                </p>
               </div>
             </div>
 
             <div className="mt-6">
-              <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>Example</h3>
-              <pre className="p-4 rounded-lg text-xs overflow-x-auto" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}>
-{`curl -X GET "${endpointBase}/duo/posts?region=EUW,NA&language=English&verifiedOnly=true&minRank=GOLD&limit=20" \\
-  -H "x-api-key: re_xxxx_your_key_here"`}
+              <h3
+                className="text-lg font-semibold mb-3"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                Example
+              </h3>
+              <pre
+                className="p-4 rounded-lg text-xs overflow-x-auto"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                {`curl -X GET "${endpointBase}/duo/posts?region=EUW,NA&language=English&verifiedOnly=true&minRank=GOLD&limit=20" \\
+  -H "x-api-key: YOUR_RIFTESSENCE_API_KEY"`}
               </pre>
             </div>
 
             <div className="mt-6">
-              <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>Try Request URL Builder</h3>
-              <div className="border rounded-lg p-4 space-y-3" style={{ borderColor: 'var(--color-border)' }}>
+              <h3
+                className="text-lg font-semibold mb-3"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                Try Request URL Builder
+              </h3>
+              <div
+                className="border rounded-lg p-4 space-y-3"
+                style={{ borderColor: 'var(--color-border)' }}
+              >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <label className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  <label
+                    className="text-sm"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
                     Endpoint
                     <select
                       value={builder.endpoint}
-                      onChange={(e) => setBuilder((prev) => ({ ...prev, endpoint: e.target.value as 'duo' | 'lft' }))}
+                      onChange={(e) =>
+                        setBuilder((prev) => ({
+                          ...prev,
+                          endpoint: e.target.value as 'duo' | 'lft',
+                        }))
+                      }
                       className="w-full mt-1 px-3 py-2 rounded border"
-                      style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                      style={{
+                        backgroundColor: 'var(--color-bg-primary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
                     >
                       <option value="duo">/duo/posts</option>
                       <option value="lft">/lft/posts</option>
                     </select>
                   </label>
-                  <label className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  <label
+                    className="text-sm"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
                     Region(s)
                     <input
                       value={builder.region}
-                      onChange={(e) => setBuilder((prev) => ({ ...prev, region: e.target.value }))}
+                      onChange={(e) =>
+                        setBuilder((prev) => ({
+                          ...prev,
+                          region: e.target.value,
+                        }))
+                      }
                       placeholder="EUW,NA"
                       className="w-full mt-1 px-3 py-2 rounded border"
-                      style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                      style={{
+                        backgroundColor: 'var(--color-bg-primary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
                       list="region-options"
                     />
                   </label>
-                  <label className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  <label
+                    className="text-sm"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
                     Language(s)
                     <input
                       value={builder.language}
-                      onChange={(e) => setBuilder((prev) => ({ ...prev, language: e.target.value }))}
+                      onChange={(e) =>
+                        setBuilder((prev) => ({
+                          ...prev,
+                          language: e.target.value,
+                        }))
+                      }
                       placeholder="English,French"
                       className="w-full mt-1 px-3 py-2 rounded border"
-                      style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                      style={{
+                        backgroundColor: 'var(--color-bg-primary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
                     />
                   </label>
-                  <label className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  <label
+                    className="text-sm"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
                     Exact Rank
                     <select
                       value={builder.rank}
-                      onChange={(e) => setBuilder((prev) => ({ ...prev, rank: e.target.value }))}
+                      onChange={(e) =>
+                        setBuilder((prev) => ({
+                          ...prev,
+                          rank: e.target.value,
+                        }))
+                      }
                       className="w-full mt-1 px-3 py-2 rounded border"
-                      style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                      style={{
+                        backgroundColor: 'var(--color-bg-primary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
                     >
                       <option value="">(none)</option>
-                      {RANK_OPTIONS.map((rank) => (<option key={rank} value={rank}>{rank}</option>))}
+                      {RANK_OPTIONS.map((rank) => (
+                        <option key={rank} value={rank}>
+                          {rank}
+                        </option>
+                      ))}
                     </select>
                   </label>
-                  <label className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  <label
+                    className="text-sm"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
                     Min Rank
                     <select
                       value={builder.minRank}
-                      onChange={(e) => setBuilder((prev) => ({ ...prev, minRank: e.target.value }))}
+                      onChange={(e) =>
+                        setBuilder((prev) => ({
+                          ...prev,
+                          minRank: e.target.value,
+                        }))
+                      }
                       className="w-full mt-1 px-3 py-2 rounded border"
-                      style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                      style={{
+                        backgroundColor: 'var(--color-bg-primary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
                     >
                       <option value="">(none)</option>
-                      {RANK_OPTIONS.map((rank) => (<option key={`min-${rank}`} value={rank}>{rank}</option>))}
+                      {RANK_OPTIONS.map((rank) => (
+                        <option key={`min-${rank}`} value={rank}>
+                          {rank}
+                        </option>
+                      ))}
                     </select>
                   </label>
-                  <label className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  <label
+                    className="text-sm"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
                     Max Rank
                     <select
                       value={builder.maxRank}
-                      onChange={(e) => setBuilder((prev) => ({ ...prev, maxRank: e.target.value }))}
+                      onChange={(e) =>
+                        setBuilder((prev) => ({
+                          ...prev,
+                          maxRank: e.target.value,
+                        }))
+                      }
                       className="w-full mt-1 px-3 py-2 rounded border"
-                      style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                      style={{
+                        backgroundColor: 'var(--color-bg-primary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
                     >
                       <option value="">(none)</option>
-                      {RANK_OPTIONS.map((rank) => (<option key={`max-${rank}`} value={rank}>{rank}</option>))}
+                      {RANK_OPTIONS.map((rank) => (
+                        <option key={`max-${rank}`} value={rank}>
+                          {rank}
+                        </option>
+                      ))}
                     </select>
                   </label>
-                  <label className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  <label
+                    className="text-sm"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
                     verifiedOnly
                     <select
                       value={builder.verifiedOnly}
-                      onChange={(e) => setBuilder((prev) => ({ ...prev, verifiedOnly: e.target.value }))}
+                      onChange={(e) =>
+                        setBuilder((prev) => ({
+                          ...prev,
+                          verifiedOnly: e.target.value,
+                        }))
+                      }
                       className="w-full mt-1 px-3 py-2 rounded border"
-                      style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                      style={{
+                        backgroundColor: 'var(--color-bg-primary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
                     >
                       <option value="">(none)</option>
                       <option value="true">true</option>
                       <option value="false">false</option>
                     </select>
                   </label>
-                  <label className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  <label
+                    className="text-sm"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
                     limit
                     <input
                       type="number"
                       min={1}
                       max={50}
                       value={builder.limit}
-                      onChange={(e) => setBuilder((prev) => ({ ...prev, limit: e.target.value }))}
+                      onChange={(e) =>
+                        setBuilder((prev) => ({
+                          ...prev,
+                          limit: e.target.value,
+                        }))
+                      }
                       className="w-full mt-1 px-3 py-2 rounded border"
-                      style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                      style={{
+                        backgroundColor: 'var(--color-bg-primary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
                     />
                   </label>
-                  <label className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  <label
+                    className="text-sm"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
                     offset
                     <input
                       type="number"
                       min={0}
                       value={builder.offset}
-                      onChange={(e) => setBuilder((prev) => ({ ...prev, offset: e.target.value }))}
+                      onChange={(e) =>
+                        setBuilder((prev) => ({
+                          ...prev,
+                          offset: e.target.value,
+                        }))
+                      }
                       className="w-full mt-1 px-3 py-2 rounded border"
-                      style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+                      style={{
+                        backgroundColor: 'var(--color-bg-primary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
                     />
                   </label>
                 </div>
@@ -356,15 +743,29 @@ export default function DeveloperApiPage() {
                   ))}
                 </datalist>
 
-                <div className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Generated URL:</div>
-                <code className="block p-3 rounded text-xs break-all" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}>
+                <div
+                  className="text-sm"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  Generated URL:
+                </div>
+                <code
+                  className="block p-3 rounded text-xs break-all"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
                   {builderUrl}
                 </code>
                 <button
                   type="button"
                   onClick={copyBuilderUrl}
                   className="px-3 py-1 rounded text-sm"
-                  style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}
+                  style={{
+                    backgroundColor: 'var(--color-accent-1)',
+                    color: 'var(--color-bg-primary)',
+                  }}
                 >
                   Copy URL
                 </button>
@@ -372,15 +773,26 @@ export default function DeveloperApiPage() {
             </div>
 
             <div className="mt-6">
-              <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>Response Shape Examples</h3>
+              <h3
+                className="text-lg font-semibold mb-3"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                Response Shape Examples
+              </h3>
               <div className="flex flex-wrap gap-2 mb-3">
                 <button
                   type="button"
                   onClick={() => setActiveExample('duo')}
                   className="px-3 py-1 rounded text-xs font-semibold"
                   style={{
-                    backgroundColor: activeExample === 'duo' ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
-                    color: activeExample === 'duo' ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
+                    backgroundColor:
+                      activeExample === 'duo'
+                        ? 'var(--color-accent-1)'
+                        : 'var(--color-bg-tertiary)',
+                    color:
+                      activeExample === 'duo'
+                        ? 'var(--color-bg-primary)'
+                        : 'var(--color-text-primary)',
                   }}
                 >
                   Duo Response
@@ -390,8 +802,14 @@ export default function DeveloperApiPage() {
                   onClick={() => setActiveExample('lft')}
                   className="px-3 py-1 rounded text-xs font-semibold"
                   style={{
-                    backgroundColor: activeExample === 'lft' ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
-                    color: activeExample === 'lft' ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
+                    backgroundColor:
+                      activeExample === 'lft'
+                        ? 'var(--color-accent-1)'
+                        : 'var(--color-bg-tertiary)',
+                    color:
+                      activeExample === 'lft'
+                        ? 'var(--color-bg-primary)'
+                        : 'var(--color-text-primary)',
                   }}
                 >
                   LFT Response
@@ -401,8 +819,14 @@ export default function DeveloperApiPage() {
                   onClick={() => setActiveExample('request')}
                   className="px-3 py-1 rounded text-xs font-semibold"
                   style={{
-                    backgroundColor: activeExample === 'request' ? 'var(--color-accent-1)' : 'var(--color-bg-tertiary)',
-                    color: activeExample === 'request' ? 'var(--color-bg-primary)' : 'var(--color-text-primary)',
+                    backgroundColor:
+                      activeExample === 'request'
+                        ? 'var(--color-accent-1)'
+                        : 'var(--color-bg-tertiary)',
+                    color:
+                      activeExample === 'request'
+                        ? 'var(--color-bg-primary)'
+                        : 'var(--color-text-primary)',
                   }}
                 >
                   Request Success
@@ -411,9 +835,20 @@ export default function DeveloperApiPage() {
 
               {activeExample === 'duo' && (
                 <div>
-                  <div className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>Duo posts (GET /duo/posts)</div>
-                  <pre className="p-4 rounded-lg text-xs overflow-x-auto" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}>
-{`{
+                  <div
+                    className="text-sm font-semibold mb-2"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    Duo posts (GET /duo/posts)
+                  </div>
+                  <pre
+                    className="p-4 rounded-lg text-xs overflow-x-auto"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    {`{
   "posts": [
     {
       "id": "...",
@@ -437,9 +872,20 @@ export default function DeveloperApiPage() {
 
               {activeExample === 'lft' && (
                 <div>
-                  <div className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>LFT posts (GET /lft/posts)</div>
-                  <pre className="p-4 rounded-lg text-xs overflow-x-auto" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}>
-{`{
+                  <div
+                    className="text-sm font-semibold mb-2"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    LFT posts (GET /lft/posts)
+                  </div>
+                  <pre
+                    className="p-4 rounded-lg text-xs overflow-x-auto"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    {`{
   "posts": [
     {
       "id": "...",
@@ -464,11 +910,22 @@ export default function DeveloperApiPage() {
 
               {activeExample === 'request' && (
                 <div>
-                  <div className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-secondary)' }}>Request key success (POST /requests)</div>
-                  <pre className="p-4 rounded-lg text-xs overflow-x-auto" style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}>
-{`{
+                  <div
+                    className="text-sm font-semibold mb-2"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    Request key success (POST /requests)
+                  </div>
+                  <pre
+                    className="p-4 rounded-lg text-xs overflow-x-auto"
+                    style={{
+                      backgroundColor: 'var(--color-bg-tertiary)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    {`{
   "success": true,
-  "apiKey": "re_ab12cd34_xxxxxxxxxxxxxxxxxxxxxxxx",
+  "apiKey": "YOUR_RIFTESSENCE_API_KEY",
   "priorityAccess": false,
   "issuedAt": "2026-05-01T14:00:00.000Z"
 }`}
@@ -478,61 +935,192 @@ export default function DeveloperApiPage() {
             </div>
           </section>
 
-          <section className="border rounded-xl p-6" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
-            <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>Request API Key</h2>
-            <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+          <section
+            className="border rounded-xl p-6"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              borderColor: 'var(--color-border)',
+            }}
+          >
+            <h2
+              className="text-xl font-semibold mb-2"
+              style={{ color: 'var(--color-text-primary)' }}
+            >
+              Request API Key
+            </h2>
+            <p
+              className="text-sm mb-4"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
               Requires login and at least one linked Riot account.
             </p>
 
             {!loading && !user && (
-              <div className="mb-4 p-3 rounded-lg text-sm" style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', color: 'var(--color-text-primary)' }}>
-                You are not logged in. Please <Link href="/login" className="underline">log in</Link> first.
+              <div
+                className="mb-4 p-3 rounded-lg text-sm"
+                style={{
+                  backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                You are not logged in. Please{' '}
+                <Link href="/login" className="underline">
+                  log in
+                </Link>{' '}
+                first.
               </div>
             )}
 
             <form className="space-y-3" onSubmit={submitRequest}>
               <Field label="App name" required>
-                <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2 rounded border" style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }} />
+                <input
+                  value={form.name}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, name: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-primary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                />
               </Field>
               <Field label="Contact email/Discord username">
-                <input value={form.contactEmail} onChange={(e) => setForm((p) => ({ ...p, contactEmail: e.target.value }))} className="w-full px-3 py-2 rounded border" style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }} />
+                <input
+                  value={form.contactEmail}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, contactEmail: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-primary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                />
               </Field>
               <Field label="Website">
-                <input value={form.website} onChange={(e) => setForm((p) => ({ ...p, website: e.target.value }))} placeholder="https://example.com" className="w-full px-3 py-2 rounded border" style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }} />
+                <input
+                  value={form.website}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, website: e.target.value }))
+                  }
+                  placeholder="https://example.com"
+                  className="w-full px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-primary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                />
               </Field>
               <Field label="Description">
-                <textarea rows={2} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full px-3 py-2 rounded border" style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }} />
+                <textarea
+                  rows={2}
+                  value={form.description}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, description: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-primary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                />
               </Field>
               <Field label="Use case" required>
-                <textarea rows={4} value={form.useCase} onChange={(e) => setForm((p) => ({ ...p, useCase: e.target.value }))} className="w-full px-3 py-2 rounded border" style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }} />
+                <textarea
+                  rows={4}
+                  value={form.useCase}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, useCase: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-primary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                />
               </Field>
               <Field label="Audience">
-                <textarea rows={2} value={form.audience} onChange={(e) => setForm((p) => ({ ...p, audience: e.target.value }))} className="w-full px-3 py-2 rounded border" style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }} />
+                <textarea
+                  rows={2}
+                  value={form.audience}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, audience: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-primary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                />
               </Field>
               <Field label="Notes">
-                <textarea rows={2} value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="w-full px-3 py-2 rounded border" style={{ backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }} />
+                <textarea
+                  rows={2}
+                  value={form.notes}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, notes: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 rounded border"
+                  style={{
+                    backgroundColor: 'var(--color-bg-primary)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                />
               </Field>
 
               <button
                 type="submit"
                 disabled={submitting || loading || !user}
                 className="w-full px-4 py-2 rounded-lg font-semibold disabled:opacity-60"
-                style={{ background: 'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))', color: 'var(--color-bg-primary)' }}
+                style={{
+                  background:
+                    'linear-gradient(to right, var(--color-accent-1), var(--color-accent-2))',
+                  color: 'var(--color-bg-primary)',
+                }}
               >
-                {submitting ? 'Submitting...' : 'Submit & Generate Non-Priority Key'}
+                {submitting
+                  ? 'Submitting...'
+                  : 'Submit & Generate Non-Priority Key'}
               </button>
             </form>
 
             {issuedKey && (
-              <div className="mt-5 p-4 rounded-lg" style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
-                <div className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>Your API key (shown once)</div>
-                <code className="block text-xs break-all mb-3" style={{ color: 'var(--color-text-primary)' }}>{issuedKey}</code>
-                <button onClick={copyKey} className="px-3 py-1 rounded text-sm" style={{ backgroundColor: 'var(--color-accent-1)', color: 'var(--color-bg-primary)' }}>
+              <div
+                className="mt-5 p-4 rounded-lg"
+                style={{ backgroundColor: 'var(--color-bg-tertiary)' }}
+              >
+                <div
+                  className="text-sm font-semibold mb-2"
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  Your API key (shown once)
+                </div>
+                <code
+                  className="block text-xs break-all mb-3"
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  {issuedKey}
+                </code>
+                <button
+                  onClick={copyKey}
+                  className="px-3 py-1 rounded text-sm"
+                  style={{
+                    backgroundColor: 'var(--color-accent-1)',
+                    color: 'var(--color-bg-primary)',
+                  }}
+                >
                   Copy key
                 </button>
               </div>
             )}
-
           </section>
         </div>
       </div>
@@ -551,7 +1139,10 @@ function Field({
 }) {
   return (
     <label className="block">
-      <div className="text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+      <div
+        className="text-sm font-medium mb-1"
+        style={{ color: 'var(--color-text-primary)' }}
+      >
         {label} {required ? '*' : ''}
       </div>
       {children}

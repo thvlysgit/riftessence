@@ -2,14 +2,26 @@ import crypto from 'crypto';
 import prisma from '../prisma';
 import { getUserIdFromRequest, requireAdmin } from '../middleware/auth';
 import { logAdminAction } from '../utils/auditLog';
-import { formatDuoPost, formatLftPost, getAllowedRanks, parseBooleanQuery, parseQueryArray } from '../utils/developerFeed';
+import {
+  formatDuoPost,
+  formatLftPost,
+  getAllowedRanks,
+  parseBooleanQuery,
+  parseQueryArray,
+} from '../utils/developerFeed';
 
 const MAX_FORM_TEXT = 2000;
 const MAX_PUBLIC_LIMIT = 50;
 const DEFAULT_PUBLIC_LIMIT = 20;
 const limiterState = new Map<string, number[]>();
 
-function sendDeveloperApiError(reply: any, statusCode: number, error: string, code: string, details?: any) {
+function sendDeveloperApiError(
+  reply: any,
+  statusCode: number,
+  error: string,
+  code: string,
+  details?: any,
+) {
   return reply.code(statusCode).send({
     error,
     code,
@@ -22,8 +34,13 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function normalizeText(value: unknown, maxLength: number = MAX_FORM_TEXT): string {
-  return String(value || '').trim().slice(0, maxLength);
+function normalizeText(
+  value: unknown,
+  maxLength: number = MAX_FORM_TEXT,
+): string {
+  return String(value || '')
+    .trim()
+    .slice(0, maxLength);
 }
 
 function getClientIp(request: any): string {
@@ -36,11 +53,17 @@ function getClientIp(request: any): string {
     return String(forwarded[0]).trim();
   }
 
-  return String(request.ip || request.socket?.remoteAddress || '0.0.0.0').trim();
+  return String(
+    request.ip || request.socket?.remoteAddress || '0.0.0.0',
+  ).trim();
 }
 
 function hashIp(ip: string): string {
-  return crypto.createHash('sha256').update(`developer-api:${ip}`).digest('hex').slice(0, 24);
+  return crypto
+    .createHash('sha256')
+    .update(`developer-api:${ip}`)
+    .digest('hex')
+    .slice(0, 24);
 }
 
 function hashApiKey(secret: string): string {
@@ -66,11 +89,18 @@ function parseApiKey(rawHeader: unknown): string | null {
   return header;
 }
 
-function buildRateKey(scope: string, keyPrefix: string, ipHash: string): string {
+function buildRateKey(
+  scope: string,
+  keyPrefix: string,
+  ipHash: string,
+): string {
   return `${scope}:${keyPrefix}:${ipHash}`;
 }
 
-async function enforceBackpressure(apiKeyPrefix: string, ipHash: string): Promise<{ delayedMs: number } | null> {
+async function enforceBackpressure(
+  apiKeyPrefix: string,
+  ipHash: string,
+): Promise<{ delayedMs: number } | null> {
   const windowMs = 1500;
   const maxRequests = 4;
   const maxDelayMs = 300;
@@ -87,7 +117,9 @@ async function enforceBackpressure(apiKeyPrefix: string, ipHash: string): Promis
     let saturated = false;
 
     for (const key of keys) {
-      const timestamps = (limiterState.get(key) || []).filter((ts) => now - ts < windowMs);
+      const timestamps = (limiterState.get(key) || []).filter(
+        (ts) => now - ts < windowMs,
+      );
       limiterState.set(key, timestamps);
       if (timestamps.length >= maxRequests) {
         saturated = true;
@@ -104,7 +136,7 @@ async function enforceBackpressure(apiKeyPrefix: string, ipHash: string): Promis
       return { delayedMs: 0 };
     }
 
-    const delayMs = Math.min(maxDelayMs, 100 + (attempt * 75));
+    const delayMs = Math.min(maxDelayMs, 100 + attempt * 75);
     await delay(delayMs);
   }
 
@@ -180,34 +212,61 @@ function summarizeUsage(usage: any) {
   };
 }
 
-function parsePrismaError(error: any): { statusCode: number; message: string; code: string } | null {
+function parsePrismaError(
+  error: any,
+): { statusCode: number; message: string; code: string } | null {
   const code = String(error?.code || '');
 
   if (code === 'P2002') {
-    return { statusCode: 409, message: 'A duplicate key conflict occurred. Please retry your request.', code: 'DEVELOPER_API_DUPLICATE_CONFLICT' };
+    return {
+      statusCode: 409,
+      message: 'A duplicate key conflict occurred. Please retry your request.',
+      code: 'DEVELOPER_API_DUPLICATE_CONFLICT',
+    };
   }
 
   if (code === 'P2021' || code === 'P2022') {
-    return { statusCode: 503, message: 'Developer API provisioning is temporarily unavailable. Please try again shortly.', code: 'DEVELOPER_API_PROVISIONING_UNAVAILABLE' };
+    return {
+      statusCode: 503,
+      message:
+        'Developer API provisioning is temporarily unavailable. Please try again shortly.',
+      code: 'DEVELOPER_API_PROVISIONING_UNAVAILABLE',
+    };
   }
 
   if (code === 'P2003') {
-    return { statusCode: 400, message: 'Invalid linked data while creating your API request.', code: 'DEVELOPER_API_INVALID_LINKED_DATA' };
+    return {
+      statusCode: 400,
+      message: 'Invalid linked data while creating your API request.',
+      code: 'DEVELOPER_API_INVALID_LINKED_DATA',
+    };
   }
 
   return null;
 }
 
 async function resolveApiKey(request: any, reply: any) {
-  const providedKey = parseApiKey(request.headers['x-api-key'] || request.headers['authorization']);
+  const providedKey = parseApiKey(
+    request.headers['x-api-key'] || request.headers['authorization'],
+  );
   if (!providedKey) {
-    sendDeveloperApiError(reply, 401, 'API key required', 'DEVELOPER_API_KEY_REQUIRED');
+    sendDeveloperApiError(
+      reply,
+      401,
+      'API key required',
+      'DEVELOPER_API_KEY_REQUIRED',
+    );
     return null;
   }
 
   const parts = providedKey.split('_');
   if (parts.length < 3 || parts[0] !== 're') {
-    sendDeveloperApiError(reply, 401, 'Invalid API key format', 'DEVELOPER_API_KEY_INVALID_FORMAT');
+    sendDeveloperApiError(
+      reply,
+      401,
+      'Invalid API key format',
+      'DEVELOPER_API_KEY_INVALID_FORMAT',
+    );
     return null;
   }
 
@@ -218,12 +277,22 @@ async function resolveApiKey(request: any, reply: any) {
   });
 
   if (!apiKey || !apiKey.isActive || apiKey.revokedAt) {
-    sendDeveloperApiError(reply, 401, 'Invalid or revoked API key', 'DEVELOPER_API_KEY_REVOKED');
+    sendDeveloperApiError(
+      reply,
+      401,
+      'Invalid or revoked API key',
+      'DEVELOPER_API_KEY_REVOKED',
+    );
     return null;
   }
 
   if (apiKey.keyHash !== hashApiKey(providedKey)) {
-    sendDeveloperApiError(reply, 401, 'Invalid API key', 'DEVELOPER_API_KEY_INVALID');
+    sendDeveloperApiError(
+      reply,
+      401,
+      'Invalid API key',
+      'DEVELOPER_API_KEY_INVALID',
+    );
     return null;
   }
 
@@ -262,7 +331,11 @@ async function buildDuoWhere(query: any) {
   const andClauses: any[] = [];
   const regions = parseQueryArray(query.region);
   const languages = parseQueryArray(query.language);
-  const allowedRanks = getAllowedRanks(query.minRank, query.maxRank, query.rank);
+  const allowedRanks = getAllowedRanks(
+    query.minRank,
+    query.maxRank,
+    query.rank,
+  );
   const verifiedOnly = parseBooleanQuery(query.verifiedOnly);
 
   if (regions.length > 0) {
@@ -302,7 +375,11 @@ async function buildLftWhere(query: any) {
   const andClauses: any[] = [];
   const regions = parseQueryArray(query.region);
   const languages = parseQueryArray(query.language);
-  const allowedRanks = getAllowedRanks(query.minRank, query.maxRank, query.rank);
+  const allowedRanks = getAllowedRanks(
+    query.minRank,
+    query.maxRank,
+    query.rank,
+  );
   const verifiedOnly = parseBooleanQuery(query.verifiedOnly);
 
   if (regions.length > 0) {
@@ -355,11 +432,21 @@ export default async function developerApiRoutes(fastify: any) {
       });
 
       if (!requester) {
-        return sendDeveloperApiError(reply, 404, 'User account not found', 'DEVELOPER_API_USER_NOT_FOUND');
+        return sendDeveloperApiError(
+          reply,
+          404,
+          'User account not found',
+          'DEVELOPER_API_USER_NOT_FOUND',
+        );
       }
 
       if (!requester.riotAccounts || requester.riotAccounts.length === 0) {
-        return sendDeveloperApiError(reply, 400, 'Link at least one Riot account before requesting a developer API key', 'DEVELOPER_API_RIOT_ACCOUNT_REQUIRED');
+        return sendDeveloperApiError(
+          reply,
+          400,
+          'Link at least one Riot account before requesting a developer API key',
+          'DEVELOPER_API_RIOT_ACCOUNT_REQUIRED',
+        );
       }
 
       const body = request.body || {};
@@ -374,11 +461,21 @@ export default async function developerApiRoutes(fastify: any) {
       };
 
       if (!formData.name || formData.name.length < 3) {
-        return sendDeveloperApiError(reply, 400, 'Application name is required', 'DEVELOPER_API_APPLICATION_NAME_REQUIRED');
+        return sendDeveloperApiError(
+          reply,
+          400,
+          'Application name is required',
+          'DEVELOPER_API_APPLICATION_NAME_REQUIRED',
+        );
       }
 
       if (!formData.useCase || formData.useCase.length < 20) {
-        return sendDeveloperApiError(reply, 400, 'Please describe your intended use case', 'DEVELOPER_API_USE_CASE_REQUIRED');
+        return sendDeveloperApiError(
+          reply,
+          400,
+          'Please describe your intended use case',
+          'DEVELOPER_API_USE_CASE_REQUIRED',
+        );
       }
 
       const keyBundle = buildApiKey();
@@ -431,7 +528,10 @@ export default async function developerApiRoutes(fastify: any) {
 
       return reply.code(201).send({
         success: true,
-        application: summarizeApplication({ ...result.application, _count: { requests: 1, keys: 1, usage: 0 } }),
+        application: summarizeApplication({
+          ...result.application,
+          _count: { requests: 1, keys: 1, usage: 0 },
+        }),
         request: summarizeRequest({
           ...result.requestRecord,
           application: result.application,
@@ -451,10 +551,20 @@ export default async function developerApiRoutes(fastify: any) {
 
       const parsed = parsePrismaError(error);
       if (parsed) {
-        return sendDeveloperApiError(reply, parsed.statusCode, parsed.message, parsed.code);
+        return sendDeveloperApiError(
+          reply,
+          parsed.statusCode,
+          parsed.message,
+          parsed.code,
+        );
       }
 
-      return sendDeveloperApiError(reply, 500, 'Failed to submit developer API request. Please try again.', 'DEVELOPER_API_REQUEST_FAILED');
+      return sendDeveloperApiError(
+        reply,
+        500,
+        'Failed to submit developer API request. Please try again.',
+        'DEVELOPER_API_REQUEST_FAILED',
+      );
     }
   });
 
@@ -474,12 +584,20 @@ export default async function developerApiRoutes(fastify: any) {
         ipHash: clientIpHash,
         latencyMs: Date.now() - startedAt,
       });
-      return sendDeveloperApiError(reply, 429, 'Public API temporarily overloaded. Please retry shortly.', 'DEVELOPER_API_RATE_LIMITED');
+      return sendDeveloperApiError(
+        reply,
+        429,
+        'Public API temporarily overloaded. Please retry shortly.',
+        'DEVELOPER_API_RATE_LIMITED',
+      );
     }
 
     try {
       const query = request.query || {};
-      const limit = Math.min(MAX_PUBLIC_LIMIT, Math.max(1, Number(query.limit) || DEFAULT_PUBLIC_LIMIT));
+      const limit = Math.min(
+        MAX_PUBLIC_LIMIT,
+        Math.max(1, Number(query.limit) || DEFAULT_PUBLIC_LIMIT),
+      );
       const offset = Math.max(0, Number(query.offset) || 0);
       const where = await buildDuoWhere(query);
 
@@ -540,7 +658,12 @@ export default async function developerApiRoutes(fastify: any) {
         ipHash: clientIpHash,
         latencyMs: Date.now() - startedAt,
       });
-      return sendDeveloperApiError(reply, 500, 'Failed to fetch public duo posts', 'DEVELOPER_API_DUO_POSTS_FAILED');
+      return sendDeveloperApiError(
+        reply,
+        500,
+        'Failed to fetch public duo posts',
+        'DEVELOPER_API_DUO_POSTS_FAILED',
+      );
     }
   });
 
@@ -560,12 +683,20 @@ export default async function developerApiRoutes(fastify: any) {
         ipHash: clientIpHash,
         latencyMs: Date.now() - startedAt,
       });
-      return sendDeveloperApiError(reply, 429, 'Public API temporarily overloaded. Please retry shortly.', 'DEVELOPER_API_RATE_LIMITED');
+      return sendDeveloperApiError(
+        reply,
+        429,
+        'Public API temporarily overloaded. Please retry shortly.',
+        'DEVELOPER_API_RATE_LIMITED',
+      );
     }
 
     try {
       const query = request.query || {};
-      const limit = Math.min(MAX_PUBLIC_LIMIT, Math.max(1, Number(query.limit) || DEFAULT_PUBLIC_LIMIT));
+      const limit = Math.min(
+        MAX_PUBLIC_LIMIT,
+        Math.max(1, Number(query.limit) || DEFAULT_PUBLIC_LIMIT),
+      );
       const offset = Math.max(0, Number(query.offset) || 0);
       const where = await buildLftWhere(query);
 
@@ -633,142 +764,534 @@ export default async function developerApiRoutes(fastify: any) {
         ipHash: clientIpHash,
         latencyMs: Date.now() - startedAt,
       });
-      return sendDeveloperApiError(reply, 500, 'Failed to fetch public LFT posts', 'DEVELOPER_API_LFT_POSTS_FAILED');
+      return sendDeveloperApiError(
+        reply,
+        500,
+        'Failed to fetch public LFT posts',
+        'DEVELOPER_API_LFT_POSTS_FAILED',
+      );
     }
   });
 
-  fastify.get('/admin/developer-api/dashboard', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
+  // GET /api/developer-api/scrims/posts - Federated Scrim Finder feed
+  fastify.get(
+    '/developer-api/scrims/posts',
+    async (request: any, reply: any) => {
+      const startedAt = Date.now();
+      const apiKey = await resolveApiKey(request, reply);
+      if (!apiKey) return;
+      const clientIpHash = hashIp(getClientIp(request));
+      const permit = await enforceBackpressure(apiKey.keyPrefix, clientIpHash);
+      if (!permit) {
+        await recordUsage({
+          apiKey,
+          endpoint: '/api/developer-api/scrims/posts',
+          method: 'GET',
+          statusCode: 429,
+          ipHash: clientIpHash,
+          latencyMs: Date.now() - startedAt,
+        });
+        return sendDeveloperApiError(
+          reply,
+          429,
+          'Public API temporarily overloaded. Please retry shortly.',
+          'DEVELOPER_API_RATE_LIMITED',
+        );
+      }
+      try {
+        const query = request.query || {};
+        const limit = Math.min(
+          MAX_PUBLIC_LIMIT,
+          Math.max(1, Number(query.limit) || DEFAULT_PUBLIC_LIMIT),
+        );
+        const offset = Math.max(0, Number(query.offset) || 0);
+        const where: any = {
+          status: { in: ['AVAILABLE', 'CANDIDATES'] },
+          startTimeUtc: { gte: new Date() },
+        };
+        const region = normalizeText(query.region, 8).toUpperCase();
+        const format = normalizeText(query.format, 32).toUpperCase();
+        if (region) where.region = region;
+        if (format) where.scrimFormat = format;
+        const [total, posts] = await Promise.all([
+          prisma.scrimPost.count({ where }),
+          prisma.scrimPost.findMany({
+            where,
+            orderBy: [{ startTimeUtc: 'asc' }, { createdAt: 'desc' }],
+            skip: offset,
+            take: limit,
+          }),
+        ]);
+        const payload = {
+          posts: posts.map((post: any) => ({
+            id: post.id,
+            externalId: post.externalPostId,
+            source: post.source,
+            team: {
+              name: post.teamName,
+              tag: post.teamTag,
+              region: post.region,
+            },
+            averageRank: post.averageRank,
+            averageDivision: post.averageDivision,
+            averageLp: post.averageLp,
+            startTimeUtc: post.startTimeUtc,
+            timezoneLabel: post.timezoneLabel,
+            format: post.scrimFormat,
+            details: post.details,
+            contactUrl:
+              post.externalContactUrl ||
+              `${(
+                process.env.FRONTEND_URL || 'https://riftessence.app'
+              ).replace(/\/$/, '')}/scrims`,
+            status: post.status,
+            updatedAt: post.updatedAt,
+          })),
+          pagination: { total, limit, offset, hasMore: offset + limit < total },
+        };
+        await recordUsage({
+          apiKey,
+          endpoint: '/api/developer-api/scrims/posts',
+          method: 'GET',
+          statusCode: 200,
+          ipHash: clientIpHash,
+          latencyMs: Date.now() - startedAt,
+        });
+        return reply.send(payload);
+      } catch (error: any) {
+        fastify.log.error(error);
+        await recordUsage({
+          apiKey,
+          endpoint: '/api/developer-api/scrims/posts',
+          method: 'GET',
+          statusCode: 500,
+          ipHash: clientIpHash,
+          latencyMs: Date.now() - startedAt,
+        });
+        return sendDeveloperApiError(
+          reply,
+          500,
+          'Failed to fetch federated scrim posts',
+          'DEVELOPER_API_SCRIM_POSTS_FAILED',
+        );
+      }
+    },
+  );
 
-      const isAdmin = await requireAdmin(request, reply, prisma);
-      if (!isAdmin) return;
-
-      const [applications, requests, keys, usage] = await Promise.all([
-        prisma.developerApiApplication.findMany({
-          orderBy: { createdAt: 'desc' },
-          take: 50,
-          include: {
-            _count: {
-              select: {
-                requests: true,
-                keys: true,
-                usage: true,
+  // PUT /api/developer-api/scrims/posts/:externalPostId - Idempotent inbound listing sync
+  fastify.put(
+    '/developer-api/scrims/posts/:externalPostId',
+    async (request: any, reply: any) => {
+      const startedAt = Date.now();
+      const apiKey = await resolveApiKey(request, reply);
+      if (!apiKey) return;
+      const clientIpHash = hashIp(getClientIp(request));
+      const permit = await enforceBackpressure(apiKey.keyPrefix, clientIpHash);
+      if (!permit)
+        return sendDeveloperApiError(
+          reply,
+          429,
+          'Public API temporarily overloaded. Please retry shortly.',
+          'DEVELOPER_API_RATE_LIMITED',
+        );
+      try {
+        const externalPostId = normalizeText(
+          request.params?.externalPostId,
+          120,
+        );
+        const body = request.body || {};
+        const externalTeamId = normalizeText(body.externalTeamId, 120);
+        const teamName = normalizeText(body.teamName, 50);
+        const teamTag = normalizeText(body.teamTag, 5) || null;
+        const region = normalizeText(body.region, 8).toUpperCase();
+        const format = normalizeText(body.format, 32).toUpperCase();
+        const startTimeUtc = new Date(body.startTimeUtc);
+        const contactUrl = normalizeText(body.contactUrl, 500);
+        if (
+          !externalPostId ||
+          !externalTeamId ||
+          teamName.length < 2 ||
+          !region ||
+          !format ||
+          !Number.isFinite(startTimeUtc.getTime()) ||
+          !contactUrl
+        ) {
+          return sendDeveloperApiError(
+            reply,
+            400,
+            'externalTeamId, teamName, region, format, future startTimeUtc, and contactUrl are required.',
+            'DEVELOPER_API_SCRIM_INVALID',
+          );
+        }
+        if (startTimeUtc.getTime() <= Date.now())
+          return sendDeveloperApiError(
+            reply,
+            400,
+            'startTimeUtc must be in the future.',
+            'DEVELOPER_API_SCRIM_START_PAST',
+          );
+        const allowedRegions = [
+          'NA',
+          'EUW',
+          'EUNE',
+          'KR',
+          'JP',
+          'OCE',
+          'LAN',
+          'LAS',
+          'BR',
+          'RU',
+        ];
+        const allowedFormats = [
+          'BO1',
+          'BO3',
+          'BO5',
+          'FEARLESS_BO1',
+          'FEARLESS_BO3',
+          'FEARLESS_BO5',
+          'BLOCK',
+        ];
+        if (
+          !allowedRegions.includes(region) ||
+          !allowedFormats.includes(format)
+        )
+          return sendDeveloperApiError(
+            reply,
+            400,
+            'Unsupported region or format.',
+            'DEVELOPER_API_SCRIM_ENUM_INVALID',
+          );
+        let parsedContact: URL;
+        try {
+          parsedContact = new URL(contactUrl);
+        } catch {
+          return sendDeveloperApiError(
+            reply,
+            400,
+            'contactUrl must be an absolute HTTPS URL.',
+            'DEVELOPER_API_SCRIM_CONTACT_INVALID',
+          );
+        }
+        if (parsedContact.protocol !== 'https:')
+          return sendDeveloperApiError(
+            reply,
+            400,
+            'contactUrl must use HTTPS.',
+            'DEVELOPER_API_SCRIM_CONTACT_INVALID',
+          );
+        const responses =
+          apiKey.application?.formResponses &&
+          typeof apiKey.application.formResponses === 'object'
+            ? (apiKey.application.formResponses as Record<string, any>)
+            : {};
+        const managerUserId = normalizeText(responses.requesterUserId, 120);
+        if (!managerUserId)
+          return sendDeveloperApiError(
+            reply,
+            403,
+            'This API application is not linked to a RiftEssence manager.',
+            'DEVELOPER_API_SCRIM_MANAGER_REQUIRED',
+          );
+        const source = `developer:${apiKey.applicationId}`;
+        const post = await prisma.$transaction(async (tx: any) => {
+          const externalTeam = await tx.scrimExternalTeam.upsert({
+            where: {
+              applicationId_externalId: {
+                applicationId: apiKey.applicationId,
+                externalId: externalTeamId,
               },
             },
-          },
-        }),
-        prisma.developerApiRequest.findMany({
-          orderBy: { createdAt: 'desc' },
-          take: 50,
-          include: {
-            application: { select: { id: true, name: true } },
-            apiKey: { select: { id: true, keyPrefix: true, isPriority: true } },
-          },
-        }),
-        prisma.developerApiKey.findMany({
-          orderBy: { createdAt: 'desc' },
-          take: 50,
-          include: {
-            application: { select: { id: true, name: true } },
-            _count: {
-              select: {
-                usage: true,
+            update: {
+              team: { update: { name: teamName, tag: teamTag, region } },
+            },
+            create: {
+              applicationId: apiKey.applicationId,
+              externalId: externalTeamId,
+              managerUserId,
+              team: {
+                create: {
+                  name: teamName,
+                  tag: teamTag,
+                  region,
+                  ownerId: managerUserId,
+                  isScrimProfile: true,
+                },
               },
             },
-          },
-        }),
-        prisma.developerApiUsage.findMany({
-          orderBy: { createdAt: 'desc' },
-          take: 100,
-          include: {
-            application: { select: { id: true, name: true } },
-            apiKey: { select: { id: true, keyPrefix: true, isPriority: true } },
-          },
-        }),
-      ]);
-
-      return reply.send({
-        applications: applications.map(summarizeApplication),
-        requests: requests.map(summarizeRequest),
-        keys: keys.map(summarizeKey),
-        usage: usage.map(summarizeUsage),
-        summary: {
-          applications: applications.length,
-          requests: requests.length,
-          keys: keys.length,
-          usage: usage.length,
-          priorityKeys: keys.filter((key: any) => key.isPriority).length,
-        },
-      });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return sendDeveloperApiError(reply, 500, 'Failed to load developer API dashboard', 'DEVELOPER_API_DASHBOARD_FAILED');
-    }
-  });
-
-  fastify.patch('/admin/developer-api/requests/:id/priority', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
-
-      const isAdmin = await requireAdmin(request, reply, prisma);
-      if (!isAdmin) return;
-
-      const { id } = request.params as { id: string };
-      const requestRecord = await prisma.developerApiRequest.findUnique({
-        where: { id },
-        include: {
-          application: true,
-          apiKey: true,
-        },
-      });
-
-      if (!requestRecord) {
-        return sendDeveloperApiError(reply, 404, 'Developer API request not found', 'DEVELOPER_API_REQUEST_NOT_FOUND');
+            include: { team: true },
+          });
+          return tx.scrimPost.upsert({
+            where: { source_externalPostId: { source, externalPostId } },
+            update: {
+              teamId: externalTeam.teamId,
+              teamName,
+              teamTag,
+              region,
+              startTimeUtc,
+              scrimFormat: format,
+              details: normalizeText(body.details, 1000) || null,
+              averageRank:
+                normalizeText(body.averageRank, 24).toUpperCase() || null,
+              averageDivision:
+                normalizeText(body.averageDivision, 4).toUpperCase() || null,
+              averageLp: Number.isFinite(Number(body.averageLp))
+                ? Math.max(0, Math.floor(Number(body.averageLp)))
+                : null,
+              externalContactUrl: contactUrl,
+              status: 'AVAILABLE',
+            },
+            create: {
+              teamId: externalTeam.teamId,
+              authorId: managerUserId,
+              teamName,
+              teamTag,
+              region,
+              startTimeUtc,
+              scrimFormat: format,
+              details: normalizeText(body.details, 1000) || null,
+              averageRank:
+                normalizeText(body.averageRank, 24).toUpperCase() || null,
+              averageDivision:
+                normalizeText(body.averageDivision, 4).toUpperCase() || null,
+              averageLp: Number.isFinite(Number(body.averageLp))
+                ? Math.max(0, Math.floor(Number(body.averageLp)))
+                : null,
+              source,
+              externalPostId,
+              externalContactUrl: contactUrl,
+              timezoneLabel: normalizeText(body.timezoneLabel, 80) || null,
+            },
+          });
+        });
+        await recordUsage({
+          apiKey,
+          endpoint: '/api/developer-api/scrims/posts/:externalPostId',
+          method: 'PUT',
+          statusCode: 200,
+          ipHash: clientIpHash,
+          latencyMs: Date.now() - startedAt,
+        });
+        return reply.send({
+          success: true,
+          id: post.id,
+          externalId: post.externalPostId,
+          updatedAt: post.updatedAt,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        await recordUsage({
+          apiKey,
+          endpoint: '/api/developer-api/scrims/posts/:externalPostId',
+          method: 'PUT',
+          statusCode: 500,
+          ipHash: clientIpHash,
+          latencyMs: Date.now() - startedAt,
+        });
+        return sendDeveloperApiError(
+          reply,
+          500,
+          'Failed to sync scrim post',
+          'DEVELOPER_API_SCRIM_SYNC_FAILED',
+        );
       }
+    },
+  );
 
-      if (!requestRecord.apiKeyId) {
-        return sendDeveloperApiError(reply, 400, 'No API key is attached to this request', 'DEVELOPER_API_REQUEST_HAS_NO_KEY');
+  fastify.delete(
+    '/developer-api/scrims/posts/:externalPostId',
+    async (request: any, reply: any) => {
+      const startedAt = Date.now();
+      const apiKey = await resolveApiKey(request, reply);
+      if (!apiKey) return;
+      const clientIpHash = hashIp(getClientIp(request));
+      const externalPostId = normalizeText(request.params?.externalPostId, 120);
+      const result = await prisma.scrimPost.deleteMany({
+        where: { source: `developer:${apiKey.applicationId}`, externalPostId },
+      });
+      await recordUsage({
+        apiKey,
+        endpoint: '/api/developer-api/scrims/posts/:externalPostId',
+        method: 'DELETE',
+        statusCode: result.count ? 200 : 404,
+        ipHash: clientIpHash,
+        latencyMs: Date.now() - startedAt,
+      });
+      if (!result.count)
+        return sendDeveloperApiError(
+          reply,
+          404,
+          'Federated scrim post not found.',
+          'DEVELOPER_API_SCRIM_NOT_FOUND',
+        );
+      return reply.send({ success: true });
+    },
+  );
+
+  fastify.get(
+    '/admin/developer-api/dashboard',
+    async (request: any, reply: any) => {
+      try {
+        const userId = await getUserIdFromRequest(request, reply);
+        if (!userId) return;
+
+        const isAdmin = await requireAdmin(request, reply, prisma);
+        if (!isAdmin) return;
+
+        const [applications, requests, keys, usage] = await Promise.all([
+          prisma.developerApiApplication.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+            include: {
+              _count: {
+                select: {
+                  requests: true,
+                  keys: true,
+                  usage: true,
+                },
+              },
+            },
+          }),
+          prisma.developerApiRequest.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+            include: {
+              application: { select: { id: true, name: true } },
+              apiKey: {
+                select: { id: true, keyPrefix: true, isPriority: true },
+              },
+            },
+          }),
+          prisma.developerApiKey.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+            include: {
+              application: { select: { id: true, name: true } },
+              _count: {
+                select: {
+                  usage: true,
+                },
+              },
+            },
+          }),
+          prisma.developerApiUsage.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 100,
+            include: {
+              application: { select: { id: true, name: true } },
+              apiKey: {
+                select: { id: true, keyPrefix: true, isPriority: true },
+              },
+            },
+          }),
+        ]);
+
+        return reply.send({
+          applications: applications.map(summarizeApplication),
+          requests: requests.map(summarizeRequest),
+          keys: keys.map(summarizeKey),
+          usage: usage.map(summarizeUsage),
+          summary: {
+            applications: applications.length,
+            requests: requests.length,
+            keys: keys.length,
+            usage: usage.length,
+            priorityKeys: keys.filter((key: any) => key.isPriority).length,
+          },
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return sendDeveloperApiError(
+          reply,
+          500,
+          'Failed to load developer API dashboard',
+          'DEVELOPER_API_DASHBOARD_FAILED',
+        );
       }
+    },
+  );
 
-      await prisma.$transaction(async (tx: any) => {
-        await tx.developerApiRequest.update({
+  fastify.patch(
+    '/admin/developer-api/requests/:id/priority',
+    async (request: any, reply: any) => {
+      try {
+        const userId = await getUserIdFromRequest(request, reply);
+        if (!userId) return;
+
+        const isAdmin = await requireAdmin(request, reply, prisma);
+        if (!isAdmin) return;
+
+        const { id } = request.params as { id: string };
+        const requestRecord = await prisma.developerApiRequest.findUnique({
           where: { id },
-          data: {
-            priorityAccess: true,
-            reviewedAt: new Date(),
-            reviewedById: userId,
+          include: {
+            application: true,
+            apiKey: true,
           },
         });
 
-        await tx.developerApiApplication.update({
-          where: { id: requestRecord.applicationId },
-          data: { priorityAccess: true },
+        if (!requestRecord) {
+          return sendDeveloperApiError(
+            reply,
+            404,
+            'Developer API request not found',
+            'DEVELOPER_API_REQUEST_NOT_FOUND',
+          );
+        }
+
+        if (!requestRecord.apiKeyId) {
+          return sendDeveloperApiError(
+            reply,
+            400,
+            'No API key is attached to this request',
+            'DEVELOPER_API_REQUEST_HAS_NO_KEY',
+          );
+        }
+
+        await prisma.$transaction(async (tx: any) => {
+          await tx.developerApiRequest.update({
+            where: { id },
+            data: {
+              priorityAccess: true,
+              reviewedAt: new Date(),
+              reviewedById: userId,
+            },
+          });
+
+          await tx.developerApiApplication.update({
+            where: { id: requestRecord.applicationId },
+            data: { priorityAccess: true },
+          });
+
+          await tx.developerApiKey.update({
+            where: { id: requestRecord.apiKeyId },
+            data: { isPriority: true },
+          });
         });
 
-        await tx.developerApiKey.update({
-          where: { id: requestRecord.apiKeyId },
-          data: { isPriority: true },
+        await logAdminAction({
+          adminId: userId,
+          action: 'DEVELOPER_API_PRIORITY_GRANTED',
+          targetId: id,
+          details: {
+            applicationId: requestRecord.applicationId,
+            applicationName: requestRecord.application.name,
+            apiKeyId: requestRecord.apiKeyId,
+          },
         });
-      });
 
-      await logAdminAction({
-        adminId: userId,
-        action: 'DEVELOPER_API_PRIORITY_GRANTED',
-        targetId: id,
-        details: {
-          applicationId: requestRecord.applicationId,
-          applicationName: requestRecord.application.name,
-          apiKeyId: requestRecord.apiKeyId,
-        },
-      });
-
-      return reply.send({ success: true, message: 'Priority access granted' });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return sendDeveloperApiError(reply, 500, 'Failed to grant priority access', 'DEVELOPER_API_PRIORITY_FAILED');
-    }
-  });
+        return reply.send({
+          success: true,
+          message: 'Priority access granted',
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return sendDeveloperApiError(
+          reply,
+          500,
+          'Failed to grant priority access',
+          'DEVELOPER_API_PRIORITY_FAILED',
+        );
+      }
+    },
+  );
 }

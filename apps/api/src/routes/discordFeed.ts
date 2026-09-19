@@ -1,12 +1,23 @@
 import prisma from '../prisma';
 import * as riotClient from '../riotClient';
-import { ackMirrorDeletion, leaseMirrorDeletions } from '../services/discordMirrorDeletionQueue';
+import {
+  ackMirrorDeletion,
+  leaseMirrorDeletions,
+} from '../services/discordMirrorDeletionQueue';
 import { syncUserVerification } from '../utils/verification';
 
 // Ordered ranks for filter comparison (index = strength)
 const RANK_ORDER = [
-  'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM',
-  'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER',
+  'IRON',
+  'BRONZE',
+  'SILVER',
+  'GOLD',
+  'PLATINUM',
+  'EMERALD',
+  'DIAMOND',
+  'MASTER',
+  'GRANDMASTER',
+  'CHALLENGER',
 ];
 
 const ROLE_FORWARDING_RANK_KEYS = [...RANK_ORDER, 'UNRANKED'];
@@ -25,10 +36,14 @@ const ROLE_FORWARDING_LANGUAGE_KEYS = [
   'Chinese',
 ];
 
-const LANGUAGE_KEY_LOOKUP: Record<string, string> = ROLE_FORWARDING_LANGUAGE_KEYS.reduce((acc: Record<string, string>, key: string) => {
-  acc[key.toLowerCase()] = key;
-  return acc;
-}, {} as Record<string, string>);
+const LANGUAGE_KEY_LOOKUP: Record<string, string> =
+  ROLE_FORWARDING_LANGUAGE_KEYS.reduce(
+    (acc: Record<string, string>, key: string) => {
+      acc[key.toLowerCase()] = key;
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
 
 const LANGUAGE_ALIASES: Record<string, string> = {
   en: 'English',
@@ -61,7 +76,11 @@ const DISCORD_ROLE_ID_REGEX = /^\d{6,30}$/;
 const RIOT_GAME_NAME_REGEX = /^[\p{L}\p{N} _.-]{3,16}$/u;
 const RIOT_TAGLINE_REGEX = /^[\p{L}\p{N}]{2,5}$/u;
 
-function normalizePlainDisplayText(raw: unknown, fallback: string, maxLength: number): string {
+function normalizePlainDisplayText(
+  raw: unknown,
+  fallback: string,
+  maxLength: number,
+): string {
   const normalized = String(raw || '')
     .replace(/[\u0000-\u001F\u007F]/g, ' ')
     .replace(/[<>"'`]/g, '')
@@ -77,7 +96,11 @@ function rankIndex(rank: string | null | undefined): number {
 }
 
 /** Returns true if `rank` falls within [min, max] (inclusive, null = no bound). */
-function rankInRange(rank: string | null | undefined, min: string | null | undefined, max: string | null | undefined): boolean {
+function rankInRange(
+  rank: string | null | undefined,
+  min: string | null | undefined,
+  max: string | null | undefined,
+): boolean {
   if (!min && !max) return true; // no filter
   const ri = rankIndex(rank);
   if (ri < 0) return true; // UNRANKED passes through
@@ -88,24 +111,24 @@ function rankInRange(rank: string | null | undefined, min: string | null | undef
 
 // Role aliases for content parsing
 const ROLE_ALIASES: { [key: string]: string } = {
-  'top': 'TOP',
-  'toplane': 'TOP',
-  'toplaner': 'TOP',
-  'jungle': 'JUNGLE',
-  'jg': 'JUNGLE',
-  'jungler': 'JUNGLE',
-  'mid': 'MID',
-  'midlane': 'MID',
-  'midlaner': 'MID',
-  'middle': 'MID',
-  'adc': 'ADC',
-  'ad': 'ADC',
-  'carry': 'ADC',
-  'support': 'SUPPORT',
-  'sup': 'SUPPORT',
-  'supp': 'SUPPORT',
-  'fill': 'FILL',
-  'flex': 'FILL',
+  top: 'TOP',
+  toplane: 'TOP',
+  toplaner: 'TOP',
+  jungle: 'JUNGLE',
+  jg: 'JUNGLE',
+  jungler: 'JUNGLE',
+  mid: 'MID',
+  midlane: 'MID',
+  midlaner: 'MID',
+  middle: 'MID',
+  adc: 'ADC',
+  ad: 'ADC',
+  carry: 'ADC',
+  support: 'SUPPORT',
+  sup: 'SUPPORT',
+  supp: 'SUPPORT',
+  fill: 'FILL',
+  flex: 'FILL',
 };
 
 const ROLE_VALUES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FILL'];
@@ -126,9 +149,9 @@ const VC_NEVER: string[] = [
   'no voc',
   'no vc',
   "i don't vc",
-  "i dont vc",
+  'i dont vc',
   "don't vc",
-  "dont vc",
+  'dont vc',
   'no calls',
   'mute',
   'pas de vocal',
@@ -145,8 +168,13 @@ function normalizeRoleToken(token: string): string | null {
   return ROLE_VALUES.includes(upper) ? upper : null;
 }
 
-function extractRolesFromContent(content: string): { role: string | null; secondRole: string | null } {
-  const tokens = String(content || '').split(/[^a-zA-Z]+/).filter(Boolean);
+function extractRolesFromContent(content: string): {
+  role: string | null;
+  secondRole: string | null;
+} {
+  const tokens = String(content || '')
+    .split(/[^a-zA-Z]+/)
+    .filter(Boolean);
   const roles: string[] = [];
 
   for (const token of tokens) {
@@ -166,28 +194,32 @@ function extractRolesFromContent(content: string): { role: string | null; second
 // Extract VC preference from message content
 function extractVCPreferenceFromContent(content: string): string | null {
   const lowerContent = content.toLowerCase();
-  
+
   // Check for NEVER patterns first (stronger indicator)
   for (const pattern of VC_NEVER) {
     if (lowerContent.includes(pattern)) {
       return 'NEVER';
     }
   }
-  
+
   // Check for ALWAYS patterns
   for (const pattern of VC_ALWAYS) {
     if (lowerContent.includes(pattern)) {
       return 'ALWAYS';
     }
   }
-  
+
   return null;
 }
 
 function normalizeVcPreference(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const normalized = raw.trim().toUpperCase();
-  if (normalized === 'ALWAYS' || normalized === 'SOMETIMES' || normalized === 'NEVER') {
+  if (
+    normalized === 'ALWAYS' ||
+    normalized === 'SOMETIMES' ||
+    normalized === 'NEVER'
+  ) {
     return normalized;
   }
   return extractVCPreferenceFromContent(raw);
@@ -200,21 +232,29 @@ function isRealRiotAccount(account: any): boolean {
   return linked && !puuid.startsWith('discord_');
 }
 
-export function parseRiotId(raw: string | null | undefined): { summonerName: string | null; gameName: string | null; tagLine: string | null } {
+export function parseRiotId(raw: string | null | undefined): {
+  summonerName: string | null;
+  gameName: string | null;
+  tagLine: string | null;
+} {
   const trimmed = String(raw || '').trim();
   if (!trimmed) return { summonerName: null, gameName: null, tagLine: null };
 
   const [gameNamePart, tagLinePart] = trimmed.split('#');
-  const gameName = gameNamePart ? normalizePlainDisplayText(gameNamePart, '', 16) : '';
-  const tagLine = tagLinePart ? normalizePlainDisplayText(tagLinePart, '', 5) : '';
+  const gameName = gameNamePart
+    ? normalizePlainDisplayText(gameNamePart, '', 16)
+    : '';
+  const tagLine = tagLinePart
+    ? normalizePlainDisplayText(tagLinePart, '', 5)
+    : '';
   const summonerName = tagLine ? `${gameName}#${tagLine}` : gameName;
 
   if (
-    !summonerName
-    || trimmed.includes('<')
-    || trimmed.includes('>')
-    || (gameName && !RIOT_GAME_NAME_REGEX.test(gameName))
-    || (tagLine && !RIOT_TAGLINE_REGEX.test(tagLine))
+    !summonerName ||
+    trimmed.includes('<') ||
+    trimmed.includes('>') ||
+    (gameName && !RIOT_GAME_NAME_REGEX.test(gameName)) ||
+    (tagLine && !RIOT_TAGLINE_REGEX.test(tagLine))
   ) {
     return { summonerName: null, gameName: null, tagLine: null };
   }
@@ -226,10 +266,17 @@ export function parseRiotId(raw: string | null | undefined): { summonerName: str
   };
 }
 
-function buildVerificationState(author: any): { isVerified: boolean; missing: string[] } {
+function buildVerificationState(author: any): {
+  isVerified: boolean;
+  missing: string[];
+} {
   const hasDiscord = Boolean(author?.discordAccount);
-  const riotAccounts = Array.isArray(author?.riotAccounts) ? author.riotAccounts : [];
-  const hasRiot = riotAccounts.some((account: any) => isRealRiotAccount(account));
+  const riotAccounts = Array.isArray(author?.riotAccounts)
+    ? author.riotAccounts
+    : [];
+  const hasRiot = riotAccounts.some((account: any) =>
+    isRealRiotAccount(account),
+  );
   const missing: string[] = [];
   if (!hasRiot) missing.push('riot');
   if (!hasDiscord) missing.push('discord');
@@ -263,7 +310,9 @@ function normalizeRankKey(raw: any): string | null {
 function normalizeLanguageKey(raw: any): string | null {
   if (typeof raw !== 'string') return null;
   const normalized = raw.trim().toLowerCase();
-  return LANGUAGE_KEY_LOOKUP[normalized] || LANGUAGE_ALIASES[normalized] || null;
+  return (
+    LANGUAGE_KEY_LOOKUP[normalized] || LANGUAGE_ALIASES[normalized] || null
+  );
 }
 
 function normalizeLanguageArray(raw: any): string[] {
@@ -273,16 +322,27 @@ function normalizeLanguageArray(raw: any): string[] {
     .filter((value: string | null): value is string => Boolean(value));
 }
 
-export function buildDiscordDisplayUsername(authorDiscordUsername: string, authorDiscordId: string): string {
+export function buildDiscordDisplayUsername(
+  authorDiscordUsername: string,
+  authorDiscordId: string,
+): string {
   return normalizePlainDisplayText(
     authorDiscordUsername,
     `discord_${authorDiscordId}`,
-    50
+    50,
   );
 }
 
-async function createDiscordOnlyUser(prismaClient: any, authorDiscordUsername: string, authorDiscordId: string, autoEnableDms: boolean = true) {
-  const username = buildDiscordDisplayUsername(authorDiscordUsername, authorDiscordId);
+async function createDiscordOnlyUser(
+  prismaClient: any,
+  authorDiscordUsername: string,
+  authorDiscordId: string,
+  autoEnableDms: boolean = true,
+) {
+  const username = buildDiscordDisplayUsername(
+    authorDiscordUsername,
+    authorDiscordId,
+  );
 
   try {
     return await prismaClient.user.create({
@@ -297,7 +357,9 @@ async function createDiscordOnlyUser(prismaClient: any, authorDiscordUsername: s
       throw error;
     }
 
-    const fallbackUsername = `${username}_${authorDiscordId.slice(-6)}`.substring(0, 50);
+    const fallbackUsername = `${username}_${authorDiscordId.slice(
+      -6,
+    )}`.substring(0, 50);
     return prismaClient.user.create({
       data: {
         username: fallbackUsername,
@@ -329,7 +391,10 @@ function parseLanguageInput(raw: string): string[] {
   return output;
 }
 
-function matchesLanguageFilter(filterLanguages: any, postLanguages: any): boolean {
+function matchesLanguageFilter(
+  filterLanguages: any,
+  postLanguages: any,
+): boolean {
   const normalizedFilter = normalizeLanguageArray(filterLanguages);
   if (normalizedFilter.length === 0) return true;
 
@@ -340,14 +405,18 @@ function matchesLanguageFilter(filterLanguages: any, postLanguages: any): boolea
   return normalizedPostLanguages.some((language) => filterSet.has(language));
 }
 
-function normalizeRoleMap(raw: any, kind: 'RANK' | 'LANGUAGE'): Record<string, string> {
+function normalizeRoleMap(
+  raw: any,
+  kind: 'RANK' | 'LANGUAGE',
+): Record<string, string> {
   const output: Record<string, string> = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return output;
   }
 
   for (const [key, value] of Object.entries(raw)) {
-    const normalizedKey = kind === 'RANK' ? normalizeRankKey(key) : normalizeLanguageKey(key);
+    const normalizedKey =
+      kind === 'RANK' ? normalizeRankKey(key) : normalizeLanguageKey(key);
     const normalizedRoleId = normalizeDiscordRoleId(value);
     if (normalizedKey && normalizedRoleId) {
       output[normalizedKey] = normalizedRoleId;
@@ -357,7 +426,9 @@ function normalizeRoleMap(raw: any, kind: 'RANK' | 'LANGUAGE'): Record<string, s
   return output;
 }
 
-function pickBestRank(riotAccounts: Array<{ rank: string | null; isMain: boolean }>): string | null {
+function pickBestRank(
+  riotAccounts: Array<{ rank: string | null; isMain: boolean }>,
+): string | null {
   if (!Array.isArray(riotAccounts) || riotAccounts.length === 0) {
     return null;
   }
@@ -389,7 +460,9 @@ function validateBotAuth(request: any, reply: any, done: () => void) {
   }
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    reply.status(401).send({ error: 'Missing or invalid authorization header' });
+    reply
+      .status(401)
+      .send({ error: 'Missing or invalid authorization header' });
     return;
   }
 
@@ -433,237 +506,355 @@ export default async function discordFeedRoutes(fastify: any) {
   });
 
   // POST /api/discord/feed/channels - Register a feed channel (bot only)
-  fastify.post('/discord/feed/channels', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const {
-        communityId, guildId, channelId,
-        feedType = 'DUO',
-        filterRegions = [],
-        filterRoles = [],
-        filterLanguages = [],
-        filterMinRank = null,
-        filterMaxRank = null,
-      } = request.body as any;
-
-      const normalizedFilterLanguages = Array.isArray(filterLanguages)
-        ? filterLanguages
-            .map((value: any) => (typeof value === 'string' ? value.trim() : ''))
-            .filter((value: string) => value.length > 0)
-        : [];
-
-      if (!communityId || !guildId || !channelId) {
-        return reply.status(400).send({ error: 'Missing required fields: communityId, guildId, channelId' });
-      }
-
-      if (!['DUO', 'LFT', 'SCRIM'].includes(feedType)) {
-        return reply.status(400).send({ error: 'feedType must be DUO, LFT, or SCRIM' });
-      }
-
-      // Verify community exists and matches guildId
-      const community = await prisma.community.findUnique({
-        where: { id: communityId },
-      });
-
-      if (!community) {
-        return reply.status(404).send({ error: 'Community not found' });
-      }
-
-      if (community.discordServerId && community.discordServerId !== guildId) {
-        return reply.status(400).send({ error: 'Guild ID does not match community Discord server' });
-      }
-
-      // Enforce 5-channel-per-guild limit
-      const channelCount = await prisma.discordFeedChannel.count({
-        where: { guildId },
-      });
-      if (channelCount >= 5) {
-        return reply.status(400).send({ error: 'Maximum of 5 feed channels per server. Remove an existing channel first.' });
-      }
-
-      // Check if this exact config already exists
-      const existing = await prisma.discordFeedChannel.findUnique({
-        where: { guildId_channelId_feedType: { guildId, channelId, feedType } },
-      });
-
-      if (existing) {
-        // Update filters instead of erroring
-        const updated = await prisma.discordFeedChannel.update({
-          where: { id: existing.id },
-          data: { filterRegions, filterRoles, filterLanguages: normalizedFilterLanguages, filterMinRank, filterMaxRank },
-        });
-        return reply.send({ success: true, feedChannel: updated, updated: true });
-      }
-
-      const feedChannel = await prisma.discordFeedChannel.create({
-        data: {
+  fastify.post(
+    '/discord/feed/channels',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const {
           communityId,
           guildId,
           channelId,
-          feedType,
-          filterRegions,
-          filterRoles,
-          filterLanguages: normalizedFilterLanguages,
-          filterMinRank: filterMinRank || null,
-          filterMaxRank: filterMaxRank || null,
-        },
-      });
+          feedType = 'DUO',
+          filterRegions = [],
+          filterRoles = [],
+          filterLanguages = [],
+          filterMinRank = null,
+          filterMaxRank = null,
+        } = request.body as any;
 
-      return reply.status(201).send({ success: true, feedChannel });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to register feed channel' });
-    }
-  });
+        const normalizedFilterLanguages = Array.isArray(filterLanguages)
+          ? filterLanguages
+              .map((value: any) =>
+                typeof value === 'string' ? value.trim() : '',
+              )
+              .filter((value: string) => value.length > 0)
+          : [];
 
-  // DELETE /api/discord/feed/channels/:id - Remove feed channel (bot only)
-  fastify.delete('/discord/feed/channels/:id', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { id } = request.params as { id: string };
+        if (!communityId || !guildId || !channelId) {
+          return reply
+            .status(400)
+            .send({
+              error: 'Missing required fields: communityId, guildId, channelId',
+            });
+        }
 
-      await prisma.discordFeedChannel.delete({
-        where: { id },
-      });
+        if (!['DUO', 'LFT', 'SCRIM'].includes(feedType)) {
+          return reply
+            .status(400)
+            .send({ error: 'feedType must be DUO, LFT, or SCRIM' });
+        }
 
-      return reply.send({ success: true });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to remove feed channel' });
-    }
-  });
-
-  // POST /api/discord/ingest - Ingest a Discord message as an app post (bot only)
-  fastify.post('/discord/ingest', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const {
-        guildId,
-        channelId,
-        messageId,
-        content,
-        authorDiscordId,
-        authorDiscordUsername,
-        timestamp,
-        source,
-        riotId,
-        roles,
-        languages: languagesInput,
-        message,
-        vcPreference: vcPreferenceInput,
-      } = request.body as any;
-
-      const isModal = String(source || '').toLowerCase() === 'modal';
-
-      if (!guildId || !authorDiscordId || !authorDiscordUsername) {
-        return reply.status(400).send({ error: 'Missing required fields' });
-      }
-
-      if (!isModal && (!channelId || !messageId || !content)) {
-        return reply.status(400).send({ error: 'Missing required fields' });
-      }
-
-      const safeAuthorDiscordUsername = buildDiscordDisplayUsername(authorDiscordUsername, authorDiscordId);
-
-      // Find community by guildId
-      const community = await prisma.community.findUnique({
-        where: { discordServerId: guildId },
-      });
-
-      if (!community) {
-        return reply.status(404).send({ error: 'Community not found for this Discord server' });
-      }
-
-      if (!isModal) {
-        // Check if feed channel is registered
-        const feedChannel = await prisma.discordFeedChannel.findFirst({
-          where: { guildId, channelId },
+        // Verify community exists and matches guildId
+        const community = await prisma.community.findUnique({
+          where: { id: communityId },
         });
 
-        if (!feedChannel) {
-          return reply.status(400).send({ error: 'This channel is not registered as a feed channel' });
+        if (!community) {
+          return reply.status(404).send({ error: 'Community not found' });
         }
-      }
 
-      // Try to find linked Discord account
-      const discordAccount = await prisma.discordAccount.findUnique({
-        where: { discordId: authorDiscordId },
-        include: {
-          user: {
-            include: {
-              riotAccounts: true,
-              communityMemberships: true,
-            },
+        if (
+          community.discordServerId &&
+          community.discordServerId !== guildId
+        ) {
+          return reply
+            .status(400)
+            .send({
+              error: 'Guild ID does not match community Discord server',
+            });
+        }
+
+        // Enforce 5-channel-per-guild limit
+        const channelCount = await prisma.discordFeedChannel.count({
+          where: { guildId },
+        });
+        if (channelCount >= 5) {
+          return reply
+            .status(400)
+            .send({
+              error:
+                'Maximum of 5 feed channels per server. Remove an existing channel first.',
+            });
+        }
+
+        // Check if this exact config already exists
+        const existing = await prisma.discordFeedChannel.findUnique({
+          where: {
+            guildId_channelId_feedType: { guildId, channelId, feedType },
           },
-        },
-      });
+        });
 
-      let userId: string;
-      let postingRiotAccountId: string;
-      const communityRegions = Array.isArray(community.regions) ? community.regions : [];
-      let region: any = communityRegions.length === 1 ? communityRegions[0] : 'UNKNOWN';
-      let role: any = null;
-      let secondRole: any = null;
-      let vcPreference: any = null;
-      let languages: string[] = [];
-
-      const messageContent = isModal ? String(message || '').trim() : String(content || '').trim();
-      const rolesInput = String(roles || '').trim();
-      const languageInput = String(languagesInput || '').trim();
-      const vcInput = String(vcPreferenceInput || '').trim();
-      const riotIdentity = parseRiotId(riotId);
-
-      const extractedRoles = rolesInput
-        ? extractRolesFromContent(rolesInput)
-        : extractRolesFromContent(messageContent);
-      role = extractedRoles.role;
-      secondRole = extractedRoles.secondRole;
-
-      const extractedVc = normalizeVcPreference(vcInput) || extractVCPreferenceFromContent(messageContent);
-      vcPreference = extractedVc;
-
-      const parsedLanguages = languageInput
-        ? parseLanguageInput(languageInput)
-        : extractLanguagesFromContent(messageContent);
-      if (parsedLanguages.length > 0) {
-        languages = parsedLanguages;
-      }
-
-      if (discordAccount && discordAccount.user) {
-        // User is linked - use their profile data
-        userId = discordAccount.user.id;
-
-        // Auto-join community if not already a member
-        const isMember = discordAccount.user.communityMemberships.some(
-          (m: any) => m.communityId === community.id
-        );
-
-        if (!isMember) {
-          await prisma.communityMembership.create({
+        if (existing) {
+          // Update filters instead of erroring
+          const updated = await prisma.discordFeedChannel.update({
+            where: { id: existing.id },
             data: {
-              userId,
-              communityId: community.id,
-              role: 'MEMBER',
+              filterRegions,
+              filterRoles,
+              filterLanguages: normalizedFilterLanguages,
+              filterMinRank,
+              filterMaxRank,
             },
+          });
+          return reply.send({
+            success: true,
+            feedChannel: updated,
+            updated: true,
           });
         }
 
-        const riotAccounts = Array.isArray(discordAccount.user.riotAccounts)
-          ? discordAccount.user.riotAccounts
-          : [];
-        const realAccounts = riotAccounts.filter((acc: any) => isRealRiotAccount(acc));
-        const mainReal = realAccounts.find((acc: any) => acc.isMain) || realAccounts[0];
-        const fallbackAccount = riotAccounts.find((acc: any) => acc.isMain) || riotAccounts[0];
-        const selectedAccount = mainReal || fallbackAccount;
+        const feedChannel = await prisma.discordFeedChannel.create({
+          data: {
+            communityId,
+            guildId,
+            channelId,
+            feedType,
+            filterRegions,
+            filterRoles,
+            filterLanguages: normalizedFilterLanguages,
+            filterMinRank: filterMinRank || null,
+            filterMaxRank: filterMaxRank || null,
+          },
+        });
 
-        if (selectedAccount?.region) {
-          region = selectedAccount.region;
-        } else if (communityRegions.length === 1) {
-          region = communityRegions[0];
+        return reply.status(201).send({ success: true, feedChannel });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to register feed channel' });
+      }
+    },
+  );
+
+  // DELETE /api/discord/feed/channels/:id - Remove feed channel (bot only)
+  fastify.delete(
+    '/discord/feed/channels/:id',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { id } = request.params as { id: string };
+
+        await prisma.discordFeedChannel.delete({
+          where: { id },
+        });
+
+        return reply.send({ success: true });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to remove feed channel' });
+      }
+    },
+  );
+
+  // POST /api/discord/ingest - Ingest a Discord message as an app post (bot only)
+  fastify.post(
+    '/discord/ingest',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const {
+          guildId,
+          channelId,
+          messageId,
+          content,
+          authorDiscordId,
+          authorDiscordUsername,
+          timestamp,
+          source,
+          riotId,
+          roles,
+          languages: languagesInput,
+          message,
+          vcPreference: vcPreferenceInput,
+        } = request.body as any;
+
+        const isModal = String(source || '').toLowerCase() === 'modal';
+
+        if (!guildId || !authorDiscordId || !authorDiscordUsername) {
+          return reply.status(400).send({ error: 'Missing required fields' });
         }
 
-        if (selectedAccount) {
-          postingRiotAccountId = selectedAccount.id;
+        if (!isModal && (!channelId || !messageId || !content)) {
+          return reply.status(400).send({ error: 'Missing required fields' });
+        }
+
+        const safeAuthorDiscordUsername = buildDiscordDisplayUsername(
+          authorDiscordUsername,
+          authorDiscordId,
+        );
+
+        // Find community by guildId
+        const community = await prisma.community.findUnique({
+          where: { discordServerId: guildId },
+        });
+
+        if (!community) {
+          return reply
+            .status(404)
+            .send({ error: 'Community not found for this Discord server' });
+        }
+
+        if (!isModal) {
+          // Check if feed channel is registered
+          const feedChannel = await prisma.discordFeedChannel.findFirst({
+            where: { guildId, channelId },
+          });
+
+          if (!feedChannel) {
+            return reply
+              .status(400)
+              .send({
+                error: 'This channel is not registered as a feed channel',
+              });
+          }
+        }
+
+        // Try to find linked Discord account
+        const discordAccount = await prisma.discordAccount.findUnique({
+          where: { discordId: authorDiscordId },
+          include: {
+            user: {
+              include: {
+                riotAccounts: true,
+                communityMemberships: true,
+              },
+            },
+          },
+        });
+
+        let userId: string;
+        let postingRiotAccountId: string;
+        const communityRegions = Array.isArray(community.regions)
+          ? community.regions
+          : [];
+        let region: any =
+          communityRegions.length === 1 ? communityRegions[0] : 'UNKNOWN';
+        let role: any = null;
+        let secondRole: any = null;
+        let vcPreference: any = null;
+        let languages: string[] = [];
+
+        const messageContent = isModal
+          ? String(message || '').trim()
+          : String(content || '').trim();
+        const rolesInput = String(roles || '').trim();
+        const languageInput = String(languagesInput || '').trim();
+        const vcInput = String(vcPreferenceInput || '').trim();
+        const riotIdentity = parseRiotId(riotId);
+
+        const extractedRoles = rolesInput
+          ? extractRolesFromContent(rolesInput)
+          : extractRolesFromContent(messageContent);
+        role = extractedRoles.role;
+        secondRole = extractedRoles.secondRole;
+
+        const extractedVc =
+          normalizeVcPreference(vcInput) ||
+          extractVCPreferenceFromContent(messageContent);
+        vcPreference = extractedVc;
+
+        const parsedLanguages = languageInput
+          ? parseLanguageInput(languageInput)
+          : extractLanguagesFromContent(messageContent);
+        if (parsedLanguages.length > 0) {
+          languages = parsedLanguages;
+        }
+
+        if (discordAccount && discordAccount.user) {
+          // User is linked - use their profile data
+          userId = discordAccount.user.id;
+
+          // Auto-join community if not already a member
+          const isMember = discordAccount.user.communityMemberships.some(
+            (m: any) => m.communityId === community.id,
+          );
+
+          if (!isMember) {
+            await prisma.communityMembership.create({
+              data: {
+                userId,
+                communityId: community.id,
+                role: 'MEMBER',
+              },
+            });
+          }
+
+          const riotAccounts = Array.isArray(discordAccount.user.riotAccounts)
+            ? discordAccount.user.riotAccounts
+            : [];
+          const realAccounts = riotAccounts.filter((acc: any) =>
+            isRealRiotAccount(acc),
+          );
+          const mainReal =
+            realAccounts.find((acc: any) => acc.isMain) || realAccounts[0];
+          const fallbackAccount =
+            riotAccounts.find((acc: any) => acc.isMain) || riotAccounts[0];
+          const selectedAccount = mainReal || fallbackAccount;
+
+          if (selectedAccount?.region) {
+            region = selectedAccount.region;
+          } else if (communityRegions.length === 1) {
+            region = communityRegions[0];
+          }
+
+          if (selectedAccount) {
+            postingRiotAccountId = selectedAccount.id;
+          } else {
+            // Create a placeholder Riot account for Discord users without linked Riot
+            const fallbackSummoner =
+              riotIdentity.summonerName ||
+              safeAuthorDiscordUsername ||
+              'Discord User';
+            const placeholderAccount = await prisma.riotAccount.create({
+              data: {
+                puuid: `discord_${authorDiscordId}`,
+                summonerName: fallbackSummoner,
+                gameName: riotIdentity.gameName,
+                tagLine: riotIdentity.tagLine,
+                region: region,
+                verified: false,
+                isMain: true,
+                userId,
+              },
+            });
+            postingRiotAccountId = placeholderAccount.id;
+          }
+
+          if (!role && discordAccount.user.primaryRole)
+            role = discordAccount.user.primaryRole;
+          if (!role && discordAccount.user.preferredRole)
+            role = discordAccount.user.preferredRole;
+          if (!secondRole && discordAccount.user.secondaryRole)
+            secondRole = discordAccount.user.secondaryRole;
+          if (!vcPreference && discordAccount.user.vcPreference)
+            vcPreference = discordAccount.user.vcPreference;
+          if (
+            languages.length === 0 &&
+            Array.isArray(discordAccount.user.languages) &&
+            discordAccount.user.languages.length > 0
+          ) {
+            languages = discordAccount.user.languages;
+          }
         } else {
-          // Create a placeholder Riot account for Discord users without linked Riot
-          const fallbackSummoner = riotIdentity.summonerName || safeAuthorDiscordUsername || 'Discord User';
+          // Create a visible app user for Discord-only users so the Discord identity is shown in feed.
+          const discordUser = await createDiscordOnlyUser(
+            prisma,
+            safeAuthorDiscordUsername,
+            authorDiscordId,
+            isModal,
+          );
+
+          userId = discordUser.id;
+
+          // Create placeholder Riot account
+          const fallbackSummoner =
+            riotIdentity.summonerName ||
+            safeAuthorDiscordUsername ||
+            'Discord User';
           const placeholderAccount = await prisma.riotAccount.create({
             data: {
               puuid: `discord_${authorDiscordId}`,
@@ -677,1403 +868,1729 @@ export default async function discordFeedRoutes(fastify: any) {
             },
           });
           postingRiotAccountId = placeholderAccount.id;
-        }
 
-        if (!role && discordAccount.user.primaryRole) role = discordAccount.user.primaryRole;
-        if (!role && discordAccount.user.preferredRole) role = discordAccount.user.preferredRole;
-        if (!secondRole && discordAccount.user.secondaryRole) secondRole = discordAccount.user.secondaryRole;
-        if (!vcPreference && discordAccount.user.vcPreference) vcPreference = discordAccount.user.vcPreference;
-        if (languages.length === 0 && Array.isArray(discordAccount.user.languages) && discordAccount.user.languages.length > 0) {
-          languages = discordAccount.user.languages;
-        }
-      } else {
-        // Create a visible app user for Discord-only users so the Discord identity is shown in feed.
-        const discordUser = await createDiscordOnlyUser(prisma, safeAuthorDiscordUsername, authorDiscordId, isModal);
-
-        userId = discordUser.id;
-
-        // Create placeholder Riot account
-        const fallbackSummoner = riotIdentity.summonerName || safeAuthorDiscordUsername || 'Discord User';
-        const placeholderAccount = await prisma.riotAccount.create({
-          data: {
-            puuid: `discord_${authorDiscordId}`,
-            summonerName: fallbackSummoner,
-            gameName: riotIdentity.gameName,
-            tagLine: riotIdentity.tagLine,
-            region: region,
-            verified: false,
-            isMain: true,
-            userId,
-          },
-        });
-        postingRiotAccountId = placeholderAccount.id;
-
-        // Link Discord account to new user
-        await prisma.discordAccount.create({
-          data: {
-            discordId: authorDiscordId,
-            username: safeAuthorDiscordUsername,
-            userId,
-          },
-        });
-
-        // Auto-join community
-        await prisma.communityMembership.create({
-          data: {
-            userId,
-            communityId: community.id,
-            role: 'MEMBER',
-          },
-        });
-      }
-
-      // If this was submitted from the Duo modal and a Riot ID was provided,
-      // try to resolve the Riot PUUID and enrich the posting account (rank/roles/region)
-      if (riotIdentity.gameName && riotIdentity.tagLine) {
-        const candidateRegions = Array.isArray(communityRegions) && communityRegions.length === 1
-          ? communityRegions
-          : ['NA','EUW','EUNE','KR','JP','OCE','LAN','LAS','BR','RU'];
-
-        let resolvedPuuid: string | null = null;
-        let resolvedRegion: string | null = null;
-
-        for (const candidateRegion of candidateRegions) {
-          try {
-            const puuid = await riotClient.getPuuid(riotIdentity.gameName, riotIdentity.tagLine, candidateRegion);
-            if (puuid) {
-              resolvedPuuid = puuid;
-              resolvedRegion = candidateRegion;
-              break;
-            }
-          } catch (err) {
-            // ignore and try next region
-            continue;
-          }
-        }
-
-        if (resolvedPuuid && resolvedRegion) {
-          let rankStats: riotClient.RiotRankStats | null = null;
-          try {
-            rankStats = await riotClient.getRankStatsByPuuid(resolvedPuuid, resolvedRegion);
-          } catch (err) {
-            fastify.log.warn({ err, resolvedRegion }, 'Failed to hydrate Discord-submitted Riot rank stats');
-          }
-
-          const resolvedAccountData: any = {
-            region: resolvedRegion,
-            gameName: riotIdentity.gameName,
-            tagLine: riotIdentity.tagLine,
-            summonerName: riotIdentity.summonerName || `${riotIdentity.gameName}#${riotIdentity.tagLine}`,
-          };
-          if (rankStats) {
-            resolvedAccountData.rank = rankStats.rank as any;
-            resolvedAccountData.division = rankStats.division;
-            resolvedAccountData.lp = rankStats.lp;
-            resolvedAccountData.winrate = rankStats.winrate;
-            resolvedAccountData.lastStatsUpdate = new Date();
-          }
-
-          // Look for an existing RiotAccount by puuid+region
-          const existingAccount = await prisma.riotAccount.findFirst({ where: { puuid: resolvedPuuid, region: resolvedRegion } });
-          if (existingAccount) {
-            postingRiotAccountId = existingAccount.id;
-            // adopt region from resolved account
-            region = existingAccount.region || region;
-
-            try {
-              await prisma.riotAccount.update({
-                where: { id: existingAccount.id },
-                data: resolvedAccountData,
-              });
-            } catch (err) {
-              fastify.log.warn({ err, accountId: existingAccount.id }, 'Failed to update existing Discord-submitted Riot account stats');
-            }
-
-            // If role info missing, try to copy from linked user for that riot account
-            if ((!role || role === 'FILL') && existingAccount.userId) {
-              const linkedUser = await prisma.user.findUnique({ where: { id: existingAccount.userId }, select: { primaryRole: true, preferredRole: true, secondaryRole: true } });
-              if (linkedUser) {
-                if (!role && linkedUser.primaryRole) role = linkedUser.primaryRole;
-                if (!role && linkedUser.preferredRole) role = linkedUser.preferredRole;
-                if (!secondRole && linkedUser.secondaryRole) secondRole = linkedUser.secondaryRole;
-              }
-            }
-
-            // If still missing, attempt role detection via Riot match history
-            if (!role) {
-              try {
-                const detected = await riotClient.detectPreferredRole(resolvedPuuid, resolvedRegion);
-                if (detected?.primary) role = detected.primary;
-                if (detected?.secondary) secondRole = detected.secondary;
-              } catch (err) {
-                // ignore failures
-              }
-            }
-          } else {
-            // Update placeholder RiotAccount (if we created one) with resolved puuid/region
-            try {
-              if (postingRiotAccountId) {
-                await prisma.riotAccount.update({
-                  where: { id: postingRiotAccountId },
-                  data: {
-                    puuid: resolvedPuuid,
-                    ...resolvedAccountData,
-                  },
-                });
-              }
-
-              // Try role detection
-              if (!role) {
-                try {
-                  const detected = await riotClient.detectPreferredRole(resolvedPuuid, resolvedRegion);
-                  if (detected?.primary) role = detected.primary;
-                  if (detected?.secondary) secondRole = detected.secondary;
-                } catch (err) {
-                  // ignore
-                }
-              }
-            } catch (err) {
-              // ignore update errors
-            }
-          }
-        }
-      }
-
-      // Modal submissions should keep Discord DM forwards on by default.
-      if (isModal && userId) {
-        try {
-          await prisma.user.update({ where: { id: userId }, data: { discordDmNotifications: true } });
-        } catch (err) {
-          // ignore update failures
-        }
-      }
-
-      const fallbackCommunityLanguage = normalizeLanguageKey(community.language)
-        || (typeof community.language === 'string' ? community.language : 'English');
-
-      if (!role) role = 'FILL';
-      if (!vcPreference) vcPreference = 'SOMETIMES';
-      if (languages.length === 0) {
-        languages = fallbackCommunityLanguage ? [fallbackCommunityLanguage] : [];
-      }
-
-      await syncUserVerification(userId);
-
-      const normalizedMessage = messageContent ? messageContent.slice(0, 500) : null;
-
-      // Delete user's old posts before creating new one (prevents spam)
-      // This matches the behavior in the app post creation - one post per user at a time
-      await prisma.post.deleteMany({
-        where: {
-          authorId: userId,
-        },
-      });
-
-      // Create the post
-      const post = await prisma.post.create({
-        data: {
-          authorId: userId,
-          postingRiotAccountId,
-          region,
-          role,
-          secondRole: secondRole || null,
-          message: normalizedMessage,
-          languages,
-          vcPreference,
-          duoType: 'BOTH',
-          communityId: community.id,
-          source: 'discord',
-          discordMessageId: isModal ? null : messageId,
-        },
-      });
-
-      return reply.status(201).send({ success: true, post });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to ingest Discord message' });
-    }
-  });
-
-  // GET /api/discord/outgoing - Get DUO posts to mirror to Discord (bot only)
-  fastify.get('/discord/outgoing', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { since, limit = 50 } = request.query as any;
-
-      const where: any = {
-        source: 'app',
-        discordMirrored: false,
-      };
-
-      if (since) {
-        where.createdAt = { gt: new Date(since) };
-      }
-
-      // Fetch posts and DUO-type feed channels
-      const [posts, feedChannels] = await Promise.all([
-        prisma.post.findMany({
-          where,
-          take: parseInt(limit),
-          orderBy: { createdAt: 'asc' },
-          include: {
-            author: {
-              include: {
-                riotAccounts: true,
-                discordAccount: true,
-              },
-            },
-            community: true,
-          },
-        }),
-        prisma.discordFeedChannel.findMany({
-          where: { feedType: 'DUO' },
-        }),
-      ]);
-
-      const formatted = posts.map((post: any) => {
-        const mainAccount = post.author.riotAccounts.find((acc: any) => acc.isMain) || post.author.riotAccounts[0];
-        const postingAccount = post.author.riotAccounts.find((acc: any) => acc.id === post.postingRiotAccountId) || mainAccount;
-        const verification = buildVerificationState(post.author);
-        const missingFields = getMissingDuoFieldsForPost(post);
-
-        // Filter channels: only include channels whose filters match this post
-        const matchingChannels = feedChannels.filter((fc: any) => {
-          // Region filter
-          if (fc.filterRegions && fc.filterRegions.length > 0) {
-            if (!fc.filterRegions.includes(post.region)) return false;
-          }
-          // Role filter
-          if (fc.filterRoles && fc.filterRoles.length > 0) {
-            if (!fc.filterRoles.includes(post.role)) return false;
-          }
-          // Language filter
-          if (!matchesLanguageFilter(fc.filterLanguages, post.languages)) return false;
-          // Rank filter (use posting account rank)
-          const postRank = postingAccount?.rank || null;
-          if (!rankInRange(postRank, fc.filterMinRank, fc.filterMaxRank)) return false;
-          return true;
-        });
-
-        return {
-          id: post.id,
-          createdAt: post.createdAt,
-          message: post.message,
-          role: post.role,
-          region: post.region,
-          languages: post.languages,
-          vcPreference: post.vcPreference,
-          duoType: post.duoType,
-          verification,
-          missingFields,
-          author: {
-            id: post.author.id,
-            username: post.author.anonymous ? 'Anonymous' : normalizePlainDisplayText(post.author.username, 'Unknown', 50),
-            discordUsername: normalizePlainDisplayText(post.author.discordAccount?.username, '', 50) || null,
-            discordId: post.author.discordAccount?.discordId,
-          },
-          riotAccount: postingAccount ? {
-            summonerName: normalizePlainDisplayText(postingAccount.summonerName, 'Unknown', 100),
-            rank: postingAccount.rank,
-            division: postingAccount.division,
-            winrate: postingAccount.winrate,
-            gameName: normalizePlainDisplayText(postingAccount.gameName, '', 50) || null,
-            tagLine: normalizePlainDisplayText(postingAccount.tagLine, '', 20) || null,
-          } : null,
-          championPoolMode: post.author.championPoolMode || null,
-          championList: Array.isArray(post.author.championList) ? post.author.championList : [],
-          championTierlist: post.author.championTierlist || null,
-          communityId: post.community?.id || null,
-          communitySlug: post.community?.slug || null,
-          communityName: normalizePlainDisplayText(post.community?.name, '', 80) || null,
-          feedChannels: matchingChannels.map((fc: any) => ({
-            channelId: fc.channelId,
-            guildId: fc.guildId,
-          })),
-        };
-      });
-
-      return reply.send({ posts: formatted });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch outgoing posts' });
-    }
-  });
-
-  // GET /api/discord/outgoing-lft - Get LFT posts to mirror to Discord (bot only)
-  fastify.get('/discord/outgoing-lft', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { since, limit = 50 } = request.query as any;
-
-      const where: any = {
-        source: 'app',
-        discordMirrored: false,
-      };
-
-      if (since) {
-        where.createdAt = { gt: new Date(since) };
-      }
-
-      const [posts, feedChannels] = await Promise.all([
-        prisma.lftPost.findMany({
-          where,
-          take: parseInt(limit),
-          orderBy: { createdAt: 'asc' },
-          include: {
-            author: {
-              include: {
-                riotAccounts: true,
-                discordAccount: true,
-              },
-            },
-          },
-        }),
-        prisma.discordFeedChannel.findMany({
-          where: { feedType: 'LFT' },
-        }),
-      ]);
-
-      const formatted = posts.map((post: any) => {
-        // For TEAM posts, use averageRank. For PLAYER posts, use rank.
-        const postRank = post.type === 'TEAM' ? post.averageRank : post.rank;
-
-        // Filter channels
-        const matchingChannels = feedChannels.filter((fc: any) => {
-          if (fc.filterRegions && fc.filterRegions.length > 0) {
-            if (!fc.filterRegions.includes(post.region)) return false;
-          }
-
-          if (fc.filterLanguages && fc.filterLanguages.length > 0) {
-            if (post.type === 'PLAYER') {
-              if (!matchesLanguageFilter(fc.filterLanguages, post.languages)) return false;
-            }
-          }
-
-          if (!rankInRange(postRank, fc.filterMinRank, fc.filterMaxRank)) return false;
-          return true;
-        });
-
-        return {
-          id: post.id,
-          type: post.type,
-          teamId: post.teamId || null,
-          createdAt: post.createdAt,
-          region: post.region,
-          candidateType: post.candidateType || 'PLAYER',
-          representedName: post.representedName || null,
-          author: {
-            id: post.author.id,
-            username: post.author.username,
-            discordUsername: post.author.discordAccount?.username,
-            discordId: post.author.discordAccount?.discordId,
-          },
-          championPoolMode: post.author.championPoolMode || null,
-          // TEAM fields
-          teamName: post.teamName,
-          rolesNeeded: post.rolesNeeded,
-          averageRank: post.averageRank,
-          averageDivision: post.averageDivision,
-          scrims: post.scrims,
-          minAvailability: post.minAvailability,
-          coachingAvailability: post.coachingAvailability,
-          details: post.details,
-          // PLAYER fields
-          mainRole: post.mainRole,
-          rank: post.rank,
-          division: post.division,
-          championPool: post.author.championPoolMode === 'TIERLIST' && post.author.championTierlist
-            ? [
-                ...(Array.isArray(post.author.championTierlist.S) ? post.author.championTierlist.S : []),
-                ...(Array.isArray(post.author.championTierlist.A) ? post.author.championTierlist.A : []),
-                ...(Array.isArray(post.author.championTierlist.B) ? post.author.championTierlist.B : []),
-                ...(Array.isArray(post.author.championTierlist.C) ? post.author.championTierlist.C : []),
-              ]
-            : Array.isArray(post.author.championList) ? post.author.championList : [],
-          championTierlist: post.author.championTierlist || null,
-          experience: post.experience,
-          languages: post.languages,
-          skills: post.skills,
-          availability: post.availability,
-          feedChannels: matchingChannels.map((fc: any) => ({
-            channelId: fc.channelId,
-            guildId: fc.guildId,
-          })),
-        };
-      });
-
-      return reply.send({ posts: formatted });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch outgoing LFT posts' });
-    }
-  });
-
-  // GET /api/discord/outgoing-scrims - Get Scrim Finder posts to mirror to Discord (bot only)
-  fastify.get('/discord/outgoing-scrims', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { since, limit = 50 } = request.query as any;
-
-      const where: any = {
-        source: 'app',
-        discordMirrored: false,
-      };
-
-      if (since) {
-        where.createdAt = { gt: new Date(since) };
-      }
-
-      const [posts, feedChannels] = await Promise.all([
-        prisma.scrimPost.findMany({
-          where,
-          take: parseInt(limit),
-          orderBy: { createdAt: 'asc' },
-          include: {
-            team: {
-              select: {
-                id: true,
-                name: true,
-                tag: true,
-                iconUrl: true,
-                region: true,
-              },
-            },
-            author: {
-              select: {
-                id: true,
-                username: true,
-                discordAccount: {
-                  select: {
-                    discordId: true,
-                    username: true,
-                  },
-                },
-              },
-            },
-            proposals: {
-              select: {
-                id: true,
-                status: true,
-              },
-            },
-          },
-        }),
-        prisma.discordFeedChannel.findMany({
-          where: { feedType: 'SCRIM' },
-        }),
-      ]);
-
-      const formatted = posts.map((post: any) => {
-        const matchingChannels = feedChannels.filter((fc: any) => {
-          if (fc.filterRegions && fc.filterRegions.length > 0) {
-            if (!fc.filterRegions.includes(post.region)) return false;
-          }
-
-          if (!rankInRange(post.averageRank, fc.filterMinRank, fc.filterMaxRank)) return false;
-          return true;
-        });
-
-        return {
-          id: post.id,
-          teamId: post.teamId,
-          createdAt: post.createdAt,
-          region: post.region,
-          teamName: post.teamName,
-          teamTag: post.teamTag,
-          averageRank: post.averageRank,
-          averageDivision: post.averageDivision,
-          startTimeUtc: post.startTimeUtc,
-          timezoneLabel: post.timezoneLabel,
-          scrimFormat: post.scrimFormat,
-          opggMultisearchUrl: post.opggMultisearchUrl,
-          details: post.details,
-          status: post.status,
-          proposalCount: post.proposals.length,
-          team: post.team,
-          author: {
-            id: post.author.id,
-            username: post.author.username,
-            discordUsername: post.author.discordAccount?.username || null,
-            discordId: post.author.discordAccount?.discordId || null,
-          },
-          feedChannels: matchingChannels.map((fc: any) => ({
-            channelId: fc.channelId,
-            guildId: fc.guildId,
-          })),
-        };
-      });
-
-      return reply.send({ posts: formatted });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch outgoing scrim posts' });
-    }
-  });
-
-  // PATCH /api/discord/scrim-posts/:postId/mirrored - Mark Scrim post as mirrored (bot only)
-  fastify.patch('/discord/scrim-posts/:postId/mirrored', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { postId } = request.params as { postId: string };
-
-      const post = await prisma.scrimPost.update({
-        where: { id: postId },
-        data: { discordMirrored: true },
-      });
-
-      return reply.send({ success: true, post });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to mark scrim post as mirrored' });
-    }
-  });
-
-  // PATCH /api/discord/lft-posts/:postId/mirrored - Mark LFT post as mirrored (bot only)
-  fastify.patch('/discord/lft-posts/:postId/mirrored', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { postId } = request.params as { postId: string };
-
-      const post = await prisma.lftPost.update({
-        where: { id: postId },
-        data: { discordMirrored: true },
-      });
-
-      return reply.send({ success: true, post });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to mark LFT post as mirrored' });
-    }
-  });
-
-  // PATCH /api/discord/posts/:postId/mirrored - Mark post as mirrored (bot only)
-  fastify.patch('/discord/posts/:postId/mirrored', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { postId } = request.params as { postId: string };
-
-      const post = await prisma.post.update({
-        where: { id: postId },
-        data: { discordMirrored: true },
-      });
-
-      return reply.send({ success: true, post });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to mark post as mirrored' });
-    }
-  });
-
-  // GET /api/discord/mirror-deletions - Lease pending mirror deletions for bot processing
-  fastify.get('/discord/mirror-deletions', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { limit = 25 } = request.query as any;
-      const events = leaseMirrorDeletions(parseInt(String(limit || '25'), 10));
-      return reply.send({ events });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to lease mirror deletions' });
-    }
-  });
-
-  // PATCH /api/discord/mirror-deletions/:eventId/acked - Acknowledge processed mirror deletion
-  fastify.patch('/discord/mirror-deletions/:eventId/acked', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { eventId } = request.params as { eventId: string };
-      const removed = ackMirrorDeletion(eventId);
-      return reply.send({ success: true, removed });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to acknowledge mirror deletion' });
-    }
-  });
-
-  // GET /api/discord/dm-queue - Get pending DM notifications (bot only)
-  fastify.get('/discord/dm-queue', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const pendingDms = await prisma.discordDmQueue.findMany({
-        where: { sent: false },
-        orderBy: { createdAt: 'asc' },
-        take: 50,
-      });
-
-      return reply.send({ dms: pendingDms });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch DM queue' });
-    }
-  });
-
-  // PATCH /api/discord/dm-queue/:id/sent - Mark a DM notification as sent (bot only)
-  fastify.patch('/discord/dm-queue/:id/sent', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { id } = request.params as { id: string };
-
-      await prisma.discordDmQueue.update({
-        where: { id },
-        data: { sent: true },
-      });
-
-      return reply.send({ success: true });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to mark DM as sent' });
-    }
-  });
-
-  // POST /api/discord/dm-reply - Send a chat reply from Discord DM modal (bot only)
-  fastify.post('/discord/dm-reply', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { discordId, conversationId, content } = request.body as {
-        discordId?: string;
-        conversationId?: string;
-        content?: string;
-      };
-
-      const trimmedContent = typeof content === 'string' ? content.trim() : '';
-
-      if (!discordId || !conversationId || !trimmedContent) {
-        return reply.status(400).send({ error: 'Missing required fields: discordId, conversationId, content' });
-      }
-
-      if (trimmedContent.length > 2000) {
-        return reply.status(400).send({ error: 'Message too long (max 2000 characters)' });
-      }
-
-      const discordAccount = await prisma.discordAccount.findUnique({
-        where: { discordId },
-        select: { userId: true },
-      });
-
-      if (!discordAccount) {
-        return reply.status(404).send({ error: 'User not linked to Discord' });
-      }
-
-      const senderId = discordAccount.userId;
-
-      const conversation = await prisma.conversation.findFirst({
-        where: {
-          id: conversationId,
-          OR: [{ user1Id: senderId }, { user2Id: senderId }],
-        },
-        select: {
-          id: true,
-          user1Id: true,
-          user2Id: true,
-        },
-      });
-
-      if (!conversation) {
-        return reply.status(404).send({ error: 'Conversation not found or access denied' });
-      }
-
-      const recipientId = conversation.user1Id === senderId ? conversation.user2Id : conversation.user1Id;
-
-      const blockExists = await prisma.block.findFirst({
-        where: {
-          OR: [
-            { blockerId: senderId, blockedId: recipientId },
-            { blockerId: recipientId, blockedId: senderId },
-          ],
-        },
-      });
-
-      if (blockExists) {
-        return reply.status(403).send({ error: 'Cannot send message' });
-      }
-
-      const isSenderUser1 = conversation.user1Id === senderId;
-
-      const createdMessage = await prisma.$transaction(async (tx: any) => {
-        const message = await tx.message.create({
-          data: {
-            conversationId: conversation.id,
-            senderId,
-            content: trimmedContent,
-          },
-          include: {
-            sender: {
-              select: {
-                id: true,
-                username: true,
-              },
-            },
-          },
-        });
-
-        await tx.conversation.update({
-          where: { id: conversation.id },
-          data: {
-            lastMessageAt: new Date(),
-            lastMessagePreview: trimmedContent.substring(0, 100),
-            ...(isSenderUser1
-              ? { user2UnreadCount: { increment: 1 } }
-              : { user1UnreadCount: { increment: 1 } }),
-          },
-        });
-
-        return message;
-      });
-
-      // Forward Discord DM preview to the recipient if they opted in.
-      try {
-        const recipientUser = await prisma.user.findUnique({
-          where: { id: recipientId },
-          select: {
-            discordDmNotifications: true,
-            discordAccount: { select: { discordId: true } },
-          },
-        });
-
-        if (recipientUser?.discordDmNotifications && recipientUser.discordAccount?.discordId) {
-          await prisma.discordDmQueue.create({
+          // Link Discord account to new user
+          await prisma.discordAccount.create({
             data: {
-              recipientDiscordId: recipientUser.discordAccount.discordId,
-              senderUsername: createdMessage.sender.username || 'Someone',
-              messagePreview: trimmedContent.substring(0, 200),
-              conversationId: conversation.id,
+              discordId: authorDiscordId,
+              username: safeAuthorDiscordUsername,
+              userId,
+            },
+          });
+
+          // Auto-join community
+          await prisma.communityMembership.create({
+            data: {
+              userId,
+              communityId: community.id,
+              role: 'MEMBER',
             },
           });
         }
-      } catch (dmQueueError: any) {
-        fastify.log.error(dmQueueError, 'Failed to queue follow-up Discord DM notification after dm-reply');
-      }
 
-      return reply.send({
-        success: true,
-        messageId: createdMessage.id,
-        createdAt: createdMessage.createdAt,
-      });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to send chat reply from Discord' });
-    }
-  });
+        // If this was submitted from the Duo modal and a Riot ID was provided,
+        // try to resolve the Riot PUUID and enrich the posting account (rank/roles/region)
+        if (riotIdentity.gameName && riotIdentity.tagLine) {
+          const candidateRegions =
+            Array.isArray(communityRegions) && communityRegions.length === 1
+              ? communityRegions
+              : [
+                  'NA',
+                  'EUW',
+                  'EUNE',
+                  'KR',
+                  'JP',
+                  'OCE',
+                  'LAN',
+                  'LAS',
+                  'BR',
+                  'RU',
+                ];
 
-  // GET /api/discord/role-forwarding - Get role-forwarding config for a linked guild (bot only)
-  fastify.get('/discord/role-forwarding', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { guildId } = request.query as { guildId?: string };
-      if (!guildId) {
-        return reply.status(400).send({ error: 'Missing required query parameter: guildId' });
-      }
+          let resolvedPuuid: string | null = null;
+          let resolvedRegion: string | null = null;
 
-      const community = await (prisma as any).community.findUnique({
-        where: { discordServerId: guildId },
-        select: {
-          id: true,
-          name: true,
-          discordRankRoleMap: true,
-          discordLanguageRoleMap: true,
-        },
-      });
+          for (const candidateRegion of candidateRegions) {
+            try {
+              const puuid = await riotClient.getPuuid(
+                riotIdentity.gameName,
+                riotIdentity.tagLine,
+                candidateRegion,
+              );
+              if (puuid) {
+                resolvedPuuid = puuid;
+                resolvedRegion = candidateRegion;
+                break;
+              }
+            } catch (err) {
+              // ignore and try next region
+              continue;
+            }
+          }
 
-      if (!community) {
-        return reply.status(404).send({ error: 'No linked community found for this Discord server' });
-      }
+          if (resolvedPuuid && resolvedRegion) {
+            let rankStats: riotClient.RiotRankStats | null = null;
+            try {
+              rankStats = await riotClient.getRankStatsByPuuid(
+                resolvedPuuid,
+                resolvedRegion,
+              );
+            } catch (err) {
+              fastify.log.warn(
+                { err, resolvedRegion },
+                'Failed to hydrate Discord-submitted Riot rank stats',
+              );
+            }
 
-      const rankRoleMap = normalizeRoleMap(community.discordRankRoleMap, 'RANK');
-      const languageRoleMap = normalizeRoleMap(community.discordLanguageRoleMap, 'LANGUAGE');
+            const resolvedAccountData: any = {
+              region: resolvedRegion,
+              gameName: riotIdentity.gameName,
+              tagLine: riotIdentity.tagLine,
+              summonerName:
+                riotIdentity.summonerName ||
+                `${riotIdentity.gameName}#${riotIdentity.tagLine}`,
+            };
+            if (rankStats) {
+              resolvedAccountData.rank = rankStats.rank as any;
+              resolvedAccountData.division = rankStats.division;
+              resolvedAccountData.lp = rankStats.lp;
+              resolvedAccountData.winrate = rankStats.winrate;
+              resolvedAccountData.lastStatsUpdate = new Date();
+            }
 
-      return reply.send({
-        success: true,
-        guildId,
-        communityId: community.id,
-        communityName: community.name,
-        rankRoleMap,
-        languageRoleMap,
-        configuredRanks: Object.keys(rankRoleMap).length,
-        configuredLanguages: Object.keys(languageRoleMap).length,
-      });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch role forwarding config' });
-    }
-  });
+            // Look for an existing RiotAccount by puuid+region
+            const existingAccount = await prisma.riotAccount.findFirst({
+              where: { puuid: resolvedPuuid, region: resolvedRegion },
+            });
+            if (existingAccount) {
+              postingRiotAccountId = existingAccount.id;
+              // adopt region from resolved account
+              region = existingAccount.region || region;
 
-  // PATCH /api/discord/role-forwarding - Set or clear one rank/language mapping (bot only)
-  fastify.patch('/discord/role-forwarding', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { guildId, type, key, roleId } = request.body as {
-        guildId?: string;
-        type?: 'RANK' | 'LANGUAGE' | string;
-        key?: string;
-        roleId?: string | null;
-      };
+              try {
+                await prisma.riotAccount.update({
+                  where: { id: existingAccount.id },
+                  data: resolvedAccountData,
+                });
+              } catch (err) {
+                fastify.log.warn(
+                  { err, accountId: existingAccount.id },
+                  'Failed to update existing Discord-submitted Riot account stats',
+                );
+              }
 
-      if (!guildId || !type || !key) {
-        return reply.status(400).send({ error: 'Missing required fields: guildId, type, key' });
-      }
+              // If role info missing, try to copy from linked user for that riot account
+              if ((!role || role === 'FILL') && existingAccount.userId) {
+                const linkedUser = await prisma.user.findUnique({
+                  where: { id: existingAccount.userId },
+                  select: {
+                    primaryRole: true,
+                    preferredRole: true,
+                    secondaryRole: true,
+                  },
+                });
+                if (linkedUser) {
+                  if (!role && linkedUser.primaryRole)
+                    role = linkedUser.primaryRole;
+                  if (!role && linkedUser.preferredRole)
+                    role = linkedUser.preferredRole;
+                  if (!secondRole && linkedUser.secondaryRole)
+                    secondRole = linkedUser.secondaryRole;
+                }
+              }
 
-      const normalizedType = String(type).toUpperCase();
-      if (normalizedType !== 'RANK' && normalizedType !== 'LANGUAGE') {
-        return reply.status(400).send({ error: 'type must be RANK or LANGUAGE' });
-      }
+              // If still missing, attempt role detection via Riot match history
+              if (!role) {
+                try {
+                  const detected = await riotClient.detectPreferredRole(
+                    resolvedPuuid,
+                    resolvedRegion,
+                  );
+                  if (detected?.primary) role = detected.primary;
+                  if (detected?.secondary) secondRole = detected.secondary;
+                } catch (err) {
+                  // ignore failures
+                }
+              }
+            } else {
+              // Update placeholder RiotAccount (if we created one) with resolved puuid/region
+              try {
+                if (postingRiotAccountId) {
+                  await prisma.riotAccount.update({
+                    where: { id: postingRiotAccountId },
+                    data: {
+                      puuid: resolvedPuuid,
+                      ...resolvedAccountData,
+                    },
+                  });
+                }
 
-      const normalizedKey = normalizedType === 'RANK' ? normalizeRankKey(key) : normalizeLanguageKey(key);
-      if (!normalizedKey) {
-        return reply.status(400).send({ error: `Invalid ${normalizedType === 'RANK' ? 'rank' : 'language'} key` });
-      }
-
-      const normalizedRoleId = roleId === null || roleId === undefined || roleId === ''
-        ? null
-        : normalizeDiscordRoleId(roleId);
-
-      if (roleId !== null && roleId !== undefined && roleId !== '' && !normalizedRoleId) {
-        return reply.status(400).send({ error: 'Invalid Discord role ID' });
-      }
-
-      const community = await (prisma as any).community.findUnique({
-        where: { discordServerId: guildId },
-        select: {
-          id: true,
-          name: true,
-          discordRankRoleMap: true,
-          discordLanguageRoleMap: true,
-        },
-      });
-
-      if (!community) {
-        return reply.status(404).send({ error: 'No linked community found for this Discord server' });
-      }
-
-      const rankRoleMap = normalizeRoleMap(community.discordRankRoleMap, 'RANK');
-      const languageRoleMap = normalizeRoleMap(community.discordLanguageRoleMap, 'LANGUAGE');
-
-      if (normalizedType === 'RANK') {
-        if (normalizedRoleId) {
-          rankRoleMap[normalizedKey] = normalizedRoleId;
-        } else {
-          delete rankRoleMap[normalizedKey];
+                // Try role detection
+                if (!role) {
+                  try {
+                    const detected = await riotClient.detectPreferredRole(
+                      resolvedPuuid,
+                      resolvedRegion,
+                    );
+                    if (detected?.primary) role = detected.primary;
+                    if (detected?.secondary) secondRole = detected.secondary;
+                  } catch (err) {
+                    // ignore
+                  }
+                }
+              } catch (err) {
+                // ignore update errors
+              }
+            }
+          }
         }
-      } else {
-        if (normalizedRoleId) {
-          languageRoleMap[normalizedKey] = normalizedRoleId;
-        } else {
-          delete languageRoleMap[normalizedKey];
+
+        // Modal submissions should keep Discord DM forwards on by default.
+        if (isModal && userId) {
+          try {
+            await prisma.user.update({
+              where: { id: userId },
+              data: { discordDmNotifications: true },
+            });
+          } catch (err) {
+            // ignore update failures
+          }
         }
+
+        const fallbackCommunityLanguage =
+          normalizeLanguageKey(community.language) ||
+          (typeof community.language === 'string'
+            ? community.language
+            : 'English');
+
+        if (!role) role = 'FILL';
+        if (!vcPreference) vcPreference = 'SOMETIMES';
+        if (languages.length === 0) {
+          languages = fallbackCommunityLanguage
+            ? [fallbackCommunityLanguage]
+            : [];
+        }
+
+        await syncUserVerification(userId);
+
+        const normalizedMessage = messageContent
+          ? messageContent.slice(0, 500)
+          : null;
+
+        // Delete user's old posts before creating new one (prevents spam)
+        // This matches the behavior in the app post creation - one post per user at a time
+        await prisma.post.deleteMany({
+          where: {
+            authorId: userId,
+          },
+        });
+
+        // Create the post
+        const post = await prisma.post.create({
+          data: {
+            authorId: userId,
+            postingRiotAccountId,
+            region,
+            role,
+            secondRole: secondRole || null,
+            message: normalizedMessage,
+            languages,
+            vcPreference,
+            duoType: 'BOTH',
+            communityId: community.id,
+            source: 'discord',
+            discordMessageId: isModal ? null : messageId,
+          },
+        });
+
+        return reply.status(201).send({ success: true, post });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to ingest Discord message' });
       }
+    },
+  );
 
-      await (prisma as any).community.update({
-        where: { id: community.id },
-        data: {
-          discordRankRoleMap: rankRoleMap as any,
-          discordLanguageRoleMap: languageRoleMap as any,
-        },
-      });
+  // GET /api/discord/outgoing - Get DUO posts to mirror to Discord (bot only)
+  fastify.get(
+    '/discord/outgoing',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { since, limit = 50 } = request.query as any;
 
-      return reply.send({
-        success: true,
-        guildId,
-        communityId: community.id,
-        communityName: community.name,
-        action: normalizedRoleId ? 'SET' : 'REMOVED',
-        type: normalizedType,
-        key: normalizedKey,
-        rankRoleMap,
-        languageRoleMap,
-        configuredRanks: Object.keys(rankRoleMap).length,
-        configuredLanguages: Object.keys(languageRoleMap).length,
-      });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to update role forwarding config' });
-    }
-  });
+        const where: any = {
+          source: 'app',
+          discordMirrored: false,
+        };
 
-  // POST /api/discord/role-forwarding/sync - Build sync payload for role assignment (bot only)
-  fastify.post('/discord/role-forwarding/sync', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { guildId } = request.body as { guildId?: string };
-      if (!guildId) {
-        return reply.status(400).send({ error: 'Missing required field: guildId' });
-      }
+        if (since) {
+          where.createdAt = { gt: new Date(since) };
+        }
 
-      const community = await (prisma as any).community.findUnique({
-        where: { discordServerId: guildId },
-        select: {
-          id: true,
-          name: true,
-          discordRankRoleMap: true,
-          discordLanguageRoleMap: true,
-          memberships: {
+        // Fetch posts and DUO-type feed channels
+        const [posts, feedChannels] = await Promise.all([
+          prisma.post.findMany({
+            where,
+            take: parseInt(limit),
+            orderBy: { createdAt: 'asc' },
             include: {
-              user: {
+              author: {
+                include: {
+                  riotAccounts: true,
+                  discordAccount: true,
+                },
+              },
+              community: true,
+            },
+          }),
+          prisma.discordFeedChannel.findMany({
+            where: { feedType: 'DUO' },
+          }),
+        ]);
+
+        const formatted = posts.map((post: any) => {
+          const mainAccount =
+            post.author.riotAccounts.find((acc: any) => acc.isMain) ||
+            post.author.riotAccounts[0];
+          const postingAccount =
+            post.author.riotAccounts.find(
+              (acc: any) => acc.id === post.postingRiotAccountId,
+            ) || mainAccount;
+          const verification = buildVerificationState(post.author);
+          const missingFields = getMissingDuoFieldsForPost(post);
+
+          // Filter channels: only include channels whose filters match this post
+          const matchingChannels = feedChannels.filter((fc: any) => {
+            // Region filter
+            if (fc.filterRegions && fc.filterRegions.length > 0) {
+              if (!fc.filterRegions.includes(post.region)) return false;
+            }
+            // Role filter
+            if (fc.filterRoles && fc.filterRoles.length > 0) {
+              if (!fc.filterRoles.includes(post.role)) return false;
+            }
+            // Language filter
+            if (!matchesLanguageFilter(fc.filterLanguages, post.languages))
+              return false;
+            // Rank filter (use posting account rank)
+            const postRank = postingAccount?.rank || null;
+            if (!rankInRange(postRank, fc.filterMinRank, fc.filterMaxRank))
+              return false;
+            return true;
+          });
+
+          return {
+            id: post.id,
+            createdAt: post.createdAt,
+            message: post.message,
+            role: post.role,
+            region: post.region,
+            languages: post.languages,
+            vcPreference: post.vcPreference,
+            duoType: post.duoType,
+            verification,
+            missingFields,
+            author: {
+              id: post.author.id,
+              username: post.author.anonymous
+                ? 'Anonymous'
+                : normalizePlainDisplayText(
+                    post.author.username,
+                    'Unknown',
+                    50,
+                  ),
+              discordUsername:
+                normalizePlainDisplayText(
+                  post.author.discordAccount?.username,
+                  '',
+                  50,
+                ) || null,
+              discordId: post.author.discordAccount?.discordId,
+            },
+            riotAccount: postingAccount
+              ? {
+                  summonerName: normalizePlainDisplayText(
+                    postingAccount.summonerName,
+                    'Unknown',
+                    100,
+                  ),
+                  rank: postingAccount.rank,
+                  division: postingAccount.division,
+                  winrate: postingAccount.winrate,
+                  gameName:
+                    normalizePlainDisplayText(
+                      postingAccount.gameName,
+                      '',
+                      50,
+                    ) || null,
+                  tagLine:
+                    normalizePlainDisplayText(postingAccount.tagLine, '', 20) ||
+                    null,
+                }
+              : null,
+            championPoolMode: post.author.championPoolMode || null,
+            championList: Array.isArray(post.author.championList)
+              ? post.author.championList
+              : [],
+            championTierlist: post.author.championTierlist || null,
+            communityId: post.community?.id || null,
+            communitySlug: post.community?.slug || null,
+            communityName:
+              normalizePlainDisplayText(post.community?.name, '', 80) || null,
+            feedChannels: matchingChannels.map((fc: any) => ({
+              channelId: fc.channelId,
+              guildId: fc.guildId,
+            })),
+          };
+        });
+
+        return reply.send({ posts: formatted });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to fetch outgoing posts' });
+      }
+    },
+  );
+
+  // GET /api/discord/outgoing-lft - Get LFT posts to mirror to Discord (bot only)
+  fastify.get(
+    '/discord/outgoing-lft',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { since, limit = 50 } = request.query as any;
+
+        const where: any = {
+          source: 'app',
+          discordMirrored: false,
+        };
+
+        if (since) {
+          where.createdAt = { gt: new Date(since) };
+        }
+
+        const [posts, feedChannels] = await Promise.all([
+          prisma.lftPost.findMany({
+            where,
+            take: parseInt(limit),
+            orderBy: { createdAt: 'asc' },
+            include: {
+              author: {
+                include: {
+                  riotAccounts: true,
+                  discordAccount: true,
+                },
+              },
+            },
+          }),
+          prisma.discordFeedChannel.findMany({
+            where: { feedType: 'LFT' },
+          }),
+        ]);
+
+        const formatted = posts.map((post: any) => {
+          // For TEAM posts, use averageRank. For PLAYER posts, use rank.
+          const postRank = post.type === 'TEAM' ? post.averageRank : post.rank;
+
+          // Filter channels
+          const matchingChannels = feedChannels.filter((fc: any) => {
+            if (fc.filterRegions && fc.filterRegions.length > 0) {
+              if (!fc.filterRegions.includes(post.region)) return false;
+            }
+
+            if (fc.filterLanguages && fc.filterLanguages.length > 0) {
+              if (post.type === 'PLAYER') {
+                if (!matchesLanguageFilter(fc.filterLanguages, post.languages))
+                  return false;
+              }
+            }
+
+            if (!rankInRange(postRank, fc.filterMinRank, fc.filterMaxRank))
+              return false;
+            return true;
+          });
+
+          return {
+            id: post.id,
+            type: post.type,
+            teamId: post.teamId || null,
+            createdAt: post.createdAt,
+            region: post.region,
+            candidateType: post.candidateType || 'PLAYER',
+            representedName: post.representedName || null,
+            author: {
+              id: post.author.id,
+              username: post.author.username,
+              discordUsername: post.author.discordAccount?.username,
+              discordId: post.author.discordAccount?.discordId,
+            },
+            championPoolMode: post.author.championPoolMode || null,
+            // TEAM fields
+            teamName: post.teamName,
+            rolesNeeded: post.rolesNeeded,
+            averageRank: post.averageRank,
+            averageDivision: post.averageDivision,
+            scrims: post.scrims,
+            minAvailability: post.minAvailability,
+            coachingAvailability: post.coachingAvailability,
+            details: post.details,
+            // PLAYER fields
+            mainRole: post.mainRole,
+            rank: post.rank,
+            division: post.division,
+            championPool:
+              post.author.championPoolMode === 'TIERLIST' &&
+              post.author.championTierlist
+                ? [
+                    ...(Array.isArray(post.author.championTierlist.S)
+                      ? post.author.championTierlist.S
+                      : []),
+                    ...(Array.isArray(post.author.championTierlist.A)
+                      ? post.author.championTierlist.A
+                      : []),
+                    ...(Array.isArray(post.author.championTierlist.B)
+                      ? post.author.championTierlist.B
+                      : []),
+                    ...(Array.isArray(post.author.championTierlist.C)
+                      ? post.author.championTierlist.C
+                      : []),
+                  ]
+                : Array.isArray(post.author.championList)
+                ? post.author.championList
+                : [],
+            championTierlist: post.author.championTierlist || null,
+            experience: post.experience,
+            languages: post.languages,
+            skills: post.skills,
+            availability: post.availability,
+            feedChannels: matchingChannels.map((fc: any) => ({
+              channelId: fc.channelId,
+              guildId: fc.guildId,
+            })),
+          };
+        });
+
+        return reply.send({ posts: formatted });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to fetch outgoing LFT posts' });
+      }
+    },
+  );
+
+  // GET /api/discord/outgoing-scrims - Get Scrim Finder posts to mirror to Discord (bot only)
+  fastify.get(
+    '/discord/outgoing-scrims',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { since, limit = 50 } = request.query as any;
+
+        const where: any = {
+          source: 'app',
+          discordMirrored: false,
+        };
+
+        if (since) {
+          where.createdAt = { gt: new Date(since) };
+        }
+
+        const [posts, feedChannels] = await Promise.all([
+          prisma.scrimPost.findMany({
+            where,
+            take: parseInt(limit),
+            orderBy: { createdAt: 'asc' },
+            include: {
+              team: {
+                select: {
+                  id: true,
+                  name: true,
+                  tag: true,
+                  iconUrl: true,
+                  region: true,
+                },
+              },
+              author: {
                 select: {
                   id: true,
                   username: true,
-                  languages: true,
                   discordAccount: {
-                    select: { discordId: true },
-                  },
-                  riotAccounts: {
                     select: {
-                      rank: true,
-                      isMain: true,
+                      discordId: true,
+                      username: true,
+                    },
+                  },
+                },
+              },
+              proposals: {
+                select: {
+                  id: true,
+                  status: true,
+                },
+              },
+            },
+          }),
+          prisma.discordFeedChannel.findMany({
+            where: { feedType: 'SCRIM' },
+          }),
+        ]);
+
+        const formatted = posts.map((post: any) => {
+          const matchingChannels = feedChannels.filter((fc: any) => {
+            if (fc.filterRegions && fc.filterRegions.length > 0) {
+              if (!fc.filterRegions.includes(post.region)) return false;
+            }
+
+            if (
+              !rankInRange(post.averageRank, fc.filterMinRank, fc.filterMaxRank)
+            )
+              return false;
+            return true;
+          });
+
+          return {
+            id: post.id,
+            teamId: post.teamId,
+            createdAt: post.createdAt,
+            region: post.region,
+            teamName: post.teamName,
+            teamTag: post.teamTag,
+            averageRank: post.averageRank,
+            averageDivision: post.averageDivision,
+            startTimeUtc: post.startTimeUtc,
+            timezoneLabel: post.timezoneLabel,
+            scrimFormat: post.scrimFormat,
+            opggMultisearchUrl: post.opggMultisearchUrl,
+            details: post.details,
+            status: post.status,
+            proposalCount: post.proposals.length,
+            team: post.team,
+            author: {
+              id: post.author.id,
+              username: post.author.username,
+              discordUsername: post.author.discordAccount?.username || null,
+              discordId: post.author.discordAccount?.discordId || null,
+            },
+            feedChannels: matchingChannels.map((fc: any) => ({
+              channelId: fc.channelId,
+              guildId: fc.guildId,
+            })),
+          };
+        });
+
+        return reply.send({ posts: formatted });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to fetch outgoing scrim posts' });
+      }
+    },
+  );
+
+  // PATCH /api/discord/scrim-posts/:postId/mirrored - Mark Scrim post as mirrored (bot only)
+  fastify.patch(
+    '/discord/scrim-posts/:postId/mirrored',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { postId } = request.params as { postId: string };
+
+        const post = await prisma.scrimPost.update({
+          where: { id: postId },
+          data: { discordMirrored: true },
+        });
+
+        return reply.send({ success: true, post });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to mark scrim post as mirrored' });
+      }
+    },
+  );
+
+  // PATCH /api/discord/lft-posts/:postId/mirrored - Mark LFT post as mirrored (bot only)
+  fastify.patch(
+    '/discord/lft-posts/:postId/mirrored',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { postId } = request.params as { postId: string };
+
+        const post = await prisma.lftPost.update({
+          where: { id: postId },
+          data: { discordMirrored: true },
+        });
+
+        return reply.send({ success: true, post });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to mark LFT post as mirrored' });
+      }
+    },
+  );
+
+  // PATCH /api/discord/posts/:postId/mirrored - Mark post as mirrored (bot only)
+  fastify.patch(
+    '/discord/posts/:postId/mirrored',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { postId } = request.params as { postId: string };
+
+        const post = await prisma.post.update({
+          where: { id: postId },
+          data: { discordMirrored: true },
+        });
+
+        return reply.send({ success: true, post });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to mark post as mirrored' });
+      }
+    },
+  );
+
+  // GET /api/discord/mirror-deletions - Lease pending mirror deletions for bot processing
+  fastify.get(
+    '/discord/mirror-deletions',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { limit = 25 } = request.query as any;
+        const events = leaseMirrorDeletions(
+          parseInt(String(limit || '25'), 10),
+        );
+        return reply.send({ events });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to lease mirror deletions' });
+      }
+    },
+  );
+
+  // PATCH /api/discord/mirror-deletions/:eventId/acked - Acknowledge processed mirror deletion
+  fastify.patch(
+    '/discord/mirror-deletions/:eventId/acked',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { eventId } = request.params as { eventId: string };
+        const removed = ackMirrorDeletion(eventId);
+        return reply.send({ success: true, removed });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to acknowledge mirror deletion' });
+      }
+    },
+  );
+
+  // GET /api/discord/dm-queue - Get pending DM notifications (bot only)
+  fastify.get(
+    '/discord/dm-queue',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const pendingDms = await prisma.discordDmQueue.findMany({
+          where: { sent: false },
+          orderBy: { createdAt: 'asc' },
+          take: 50,
+        });
+
+        return reply.send({ dms: pendingDms });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(500).send({ error: 'Failed to fetch DM queue' });
+      }
+    },
+  );
+
+  // PATCH /api/discord/dm-queue/:id/sent - Mark a DM notification as sent (bot only)
+  fastify.patch(
+    '/discord/dm-queue/:id/sent',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { id } = request.params as { id: string };
+
+        await prisma.discordDmQueue.update({
+          where: { id },
+          data: { sent: true },
+        });
+
+        return reply.send({ success: true });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(500).send({ error: 'Failed to mark DM as sent' });
+      }
+    },
+  );
+
+  // POST /api/discord/dm-reply - Send a chat reply from Discord DM modal (bot only)
+  fastify.post(
+    '/discord/dm-reply',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { discordId, conversationId, content } = request.body as {
+          discordId?: string;
+          conversationId?: string;
+          content?: string;
+        };
+
+        const trimmedContent =
+          typeof content === 'string' ? content.trim() : '';
+
+        if (!discordId || !conversationId || !trimmedContent) {
+          return reply
+            .status(400)
+            .send({
+              error:
+                'Missing required fields: discordId, conversationId, content',
+            });
+        }
+
+        if (trimmedContent.length > 2000) {
+          return reply
+            .status(400)
+            .send({ error: 'Message too long (max 2000 characters)' });
+        }
+
+        const discordAccount = await prisma.discordAccount.findUnique({
+          where: { discordId },
+          select: { userId: true },
+        });
+
+        if (!discordAccount) {
+          return reply
+            .status(404)
+            .send({ error: 'User not linked to Discord' });
+        }
+
+        const senderId = discordAccount.userId;
+
+        const conversation = await prisma.conversation.findFirst({
+          where: {
+            id: conversationId,
+            OR: [{ user1Id: senderId }, { user2Id: senderId }],
+          },
+          select: {
+            id: true,
+            user1Id: true,
+            user2Id: true,
+          },
+        });
+
+        if (!conversation) {
+          return reply
+            .status(404)
+            .send({ error: 'Conversation not found or access denied' });
+        }
+
+        const recipientId =
+          conversation.user1Id === senderId
+            ? conversation.user2Id
+            : conversation.user1Id;
+
+        const blockExists = await prisma.block.findFirst({
+          where: {
+            OR: [
+              { blockerId: senderId, blockedId: recipientId },
+              { blockerId: recipientId, blockedId: senderId },
+            ],
+          },
+        });
+
+        if (blockExists) {
+          return reply.status(403).send({ error: 'Cannot send message' });
+        }
+
+        const isSenderUser1 = conversation.user1Id === senderId;
+
+        const createdMessage = await prisma.$transaction(async (tx: any) => {
+          const message = await tx.message.create({
+            data: {
+              conversationId: conversation.id,
+              senderId,
+              content: trimmedContent,
+            },
+            include: {
+              sender: {
+                select: {
+                  id: true,
+                  username: true,
+                },
+              },
+            },
+          });
+
+          await tx.conversation.update({
+            where: { id: conversation.id },
+            data: {
+              lastMessageAt: new Date(),
+              lastMessagePreview: trimmedContent.substring(0, 100),
+              ...(isSenderUser1
+                ? { user2UnreadCount: { increment: 1 } }
+                : { user1UnreadCount: { increment: 1 } }),
+            },
+          });
+
+          return message;
+        });
+
+        // Forward Discord DM preview to the recipient if they opted in.
+        try {
+          const recipientUser = await prisma.user.findUnique({
+            where: { id: recipientId },
+            select: {
+              discordDmNotifications: true,
+              discordAccount: { select: { discordId: true } },
+            },
+          });
+
+          if (
+            recipientUser?.discordDmNotifications &&
+            recipientUser.discordAccount?.discordId
+          ) {
+            await prisma.discordDmQueue.create({
+              data: {
+                recipientDiscordId: recipientUser.discordAccount.discordId,
+                senderUsername: createdMessage.sender.username || 'Someone',
+                messagePreview: trimmedContent.substring(0, 200),
+                conversationId: conversation.id,
+              },
+            });
+          }
+        } catch (dmQueueError: any) {
+          fastify.log.error(
+            dmQueueError,
+            'Failed to queue follow-up Discord DM notification after dm-reply',
+          );
+        }
+
+        return reply.send({
+          success: true,
+          messageId: createdMessage.id,
+          createdAt: createdMessage.createdAt,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to send chat reply from Discord' });
+      }
+    },
+  );
+
+  // GET /api/discord/role-forwarding - Get role-forwarding config for a linked guild (bot only)
+  fastify.get(
+    '/discord/role-forwarding',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { guildId } = request.query as { guildId?: string };
+        if (!guildId) {
+          return reply
+            .status(400)
+            .send({ error: 'Missing required query parameter: guildId' });
+        }
+
+        const community = await (prisma as any).community.findUnique({
+          where: { discordServerId: guildId },
+          select: {
+            id: true,
+            name: true,
+            discordRankRoleMap: true,
+            discordLanguageRoleMap: true,
+          },
+        });
+
+        if (!community) {
+          return reply
+            .status(404)
+            .send({
+              error: 'No linked community found for this Discord server',
+            });
+        }
+
+        const rankRoleMap = normalizeRoleMap(
+          community.discordRankRoleMap,
+          'RANK',
+        );
+        const languageRoleMap = normalizeRoleMap(
+          community.discordLanguageRoleMap,
+          'LANGUAGE',
+        );
+
+        return reply.send({
+          success: true,
+          guildId,
+          communityId: community.id,
+          communityName: community.name,
+          rankRoleMap,
+          languageRoleMap,
+          configuredRanks: Object.keys(rankRoleMap).length,
+          configuredLanguages: Object.keys(languageRoleMap).length,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to fetch role forwarding config' });
+      }
+    },
+  );
+
+  // PATCH /api/discord/role-forwarding - Set or clear one rank/language mapping (bot only)
+  fastify.patch(
+    '/discord/role-forwarding',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { guildId, type, key, roleId } = request.body as {
+          guildId?: string;
+          type?: 'RANK' | 'LANGUAGE' | string;
+          key?: string;
+          roleId?: string | null;
+        };
+
+        if (!guildId || !type || !key) {
+          return reply
+            .status(400)
+            .send({ error: 'Missing required fields: guildId, type, key' });
+        }
+
+        const normalizedType = String(type).toUpperCase();
+        if (normalizedType !== 'RANK' && normalizedType !== 'LANGUAGE') {
+          return reply
+            .status(400)
+            .send({ error: 'type must be RANK or LANGUAGE' });
+        }
+
+        const normalizedKey =
+          normalizedType === 'RANK'
+            ? normalizeRankKey(key)
+            : normalizeLanguageKey(key);
+        if (!normalizedKey) {
+          return reply
+            .status(400)
+            .send({
+              error: `Invalid ${
+                normalizedType === 'RANK' ? 'rank' : 'language'
+              } key`,
+            });
+        }
+
+        const normalizedRoleId =
+          roleId === null || roleId === undefined || roleId === ''
+            ? null
+            : normalizeDiscordRoleId(roleId);
+
+        if (
+          roleId !== null &&
+          roleId !== undefined &&
+          roleId !== '' &&
+          !normalizedRoleId
+        ) {
+          return reply.status(400).send({ error: 'Invalid Discord role ID' });
+        }
+
+        const community = await (prisma as any).community.findUnique({
+          where: { discordServerId: guildId },
+          select: {
+            id: true,
+            name: true,
+            discordRankRoleMap: true,
+            discordLanguageRoleMap: true,
+          },
+        });
+
+        if (!community) {
+          return reply
+            .status(404)
+            .send({
+              error: 'No linked community found for this Discord server',
+            });
+        }
+
+        const rankRoleMap = normalizeRoleMap(
+          community.discordRankRoleMap,
+          'RANK',
+        );
+        const languageRoleMap = normalizeRoleMap(
+          community.discordLanguageRoleMap,
+          'LANGUAGE',
+        );
+
+        if (normalizedType === 'RANK') {
+          if (normalizedRoleId) {
+            rankRoleMap[normalizedKey] = normalizedRoleId;
+          } else {
+            delete rankRoleMap[normalizedKey];
+          }
+        } else {
+          if (normalizedRoleId) {
+            languageRoleMap[normalizedKey] = normalizedRoleId;
+          } else {
+            delete languageRoleMap[normalizedKey];
+          }
+        }
+
+        await (prisma as any).community.update({
+          where: { id: community.id },
+          data: {
+            discordRankRoleMap: rankRoleMap as any,
+            discordLanguageRoleMap: languageRoleMap as any,
+          },
+        });
+
+        return reply.send({
+          success: true,
+          guildId,
+          communityId: community.id,
+          communityName: community.name,
+          action: normalizedRoleId ? 'SET' : 'REMOVED',
+          type: normalizedType,
+          key: normalizedKey,
+          rankRoleMap,
+          languageRoleMap,
+          configuredRanks: Object.keys(rankRoleMap).length,
+          configuredLanguages: Object.keys(languageRoleMap).length,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to update role forwarding config' });
+      }
+    },
+  );
+
+  // POST /api/discord/role-forwarding/sync - Build sync payload for role assignment (bot only)
+  fastify.post(
+    '/discord/role-forwarding/sync',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { guildId } = request.body as { guildId?: string };
+        if (!guildId) {
+          return reply
+            .status(400)
+            .send({ error: 'Missing required field: guildId' });
+        }
+
+        const community = await (prisma as any).community.findUnique({
+          where: { discordServerId: guildId },
+          select: {
+            id: true,
+            name: true,
+            discordRankRoleMap: true,
+            discordLanguageRoleMap: true,
+            memberships: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    username: true,
+                    languages: true,
+                    discordAccount: {
+                      select: { discordId: true },
+                    },
+                    riotAccounts: {
+                      select: {
+                        rank: true,
+                        isMain: true,
+                      },
                     },
                   },
                 },
               },
             },
           },
-        },
-      });
+        });
 
-      if (!community) {
-        return reply.status(404).send({ error: 'No linked community found for this Discord server' });
-      }
-
-      const rankRoleMap = normalizeRoleMap(community.discordRankRoleMap, 'RANK');
-      const languageRoleMap = normalizeRoleMap(community.discordLanguageRoleMap, 'LANGUAGE');
-      const managedRoleIds = Array.from(new Set([...Object.values(rankRoleMap), ...Object.values(languageRoleMap)]));
-
-      const summary = {
-        totalMembers: community.memberships.length,
-        eligibleMembers: 0,
-        missingDiscordLink: 0,
-        missingRiotLink: 0,
-        noMatchingMapping: 0,
-      };
-
-      const members = community.memberships.map((membership: any) => {
-        const user = membership.user;
-        const discordId = user.discordAccount?.discordId || null;
-
-        if (!discordId) {
-          summary.missingDiscordLink += 1;
-          return {
-            userId: user.id,
-            username: user.username,
-            discordId: null,
-            rank: null,
-            languages: Array.isArray(user.languages) ? user.languages : [],
-            desiredRoleIds: [] as string[],
-            status: 'MISSING_DISCORD_LINK',
-          };
+        if (!community) {
+          return reply
+            .status(404)
+            .send({
+              error: 'No linked community found for this Discord server',
+            });
         }
 
-        const bestRank = pickBestRank(Array.isArray(user.riotAccounts) ? user.riotAccounts : []);
-        if (!bestRank) {
-          summary.missingRiotLink += 1;
-          return {
-            userId: user.id,
-            username: user.username,
-            discordId,
-            rank: null,
-            languages: Array.isArray(user.languages) ? user.languages : [],
-            desiredRoleIds: [] as string[],
-            status: 'MISSING_RIOT_LINK',
-          };
-        }
+        const rankRoleMap = normalizeRoleMap(
+          community.discordRankRoleMap,
+          'RANK',
+        );
+        const languageRoleMap = normalizeRoleMap(
+          community.discordLanguageRoleMap,
+          'LANGUAGE',
+        );
+        const managedRoleIds = Array.from(
+          new Set([
+            ...Object.values(rankRoleMap),
+            ...Object.values(languageRoleMap),
+          ]),
+        );
 
-        const desiredRoleIds = new Set<string>();
+        const summary = {
+          totalMembers: community.memberships.length,
+          eligibleMembers: 0,
+          missingDiscordLink: 0,
+          missingRiotLink: 0,
+          noMatchingMapping: 0,
+        };
 
-        const mappedRankRole = rankRoleMap[bestRank];
-        if (mappedRankRole) {
-          desiredRoleIds.add(mappedRankRole);
-        }
+        const members = community.memberships.map((membership: any) => {
+          const user = membership.user;
+          const discordId = user.discordAccount?.discordId || null;
 
-        const normalizedLanguages = Array.isArray(user.languages)
-          ? user.languages
-              .map((lang: string) => normalizeLanguageKey(lang))
-              .filter((lang: string | null): lang is string => Boolean(lang))
-          : [];
-
-        for (const language of normalizedLanguages) {
-          const mappedLanguageRole = languageRoleMap[language];
-          if (mappedLanguageRole) {
-            desiredRoleIds.add(mappedLanguageRole);
+          if (!discordId) {
+            summary.missingDiscordLink += 1;
+            return {
+              userId: user.id,
+              username: user.username,
+              discordId: null,
+              rank: null,
+              languages: Array.isArray(user.languages) ? user.languages : [],
+              desiredRoleIds: [] as string[],
+              status: 'MISSING_DISCORD_LINK',
+            };
           }
-        }
 
-        if (desiredRoleIds.size === 0) {
-          summary.noMatchingMapping += 1;
+          const bestRank = pickBestRank(
+            Array.isArray(user.riotAccounts) ? user.riotAccounts : [],
+          );
+          if (!bestRank) {
+            summary.missingRiotLink += 1;
+            return {
+              userId: user.id,
+              username: user.username,
+              discordId,
+              rank: null,
+              languages: Array.isArray(user.languages) ? user.languages : [],
+              desiredRoleIds: [] as string[],
+              status: 'MISSING_RIOT_LINK',
+            };
+          }
+
+          const desiredRoleIds = new Set<string>();
+
+          const mappedRankRole = rankRoleMap[bestRank];
+          if (mappedRankRole) {
+            desiredRoleIds.add(mappedRankRole);
+          }
+
+          const normalizedLanguages = Array.isArray(user.languages)
+            ? user.languages
+                .map((lang: string) => normalizeLanguageKey(lang))
+                .filter((lang: string | null): lang is string => Boolean(lang))
+            : [];
+
+          for (const language of normalizedLanguages) {
+            const mappedLanguageRole = languageRoleMap[language];
+            if (mappedLanguageRole) {
+              desiredRoleIds.add(mappedLanguageRole);
+            }
+          }
+
+          if (desiredRoleIds.size === 0) {
+            summary.noMatchingMapping += 1;
+            return {
+              userId: user.id,
+              username: user.username,
+              discordId,
+              rank: bestRank,
+              languages: normalizedLanguages,
+              desiredRoleIds: [] as string[],
+              status: 'NO_MATCHING_MAPPING',
+            };
+          }
+
+          summary.eligibleMembers += 1;
           return {
             userId: user.id,
             username: user.username,
             discordId,
             rank: bestRank,
             languages: normalizedLanguages,
-            desiredRoleIds: [] as string[],
-            status: 'NO_MATCHING_MAPPING',
+            desiredRoleIds: Array.from(desiredRoleIds),
+            status: 'ELIGIBLE',
           };
-        }
+        });
 
-        summary.eligibleMembers += 1;
-        return {
-          userId: user.id,
-          username: user.username,
-          discordId,
-          rank: bestRank,
-          languages: normalizedLanguages,
-          desiredRoleIds: Array.from(desiredRoleIds),
-          status: 'ELIGIBLE',
-        };
-      });
-
-      return reply.send({
-        success: true,
-        enabled: managedRoleIds.length > 0,
-        guildId,
-        communityId: community.id,
-        communityName: community.name,
-        rankRoleMap,
-        languageRoleMap,
-        managedRoleIds,
-        summary,
-        members,
-      });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to generate role forwarding sync payload' });
-    }
-  });
+        return reply.send({
+          success: true,
+          enabled: managedRoleIds.length > 0,
+          guildId,
+          communityId: community.id,
+          communityName: community.name,
+          rankRoleMap,
+          languageRoleMap,
+          managedRoleIds,
+          summary,
+          members,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to generate role forwarding sync payload' });
+      }
+    },
+  );
 
   // ============================================================
   // Team Event Discord Notifications
   // ============================================================
 
   // GET /api/discord/team-events - Get pending team event notifications (bot only)
-  fastify.get('/discord/team-events', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const notifications = await prisma.teamEventNotification.findMany({
-        where: { processed: false },
-        orderBy: { createdAt: 'asc' },
-        take: 50,
-        include: {
-          team: {
-            select: {
-              id: true,
-              name: true,
-              tag: true,
-              discordWebhookUrl: true,
-              discordScrimCodeWebhookUrl: true,
-              discordNotifyEvents: true,
-              discordMentionMode: true,
-              discordMentionRoleId: true,
-              discordRoleMentions: true,
-              discordPingRecurrence: true,
-              discordLastChannelPingAt: true,
-              members: {
-                include: {
-                  user: {
-                    select: {
-                      id: true,
-                      username: true,
-                      discordDmNotifications: true,
-                      discordAccount: {
-                        select: { discordId: true }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      });
-
-      const formatted = notifications.map((n: any) => ({
-        ...(function resolveDelivery() {
-          const isScrimLifecycle = typeof n.notificationType === 'string' && n.notificationType.startsWith('SCRIM_');
-          const webhookUrl = isScrimLifecycle && n.team.discordScrimCodeWebhookUrl
-            ? n.team.discordScrimCodeWebhookUrl
-            : n.team.discordWebhookUrl;
-          const notifyEnabled = isScrimLifecycle ? true : n.team.discordNotifyEvents;
-          return { webhookUrl, notifyEnabled };
-        })(),
-        id: n.id,
-        teamId: n.teamId,
-        teamName: n.team.name,
-        teamTag: n.team.tag,
-        eventId: n.eventId,
-        eventTitle: n.eventTitle,
-        eventType: n.eventType,
-        scheduledAt: n.scheduledAt,
-        duration: n.duration,
-        description: n.description,
-        enemyLink: n.enemyLink,
-        notificationType: n.notificationType,
-        triggeredBy: n.triggeredBy,
-        concernedMemberIds: Array.isArray(n.concernedMemberIds) ? n.concernedMemberIds : [],
-        mentionMode: n.team.discordMentionMode || 'EVERYONE',
-        mentionRoleId: n.team.discordMentionRoleId || null,
-        roleMentions: (n.team.discordRoleMentions && typeof n.team.discordRoleMentions === 'object' && !Array.isArray(n.team.discordRoleMentions))
-          ? n.team.discordRoleMentions
-          : {},
-        pingRecurrenceEnabled: Boolean(n.team.discordPingRecurrence),
-        lastChannelPingAt: n.team.discordLastChannelPingAt,
-        createdAt: n.createdAt,
-        members: n.team.members.map((m: any) => ({
-          id: m.user.id,
-          username: m.user.username,
-          role: m.role,
-          discordId: m.user.discordAccount?.discordId || null,
-          dmEnabled: Boolean(m.user.discordDmNotifications && m.user.discordAccount?.discordId)
-        }))
-      }));
-
-      return reply.send({ notifications: formatted });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch team event notifications' });
-    }
-  });
-
-  // PATCH /api/discord/team-events/:id/processed - Mark notification as processed (bot only)
-  fastify.patch('/discord/team-events/:id/processed', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { id } = request.params as { id: string };
-      const payload = request.body && typeof request.body === 'object' ? request.body : {};
-      const { recordPing } = payload as { recordPing?: boolean };
-
-      const updated = await prisma.teamEventNotification.update({
-        where: { id },
-        data: { processed: true },
-        select: { teamId: true },
-      });
-
-      if (recordPing) {
-        await prisma.team.update({
-          where: { id: updated.teamId },
-          data: { discordLastChannelPingAt: new Date() },
-        });
-      }
-
-      return reply.send({ success: true });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to mark notification as processed' });
-    }
-  });
-
-  // GET /api/discord/team-event-reminders - Get due team event reminders (bot only)
-  fastify.get('/discord/team-event-reminders', { preHandler: validateBotAuth }, async (_request: any, reply: any) => {
-    try {
-      const reminders = await prisma.teamEventReminder.findMany({
-        where: {
-          processed: false,
-          remindAt: { lte: new Date() },
-          team: { discordRemindersEnabled: true },
-        },
-        orderBy: { remindAt: 'asc' },
-        take: 50,
-        include: {
-          event: {
-            select: {
-              id: true,
-              title: true,
-              type: true,
-              description: true,
-              scheduledAt: true,
-              duration: true,
-              enemyMultigg: true,
-              concernedMemberIds: true,
-              attendances: {
-                select: {
-                  userId: true,
-                  status: true,
+  fastify.get(
+    '/discord/team-events',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const notifications = await prisma.teamEventNotification.findMany({
+          where: { processed: false },
+          orderBy: { createdAt: 'asc' },
+          take: 50,
+          include: {
+            team: {
+              select: {
+                id: true,
+                name: true,
+                tag: true,
+                discordWebhookUrl: true,
+                discordScrimCodeWebhookUrl: true,
+                discordNotifyEvents: true,
+                discordMentionMode: true,
+                discordMentionRoleId: true,
+                discordRoleMentions: true,
+                discordPingRecurrence: true,
+                discordLastChannelPingAt: true,
+                members: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        discordDmNotifications: true,
+                        discordAccount: {
+                          select: { discordId: true },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
           },
-          team: {
-            select: {
-              id: true,
-              name: true,
-              tag: true,
-              discordWebhookUrl: true,
-              discordMentionMode: true,
-              discordMentionRoleId: true,
-              discordRoleMentions: true,
-              discordPingRecurrence: true,
-              discordLastChannelPingAt: true,
-              members: {
-                include: {
-                  user: {
-                    select: {
-                      id: true,
-                      username: true,
-                      discordDmNotifications: true,
-                      discordAccount: {
-                        select: { discordId: true }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
+        });
+
+        const formatted = notifications.map((n: any) => ({
+          ...(function resolveDelivery() {
+            const isScrimLifecycle =
+              typeof n.notificationType === 'string' &&
+              n.notificationType.startsWith('SCRIM_');
+            const webhookUrl = isScrimLifecycle
+              ? n.team.discordScrimCodeWebhookUrl
+              : n.team.discordWebhookUrl;
+            const notifyEnabled = isScrimLifecycle
+              ? Boolean(n.team.discordScrimCodeWebhookUrl)
+              : n.team.discordNotifyEvents;
+            return { webhookUrl, notifyEnabled };
+          })(),
+          id: n.id,
+          teamId: n.teamId,
+          teamName: n.team.name,
+          teamTag: n.team.tag,
+          eventId: n.eventId,
+          eventTitle: n.eventTitle,
+          eventType: n.eventType,
+          scheduledAt: n.scheduledAt,
+          duration: n.duration,
+          description: n.description,
+          enemyLink: n.enemyLink,
+          notificationType: n.notificationType,
+          triggeredBy: n.triggeredBy,
+          concernedMemberIds: Array.isArray(n.concernedMemberIds)
+            ? n.concernedMemberIds
+            : [],
+          mentionMode: n.team.discordMentionMode || 'EVERYONE',
+          mentionRoleId: n.team.discordMentionRoleId || null,
+          roleMentions:
+            n.team.discordRoleMentions &&
+            typeof n.team.discordRoleMentions === 'object' &&
+            !Array.isArray(n.team.discordRoleMentions)
+              ? n.team.discordRoleMentions
+              : {},
+          pingRecurrenceEnabled: Boolean(n.team.discordPingRecurrence),
+          lastChannelPingAt: n.team.discordLastChannelPingAt,
+          createdAt: n.createdAt,
+          // Proposal DMs are handled by the dedicated reliable scrim queue. The
+          // TeamEvent copy exists only for an explicitly connected staff channel.
+          members: (n.notificationType === 'SCRIM_PROPOSAL_RECEIVED'
+            ? []
+            : n.team.members
+          ).map((m: any) => ({
+            id: m.user.id,
+            username: m.user.username,
+            role: m.role,
+            discordId: m.user.discordAccount?.discordId || null,
+            dmEnabled: Boolean(
+              m.user.discordDmNotifications && m.user.discordAccount?.discordId,
+            ),
+          })),
+        }));
+
+        return reply.send({ notifications: formatted });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to fetch team event notifications' });
+      }
+    },
+  );
+
+  // PATCH /api/discord/team-events/:id/processed - Mark notification as processed (bot only)
+  fastify.patch(
+    '/discord/team-events/:id/processed',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { id } = request.params as { id: string };
+        const payload =
+          request.body && typeof request.body === 'object' ? request.body : {};
+        const { recordPing } = payload as { recordPing?: boolean };
+
+        const updated = await prisma.teamEventNotification.update({
+          where: { id },
+          data: { processed: true },
+          select: { teamId: true },
+        });
+
+        if (recordPing) {
+          await prisma.team.update({
+            where: { id: updated.teamId },
+            data: { discordLastChannelPingAt: new Date() },
+          });
         }
-      });
 
-      const formatted = reminders.map((n: any) => ({
-        id: n.id,
-        teamId: n.teamId,
-        teamName: n.team.name,
-        teamTag: n.team.tag,
-        webhookUrl: n.team.discordWebhookUrl,
-        eventId: n.eventId,
-        eventTitle: n.event.title,
-        eventType: n.event.type,
-        scheduledAt: n.event.scheduledAt,
-        duration: n.event.duration,
-        description: n.event.description,
-        enemyLink: n.event.enemyMultigg,
-        reminderMinutes: n.reminderMinutes,
-        remindAt: n.remindAt,
-        concernedMemberIds: Array.isArray(n.event.concernedMemberIds) ? n.event.concernedMemberIds : [],
-        mentionMode: n.team.discordMentionMode || 'EVERYONE',
-        mentionRoleId: n.team.discordMentionRoleId || null,
-        roleMentions: (n.team.discordRoleMentions && typeof n.team.discordRoleMentions === 'object' && !Array.isArray(n.team.discordRoleMentions))
-          ? n.team.discordRoleMentions
-          : {},
-        pingRecurrenceEnabled: Boolean(n.team.discordPingRecurrence),
-        lastChannelPingAt: n.team.discordLastChannelPingAt,
-        createdAt: n.createdAt,
-        members: n.team.members.map((m: any) => ({
-          id: m.user.id,
-          username: m.user.username,
-          role: m.role,
-          discordId: m.user.discordAccount?.discordId || null,
-          dmEnabled: Boolean(m.user.discordDmNotifications && m.user.discordAccount?.discordId)
-        })),
-        attendances: Array.isArray(n.event.attendances)
-          ? n.event.attendances.map((a: any) => ({
-              userId: a.userId,
-              status: a.status,
-            }))
-          : [],
-      }));
+        return reply.send({ success: true });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to mark notification as processed' });
+      }
+    },
+  );
 
-      return reply.send({ reminders: formatted });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch due team event reminders' });
-    }
-  });
+  // GET /api/discord/team-event-reminders - Get due team event reminders (bot only)
+  fastify.get(
+    '/discord/team-event-reminders',
+    { preHandler: validateBotAuth },
+    async (_request: any, reply: any) => {
+      try {
+        const reminders = await prisma.teamEventReminder.findMany({
+          where: {
+            processed: false,
+            remindAt: { lte: new Date() },
+            team: { discordRemindersEnabled: true },
+          },
+          orderBy: { remindAt: 'asc' },
+          take: 50,
+          include: {
+            event: {
+              select: {
+                id: true,
+                title: true,
+                type: true,
+                description: true,
+                scheduledAt: true,
+                duration: true,
+                enemyMultigg: true,
+                concernedMemberIds: true,
+                attendances: {
+                  select: {
+                    userId: true,
+                    status: true,
+                  },
+                },
+              },
+            },
+            team: {
+              select: {
+                id: true,
+                name: true,
+                tag: true,
+                discordWebhookUrl: true,
+                discordMentionMode: true,
+                discordMentionRoleId: true,
+                discordRoleMentions: true,
+                discordPingRecurrence: true,
+                discordLastChannelPingAt: true,
+                members: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        discordDmNotifications: true,
+                        discordAccount: {
+                          select: { discordId: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        const formatted = reminders.map((n: any) => ({
+          id: n.id,
+          teamId: n.teamId,
+          teamName: n.team.name,
+          teamTag: n.team.tag,
+          webhookUrl: n.team.discordWebhookUrl,
+          eventId: n.eventId,
+          eventTitle: n.event.title,
+          eventType: n.event.type,
+          scheduledAt: n.event.scheduledAt,
+          duration: n.event.duration,
+          description: n.event.description,
+          enemyLink: n.event.enemyMultigg,
+          reminderMinutes: n.reminderMinutes,
+          remindAt: n.remindAt,
+          concernedMemberIds: Array.isArray(n.event.concernedMemberIds)
+            ? n.event.concernedMemberIds
+            : [],
+          mentionMode: n.team.discordMentionMode || 'EVERYONE',
+          mentionRoleId: n.team.discordMentionRoleId || null,
+          roleMentions:
+            n.team.discordRoleMentions &&
+            typeof n.team.discordRoleMentions === 'object' &&
+            !Array.isArray(n.team.discordRoleMentions)
+              ? n.team.discordRoleMentions
+              : {},
+          pingRecurrenceEnabled: Boolean(n.team.discordPingRecurrence),
+          lastChannelPingAt: n.team.discordLastChannelPingAt,
+          createdAt: n.createdAt,
+          members: n.team.members.map((m: any) => ({
+            id: m.user.id,
+            username: m.user.username,
+            role: m.role,
+            discordId: m.user.discordAccount?.discordId || null,
+            dmEnabled: Boolean(
+              m.user.discordDmNotifications && m.user.discordAccount?.discordId,
+            ),
+          })),
+          attendances: Array.isArray(n.event.attendances)
+            ? n.event.attendances.map((a: any) => ({
+                userId: a.userId,
+                status: a.status,
+              }))
+            : [],
+        }));
+
+        return reply.send({ reminders: formatted });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to fetch due team event reminders' });
+      }
+    },
+  );
 
   // PATCH /api/discord/team-event-reminders/:id/processed - Mark reminder as processed (bot only)
-  fastify.patch('/discord/team-event-reminders/:id/processed', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { id } = request.params as { id: string };
-      const payload = request.body && typeof request.body === 'object' ? request.body : {};
-      const { recordPing } = payload as { recordPing?: boolean };
+  fastify.patch(
+    '/discord/team-event-reminders/:id/processed',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { id } = request.params as { id: string };
+        const payload =
+          request.body && typeof request.body === 'object' ? request.body : {};
+        const { recordPing } = payload as { recordPing?: boolean };
 
-      const updated = await prisma.teamEventReminder.update({
-        where: { id },
-        data: { processed: true },
-        select: { teamId: true },
-      });
-
-      if (recordPing) {
-        await prisma.team.update({
-          where: { id: updated.teamId },
-          data: { discordLastChannelPingAt: new Date() },
+        const updated = await prisma.teamEventReminder.update({
+          where: { id },
+          data: { processed: true },
+          select: { teamId: true },
         });
-      }
 
-      return reply.send({ success: true });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to mark reminder as processed' });
-    }
-  });
+        if (recordPing) {
+          await prisma.team.update({
+            where: { id: updated.teamId },
+            data: { discordLastChannelPingAt: new Date() },
+          });
+        }
+
+        return reply.send({ success: true });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to mark reminder as processed' });
+      }
+    },
+  );
 
   // POST /api/discord/team-events/:eventId/attendance - Update attendance via Discord button (bot only)
-  fastify.post('/discord/team-events/:eventId/attendance', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { eventId } = request.params as { eventId: string };
-      const { discordId, status } = request.body as { discordId: string; status: string };
+  fastify.post(
+    '/discord/team-events/:eventId/attendance',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { eventId } = request.params as { eventId: string };
+        const { discordId, status } = request.body as {
+          discordId: string;
+          status: string;
+        };
 
-      if (!discordId || !status) {
-        return reply.status(400).send({ error: 'Missing discordId or status' });
-      }
-
-      // Find user by Discord ID
-      const discordAccount = await prisma.discordAccount.findUnique({
-        where: { discordId },
-        select: { userId: true }
-      });
-
-      if (!discordAccount) {
-        fastify.log.warn({ discordId, eventId }, 'Discord attendance update rejected: user not linked');
-        return reply.status(404).send({ error: 'User not linked to Discord' });
-      }
-
-      const userId = discordAccount.userId;
-
-      // Check if event exists
-      const event = await prisma.teamEvent.findUnique({
-        where: { id: eventId },
-        include: {
-          team: {
-            include: {
-              members: { where: { userId } }
-            }
-          }
+        if (!discordId || !status) {
+          return reply
+            .status(400)
+            .send({ error: 'Missing discordId or status' });
         }
-      });
 
-      if (!event) {
-        fastify.log.warn({ eventId, discordId }, 'Discord attendance update rejected: event not found');
-        return reply.status(404).send({ error: 'Event not found' });
-      }
+        // Find user by Discord ID
+        const discordAccount = await prisma.discordAccount.findUnique({
+          where: { discordId },
+          select: { userId: true },
+        });
 
-      // Check if user is team member
-      if (event.team.members.length === 0) {
-        fastify.log.warn({ eventId, discordId, userId }, 'Discord attendance update rejected: non-member attempted response');
-        return reply.status(403).send({ error: 'Not a team member' });
-      }
-
-      if (event.concernedMemberIds?.length > 0 && !event.concernedMemberIds.includes(userId)) {
-        fastify.log.warn({ eventId, discordId, userId }, 'Discord attendance update rejected: user not concerned by event');
-        return reply.status(403).send({ error: 'Not concerned by this event' });
-      }
-
-      const validStatuses = ['PRESENT', 'ABSENT', 'UNSURE'];
-      if (!validStatuses.includes(status)) {
-        fastify.log.warn({ eventId, discordId, status }, 'Discord attendance update rejected: invalid status');
-        return reply.status(400).send({ error: 'Invalid status' });
-      }
-
-      // Upsert attendance
-      const attendance = await prisma.teamEventAttendance.upsert({
-        where: { eventId_userId: { eventId, userId } },
-        update: { status: status as any },
-        create: {
-          eventId,
-          userId,
-          status: status as any
+        if (!discordAccount) {
+          fastify.log.warn(
+            { discordId, eventId },
+            'Discord attendance update rejected: user not linked',
+          );
+          return reply
+            .status(404)
+            .send({ error: 'User not linked to Discord' });
         }
-      });
 
-      // Get username for response
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { username: true }
-      });
+        const userId = discordAccount.userId;
 
-      return reply.send({
-        success: true,
-        username: user?.username,
-        status: attendance.status
-      });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to update attendance' });
-    }
-  });
+        // Check if event exists
+        const event = await prisma.teamEvent.findUnique({
+          where: { id: eventId },
+          include: {
+            team: {
+              include: {
+                members: { where: { userId } },
+              },
+            },
+          },
+        });
+
+        if (!event) {
+          fastify.log.warn(
+            { eventId, discordId },
+            'Discord attendance update rejected: event not found',
+          );
+          return reply.status(404).send({ error: 'Event not found' });
+        }
+
+        // Check if user is team member
+        if (event.team.members.length === 0) {
+          fastify.log.warn(
+            { eventId, discordId, userId },
+            'Discord attendance update rejected: non-member attempted response',
+          );
+          return reply.status(403).send({ error: 'Not a team member' });
+        }
+
+        if (
+          event.concernedMemberIds?.length > 0 &&
+          !event.concernedMemberIds.includes(userId)
+        ) {
+          fastify.log.warn(
+            { eventId, discordId, userId },
+            'Discord attendance update rejected: user not concerned by event',
+          );
+          return reply
+            .status(403)
+            .send({ error: 'Not concerned by this event' });
+        }
+
+        const validStatuses = ['PRESENT', 'ABSENT', 'UNSURE'];
+        if (!validStatuses.includes(status)) {
+          fastify.log.warn(
+            { eventId, discordId, status },
+            'Discord attendance update rejected: invalid status',
+          );
+          return reply.status(400).send({ error: 'Invalid status' });
+        }
+
+        // Upsert attendance
+        const attendance = await prisma.teamEventAttendance.upsert({
+          where: { eventId_userId: { eventId, userId } },
+          update: { status: status as any },
+          create: {
+            eventId,
+            userId,
+            status: status as any,
+          },
+        });
+
+        // Get username for response
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { username: true },
+        });
+
+        return reply.send({
+          success: true,
+          username: user?.username,
+          status: attendance.status,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(500).send({ error: 'Failed to update attendance' });
+      }
+    },
+  );
 
   // PATCH /api/discord/team-events/:eventId/message - Store Discord message ID for event (bot only)
-  fastify.patch('/discord/team-events/:eventId/message', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { eventId } = request.params as { eventId: string };
-      const { messageId } = request.body as { messageId: string };
+  fastify.patch(
+    '/discord/team-events/:eventId/message',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { eventId } = request.params as { eventId: string };
+        const { messageId } = request.body as { messageId: string };
 
-      await prisma.teamEvent.update({
-        where: { id: eventId },
-        data: { discordMessageId: messageId }
-      });
+        await prisma.teamEvent.update({
+          where: { id: eventId },
+          data: { discordMessageId: messageId },
+        });
 
-      return reply.send({ success: true });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to store message ID' });
-    }
-  });
+        return reply.send({ success: true });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(500).send({ error: 'Failed to store message ID' });
+      }
+    },
+  );
 }

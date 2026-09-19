@@ -851,7 +851,7 @@ const TeamDetailPage: React.FC<TeamSharePageProps> = ({ ssrOgImage }) => {
                 Scrim Performance & Reputation
               </h2>
               <Link
-                href="/teams/scrims"
+                href="/scrims"
                 className="text-sm px-3 py-1.5 rounded-lg border hover:opacity-85"
                 style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
               >

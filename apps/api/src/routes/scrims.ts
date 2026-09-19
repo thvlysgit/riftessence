@@ -3,15 +3,39 @@ import { getUserIdFromRequest } from '../middleware/auth';
 import { randomUUID } from 'crypto';
 import { getRecentMatchIds, getMatchDetails } from '../riotClient';
 import { enqueueMirrorDeletion } from '../services/discordMirrorDeletionQueue';
-import { markWorkerFailed, markWorkerStarted, markWorkerSucceeded } from '../services/apiDiagnostics';
+import {
+  markWorkerFailed,
+  markWorkerStarted,
+  markWorkerSucceeded,
+} from '../services/apiDiagnostics';
+import { validateDiscordWebhook } from '../utils/discord-webhook';
 
 const REGULAR_SCRIM_FORMATS = ['BO1', 'BO3', 'BO5'] as const;
-const FEARLESS_SCRIM_FORMATS = ['FEARLESS_BO1', 'FEARLESS_BO3', 'FEARLESS_BO5', 'BLOCK'] as const;
-const SCRIM_FORMATS = [...REGULAR_SCRIM_FORMATS, ...FEARLESS_SCRIM_FORMATS] as const;
+const FEARLESS_SCRIM_FORMATS = [
+  'FEARLESS_BO1',
+  'FEARLESS_BO3',
+  'FEARLESS_BO5',
+  'BLOCK',
+] as const;
+const SCRIM_FORMATS = [
+  ...REGULAR_SCRIM_FORMATS,
+  ...FEARLESS_SCRIM_FORMATS,
+] as const;
 const SCRIM_POST_STATUSES = ['AVAILABLE', 'CANDIDATES', 'SETTLED'] as const;
 const SCRIM_PROPOSAL_DECISIONS = ['ACCEPT', 'REJECT', 'DELAY'] as const;
 const MANAGEABLE_TEAM_ROLES = ['OWNER', 'MANAGER', 'COACH'] as const;
-const SCRIM_REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'] as const;
+const SCRIM_REGIONS = [
+  'NA',
+  'EUW',
+  'EUNE',
+  'KR',
+  'JP',
+  'OCE',
+  'LAN',
+  'LAS',
+  'BR',
+  'RU',
+] as const;
 const SCRIM_CONTACT_PREFERENCES = ['DISCORD', 'APP', 'EITHER'] as const;
 const RANK_ORDER = [
   'IRON',
@@ -37,6 +61,7 @@ const SCRIM_DISCORD_NOTIFICATION_TYPES = {
   AUTO_REJECTED: 'PROPOSAL_AUTO_REJECTED',
 } as const;
 const SCRIM_TEAM_EVENT_NOTIFICATION_TYPES = {
+  PROPOSAL_RECEIVED: 'SCRIM_PROPOSAL_RECEIVED',
   SERIES_ACCEPTED: 'SCRIM_SERIES_ACCEPTED',
   MATCH_CODE_REGENERATED: 'SCRIM_MATCH_CODE_REGENERATED',
   AUTO_RESULT_CONFIRMED: 'SCRIM_RESULT_AUTO_CONFIRMED',
@@ -44,19 +69,56 @@ const SCRIM_TEAM_EVENT_NOTIFICATION_TYPES = {
   AUTO_RESULT_MANUAL_REQUIRED: 'SCRIM_RESULT_MANUAL_REQUIRED',
   MANUAL_CONFLICT_ESCALATED: 'SCRIM_RESULT_CONFLICT_ESCALATION',
 } as const;
-const SCRIM_AUTO_RESULT_SWEEP_INTERVAL_MS = Math.max(30_000, Number.parseInt(process.env.SCRIM_AUTO_RESULT_SWEEP_INTERVAL_MS || '120000', 10) || 120_000);
-const SCRIM_AUTO_RESULT_BATCH_SIZE = Math.max(1, Math.min(20, Number.parseInt(process.env.SCRIM_AUTO_RESULT_BATCH_SIZE || '6', 10) || 6));
-const SCRIM_AUTO_RESULT_MATCH_SCAN_LIMIT = Math.max(10, Math.min(60, Number.parseInt(process.env.SCRIM_AUTO_RESULT_MATCH_SCAN_LIMIT || '24', 10) || 24));
-const SCRIM_MANUAL_CONFLICT_ESCALATION_THRESHOLD = Math.max(1, Number.parseInt(process.env.SCRIM_CONFLICT_ESCALATION_THRESHOLD || '2', 10) || 2);
-const SCRIM_AUTO_RESULT_WINDOW_BUFFER_HOURS = Math.max(1, Number.parseInt(process.env.SCRIM_AUTO_RESULT_WINDOW_BUFFER_HOURS || '2', 10) || 2);
-const SCRIM_AUTO_RESULT_MIN_TEAM_PARTICIPANTS = Math.max(1, Number.parseInt(process.env.SCRIM_AUTO_RESULT_MIN_TEAM_PARTICIPANTS || '2', 10) || 2);
+const SCRIM_AUTO_RESULT_SWEEP_INTERVAL_MS = Math.max(
+  30_000,
+  Number.parseInt(
+    process.env.SCRIM_AUTO_RESULT_SWEEP_INTERVAL_MS || '120000',
+    10,
+  ) || 120_000,
+);
+const SCRIM_AUTO_RESULT_BATCH_SIZE = Math.max(
+  1,
+  Math.min(
+    20,
+    Number.parseInt(process.env.SCRIM_AUTO_RESULT_BATCH_SIZE || '6', 10) || 6,
+  ),
+);
+const SCRIM_AUTO_RESULT_MATCH_SCAN_LIMIT = Math.max(
+  10,
+  Math.min(
+    60,
+    Number.parseInt(
+      process.env.SCRIM_AUTO_RESULT_MATCH_SCAN_LIMIT || '24',
+      10,
+    ) || 24,
+  ),
+);
+const SCRIM_MANUAL_CONFLICT_ESCALATION_THRESHOLD = Math.max(
+  1,
+  Number.parseInt(process.env.SCRIM_CONFLICT_ESCALATION_THRESHOLD || '2', 10) ||
+    2,
+);
+const SCRIM_AUTO_RESULT_WINDOW_BUFFER_HOURS = Math.max(
+  1,
+  Number.parseInt(
+    process.env.SCRIM_AUTO_RESULT_WINDOW_BUFFER_HOURS || '2',
+    10,
+  ) || 2,
+);
+const SCRIM_AUTO_RESULT_MIN_TEAM_PARTICIPANTS = Math.max(
+  1,
+  Number.parseInt(
+    process.env.SCRIM_AUTO_RESULT_MIN_TEAM_PARTICIPANTS || '2',
+    10,
+  ) || 2,
+);
 
 let autoResultSweepRunning = false;
 let autoResultSweepLastRunAt = 0;
 
-type RankName = typeof RANK_ORDER[number];
+type RankName = (typeof RANK_ORDER)[number];
 
-type ScrimProposalDecision = typeof SCRIM_PROPOSAL_DECISIONS[number];
+type ScrimProposalDecision = (typeof SCRIM_PROPOSAL_DECISIONS)[number];
 
 class ScrimRouteError extends Error {
   statusCode: number;
@@ -126,7 +188,10 @@ function normalizeRegionKey(region: string): string {
   return aliasMap[lowered] || lowered || 'euw';
 }
 
-function buildOpggMultisearchUrl(region: string, riotIds: string[]): string | null {
+function buildOpggMultisearchUrl(
+  region: string,
+  riotIds: string[],
+): string | null {
   const cleaned = riotIds
     .map((entry) => normalizeString(entry))
     .filter((entry) => entry.length > 0);
@@ -135,11 +200,18 @@ function buildOpggMultisearchUrl(region: string, riotIds: string[]): string | nu
     return null;
   }
 
-  const encodedSummoners = cleaned.map((entry) => encodeURIComponent(entry)).join(',');
-  return `https://www.op.gg/multisearch/${normalizeRegionKey(region)}?summoners=${encodedSummoners}`;
+  const encodedSummoners = cleaned
+    .map((entry) => encodeURIComponent(entry))
+    .join(',');
+  return `https://www.op.gg/multisearch/${normalizeRegionKey(
+    region,
+  )}?summoners=${encodedSummoners}`;
 }
 
-function rankScore(rank: string | null, division: string | null): number | null {
+function rankScore(
+  rank: string | null,
+  division: string | null,
+): number | null {
   const normalizedRank = normalizeString(rank).toUpperCase() as RankName;
   if (!RANK_ORDER.includes(normalizedRank)) {
     return null;
@@ -152,12 +224,18 @@ function rankScore(rank: string | null, division: string | null): number | null 
   const rankIndex = RANK_ORDER.indexOf(normalizedRank);
   const baseScore = rankIndex * 4;
 
-  if (MASTER_PLUS_RANKS.includes(normalizedRank as typeof MASTER_PLUS_RANKS[number])) {
+  if (
+    MASTER_PLUS_RANKS.includes(
+      normalizedRank as (typeof MASTER_PLUS_RANKS)[number],
+    )
+  ) {
     return baseScore + 3;
   }
 
   const normalizedDivision = normalizeString(division).toUpperCase();
-  const divisionIndex = DIVISION_ORDER.indexOf(normalizedDivision as typeof DIVISION_ORDER[number]);
+  const divisionIndex = DIVISION_ORDER.indexOf(
+    normalizedDivision as (typeof DIVISION_ORDER)[number],
+  );
   if (divisionIndex < 0) {
     return baseScore + 1;
   }
@@ -165,7 +243,10 @@ function rankScore(rank: string | null, division: string | null): number | null 
   return baseScore + divisionIndex;
 }
 
-function scoreToRank(score: number): { averageRank: string | null; averageDivision: string | null } {
+function scoreToRank(score: number): {
+  averageRank: string | null;
+  averageDivision: string | null;
+} {
   if (!Number.isFinite(score) || score < 0) {
     return { averageRank: null, averageDivision: null };
   }
@@ -173,9 +254,10 @@ function scoreToRank(score: number): { averageRank: string | null; averageDivisi
   const clampedScore = Math.min(score, (RANK_ORDER.length - 2) * 4 + 3);
   const rankIndex = Math.floor(clampedScore / 4);
   const divisionIndex = Math.round(clampedScore % 4);
-  const rank = RANK_ORDER[Math.max(0, Math.min(rankIndex, RANK_ORDER.length - 2))];
+  const rank =
+    RANK_ORDER[Math.max(0, Math.min(rankIndex, RANK_ORDER.length - 2))];
 
-  if (MASTER_PLUS_RANKS.includes(rank as typeof MASTER_PLUS_RANKS[number])) {
+  if (MASTER_PLUS_RANKS.includes(rank as (typeof MASTER_PLUS_RANKS)[number])) {
     return {
       averageRank: rank,
       averageDivision: null,
@@ -184,7 +266,10 @@ function scoreToRank(score: number): { averageRank: string | null; averageDivisi
 
   return {
     averageRank: rank,
-    averageDivision: DIVISION_ORDER[Math.max(0, Math.min(divisionIndex, DIVISION_ORDER.length - 1))],
+    averageDivision:
+      DIVISION_ORDER[
+        Math.max(0, Math.min(divisionIndex, DIVISION_ORDER.length - 1))
+      ],
   };
 }
 
@@ -219,13 +304,17 @@ function getSupportDiscordUrl(): string {
   const direct = normalizeString(process.env.SCRIM_SUPPORT_DISCORD_URL);
   if (direct) return direct;
 
-  const publicUrl = normalizeString(process.env.NEXT_PUBLIC_SUPPORT_DISCORD_URL);
+  const publicUrl = normalizeString(
+    process.env.NEXT_PUBLIC_SUPPORT_DISCORD_URL,
+  );
   if (publicUrl) return publicUrl;
 
   return 'https://discord.gg/riftessence';
 }
 
-function scrimFormatToBoGames(scrimFormat: string | null | undefined): number | null {
+function scrimFormatToBoGames(
+  scrimFormat: string | null | undefined,
+): number | null {
   const normalized = normalizeString(scrimFormat).toUpperCase();
   if (normalized === 'BO1' || normalized === 'FEARLESS_BO1') return 1;
   if (normalized === 'BO3' || normalized === 'FEARLESS_BO3') return 3;
@@ -235,7 +324,9 @@ function scrimFormatToBoGames(scrimFormat: string | null | undefined): number | 
 
 function isManageableRole(role: string | null | undefined): boolean {
   const normalized = normalizeString(role).toUpperCase();
-  return MANAGEABLE_TEAM_ROLES.includes(normalized as typeof MANAGEABLE_TEAM_ROLES[number]);
+  return MANAGEABLE_TEAM_ROLES.includes(
+    normalized as (typeof MANAGEABLE_TEAM_ROLES)[number],
+  );
 }
 
 async function getManageableTeamIds(userId: string): Promise<string[]> {
@@ -292,10 +383,15 @@ async function isAdminUser(userId: string): Promise<boolean> {
     },
   });
 
-  return (user?.badges ?? []).some((badge: any) => normalizeString(badge.key).toLowerCase() === 'admin');
+  return (user?.badges ?? []).some(
+    (badge: any) => normalizeString(badge.key).toLowerCase() === 'admin',
+  );
 }
 
-async function buildTeamOpggMultisearchUrl(db: any, teamId: string): Promise<string | null> {
+async function buildTeamOpggMultisearchUrl(
+  db: any,
+  teamId: string,
+): Promise<string | null> {
   const team = await db.team.findUnique({
     where: { id: teamId },
     select: {
@@ -306,15 +402,9 @@ async function buildTeamOpggMultisearchUrl(db: any, teamId: string): Promise<str
             select: {
               riotAccounts: {
                 where: {
-                  OR: [
-                    { isMain: true },
-                    { hidden: false },
-                  ],
+                  OR: [{ isMain: true }, { hidden: false }],
                 },
-                orderBy: [
-                  { isMain: 'desc' },
-                  { createdAt: 'asc' },
-                ],
+                orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
                 take: 1,
                 select: {
                   gameName: true,
@@ -340,7 +430,9 @@ async function buildTeamOpggMultisearchUrl(db: any, teamId: string): Promise<str
         return null;
       }
 
-      const gameName = normalizeString(account.gameName || account.summonerName);
+      const gameName = normalizeString(
+        account.gameName || account.summonerName,
+      );
       const tagLine = normalizeString(account.tagLine);
       if (!gameName) {
         return null;
@@ -359,13 +451,16 @@ function generateScrimMatchCode(): string {
   return `SCRIM-${stamp}-${randomPart}`;
 }
 
-async function createOrReuseScrimEvent(db: any, params: {
-  teamId: string;
-  title: string;
-  scheduledAt: Date;
-  enemyMultigg: string | null;
-  createdBy: string;
-}): Promise<string | null> {
+async function createOrReuseScrimEvent(
+  db: any,
+  params: {
+    teamId: string;
+    title: string;
+    scheduledAt: Date;
+    enemyMultigg: string | null;
+    createdBy: string;
+  },
+): Promise<string | null> {
   const scheduleMs = params.scheduledAt.getTime();
   if (!Number.isFinite(scheduleMs)) {
     return null;
@@ -405,7 +500,10 @@ async function createOrReuseScrimEvent(db: any, params: {
   return created.id;
 }
 
-async function ensureScrimSeriesForProposal(db: any, proposalId: string): Promise<string | null> {
+async function ensureScrimSeriesForProposal(
+  db: any,
+  proposalId: string,
+): Promise<string | null> {
   const proposal = await db.scrimProposal.findUnique({
     where: { id: proposalId },
     include: {
@@ -428,7 +526,9 @@ async function ensureScrimSeriesForProposal(db: any, proposalId: string): Promis
 
   const scheduledAt = proposal.post.startTimeUtc;
   const boGames = scrimFormatToBoGames(proposal.post.scrimFormat);
-  const autoResultReadyAt = boGames ? new Date(scheduledAt.getTime() + boGames * 60 * 60 * 1000) : null;
+  const autoResultReadyAt = boGames
+    ? new Date(scheduledAt.getTime() + boGames * 60 * 60 * 1000)
+    : null;
   const autoResultStatus = boGames ? 'READY' : 'MANUAL_REQUIRED';
   const hostTeam = await db.team.findUnique({
     where: { id: proposal.targetTeamId },
@@ -445,8 +545,13 @@ async function ensureScrimSeriesForProposal(db: any, proposalId: string): Promis
     },
   });
 
-  const hostEnemyMultigg = await buildTeamOpggMultisearchUrl(db, proposal.proposerTeamId);
-  const guestEnemyMultigg = proposal.post.opggMultisearchUrl || await buildTeamOpggMultisearchUrl(db, proposal.targetTeamId);
+  const hostEnemyMultigg = await buildTeamOpggMultisearchUrl(
+    db,
+    proposal.proposerTeamId,
+  );
+  const guestEnemyMultigg =
+    proposal.post.opggMultisearchUrl ||
+    (await buildTeamOpggMultisearchUrl(db, proposal.targetTeamId));
 
   const [hostEventId, guestEventId] = await Promise.all([
     hostTeam?.ownerId
@@ -461,7 +566,9 @@ async function ensureScrimSeriesForProposal(db: any, proposalId: string): Promis
     guestTeam?.ownerId
       ? createOrReuseScrimEvent(db, {
           teamId: proposal.proposerTeamId,
-          title: `Scrim vs ${proposal.post.teamName || hostTeam?.name || 'Opponent Team'}`,
+          title: `Scrim vs ${
+            proposal.post.teamName || hostTeam?.name || 'Opponent Team'
+          }`,
           scheduledAt,
           enemyMultigg: guestEnemyMultigg,
           createdBy: guestTeam.ownerId,
@@ -477,7 +584,9 @@ async function ensureScrimSeriesForProposal(db: any, proposalId: string): Promis
       scheduledAt,
       autoResultStatus,
       autoResultReadyAt,
-      autoResultFailureReason: boGames ? null : 'Auto-result unsupported for this scrim format. Use manual winner agreement.',
+      autoResultFailureReason: boGames
+        ? null
+        : 'Auto-result unsupported for this scrim format. Use manual winner agreement.',
     },
     create: {
       proposalId: proposal.id,
@@ -491,43 +600,14 @@ async function ensureScrimSeriesForProposal(db: any, proposalId: string): Promis
       scheduledAt,
       autoResultStatus,
       autoResultReadyAt,
-      autoResultFailureReason: boGames ? null : 'Auto-result unsupported for this scrim format. Use manual winner agreement.',
+      autoResultFailureReason: boGames
+        ? null
+        : 'Auto-result unsupported for this scrim format. Use manual winner agreement.',
     },
     select: { id: true },
   });
 
   return series.id;
-}
-
-async function assertDiscordReliabilityReady(userId: string, reply: any): Promise<boolean> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      username: true,
-      discordDmNotifications: true,
-      discordAccount: {
-        select: { discordId: true },
-      },
-    },
-  });
-
-  if (!user || !user.discordAccount?.discordId) {
-    reply.status(400).send({
-      error: 'Link your Discord account before using Scrim Finder.',
-      code: 'SCRIM_DISCORD_REQUIRED',
-    });
-    return false;
-  }
-
-  if (!user.discordDmNotifications) {
-    reply.status(400).send({
-      error: 'Turn Discord DM notifications back on before using Scrim Finder.',
-      code: 'SCRIM_DM_REQUIRED',
-    });
-    return false;
-  }
-
-  return true;
 }
 
 function validateBotAuth(request: any, reply: any, done: () => void) {
@@ -540,7 +620,9 @@ function validateBotAuth(request: any, reply: any, done: () => void) {
   }
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    reply.status(401).send({ error: 'Missing or invalid authorization header' });
+    reply
+      .status(401)
+      .send({ error: 'Missing or invalid authorization header' });
     return;
   }
 
@@ -553,7 +635,10 @@ function validateBotAuth(request: any, reply: any, done: () => void) {
   done();
 }
 
-async function getTeamDecisionRecipientIds(db: any, teamId: string): Promise<string[]> {
+async function getTeamDecisionRecipientIds(
+  db: any,
+  teamId: string,
+): Promise<string[]> {
   const [team, managers] = await Promise.all([
     db.team.findUnique({
       where: { id: teamId },
@@ -570,20 +655,27 @@ async function getTeamDecisionRecipientIds(db: any, teamId: string): Promise<str
 
   const ids = new Set<string>();
   if (team?.ownerId) ids.add(team.ownerId);
-  (managers as Array<{ userId: string }>).forEach((entry) => ids.add(entry.userId));
+  (managers as Array<{ userId: string }>).forEach((entry) =>
+    ids.add(entry.userId),
+  );
   return Array.from(ids);
 }
 
-async function createScrimDiscordNotifications(db: any, entries: Array<{
-  proposalId: string;
-  recipientUserId: string;
-  type: keyof typeof SCRIM_DISCORD_NOTIFICATION_TYPES;
-  message: string;
-  actionRequired?: boolean;
-}>) {
+async function createScrimDiscordNotifications(
+  db: any,
+  entries: Array<{
+    proposalId: string;
+    recipientUserId: string;
+    type: keyof typeof SCRIM_DISCORD_NOTIFICATION_TYPES;
+    message: string;
+    actionRequired?: boolean;
+  }>,
+) {
   if (!entries.length) return;
 
-  const recipientIds = Array.from(new Set(entries.map((entry) => entry.recipientUserId)));
+  const recipientIds = Array.from(
+    new Set(entries.map((entry) => entry.recipientUserId)),
+  );
   const recipients = await db.user.findMany({
     where: { id: { in: recipientIds } },
     select: {
@@ -593,24 +685,41 @@ async function createScrimDiscordNotifications(db: any, entries: Array<{
     },
   });
 
-  const recipientMap = new Map<string, { discordDmNotifications: boolean; discordAccount: { discordId: string } | null }>(
-    (recipients as Array<{ id: string; discordDmNotifications: boolean; discordAccount: { discordId: string } | null }>).map((recipient) => [recipient.id, recipient])
+  const recipientMap = new Map<
+    string,
+    {
+      discordDmNotifications: boolean;
+      discordAccount: { discordId: string } | null;
+    }
+  >(
+    (
+      recipients as Array<{
+        id: string;
+        discordDmNotifications: boolean;
+        discordAccount: { discordId: string } | null;
+      }>
+    ).map((recipient) => [recipient.id, recipient]),
   );
 
   const rows = entries.flatMap((entry) => {
     const recipient = recipientMap.get(entry.recipientUserId);
-    if (!recipient?.discordDmNotifications || !recipient.discordAccount?.discordId) {
+    if (
+      !recipient?.discordDmNotifications ||
+      !recipient.discordAccount?.discordId
+    ) {
       return [];
     }
 
-    return [{
-      proposalId: entry.proposalId,
-      recipientUserId: entry.recipientUserId,
-      recipientDiscordId: recipient.discordAccount.discordId,
-      type: SCRIM_DISCORD_NOTIFICATION_TYPES[entry.type],
-      message: entry.message,
-      actionRequired: Boolean(entry.actionRequired),
-    }];
+    return [
+      {
+        proposalId: entry.proposalId,
+        recipientUserId: entry.recipientUserId,
+        recipientDiscordId: recipient.discordAccount.discordId,
+        type: SCRIM_DISCORD_NOTIFICATION_TYPES[entry.type],
+        message: entry.message,
+        actionRequired: Boolean(entry.actionRequired),
+      },
+    ];
   });
 
   if (rows.length > 0) {
@@ -631,16 +740,27 @@ type ScrimLifecycleEntry = {
     | 'SCRIM_RESULT_CONFLICT_ESCALATION';
 };
 
-async function createScrimLifecycleFanout(db: any, params: {
-  seriesId: string;
-  scheduledAt: Date;
-  lifecycleType: keyof typeof SCRIM_TEAM_EVENT_NOTIFICATION_TYPES;
-  triggeredByUserId?: string | null;
-  triggeredByUsername?: string | null;
-  entries: ScrimLifecycleEntry[];
-}) {
+async function createScrimLifecycleFanout(
+  db: any,
+  params: {
+    seriesId: string;
+    scheduledAt: Date;
+    lifecycleType: keyof typeof SCRIM_TEAM_EVENT_NOTIFICATION_TYPES;
+    triggeredByUserId?: string | null;
+    triggeredByUsername?: string | null;
+    entries: ScrimLifecycleEntry[];
+  },
+) {
   if (!params.entries.length) {
     return;
+  }
+
+  const recipientsByTeam = new Map<string, string[]>();
+  for (const entry of params.entries) {
+    recipientsByTeam.set(
+      entry.teamId,
+      await getTeamDecisionRecipientIds(db, entry.teamId),
+    );
   }
 
   await db.teamEventNotification.createMany({
@@ -653,8 +773,9 @@ async function createScrimLifecycleFanout(db: any, params: {
       duration: null,
       description: entry.message,
       enemyLink: null,
-      concernedMemberIds: [],
-      notificationType: SCRIM_TEAM_EVENT_NOTIFICATION_TYPES[params.lifecycleType],
+      concernedMemberIds: recipientsByTeam.get(entry.teamId) || [],
+      notificationType:
+        SCRIM_TEAM_EVENT_NOTIFICATION_TYPES[params.lifecycleType],
       triggeredBy: params.triggeredByUsername || 'System',
     })),
   });
@@ -668,7 +789,7 @@ async function createScrimLifecycleFanout(db: any, params: {
   const dedupe = new Set<string>();
 
   for (const entry of params.entries) {
-    const recipients = await getTeamDecisionRecipientIds(db, entry.teamId);
+    const recipients = recipientsByTeam.get(entry.teamId) || [];
     for (const recipientUserId of recipients) {
       const dedupeKey = `${recipientUserId}::${entry.appNotificationType}::${entry.message}`;
       if (dedupe.has(dedupeKey)) continue;
@@ -687,7 +808,9 @@ async function createScrimLifecycleFanout(db: any, params: {
   }
 }
 
-function extractTeamRiotAccounts(team: any): Array<{ puuid: string; region: string }> {
+function extractTeamRiotAccounts(
+  team: any,
+): Array<{ puuid: string; region: string }> {
   const identities: Array<{ puuid: string; region: string }> = [];
 
   for (const member of team?.members || []) {
@@ -723,16 +846,19 @@ async function detectAutoWinnerForSeries(series: any): Promise<{
     return null;
   }
 
-  const scheduledMs = series?.scheduledAt instanceof Date
-    ? series.scheduledAt.getTime()
-    : new Date(series?.scheduledAt || 0).getTime();
+  const scheduledMs =
+    series?.scheduledAt instanceof Date
+      ? series.scheduledAt.getTime()
+      : new Date(series?.scheduledAt || 0).getTime();
 
   if (!Number.isFinite(scheduledMs)) {
     return null;
   }
 
   const windowStartMs = scheduledMs - 30 * 60 * 1000;
-  const windowEndMs = scheduledMs + (boGames + SCRIM_AUTO_RESULT_WINDOW_BUFFER_HOURS) * 60 * 60 * 1000;
+  const windowEndMs =
+    scheduledMs +
+    (boGames + SCRIM_AUTO_RESULT_WINDOW_BUFFER_HOURS) * 60 * 60 * 1000;
 
   const hostPuuidSet = new Set(hostAccounts.map((entry) => entry.puuid));
   const guestPuuidSet = new Set(guestAccounts.map((entry) => entry.puuid));
@@ -742,7 +868,11 @@ async function detectAutoWinnerForSeries(series: any): Promise<{
   for (const account of scanAccounts) {
     let matchIds: string[] = [];
     try {
-      matchIds = await getRecentMatchIds(account.puuid, account.region, SCRIM_AUTO_RESULT_MATCH_SCAN_LIMIT);
+      matchIds = await getRecentMatchIds(
+        account.puuid,
+        account.region,
+        SCRIM_AUTO_RESULT_MATCH_SCAN_LIMIT,
+      );
     } catch {
       continue;
     }
@@ -761,7 +891,10 @@ async function detectAutoWinnerForSeries(series: any): Promise<{
       }
 
       const gameCreationMs = Number(matchData?.info?.gameCreation);
-      if (Number.isFinite(gameCreationMs) && (gameCreationMs < windowStartMs || gameCreationMs > windowEndMs)) {
+      if (
+        Number.isFinite(gameCreationMs) &&
+        (gameCreationMs < windowStartMs || gameCreationMs > windowEndMs)
+      ) {
         continue;
       }
 
@@ -773,25 +906,36 @@ async function detectAutoWinnerForSeries(series: any): Promise<{
         continue;
       }
 
-      const hostParticipants = participants.filter((participant: any) => hostPuuidSet.has(normalizeString(participant?.puuid)));
-      const guestParticipants = participants.filter((participant: any) => guestPuuidSet.has(normalizeString(participant?.puuid)));
+      const hostParticipants = participants.filter((participant: any) =>
+        hostPuuidSet.has(normalizeString(participant?.puuid)),
+      );
+      const guestParticipants = participants.filter((participant: any) =>
+        guestPuuidSet.has(normalizeString(participant?.puuid)),
+      );
 
       if (
-        hostParticipants.length < SCRIM_AUTO_RESULT_MIN_TEAM_PARTICIPANTS
-        || guestParticipants.length < SCRIM_AUTO_RESULT_MIN_TEAM_PARTICIPANTS
+        hostParticipants.length < SCRIM_AUTO_RESULT_MIN_TEAM_PARTICIPANTS ||
+        guestParticipants.length < SCRIM_AUTO_RESULT_MIN_TEAM_PARTICIPANTS
       ) {
         continue;
       }
 
-      const hostWins = hostParticipants.reduce((sum: number, participant: any) => sum + (participant?.win ? 1 : 0), 0);
-      const guestWins = guestParticipants.reduce((sum: number, participant: any) => sum + (participant?.win ? 1 : 0), 0);
+      const hostWins = hostParticipants.reduce(
+        (sum: number, participant: any) => sum + (participant?.win ? 1 : 0),
+        0,
+      );
+      const guestWins = guestParticipants.reduce(
+        (sum: number, participant: any) => sum + (participant?.win ? 1 : 0),
+        0,
+      );
 
       if (hostWins === guestWins) {
         continue;
       }
 
       return {
-        winnerTeamId: hostWins > guestWins ? series.hostTeamId : series.guestTeamId,
+        winnerTeamId:
+          hostWins > guestWins ? series.hostTeamId : series.guestTeamId,
         matchId,
       };
     }
@@ -904,7 +1048,8 @@ async function maybeRunDueAutoResultSweep(fastify?: any): Promise<void> {
       const guestLabel = buildTeamLabel(series.guestTeam);
 
       if (winner?.winnerTeamId) {
-        const winnerLabel = winner.winnerTeamId === series.hostTeamId ? hostLabel : guestLabel;
+        const winnerLabel =
+          winner.winnerTeamId === series.hostTeamId ? hostLabel : guestLabel;
 
         await prisma.$transaction(async (tx: any) => {
           const latest = await tx.scrimSeries.findUnique({
@@ -986,7 +1131,8 @@ async function maybeRunDueAutoResultSweep(fastify?: any): Promise<void> {
             autoResultStatus: 'MANUAL_REQUIRED',
             autoResultAttempts: { increment: 1 },
             autoResultLastCheckedAt: now,
-            autoResultFailureReason: 'Auto-result scan could not confidently determine a winner from Riot match history.',
+            autoResultFailureReason:
+              'Auto-result scan could not confidently determine a winner from Riot match history.',
           },
         });
 
@@ -1019,7 +1165,10 @@ async function maybeRunDueAutoResultSweep(fastify?: any): Promise<void> {
     if (fastify?.log?.error) {
       fastify.log.error(error);
     } else {
-      console.error('[scrims] auto-result sweep failed', error?.message || error);
+      console.error(
+        '[scrims] auto-result sweep failed',
+        error?.message || error,
+      );
     }
   } finally {
     autoResultSweepRunning = false;
@@ -1065,7 +1214,10 @@ async function autoRejectExpiredProposals(): Promise<void> {
         return null;
       }
 
-      const responseSeconds = Math.max(0, Math.floor((now.getTime() - latest.createdAt.getTime()) / 1000));
+      const responseSeconds = Math.max(
+        0,
+        Math.floor((now.getTime() - latest.createdAt.getTime()) / 1000),
+      );
 
       await tx.scrimProposal.update({
         where: { id: latest.id },
@@ -1085,12 +1237,14 @@ async function autoRejectExpiredProposals(): Promise<void> {
         },
       });
 
-      await createScrimDiscordNotifications(tx, [{
-        proposalId: latest.id,
-        recipientUserId: latest.proposedByUserId,
-        type: 'AUTO_REJECTED',
-        message: `Your scrim proposal to ${proposal.post.teamName} expired after 10 minutes without response.`,
-      }]);
+      await createScrimDiscordNotifications(tx, [
+        {
+          proposalId: latest.id,
+          recipientUserId: latest.proposedByUserId,
+          type: 'AUTO_REJECTED',
+          message: `Your scrim proposal to ${proposal.post.teamName} expired after 10 minutes without response.`,
+        },
+      ]);
 
       const activeProposalCount = await tx.scrimProposal.count({
         where: {
@@ -1123,9 +1277,14 @@ async function applyScrimProposalDecision(params: {
 }) {
   await autoRejectExpiredProposals();
 
-  const normalizedAction = normalizeString(params.action).toUpperCase() as ScrimProposalDecision;
+  const normalizedAction = normalizeString(
+    params.action,
+  ).toUpperCase() as ScrimProposalDecision;
   if (!SCRIM_PROPOSAL_DECISIONS.includes(normalizedAction)) {
-    throw new ScrimRouteError(400, `action must be one of: ${SCRIM_PROPOSAL_DECISIONS.join(', ')}`);
+    throw new ScrimRouteError(
+      400,
+      `action must be one of: ${SCRIM_PROPOSAL_DECISIONS.join(', ')}`,
+    );
   }
 
   const proposal = await prisma.scrimProposal.findUnique({
@@ -1148,8 +1307,11 @@ async function applyScrimProposalDecision(params: {
     throw new ScrimRouteError(404, 'Scrim proposal not found');
   }
 
-  if (!await canManageTeam(params.actorUserId, proposal.targetTeamId)) {
-    throw new ScrimRouteError(403, 'You are not allowed to decide this proposal');
+  if (!(await canManageTeam(params.actorUserId, proposal.targetTeamId))) {
+    throw new ScrimRouteError(
+      403,
+      'You are not allowed to decide this proposal',
+    );
   }
 
   if (!['PENDING', 'DELAYED'].includes(proposal.status)) {
@@ -1157,7 +1319,10 @@ async function applyScrimProposalDecision(params: {
   }
 
   const now = new Date();
-  const responseSeconds = Math.max(0, Math.floor((now.getTime() - proposal.createdAt.getTime()) / 1000));
+  const responseSeconds = Math.max(
+    0,
+    Math.floor((now.getTime() - proposal.createdAt.getTime()) / 1000),
+  );
 
   const outcome = await prisma.$transaction(async (tx: any) => {
     const latest = await tx.scrimProposal.findUnique({
@@ -1228,12 +1393,14 @@ async function applyScrimProposalDecision(params: {
         },
       });
 
-      await createScrimDiscordNotifications(tx, [{
-        proposalId: latest.id,
-        recipientUserId: latest.proposedByUserId,
-        type: 'ACCEPTED',
-        message: `${proposal.post.teamName} accepted your scrim proposal.`,
-      }]);
+      await createScrimDiscordNotifications(tx, [
+        {
+          proposalId: latest.id,
+          recipientUserId: latest.proposedByUserId,
+          type: 'ACCEPTED',
+          message: `${proposal.post.teamName} accepted your scrim proposal.`,
+        },
+      ]);
 
       if (competing.length > 0) {
         await tx.notification.createMany({
@@ -1244,12 +1411,15 @@ async function applyScrimProposalDecision(params: {
           })),
         });
 
-        await createScrimDiscordNotifications(tx, competing.map((entry: any) => ({
-          proposalId: entry.id,
-          recipientUserId: entry.proposedByUserId,
-          type: 'REJECTED',
-          message: `${proposal.post.teamName} settled with another team. Your proposal was declined.`,
-        })));
+        await createScrimDiscordNotifications(
+          tx,
+          competing.map((entry: any) => ({
+            proposalId: entry.id,
+            recipientUserId: entry.proposedByUserId,
+            type: 'REJECTED',
+            message: `${proposal.post.teamName} settled with another team. Your proposal was declined.`,
+          })),
+        );
       }
 
       const seriesId = await ensureScrimSeriesForProposal(tx, latest.id);
@@ -1361,12 +1531,14 @@ async function applyScrimProposalDecision(params: {
         },
       });
 
-      await createScrimDiscordNotifications(tx, [{
-        proposalId: latest.id,
-        recipientUserId: latest.proposedByUserId,
-        type: 'REJECTED',
-        message: `${proposal.post.teamName} rejected your scrim proposal.`,
-      }]);
+      await createScrimDiscordNotifications(tx, [
+        {
+          proposalId: latest.id,
+          recipientUserId: latest.proposedByUserId,
+          type: 'REJECTED',
+          message: `${proposal.post.teamName} rejected your scrim proposal.`,
+        },
+      ]);
 
       const activeProposalCount = await tx.scrimProposal.count({
         where: {
@@ -1409,18 +1581,23 @@ async function applyScrimProposalDecision(params: {
       },
     });
 
-    await createScrimDiscordNotifications(tx, [{
-      proposalId: latest.id,
-      recipientUserId: latest.proposedByUserId,
-      type: 'DELAYED',
-      message: `${proposal.post.teamName} marked your proposal as low priority fallback.`,
-    }]);
+    await createScrimDiscordNotifications(tx, [
+      {
+        proposalId: latest.id,
+        recipientUserId: latest.proposedByUserId,
+        type: 'DELAYED',
+        message: `${proposal.post.teamName} marked your proposal as low priority fallback.`,
+      },
+    ]);
 
     return { status: 'DELAYED' };
   });
 
   if (!outcome) {
-    throw new ScrimRouteError(409, 'Proposal state changed. Refresh and retry.');
+    throw new ScrimRouteError(
+      409,
+      'Proposal state changed. Refresh and retry.',
+    );
   }
 
   return outcome;
@@ -1433,7 +1610,10 @@ export default async function scrimRoutes(fastify: any) {
     setInterval(() => {
       void maybeRunDueAutoResultSweep(fastify);
     }, SCRIM_AUTO_RESULT_SWEEP_INTERVAL_MS);
-    fastify.log.info({ intervalMs: SCRIM_AUTO_RESULT_SWEEP_INTERVAL_MS }, 'Started scrim auto-result sweep loop');
+    fastify.log.info(
+      { intervalMs: SCRIM_AUTO_RESULT_SWEEP_INTERVAL_MS },
+      'Started scrim auto-result sweep loop',
+    );
   }
 
   // GET /api/scrims/posts - Main scrim feed with filters
@@ -1444,7 +1624,8 @@ export default async function scrimRoutes(fastify: any) {
 
       await autoRejectExpiredProposals();
 
-      const { region, status, format, fearless, teamId } = (request.query || {}) as {
+      const { region, status, format, fearless, teamId } = (request.query ||
+        {}) as {
         region?: string;
         status?: string;
         format?: string;
@@ -1452,13 +1633,18 @@ export default async function scrimRoutes(fastify: any) {
         teamId?: string;
       };
 
-      const where: any = {};
+      const where: any = { startTimeUtc: { gte: new Date() } };
 
       if (region && normalizeString(region).length > 0) {
         where.region = normalizeString(region).toUpperCase();
       }
 
-      if (status && SCRIM_POST_STATUSES.includes(normalizeString(status).toUpperCase() as any)) {
+      if (
+        status &&
+        SCRIM_POST_STATUSES.includes(
+          normalizeString(status).toUpperCase() as any,
+        )
+      ) {
         where.status = normalizeString(status).toUpperCase();
       } else {
         where.status = { in: ['AVAILABLE', 'CANDIDATES'] };
@@ -1523,36 +1709,81 @@ export default async function scrimRoutes(fastify: any) {
         },
       });
 
-      const teamIds = Array.from(new Set((posts as any[]).map((post: any) => post.teamId)));
-      const responseAverages = teamIds.length > 0
-        ? await prisma.scrimProposal.groupBy({
-          by: ['targetTeamId'],
-          where: {
-            targetTeamId: { in: teamIds },
-            responseSeconds: { not: null },
-          },
-          _avg: {
-            responseSeconds: true,
-          },
-        })
-        : [];
+      const teamIds = Array.from(
+        new Set((posts as any[]).map((post: any) => post.teamId)),
+      );
+      const [responseAverages, reviewAverages] =
+        teamIds.length > 0
+          ? await Promise.all([
+              prisma.scrimProposal.groupBy({
+                by: ['targetTeamId'],
+                where: {
+                  targetTeamId: { in: teamIds },
+                  responseSeconds: { not: null },
+                },
+                _avg: {
+                  responseSeconds: true,
+                },
+              }),
+              prisma.scrimTeamReview.groupBy({
+                by: ['targetTeamId'],
+                where: { targetTeamId: { in: teamIds } },
+                _avg: { averageRating: true },
+                _count: { _all: true },
+              }),
+            ])
+          : [[], []];
 
       const teamAverageResponseMap = new Map<string, number>();
-      (responseAverages as Array<{ targetTeamId: string; _avg: { responseSeconds: number | null } }>).forEach((entry) => {
-        if (typeof entry._avg.responseSeconds === 'number' && Number.isFinite(entry._avg.responseSeconds)) {
-          teamAverageResponseMap.set(entry.targetTeamId, Number((entry._avg.responseSeconds / 60).toFixed(1)));
+      (
+        responseAverages as Array<{
+          targetTeamId: string;
+          _avg: { responseSeconds: number | null };
+        }>
+      ).forEach((entry) => {
+        if (
+          typeof entry._avg.responseSeconds === 'number' &&
+          Number.isFinite(entry._avg.responseSeconds)
+        ) {
+          teamAverageResponseMap.set(
+            entry.targetTeamId,
+            Number((entry._avg.responseSeconds / 60).toFixed(1)),
+          );
         }
       });
+      const teamReviewMap = new Map(
+        (reviewAverages as any[]).map((entry) => [
+          entry.targetTeamId,
+          {
+            rating: entry._avg.averageRating,
+            count: entry._count._all,
+          },
+        ]),
+      );
 
       const formattedPosts = posts.map((post: any) => {
-        const pendingCount = post.proposals.filter((proposal: any) => proposal.status === 'PENDING').length;
-        const delayedCount = post.proposals.filter((proposal: any) => proposal.status === 'DELAYED').length;
-        const acceptedCount = post.proposals.filter((proposal: any) => proposal.status === 'ACCEPTED').length;
-        const rejectedCount = post.proposals.filter((proposal: any) => proposal.status === 'REJECTED').length;
-        const autoRejectedCount = post.proposals.filter((proposal: any) => proposal.status === 'AUTO_REJECTED').length;
-        const averageResponseMinutes = teamAverageResponseMap.get(post.teamId) ?? null;
+        const pendingCount = post.proposals.filter(
+          (proposal: any) => proposal.status === 'PENDING',
+        ).length;
+        const delayedCount = post.proposals.filter(
+          (proposal: any) => proposal.status === 'DELAYED',
+        ).length;
+        const acceptedCount = post.proposals.filter(
+          (proposal: any) => proposal.status === 'ACCEPTED',
+        ).length;
+        const rejectedCount = post.proposals.filter(
+          (proposal: any) => proposal.status === 'REJECTED',
+        ).length;
+        const autoRejectedCount = post.proposals.filter(
+          (proposal: any) => proposal.status === 'AUTO_REJECTED',
+        ).length;
+        const averageResponseMinutes =
+          teamAverageResponseMap.get(post.teamId) ?? null;
 
-        const myProposal = post.proposals.find((proposal: any) => manageableTeamIds.includes(proposal.proposerTeamId)) || null;
+        const myProposal =
+          post.proposals.find((proposal: any) =>
+            manageableTeamIds.includes(proposal.proposerTeamId),
+          ) || null;
 
         return {
           id: post.id,
@@ -1569,11 +1800,16 @@ export default async function scrimRoutes(fastify: any) {
           scrimFormat: post.scrimFormat,
           opggMultisearchUrl: post.opggMultisearchUrl,
           details: post.details,
+          source: post.source,
+          externalContactUrl: post.externalContactUrl,
           status: post.status,
           createdAt: post.createdAt,
           updatedAt: post.updatedAt,
           team: post.team,
-          canDelete: post.authorId === userId || manageableTeamIds.includes(post.teamId) || viewerIsAdmin,
+          canDelete:
+            post.authorId === userId ||
+            manageableTeamIds.includes(post.teamId) ||
+            viewerIsAdmin,
           proposalStats: {
             pendingCount,
             delayedCount,
@@ -1581,6 +1817,10 @@ export default async function scrimRoutes(fastify: any) {
             rejectedCount,
             autoRejectedCount,
             averageResponseMinutes,
+          },
+          reputation: teamReviewMap.get(post.teamId) || {
+            rating: null,
+            count: 0,
           },
           myProposal,
           proposalsPreview: post.proposals.slice(0, 3),
@@ -1595,102 +1835,441 @@ export default async function scrimRoutes(fastify: any) {
   });
 
   // GET /api/scrims/discord-notifications - Get pending scrim Discord notifications (bot only)
-  fastify.get('/scrims/discord-notifications', { preHandler: validateBotAuth }, async (_request: any, reply: any) => {
-    try {
-      const notifications = await prisma.scrimDiscordNotification.findMany({
-        where: { processed: false },
-        orderBy: { createdAt: 'asc' },
-        take: 80,
-        include: {
-          proposal: {
+  fastify.get(
+    '/scrims/discord-notifications',
+    { preHandler: validateBotAuth },
+    async (_request: any, reply: any) => {
+      try {
+        const notifications = await prisma.scrimDiscordNotification.findMany({
+          where: { processed: false },
+          orderBy: { createdAt: 'asc' },
+          take: 80,
+          include: {
+            proposal: {
+              select: {
+                id: true,
+                status: true,
+                message: true,
+                proposedStartTimeUtc: true,
+                post: {
+                  select: {
+                    id: true,
+                    teamName: true,
+                    teamTag: true,
+                    startTimeUtc: true,
+                    scrimFormat: true,
+                    averageLp: true,
+                    opggMultisearchUrl: true,
+                  },
+                },
+                proposerTeam: {
+                  select: {
+                    id: true,
+                    name: true,
+                    tag: true,
+                    region: true,
+                  },
+                },
+                targetTeam: {
+                  select: {
+                    id: true,
+                    name: true,
+                    tag: true,
+                    region: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        const proposerTeamIds = Array.from(
+          new Set(
+            (notifications as any[])
+              .map((entry: any) =>
+                normalizeString(entry?.proposal?.proposerTeam?.id),
+              )
+              .filter((value: string) => value.length > 0),
+          ),
+        );
+
+        const proposerTeamOpggMap = new Map<string, string | null>();
+        await Promise.all(
+          proposerTeamIds.map(async (teamId) => {
+            const teamOpgg = await buildTeamOpggMultisearchUrl(prisma, teamId);
+            proposerTeamOpggMap.set(teamId, teamOpgg);
+          }),
+        );
+
+        const mappedNotifications = (notifications as any[]).map(
+          (entry: any) => {
+            const proposerTeamId = normalizeString(
+              entry?.proposal?.proposerTeam?.id,
+            );
+            const proposerTeamOpgg =
+              proposerTeamOpggMap.get(proposerTeamId) || null;
+            return {
+              ...entry,
+              proposal: {
+                ...entry.proposal,
+                post: {
+                  ...entry.proposal?.post,
+                  opggMultisearchUrl: proposerTeamOpgg,
+                },
+              },
+            };
+          },
+        );
+
+        return reply.send({ notifications: mappedNotifications });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to fetch scrim Discord notifications' });
+      }
+    },
+  );
+
+  // PATCH /api/scrims/discord-notifications/:id/processed - Mark scrim Discord notification as processed (bot only)
+  fastify.patch(
+    '/scrims/discord-notifications/:id/processed',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { id } = request.params as { id: string };
+
+        await prisma.scrimDiscordNotification.update({
+          where: { id },
+          data: {
+            processed: true,
+            processedAt: new Date(),
+          },
+        });
+
+        return reply.send({ success: true });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({
+            error: 'Failed to mark scrim Discord notification as processed',
+          });
+      }
+    },
+  );
+
+  // GET /api/scrims/discord/dashboard - Compact manager dashboard used by the Discord bot
+  fastify.get(
+    '/scrims/discord/dashboard',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const discordId = normalizeString(request.query?.discordId);
+        if (!discordId)
+          return reply.status(400).send({ error: 'discordId is required' });
+        const account = await prisma.discordAccount.findUnique({
+          where: { discordId },
+          select: { userId: true },
+        });
+        if (!account)
+          return reply
+            .status(404)
+            .send({ error: 'Link this Discord account to RiftEssence first.' });
+        const teamIds = await getManageableTeamIds(account.userId);
+        if (!teamIds.length)
+          return reply.send({ identities: [], proposals: [], rooms: [] });
+
+        const [teams, proposals, rooms] = await Promise.all([
+          prisma.team.findMany({
+            where: { id: { in: teamIds } },
+            select: {
+              id: true,
+              name: true,
+              tag: true,
+              region: true,
+              isScrimProfile: true,
+              discordScrimCodeWebhookUrl: true,
+              scrimPosts: {
+                where: {
+                  status: { in: ['AVAILABLE', 'CANDIDATES'] },
+                  startTimeUtc: { gte: new Date() },
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  startTimeUtc: true,
+                  scrimFormat: true,
+                  status: true,
+                },
+              },
+            },
+            orderBy: { updatedAt: 'desc' },
+          }),
+          prisma.scrimProposal.findMany({
+            where: {
+              targetTeamId: { in: teamIds },
+              status: { in: ['PENDING', 'DELAYED'] },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 10,
             select: {
               id: true,
               status: true,
               message: true,
-              proposedStartTimeUtc: true,
-              post: {
-                select: {
-                  id: true,
-                  teamName: true,
-                  teamTag: true,
-                  startTimeUtc: true,
-                  scrimFormat: true,
-                  averageLp: true,
-                  opggMultisearchUrl: true,
-                },
-              },
-              proposerTeam: {
-                select: {
-                  id: true,
-                  name: true,
-                  tag: true,
-                  region: true,
-                },
-              },
-              targetTeam: {
-                select: {
-                  id: true,
-                  name: true,
-                  tag: true,
-                  region: true,
-                },
-              },
+              createdAt: true,
+              proposerTeam: { select: { name: true, tag: true, region: true } },
+              post: { select: { startTimeUtc: true, scrimFormat: true } },
             },
-          },
-        },
-      });
-
-      const proposerTeamIds = Array.from(new Set((notifications as any[])
-        .map((entry: any) => normalizeString(entry?.proposal?.proposerTeam?.id))
-        .filter((value: string) => value.length > 0)));
-
-      const proposerTeamOpggMap = new Map<string, string | null>();
-      await Promise.all(proposerTeamIds.map(async (teamId) => {
-        const teamOpgg = await buildTeamOpggMultisearchUrl(prisma, teamId);
-        proposerTeamOpggMap.set(teamId, teamOpgg);
-      }));
-
-      const mappedNotifications = (notifications as any[]).map((entry: any) => {
-        const proposerTeamId = normalizeString(entry?.proposal?.proposerTeam?.id);
-        const proposerTeamOpgg = proposerTeamOpggMap.get(proposerTeamId) || null;
-        return {
-          ...entry,
-          proposal: {
-            ...entry.proposal,
-            post: {
-              ...entry.proposal?.post,
-              opggMultisearchUrl: proposerTeamOpgg,
+          }),
+          prisma.scrimSeries.findMany({
+            where: {
+              winnerConfirmedAt: null,
+              OR: [
+                { hostTeamId: { in: teamIds } },
+                { guestTeamId: { in: teamIds } },
+              ],
             },
+            orderBy: { scheduledAt: 'asc' },
+            take: 10,
+            select: {
+              id: true,
+              scheduledAt: true,
+              matchCode: true,
+              hostTeam: { select: { name: true, tag: true } },
+              guestTeam: { select: { name: true, tag: true } },
+              post: { select: { scrimFormat: true } },
+            },
+          }),
+        ]);
+
+        return reply.send({
+          identities: teams.map((team: any) => ({
+            id: team.id,
+            name: team.name,
+            tag: team.tag,
+            region: team.region,
+            kind: team.isScrimProfile ? 'SCRIM_PROFILE' : 'TEAM',
+            channelEnabled: Boolean(team.discordScrimCodeWebhookUrl),
+            activePost: team.scrimPosts[0] || null,
+          })),
+          proposals,
+          rooms,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to load Discord scrim dashboard' });
+      }
+    },
+  );
+
+  // POST /api/scrims/discord/channel - Team manager connects the current Discord channel
+  fastify.post(
+    '/scrims/discord/channel',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { discordId, teamId, webhookUrl } = request.body || {};
+        const account = await prisma.discordAccount.findUnique({
+          where: { discordId: normalizeString(discordId) },
+          select: { userId: true },
+        });
+        if (!account)
+          return reply
+            .status(404)
+            .send({ error: 'Link this Discord account to RiftEssence first.' });
+        if (!(await canManageTeam(account.userId, normalizeString(teamId)))) {
+          return reply
+            .status(403)
+            .send({
+              error:
+                'Only this team’s manager, owner, or coach can connect a scrim channel.',
+            });
+        }
+        const normalizedWebhook = normalizeString(webhookUrl);
+        const validation = await validateDiscordWebhook(normalizedWebhook);
+        if (!validation.valid)
+          return reply
+            .status(400)
+            .send({
+              error: 'Discord did not provide a valid channel webhook.',
+            });
+        await prisma.team.update({
+          where: { id: normalizeString(teamId) },
+          data: { discordScrimCodeWebhookUrl: normalizedWebhook },
+        });
+        return reply.send({
+          success: true,
+          guildName: validation.guildName,
+          channelName: validation.channelName,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to connect the scrim channel' });
+      }
+    },
+  );
+
+  // DELETE /api/scrims/discord/channel - Team manager disconnects channel delivery
+  fastify.delete(
+    '/scrims/discord/channel',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { discordId, teamId } = request.body || {};
+        const account = await prisma.discordAccount.findUnique({
+          where: { discordId: normalizeString(discordId) },
+          select: { userId: true },
+        });
+        if (!account)
+          return reply
+            .status(404)
+            .send({ error: 'Link this Discord account to RiftEssence first.' });
+        if (!(await canManageTeam(account.userId, normalizeString(teamId)))) {
+          return reply
+            .status(403)
+            .send({ error: 'You cannot change delivery for this team.' });
+        }
+        await prisma.team.update({
+          where: { id: normalizeString(teamId) },
+          data: { discordScrimCodeWebhookUrl: null },
+        });
+        return reply.send({ success: true });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to disconnect the scrim channel' });
+      }
+    },
+  );
+
+  // POST /api/scrims/discord/availability - Publish or replace availability from /scrim
+  fastify.post(
+    '/scrims/discord/availability',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { discordId, teamId, startTimeUtc, scrimFormat, details } =
+          request.body || {};
+        const account = await prisma.discordAccount.findUnique({
+          where: { discordId: normalizeString(discordId) },
+          select: { userId: true },
+        });
+        if (!account)
+          return reply
+            .status(404)
+            .send({ error: 'Link this Discord account to RiftEssence first.' });
+        const normalizedTeamId = normalizeString(teamId);
+        if (!(await canManageTeam(account.userId, normalizedTeamId))) {
+          return reply
+            .status(403)
+            .send({ error: 'You cannot publish availability for this team.' });
+        }
+        const start = parseDate(startTimeUtc);
+        if (!start || start.getTime() <= Date.now())
+          return reply
+            .status(400)
+            .send({ error: 'Choose a future ISO date and time.' });
+        const format = normalizeString(scrimFormat).toUpperCase();
+        if (!SCRIM_FORMATS.includes(format as any))
+          return reply.status(400).send({ error: 'Invalid scrim format.' });
+        const team = await prisma.team.findUnique({
+          where: { id: normalizedTeamId },
+          select: {
+            id: true,
+            name: true,
+            tag: true,
+            region: true,
+            scrimProfile: true,
           },
-        };
-      });
+        });
+        if (!team)
+          return reply.status(404).send({ error: 'Scrim team not found.' });
+        const post = await prisma.$transaction(async (tx: any) => {
+          await tx.scrimPost.deleteMany({
+            where: {
+              teamId: normalizedTeamId,
+              status: { in: ['AVAILABLE', 'CANDIDATES'] },
+            },
+          });
+          return tx.scrimPost.create({
+            data: {
+              teamId: normalizedTeamId,
+              authorId: account.userId,
+              region: team.region,
+              teamName: team.name,
+              teamTag: team.tag,
+              averageRank: team.scrimProfile?.defaultAverageRank || null,
+              averageDivision: team.scrimProfile?.defaultDivision || null,
+              averageLp: team.scrimProfile?.defaultAverageLp || null,
+              startTimeUtc: start,
+              timezoneLabel: 'Discord',
+              scrimFormat: format,
+              details: normalizeOptionalString(details),
+              opggMultisearchUrl: team.scrimProfile?.opggMultisearchUrl || null,
+              source: 'discord',
+            },
+          });
+        });
+        return reply.status(201).send({ success: true, post });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to publish scrim availability' });
+      }
+    },
+  );
 
-      return reply.send({ notifications: mappedNotifications });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch scrim Discord notifications' });
-    }
-  });
-
-  // PATCH /api/scrims/discord-notifications/:id/processed - Mark scrim Discord notification as processed (bot only)
-  fastify.patch('/scrims/discord-notifications/:id/processed', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { id } = request.params as { id: string };
-
-      await prisma.scrimDiscordNotification.update({
-        where: { id },
-        data: {
-          processed: true,
-          processedAt: new Date(),
-        },
-      });
-
-      return reply.send({ success: true });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to mark scrim Discord notification as processed' });
-    }
-  });
+  // DELETE /api/scrims/discord/availability - Stop the active listing from /scrim
+  fastify.delete(
+    '/scrims/discord/availability',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { discordId, teamId } = request.body || {};
+        const account = await prisma.discordAccount.findUnique({
+          where: { discordId: normalizeString(discordId) },
+          select: { userId: true },
+        });
+        if (!account)
+          return reply
+            .status(404)
+            .send({ error: 'Link this Discord account to RiftEssence first.' });
+        const normalizedTeamId = normalizeString(teamId);
+        if (!(await canManageTeam(account.userId, normalizedTeamId))) {
+          return reply
+            .status(403)
+            .send({ error: 'You cannot stop availability for this team.' });
+        }
+        const active = await prisma.scrimPost.findMany({
+          where: {
+            teamId: normalizedTeamId,
+            status: { in: ['AVAILABLE', 'CANDIDATES'] },
+          },
+          select: { id: true, source: true, discordMirrored: true },
+        });
+        await prisma.scrimPost.deleteMany({
+          where: { id: { in: active.map((post: any) => post.id) } },
+        });
+        active
+          .filter((post: any) => post.source === 'app' && post.discordMirrored)
+          .forEach((post: any) => enqueueMirrorDeletion('SCRIM', post.id));
+        return reply.send({ success: true });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to stop scrim availability' });
+      }
+    },
+  );
 
   // GET /api/scrims/identities - Lightweight Scrim Profiles plus full Teams that can be used in Scrim Finder
   fastify.get('/scrims/identities', async (request: any, reply: any) => {
@@ -1699,7 +2278,7 @@ export default async function scrimRoutes(fastify: any) {
       if (!userId) return;
 
       const manageableTeamIds = await getManageableTeamIds(userId);
-      const [profiles, teams] = await Promise.all([
+      const [profiles, teams, account] = await Promise.all([
         prisma.scrimProfile.findMany({
           where: { ownerId: userId },
           orderBy: { updatedAt: 'desc' },
@@ -1710,26 +2289,145 @@ export default async function scrimRoutes(fastify: any) {
                 name: true,
                 tag: true,
                 region: true,
+                discordScrimCodeWebhookUrl: true,
               },
             },
           },
         }),
         manageableTeamIds.length > 0
           ? prisma.team.findMany({
-            where: {
-              id: { in: manageableTeamIds },
-              isScrimProfile: false,
-            },
-            orderBy: { updatedAt: 'desc' },
-            select: {
-              id: true,
-              name: true,
-              tag: true,
-              region: true,
-            },
-          })
+              where: {
+                id: { in: manageableTeamIds },
+                isScrimProfile: false,
+              },
+              orderBy: { updatedAt: 'desc' },
+              select: {
+                id: true,
+                name: true,
+                tag: true,
+                region: true,
+                discordScrimCodeWebhookUrl: true,
+                members: {
+                  select: {
+                    user: {
+                      select: {
+                        riotAccounts: {
+                          where: { OR: [{ isMain: true }, { hidden: false }] },
+                          orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
+                          take: 1,
+                          select: { rank: true, division: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            })
           : Promise.resolve([]),
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            discordDmNotifications: true,
+            discordAccount: { select: { discordId: true, username: true } },
+          },
+        }),
       ]);
+
+      const identityTeamIds = Array.from(
+        new Set([
+          ...(profiles as any[]).map((profile) => profile.teamId),
+          ...(teams as any[]).map((team) => team.id),
+        ]),
+      );
+      const [activePosts, reviewAverages, completedSeries] =
+        identityTeamIds.length > 0
+          ? await Promise.all([
+              prisma.scrimPost.findMany({
+                where: {
+                  teamId: { in: identityTeamIds },
+                  status: { in: ['AVAILABLE', 'CANDIDATES'] },
+                  startTimeUtc: { gte: new Date() },
+                },
+                orderBy: { createdAt: 'desc' },
+              }),
+              prisma.scrimTeamReview.groupBy({
+                by: ['targetTeamId'],
+                where: { targetTeamId: { in: identityTeamIds } },
+                _avg: { averageRating: true },
+                _count: { _all: true },
+              }),
+              prisma.scrimSeries.findMany({
+                where: {
+                  winnerConfirmedAt: { not: null },
+                  OR: [
+                    { hostTeamId: { in: identityTeamIds } },
+                    { guestTeamId: { in: identityTeamIds } },
+                  ],
+                },
+                select: { hostTeamId: true, guestTeamId: true },
+              }),
+            ])
+          : [[], [], []];
+      const postMap = new Map(
+        (activePosts as any[]).map((post) => [post.teamId, post]),
+      );
+      const reviewMap = new Map(
+        (reviewAverages as any[]).map((entry) => [
+          entry.targetTeamId,
+          {
+            rating: entry._avg.averageRating,
+            count: entry._count._all,
+          },
+        ]),
+      );
+      const completedMap = new Map<string, number>();
+      (completedSeries as any[]).forEach((entry) => {
+        completedMap.set(
+          entry.hostTeamId,
+          (completedMap.get(entry.hostTeamId) || 0) + 1,
+        );
+        completedMap.set(
+          entry.guestTeamId,
+          (completedMap.get(entry.guestTeamId) || 0) + 1,
+        );
+      });
+      const decorate = (team: any) => ({
+        discord: {
+          linked: Boolean(account?.discordAccount?.discordId),
+          username: account?.discordAccount?.username || null,
+          dmEnabled: Boolean(account?.discordDmNotifications),
+          channelEnabled: Boolean(team.discordScrimCodeWebhookUrl),
+        },
+        activePost: postMap.get(team.id) || null,
+        reputation: reviewMap.get(team.id) || { rating: null, count: 0 },
+        completedScrims: completedMap.get(team.id) || 0,
+      });
+      const fullTeamIdentity = (team: any) => {
+        const scores = (team.members || [])
+          .map((member: any) =>
+            rankScore(
+              member.user?.riotAccounts?.[0]?.rank || null,
+              member.user?.riotAccounts?.[0]?.division || null,
+            ),
+          )
+          .filter(
+            (score: number | null): score is number =>
+              typeof score === 'number',
+          );
+        const average = scores.length
+          ? scores.reduce((sum: number, score: number) => sum + score, 0) /
+            scores.length
+          : Number.NaN;
+        const suggestion = scoreToRank(average);
+        const { members: _members, ...publicTeam } = team;
+        return {
+          ...publicTeam,
+          averageRank: suggestion.averageRank,
+          averageDivision: suggestion.averageDivision,
+          averageLp: null,
+          ...decorate(team),
+        };
+      };
 
       return reply.send({
         profiles: (profiles as any[]).map((profile) => ({
@@ -1746,14 +2444,17 @@ export default async function scrimRoutes(fastify: any) {
           defaultAverageLp: profile.defaultAverageLp,
           opggMultisearchUrl: profile.opggMultisearchUrl,
           contactPreference: profile.contactPreference,
+          ...decorate(profile.team),
           createdAt: profile.createdAt,
           updatedAt: profile.updatedAt,
         })),
-        teams,
+        teams: (teams as any[]).map(fullTeamIdentity),
       });
     } catch (error: any) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch scrim identities' });
+      return reply
+        .status(500)
+        .send({ error: 'Failed to fetch scrim identities' });
     }
   });
 
@@ -1777,17 +2478,27 @@ export default async function scrimRoutes(fastify: any) {
       const normalizedName = normalizeString(name);
       const normalizedTag = normalizeOptionalString(tag);
       const normalizedRegion = normalizeString(region).toUpperCase();
-      const normalizedRank = normalizeOptionalString(defaultAverageRank)?.toUpperCase() || null;
-      const normalizedDivisionInput = normalizeOptionalString(defaultDivision)?.toUpperCase() || null;
-      const normalizedContactPreference = normalizeOptionalString(contactPreference)?.toUpperCase() || 'DISCORD';
+      const normalizedRank =
+        normalizeOptionalString(defaultAverageRank)?.toUpperCase() || null;
+      const normalizedDivisionInput =
+        normalizeOptionalString(defaultDivision)?.toUpperCase() || null;
+      const normalizedContactPreference =
+        normalizeOptionalString(contactPreference)?.toUpperCase() || 'DISCORD';
       const parsedAverageLp = parseOptionalNonNegativeInt(defaultAverageLp);
 
       if (normalizedName.length < 2 || normalizedName.length > 50) {
-        return reply.status(400).send({ error: 'Scrim Profile name must be 2-50 characters' });
+        return reply
+          .status(400)
+          .send({ error: 'Scrim Profile name must be 2-50 characters' });
       }
 
-      if (normalizedTag && (normalizedTag.length < 2 || normalizedTag.length > 5)) {
-        return reply.status(400).send({ error: 'Scrim Profile tag must be 2-5 characters' });
+      if (
+        normalizedTag &&
+        (normalizedTag.length < 2 || normalizedTag.length > 5)
+      ) {
+        return reply
+          .status(400)
+          .send({ error: 'Scrim Profile tag must be 2-5 characters' });
       }
 
       if (!SCRIM_REGIONS.includes(normalizedRegion as any)) {
@@ -1795,32 +2506,59 @@ export default async function scrimRoutes(fastify: any) {
       }
 
       if (normalizedRank && !RANK_ORDER.includes(normalizedRank as RankName)) {
-        return reply.status(400).send({ error: 'defaultAverageRank is invalid' });
+        return reply
+          .status(400)
+          .send({ error: 'defaultAverageRank is invalid' });
       }
 
-      const masterPlus = normalizedRank && MASTER_PLUS_RANKS.includes(normalizedRank as any);
-      if (normalizedDivisionInput && (!normalizedRank || masterPlus || normalizedRank === 'UNRANKED' || !DIVISION_ORDER.includes(normalizedDivisionInput as any))) {
-        return reply.status(400).send({ error: 'defaultDivision is invalid for the selected rank' });
+      const masterPlus =
+        normalizedRank && MASTER_PLUS_RANKS.includes(normalizedRank as any);
+      if (
+        normalizedDivisionInput &&
+        (!normalizedRank ||
+          masterPlus ||
+          normalizedRank === 'UNRANKED' ||
+          !DIVISION_ORDER.includes(normalizedDivisionInput as any))
+      ) {
+        return reply
+          .status(400)
+          .send({ error: 'defaultDivision is invalid for the selected rank' });
       }
 
       if (parsedAverageLp !== null && (!masterPlus || parsedAverageLp > 5000)) {
-        return reply.status(400).send({ error: 'defaultAverageLp is only supported for Master+ and must be 5000 or less' });
+        return reply
+          .status(400)
+          .send({
+            error:
+              'defaultAverageLp is only supported for Master+ and must be 5000 or less',
+          });
       }
 
-      if (!SCRIM_CONTACT_PREFERENCES.includes(normalizedContactPreference as any)) {
-        return reply.status(400).send({ error: 'contactPreference must be DISCORD, APP, or EITHER' });
+      if (
+        !SCRIM_CONTACT_PREFERENCES.includes(normalizedContactPreference as any)
+      ) {
+        return reply
+          .status(400)
+          .send({ error: 'contactPreference must be DISCORD, APP, or EITHER' });
       }
 
-      const existingProfileCount = await prisma.scrimProfile.count({ where: { ownerId: userId } });
+      const existingProfileCount = await prisma.scrimProfile.count({
+        where: { ownerId: userId },
+      });
       if (existingProfileCount >= 5) {
-        return reply.status(400).send({ error: 'You can create up to 5 Scrim Profiles' });
+        return reply
+          .status(400)
+          .send({ error: 'You can create up to 5 Scrim Profiles' });
       }
 
       const profile = await prisma.scrimProfile.create({
         data: {
           ownerId: userId,
           defaultAverageRank: normalizedRank as any,
-          defaultDivision: masterPlus || normalizedRank === 'UNRANKED' ? null : normalizedDivisionInput,
+          defaultDivision:
+            masterPlus || normalizedRank === 'UNRANKED'
+              ? null
+              : normalizedDivisionInput,
           defaultAverageLp: masterPlus ? parsedAverageLp : null,
           opggMultisearchUrl: normalizeOptionalString(opggMultisearchUrl),
           contactPreference: normalizedContactPreference,
@@ -1834,7 +2572,7 @@ export default async function scrimRoutes(fastify: any) {
               members: {
                 create: {
                   userId,
-                  role: 'SUBS',
+                  role: 'MANAGER',
                 },
               },
             },
@@ -1874,131 +2612,165 @@ export default async function scrimRoutes(fastify: any) {
       });
     } catch (error: any) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to create Scrim Profile' });
+      if (error?.code === 'P2021' || error?.code === 'P2022') {
+        return reply.status(503).send({
+          error:
+            'Scrim Profiles are still being prepared. Apply the latest database migration and retry.',
+          code: 'SCRIM_SCHEMA_NOT_READY',
+        });
+      }
+      return reply
+        .status(500)
+        .send({ error: 'Failed to create Scrim Profile' });
     }
   });
 
   // GET /api/scrims/teams/:teamId/prefill - Team prefill + schedule suggestions + OP.GG helpers
-  fastify.get('/scrims/teams/:teamId/prefill', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
+  fastify.get(
+    '/scrims/teams/:teamId/prefill',
+    async (request: any, reply: any) => {
+      try {
+        const userId = await getUserIdFromRequest(request, reply);
+        if (!userId) return;
 
-      const { teamId } = request.params as { teamId: string };
+        const { teamId } = request.params as { teamId: string };
 
-      const membership = await prisma.teamMember.findUnique({
-        where: { teamId_userId: { teamId, userId } },
-        select: { id: true },
-      });
+        const membership = await prisma.teamMember.findUnique({
+          where: { teamId_userId: { teamId, userId } },
+          select: { id: true },
+        });
 
-      if (!membership) {
-        return reply.status(403).send({ error: 'You must be part of this team to use scrim prefill.' });
-      }
+        if (!membership) {
+          return reply
+            .status(403)
+            .send({
+              error: 'You must be part of this team to use scrim prefill.',
+            });
+        }
 
-      const team = await prisma.team.findUnique({
-        where: { id: teamId },
-        include: {
-          members: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  username: true,
-                  riotAccounts: {
-                    where: { OR: [{ isMain: true }, { hidden: false }] },
-                    orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
-                    take: 1,
-                    select: {
-                      rank: true,
-                      division: true,
-                      gameName: true,
-                      tagLine: true,
+        const team = await prisma.team.findUnique({
+          where: { id: teamId },
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    username: true,
+                    riotAccounts: {
+                      where: { OR: [{ isMain: true }, { hidden: false }] },
+                      orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
+                      take: 1,
+                      select: {
+                        rank: true,
+                        division: true,
+                        gameName: true,
+                        tagLine: true,
+                      },
                     },
                   },
                 },
               },
+              orderBy: { joinedAt: 'asc' },
             },
-            orderBy: { joinedAt: 'asc' },
+            events: {
+              where: {
+                scheduledAt: { gt: new Date() },
+              },
+              orderBy: { scheduledAt: 'asc' },
+              take: 40,
+              select: {
+                id: true,
+                title: true,
+                type: true,
+                scheduledAt: true,
+              },
+            },
           },
-          events: {
-            where: {
-              scheduledAt: { gt: new Date() },
-            },
-            orderBy: { scheduledAt: 'asc' },
-            take: 40,
-            select: {
-              id: true,
-              title: true,
-              type: true,
-              scheduledAt: true,
-            },
-          },
-        },
-      });
+        });
 
-      if (!team) {
-        return reply.status(404).send({ error: 'Team not found' });
+        if (!team) {
+          return reply.status(404).send({ error: 'Team not found' });
+        }
+
+        const rankScores = team.members
+          .map((member: any) =>
+            rankScore(
+              member.user.riotAccounts?.[0]?.rank || null,
+              member.user.riotAccounts?.[0]?.division || null,
+            ),
+          )
+          .filter(
+            (score: number | null): score is number =>
+              typeof score === 'number',
+          );
+
+        const averageScore =
+          rankScores.length > 0
+            ? rankScores.reduce(
+                (sum: number, value: number) => sum + value,
+                0,
+              ) / rankScores.length
+            : Number.NaN;
+
+        const averageRankSuggestion = scoreToRank(averageScore);
+
+        const riotIds = team.members
+          .map((member: any) => {
+            const account = member.user.riotAccounts?.[0];
+            if (!account?.gameName || !account?.tagLine) return null;
+            return `${account.gameName}#${account.tagLine}`;
+          })
+          .filter((value: string | null): value is string => Boolean(value));
+
+        const suggestedStartTimes = buildSuggestedStartTimes(
+          team.events.map((event: any) => event.scheduledAt),
+        );
+
+        return reply.send({
+          team: {
+            id: team.id,
+            name: team.name,
+            tag: team.tag,
+            region: team.region,
+            members: team.members.map((member: any) => ({
+              userId: member.userId,
+              username: member.user.username,
+              role: member.role,
+              gameName: member.user.riotAccounts?.[0]?.gameName || null,
+              tagLine: member.user.riotAccounts?.[0]?.tagLine || null,
+              rank: member.user.riotAccounts?.[0]?.rank || null,
+              division: member.user.riotAccounts?.[0]?.division || null,
+            })),
+          },
+          suggestedAverageRank: averageRankSuggestion.averageRank,
+          suggestedAverageDivision: averageRankSuggestion.averageDivision,
+          suggestedStartTimesUtc: suggestedStartTimes.map((slot) =>
+            slot.toISOString(),
+          ),
+          defaultStartTimeUtc: suggestedStartTimes[0]?.toISOString() || null,
+          generatedOpggMultisearchUrl: buildOpggMultisearchUrl(
+            team.region,
+            riotIds,
+          ),
+          riotIds,
+          disclaimer:
+            'OP.GG and account identifiers may be stale. Verify manually before posting.',
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to build team prefill for scrims' });
       }
-
-      const rankScores = team.members
-        .map((member: any) => rankScore(member.user.riotAccounts?.[0]?.rank || null, member.user.riotAccounts?.[0]?.division || null))
-        .filter((score: number | null): score is number => typeof score === 'number');
-
-      const averageScore = rankScores.length > 0
-        ? rankScores.reduce((sum: number, value: number) => sum + value, 0) / rankScores.length
-        : Number.NaN;
-
-      const averageRankSuggestion = scoreToRank(averageScore);
-
-      const riotIds = team.members
-        .map((member: any) => {
-          const account = member.user.riotAccounts?.[0];
-          if (!account?.gameName || !account?.tagLine) return null;
-          return `${account.gameName}#${account.tagLine}`;
-        })
-        .filter((value: string | null): value is string => Boolean(value));
-
-      const suggestedStartTimes = buildSuggestedStartTimes(team.events.map((event: any) => event.scheduledAt));
-
-      return reply.send({
-        team: {
-          id: team.id,
-          name: team.name,
-          tag: team.tag,
-          region: team.region,
-          members: team.members.map((member: any) => ({
-            userId: member.userId,
-            username: member.user.username,
-            role: member.role,
-            gameName: member.user.riotAccounts?.[0]?.gameName || null,
-            tagLine: member.user.riotAccounts?.[0]?.tagLine || null,
-            rank: member.user.riotAccounts?.[0]?.rank || null,
-            division: member.user.riotAccounts?.[0]?.division || null,
-          })),
-        },
-        suggestedAverageRank: averageRankSuggestion.averageRank,
-        suggestedAverageDivision: averageRankSuggestion.averageDivision,
-        suggestedStartTimesUtc: suggestedStartTimes.map((slot) => slot.toISOString()),
-        defaultStartTimeUtc: suggestedStartTimes[0]?.toISOString() || null,
-        generatedOpggMultisearchUrl: buildOpggMultisearchUrl(team.region, riotIds),
-        riotIds,
-        disclaimer: 'OP.GG and account identifiers may be stale. Verify manually before posting.',
-      });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to build team prefill for scrims' });
-    }
-  });
+    },
+  );
 
   // POST /api/scrims/posts - Create scrim listing
   fastify.post('/scrims/posts', async (request: any, reply: any) => {
     try {
       const userId = await getUserIdFromRequest(request, reply);
       if (!userId) return;
-
-      if (!await assertDiscordReliabilityReady(userId, reply)) {
-        return;
-      }
 
       const {
         teamId,
@@ -2018,47 +2790,81 @@ export default async function scrimRoutes(fastify: any) {
         return reply.status(400).send({ error: 'teamId is required' });
       }
 
-      if (!await canManageTeam(userId, normalizedTeamId)) {
-        return reply.status(403).send({ error: 'Only owner/manager/coach can create scrim posts for this team' });
+      if (!(await canManageTeam(userId, normalizedTeamId))) {
+        return reply
+          .status(403)
+          .send({
+            error:
+              'Only owner/manager/coach can create scrim posts for this team',
+          });
       }
 
       const normalizedFormat = normalizeString(scrimFormat).toUpperCase();
       if (!SCRIM_FORMATS.includes(normalizedFormat as any)) {
-        return reply.status(400).send({ error: `scrimFormat must be one of: ${SCRIM_FORMATS.join(', ')}` });
+        return reply
+          .status(400)
+          .send({
+            error: `scrimFormat must be one of: ${SCRIM_FORMATS.join(', ')}`,
+          });
       }
 
       const parsedStartTime = parseDate(startTimeUtc);
       if (!parsedStartTime) {
-        return reply.status(400).send({ error: 'startTimeUtc must be a valid ISO date' });
+        return reply
+          .status(400)
+          .send({ error: 'startTimeUtc must be a valid ISO date' });
       }
 
       if (parsedStartTime.getTime() < Date.now()) {
-        return reply.status(400).send({ error: 'startTimeUtc cannot be in the past' });
+        return reply
+          .status(400)
+          .send({ error: 'startTimeUtc cannot be in the past' });
       }
 
       const normalizedRank = normalizeString(averageRank).toUpperCase();
       const rankIsValid = RANK_ORDER.includes(normalizedRank as RankName);
-      const isMasterPlusRank = MASTER_PLUS_RANKS.includes(normalizedRank as typeof MASTER_PLUS_RANKS[number]);
+      const isMasterPlusRank = MASTER_PLUS_RANKS.includes(
+        normalizedRank as (typeof MASTER_PLUS_RANKS)[number],
+      );
 
-      const rawDivision = normalizeOptionalString(averageDivision)?.toUpperCase() || null;
-      if (rawDivision && !DIVISION_ORDER.includes(rawDivision as typeof DIVISION_ORDER[number])) {
-        return reply.status(400).send({ error: `averageDivision must be one of: ${DIVISION_ORDER.join(', ')}` });
+      const rawDivision =
+        normalizeOptionalString(averageDivision)?.toUpperCase() || null;
+      if (
+        rawDivision &&
+        !DIVISION_ORDER.includes(rawDivision as (typeof DIVISION_ORDER)[number])
+      ) {
+        return reply
+          .status(400)
+          .send({
+            error: `averageDivision must be one of: ${DIVISION_ORDER.join(
+              ', ',
+            )}`,
+          });
       }
 
-      const hasAverageLpInput = averageLp !== undefined && averageLp !== null && normalizeString(String(averageLp)).length > 0;
+      const hasAverageLpInput =
+        averageLp !== undefined &&
+        averageLp !== null &&
+        normalizeString(String(averageLp)).length > 0;
       const parsedAverageLp = parseOptionalNonNegativeInt(averageLp);
       if (hasAverageLpInput && parsedAverageLp === null) {
-        return reply.status(400).send({ error: 'averageLp must be a non-negative integer' });
+        return reply
+          .status(400)
+          .send({ error: 'averageLp must be a non-negative integer' });
       }
 
       if ((parsedAverageLp || 0) > 5000) {
-        return reply.status(400).send({ error: 'averageLp must be 5000 or less' });
+        return reply
+          .status(400)
+          .send({ error: 'averageLp must be 5000 or less' });
       }
 
-      const normalizedDivision = !rankIsValid || normalizedRank === 'UNRANKED' || isMasterPlusRank
-        ? null
-        : rawDivision;
-      const normalizedAverageLp = rankIsValid && isMasterPlusRank ? parsedAverageLp : null;
+      const normalizedDivision =
+        !rankIsValid || normalizedRank === 'UNRANKED' || isMasterPlusRank
+          ? null
+          : rawDivision;
+      const normalizedAverageLp =
+        rankIsValid && isMasterPlusRank ? parsedAverageLp : null;
 
       const team = await prisma.team.findUnique({
         where: { id: normalizedTeamId },
@@ -2096,10 +2902,19 @@ export default async function scrimRoutes(fastify: any) {
           },
         });
 
-        const displacedProposals = (activePosts as Array<{ id: string; proposals: Array<{ id: string; proposedByUserId: string }> }>).flatMap((post) => post.proposals);
+        const displacedProposals = (
+          activePosts as Array<{
+            id: string;
+            proposals: Array<{ id: string; proposedByUserId: string }>;
+          }>
+        ).flatMap((post) => post.proposals);
 
         if (displacedProposals.length > 0) {
-          const displacedUserIds = Array.from(new Set(displacedProposals.map((proposal) => proposal.proposedByUserId)));
+          const displacedUserIds = Array.from(
+            new Set(
+              displacedProposals.map((proposal) => proposal.proposedByUserId),
+            ),
+          );
 
           await tx.notification.createMany({
             data: displacedUserIds.map((recipientId) => ({
@@ -2109,16 +2924,23 @@ export default async function scrimRoutes(fastify: any) {
             })),
           });
 
-          await createScrimDiscordNotifications(tx, displacedProposals.map((proposal) => ({
-            proposalId: proposal.id,
-            recipientUserId: proposal.proposedByUserId,
-            type: 'REJECTED',
-            message: `${team.name} published a newer scrim slot, so your previous proposal was cleared.`,
-          })));
+          await createScrimDiscordNotifications(
+            tx,
+            displacedProposals.map((proposal) => ({
+              proposalId: proposal.id,
+              recipientUserId: proposal.proposedByUserId,
+              type: 'REJECTED',
+              message: `${team.name} published a newer scrim slot, so your previous proposal was cleared.`,
+            })),
+          );
         }
 
         if (activePosts.length > 0) {
-          for (const post of activePosts as Array<{ id: string; source: string | null; discordMirrored: boolean }>) {
+          for (const post of activePosts as Array<{
+            id: string;
+            source: string | null;
+            discordMirrored: boolean;
+          }>) {
             if (post.source === 'app' && post.discordMirrored) {
               replacedMirroredPostIds.add(post.id);
             }
@@ -2203,7 +3025,9 @@ export default async function scrimRoutes(fastify: any) {
       ]);
 
       if (post.authorId !== userId && !canManage && !isAdmin) {
-        return reply.status(403).send({ error: 'You are not allowed to delete this scrim post' });
+        return reply
+          .status(403)
+          .send({ error: 'You are not allowed to delete this scrim post' });
       }
 
       await prisma.scrimPost.delete({
@@ -2222,355 +3046,1070 @@ export default async function scrimRoutes(fastify: any) {
   });
 
   // POST /api/scrims/posts/:postId/proposals - Propose a scrim
-  fastify.post('/scrims/posts/:postId/proposals', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
+  fastify.post(
+    '/scrims/posts/:postId/proposals',
+    async (request: any, reply: any) => {
+      try {
+        const userId = await getUserIdFromRequest(request, reply);
+        if (!userId) return;
 
-      if (!await assertDiscordReliabilityReady(userId, reply)) {
-        return;
-      }
+        await autoRejectExpiredProposals();
 
-      await autoRejectExpiredProposals();
+        const { postId } = request.params as { postId: string };
+        const { proposerTeamId, message } = request.body as any;
+        const normalizedProposerTeamId = normalizeString(proposerTeamId);
 
-      const { postId } = request.params as { postId: string };
-      const { proposerTeamId, message } = request.body as any;
-      const normalizedProposerTeamId = normalizeString(proposerTeamId);
-
-      if (!normalizedProposerTeamId) {
-        return reply.status(400).send({ error: 'proposerTeamId is required' });
-      }
-
-      if (!await canManageTeam(userId, normalizedProposerTeamId)) {
-        return reply.status(403).send({ error: 'Only owner/manager/coach can send proposals for this team' });
-      }
-
-      const post = await prisma.scrimPost.findUnique({
-        where: { id: postId },
-        select: {
-          id: true,
-          status: true,
-          teamId: true,
-          teamName: true,
-          startTimeUtc: true,
-        },
-      });
-
-      if (!post) {
-        return reply.status(404).send({ error: 'Scrim post not found' });
-      }
-
-      if (post.teamId === normalizedProposerTeamId) {
-        return reply.status(400).send({ error: 'You cannot propose against your own team' });
-      }
-
-      if (post.status === 'SETTLED') {
-        return reply.status(400).send({ error: 'This scrim post is already settled' });
-      }
-
-      const now = new Date();
-      const upserted = await prisma.$transaction(async (tx: any) => {
-        const proposerTeam = await tx.team.findUnique({
-          where: { id: normalizedProposerTeamId },
-          select: {
-            id: true,
-            name: true,
-            tag: true,
-          },
-        });
-
-        if (!proposerTeam) {
-          throw new Error('Proposer team not found');
+        if (!normalizedProposerTeamId) {
+          return reply
+            .status(400)
+            .send({ error: 'proposerTeamId is required' });
         }
 
-        const proposerTeamLabel = buildTeamLabel(proposerTeam);
-        const proposerTeamOpgg = await buildTeamOpggMultisearchUrl(tx, normalizedProposerTeamId);
-        const proposalNotificationMessage = proposerTeamOpgg
-          ? `${proposerTeamLabel} sent a new scrim proposal. OP.GG: ${proposerTeamOpgg}`
-          : `${proposerTeamLabel} sent a new scrim proposal.`;
+        if (!(await canManageTeam(userId, normalizedProposerTeamId))) {
+          return reply
+            .status(403)
+            .send({
+              error:
+                'Only owner/manager/coach can send proposals for this team',
+            });
+        }
 
-        const existing = await tx.scrimProposal.findUnique({
-          where: {
-            postId_proposerTeamId: {
-              postId,
-              proposerTeamId: normalizedProposerTeamId,
-            },
-          },
+        const post = await prisma.scrimPost.findUnique({
+          where: { id: postId },
           select: {
             id: true,
             status: true,
+            teamId: true,
+            teamName: true,
+            startTimeUtc: true,
           },
         });
 
-        if (existing?.status === 'PENDING') {
-          throw new Error('You already have a pending proposal for this scrim post.');
+        if (!post) {
+          return reply.status(404).send({ error: 'Scrim post not found' });
         }
 
-        const proposal = existing
-          ? await tx.scrimProposal.update({
-              where: { id: existing.id },
-              data: {
-                status: 'PENDING',
-                message: normalizeOptionalString(message),
-                proposedByUserId: userId,
-                proposedStartTimeUtc: null,
-                createdAt: now,
-                lowPriorityAt: null,
-                decisionAt: null,
-                decisionByUserId: null,
-                autoRejectedAt: null,
-                responseSeconds: null,
-              },
-            })
-          : await tx.scrimProposal.create({
-              data: {
-                postId,
-                proposerTeamId: normalizedProposerTeamId,
-                targetTeamId: post.teamId,
-                proposedByUserId: userId,
-                message: normalizeOptionalString(message),
-                proposedStartTimeUtc: null,
-              },
-            });
-
-        if (post.status === 'AVAILABLE') {
-          await tx.scrimPost.update({
-            where: { id: postId },
-            data: { status: 'CANDIDATES' },
-          });
+        if (post.teamId === normalizedProposerTeamId) {
+          return reply
+            .status(400)
+            .send({ error: 'You cannot propose against your own team' });
         }
 
-        const receiverIds = await getTeamDecisionRecipientIds(tx, post.teamId);
-        if (receiverIds.length > 0) {
-          await tx.notification.createMany({
-            data: receiverIds.map((receiverId: string) => ({
-              userId: receiverId,
-              type: 'SCRIM_PROPOSAL_RECEIVED',
-              fromUserId: userId,
-              message: proposalNotificationMessage,
-            })),
-          });
-
-          await createScrimDiscordNotifications(tx, receiverIds.map((receiverId: string) => ({
-            proposalId: proposal.id,
-            recipientUserId: receiverId,
-            type: 'RECEIVED',
-            message: proposalNotificationMessage,
-            actionRequired: true,
-          })));
+        if (post.status === 'SETTLED') {
+          return reply
+            .status(400)
+            .send({ error: 'This scrim post is already settled' });
         }
 
-        return proposal;
-      });
-
-      return reply.status(201).send({
-        success: true,
-        proposal: upserted,
-      });
-    } catch (error: any) {
-      const message = String(error?.message || '');
-      if (message.includes('already have a pending proposal')) {
-        return reply.status(409).send({ error: message });
-      }
-
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to send scrim proposal' });
-    }
-  });
-
-  // GET /api/scrims/proposals/incoming - Proposal inbox for manageable teams
-  fastify.get('/scrims/proposals/incoming', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
-
-      await autoRejectExpiredProposals();
-
-      const manageableTeamIds = await getManageableTeamIds(userId);
-      if (manageableTeamIds.length === 0) {
-        return reply.send({ proposals: [] });
-      }
-
-      const proposals = await prisma.scrimProposal.findMany({
-        where: {
-          targetTeamId: { in: manageableTeamIds },
-          status: { in: ['PENDING', 'DELAYED'] },
-        },
-        orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
-        take: 300,
-        include: {
-          proposerTeam: {
+        const now = new Date();
+        const upserted = await prisma.$transaction(async (tx: any) => {
+          const proposerTeam = await tx.team.findUnique({
+            where: { id: normalizedProposerTeamId },
             select: {
               id: true,
               name: true,
               tag: true,
-              region: true,
             },
-          },
-          post: {
+          });
+
+          if (!proposerTeam) {
+            throw new Error('Proposer team not found');
+          }
+
+          const proposerTeamLabel = buildTeamLabel(proposerTeam);
+          const proposerTeamOpgg = await buildTeamOpggMultisearchUrl(
+            tx,
+            normalizedProposerTeamId,
+          );
+          const proposalNotificationMessage = proposerTeamOpgg
+            ? `${proposerTeamLabel} sent a new scrim proposal. OP.GG: ${proposerTeamOpgg}`
+            : `${proposerTeamLabel} sent a new scrim proposal.`;
+
+          const existing = await tx.scrimProposal.findUnique({
+            where: {
+              postId_proposerTeamId: {
+                postId,
+                proposerTeamId: normalizedProposerTeamId,
+              },
+            },
             select: {
               id: true,
-              teamId: true,
-              teamName: true,
-              teamTag: true,
               status: true,
-              startTimeUtc: true,
-              scrimFormat: true,
-              averageLp: true,
-              opggMultisearchUrl: true,
+            },
+          });
+
+          if (existing?.status === 'PENDING') {
+            throw new Error(
+              'You already have a pending proposal for this scrim post.',
+            );
+          }
+
+          const proposal = existing
+            ? await tx.scrimProposal.update({
+                where: { id: existing.id },
+                data: {
+                  status: 'PENDING',
+                  message: normalizeOptionalString(message),
+                  proposedByUserId: userId,
+                  proposedStartTimeUtc: null,
+                  createdAt: now,
+                  lowPriorityAt: null,
+                  decisionAt: null,
+                  decisionByUserId: null,
+                  autoRejectedAt: null,
+                  responseSeconds: null,
+                },
+              })
+            : await tx.scrimProposal.create({
+                data: {
+                  postId,
+                  proposerTeamId: normalizedProposerTeamId,
+                  targetTeamId: post.teamId,
+                  proposedByUserId: userId,
+                  message: normalizeOptionalString(message),
+                  proposedStartTimeUtc: null,
+                },
+              });
+
+          if (post.status === 'AVAILABLE') {
+            await tx.scrimPost.update({
+              where: { id: postId },
+              data: { status: 'CANDIDATES' },
+            });
+          }
+
+          const receiverIds = await getTeamDecisionRecipientIds(
+            tx,
+            post.teamId,
+          );
+          if (receiverIds.length > 0) {
+            await tx.notification.createMany({
+              data: receiverIds.map((receiverId: string) => ({
+                userId: receiverId,
+                type: 'SCRIM_PROPOSAL_RECEIVED',
+                fromUserId: userId,
+                message: proposalNotificationMessage,
+              })),
+            });
+
+            await createScrimDiscordNotifications(
+              tx,
+              receiverIds.map((receiverId: string) => ({
+                proposalId: proposal.id,
+                recipientUserId: receiverId,
+                type: 'RECEIVED',
+                message: proposalNotificationMessage,
+                actionRequired: true,
+              })),
+            );
+          }
+
+          await tx.teamEventNotification.create({
+            data: {
+              teamId: post.teamId,
+              eventId: proposal.id,
+              eventTitle: `New Scrim Proposal • ${proposerTeamLabel}`,
+              eventType: 'SCRIM',
+              scheduledAt: post.startTimeUtc,
+              duration: null,
+              description: normalizeOptionalString(message)
+                ? `${proposalNotificationMessage} Note: ${normalizeString(
+                    message,
+                  )}`
+                : proposalNotificationMessage,
+              enemyLink: proposerTeamOpgg,
+              concernedMemberIds: receiverIds,
+              notificationType:
+                SCRIM_TEAM_EVENT_NOTIFICATION_TYPES.PROPOSAL_RECEIVED,
+              triggeredBy: proposerTeamLabel,
+            },
+          });
+
+          return proposal;
+        });
+
+        return reply.status(201).send({
+          success: true,
+          proposal: upserted,
+        });
+      } catch (error: any) {
+        const message = String(error?.message || '');
+        if (message.includes('already have a pending proposal')) {
+          return reply.status(409).send({ error: message });
+        }
+
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to send scrim proposal' });
+      }
+    },
+  );
+
+  // GET /api/scrims/proposals/incoming - Proposal inbox for manageable teams
+  fastify.get(
+    '/scrims/proposals/incoming',
+    async (request: any, reply: any) => {
+      try {
+        const userId = await getUserIdFromRequest(request, reply);
+        if (!userId) return;
+
+        await autoRejectExpiredProposals();
+
+        const manageableTeamIds = await getManageableTeamIds(userId);
+        if (manageableTeamIds.length === 0) {
+          return reply.send({ proposals: [] });
+        }
+
+        const proposals = await prisma.scrimProposal.findMany({
+          where: {
+            targetTeamId: { in: manageableTeamIds },
+            status: { in: ['PENDING', 'DELAYED'] },
+          },
+          orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+          take: 300,
+          include: {
+            proposerTeam: {
+              select: {
+                id: true,
+                name: true,
+                tag: true,
+                region: true,
+              },
+            },
+            post: {
+              select: {
+                id: true,
+                teamId: true,
+                teamName: true,
+                teamTag: true,
+                status: true,
+                startTimeUtc: true,
+                scrimFormat: true,
+                averageLp: true,
+                opggMultisearchUrl: true,
+              },
             },
           },
-        },
-      });
+        });
 
-      const proposerTeamIds = Array.from(new Set((proposals as any[])
-        .map((proposal: any) => normalizeString(proposal.proposerTeamId))
-        .filter((value: string) => value.length > 0)));
+        const proposerTeamIds = Array.from(
+          new Set(
+            (proposals as any[])
+              .map((proposal: any) => normalizeString(proposal.proposerTeamId))
+              .filter((value: string) => value.length > 0),
+          ),
+        );
 
-      const proposerTeamOpggMap = new Map<string, string | null>();
-      await Promise.all(proposerTeamIds.map(async (teamId) => {
-        const teamOpgg = await buildTeamOpggMultisearchUrl(prisma, teamId);
-        proposerTeamOpggMap.set(teamId, teamOpgg);
-      }));
+        const proposerTeamOpggMap = new Map<string, string | null>();
+        await Promise.all(
+          proposerTeamIds.map(async (teamId) => {
+            const teamOpgg = await buildTeamOpggMultisearchUrl(prisma, teamId);
+            proposerTeamOpggMap.set(teamId, teamOpgg);
+          }),
+        );
 
-      const mappedProposals = (proposals as any[]).map((proposal: any) => {
-        const proposerTeamOpgg = proposerTeamOpggMap.get(proposal.proposerTeamId) || null;
-        return {
-          ...proposal,
-          proposerTeamOpggMultisearchUrl: proposerTeamOpgg,
-          post: {
-            ...proposal.post,
-            opggMultisearchUrl: proposerTeamOpgg,
-          },
-        };
-      });
+        const mappedProposals = (proposals as any[]).map((proposal: any) => {
+          const proposerTeamOpgg =
+            proposerTeamOpggMap.get(proposal.proposerTeamId) || null;
+          return {
+            ...proposal,
+            proposerTeamOpggMultisearchUrl: proposerTeamOpgg,
+            post: {
+              ...proposal.post,
+              opggMultisearchUrl: proposerTeamOpgg,
+            },
+          };
+        });
 
-      return reply.send({ proposals: mappedProposals });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch incoming scrim proposals' });
-    }
-  });
+        return reply.send({ proposals: mappedProposals });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to fetch incoming scrim proposals' });
+      }
+    },
+  );
 
   // PATCH /api/scrims/proposals/:proposalId/decision - Accept, reject, or delay a proposal
-  fastify.patch('/scrims/proposals/:proposalId/decision', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
+  fastify.patch(
+    '/scrims/proposals/:proposalId/decision',
+    async (request: any, reply: any) => {
+      try {
+        const userId = await getUserIdFromRequest(request, reply);
+        if (!userId) return;
 
-      const { proposalId } = request.params as { proposalId: string };
-      const { action } = request.body as { action?: string };
-      const outcome = await applyScrimProposalDecision({
-        proposalId,
-        action: action || '',
-        actorUserId: userId,
-      });
+        const { proposalId } = request.params as { proposalId: string };
+        const { action } = request.body as { action?: string };
+        const outcome = await applyScrimProposalDecision({
+          proposalId,
+          action: action || '',
+          actorUserId: userId,
+        });
 
-      return reply.send({
-        success: true,
-        status: outcome.status,
-        seriesId: (outcome as any).seriesId || null,
-      });
-    } catch (error: any) {
-      if (error instanceof ScrimRouteError) {
-        return reply.status(error.statusCode).send({ error: error.message });
+        return reply.send({
+          success: true,
+          status: outcome.status,
+          seriesId: (outcome as any).seriesId || null,
+        });
+      } catch (error: any) {
+        if (error instanceof ScrimRouteError) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to decide scrim proposal' });
       }
-
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to decide scrim proposal' });
-    }
-  });
+    },
+  );
 
   // POST /api/scrims/proposals/:proposalId/discord-decision - Accept, reject, or delay from Discord button (bot only)
-  fastify.post('/scrims/proposals/:proposalId/discord-decision', { preHandler: validateBotAuth }, async (request: any, reply: any) => {
-    try {
-      const { proposalId } = request.params as { proposalId: string };
-      const { action, discordId } = request.body as { action?: string; discordId?: string };
+  fastify.post(
+    '/scrims/proposals/:proposalId/discord-decision',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { proposalId } = request.params as { proposalId: string };
+        const { action, discordId } = request.body as {
+          action?: string;
+          discordId?: string;
+        };
 
-      if (!discordId || normalizeString(discordId).length === 0) {
-        return reply.status(400).send({ error: 'discordId is required' });
+        if (!discordId || normalizeString(discordId).length === 0) {
+          return reply.status(400).send({ error: 'discordId is required' });
+        }
+
+        const account = await prisma.discordAccount.findUnique({
+          where: { discordId: normalizeString(discordId) },
+          select: { userId: true },
+        });
+
+        if (!account?.userId) {
+          return reply
+            .status(404)
+            .send({
+              error: 'Discord account is not linked to a RiftEssence user',
+            });
+        }
+
+        const outcome = await applyScrimProposalDecision({
+          proposalId,
+          action: action || '',
+          actorUserId: account.userId,
+        });
+
+        return reply.send({
+          success: true,
+          status: outcome.status,
+          seriesId: (outcome as any).seriesId || null,
+        });
+      } catch (error: any) {
+        if (error instanceof ScrimRouteError) {
+          return reply.status(error.statusCode).send({ error: error.message });
+        }
+
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to process Discord scrim decision' });
       }
-
-      const account = await prisma.discordAccount.findUnique({
-        where: { discordId: normalizeString(discordId) },
-        select: { userId: true },
-      });
-
-      if (!account?.userId) {
-        return reply.status(404).send({ error: 'Discord account is not linked to a RiftEssence user' });
-      }
-
-      const outcome = await applyScrimProposalDecision({
-        proposalId,
-        action: action || '',
-        actorUserId: account.userId,
-      });
-
-      return reply.send({
-        success: true,
-        status: outcome.status,
-        seriesId: (outcome as any).seriesId || null,
-      });
-    } catch (error: any) {
-      if (error instanceof ScrimRouteError) {
-        return reply.status(error.statusCode).send({ error: error.message });
-      }
-
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to process Discord scrim decision' });
-    }
-  });
+    },
+  );
 
   // POST /api/scrims/series/:seriesId/match-code/regenerate - Host-only match code regeneration
-  fastify.post('/scrims/series/:seriesId/match-code/regenerate', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
+  fastify.post(
+    '/scrims/series/:seriesId/match-code/regenerate',
+    async (request: any, reply: any) => {
+      try {
+        const userId = await getUserIdFromRequest(request, reply);
+        if (!userId) return;
 
-      const { seriesId } = request.params as { seriesId: string };
-      const normalizedSeriesId = normalizeString(seriesId);
-      if (!normalizedSeriesId) {
-        return reply.status(400).send({ error: 'seriesId is required' });
-      }
+        const { seriesId } = request.params as { seriesId: string };
+        const normalizedSeriesId = normalizeString(seriesId);
+        if (!normalizedSeriesId) {
+          return reply.status(400).send({ error: 'seriesId is required' });
+        }
 
-      const current = await prisma.scrimSeries.findUnique({
-        where: { id: normalizedSeriesId },
-        select: {
-          id: true,
-          hostTeamId: true,
-          winnerConfirmedAt: true,
-        },
-      });
-
-      if (!current) {
-        return reply.status(404).send({ error: 'Scrim series not found' });
-      }
-
-      if (!await canManageTeam(userId, current.hostTeamId)) {
-        return reply.status(403).send({ error: 'Only host team staff can regenerate this match code' });
-      }
-
-      if (current.winnerConfirmedAt) {
-        return reply.status(400).send({ error: 'Result already confirmed. Match code cannot be regenerated.' });
-      }
-
-      const actor = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { username: true },
-      });
-
-      const now = new Date();
-      const newCode = generateScrimMatchCode();
-
-      const updated = await prisma.$transaction(async (tx: any) => {
-        const series = await tx.scrimSeries.update({
+        const current = await prisma.scrimSeries.findUnique({
           where: { id: normalizedSeriesId },
-          data: {
-            matchCode: newCode,
-            matchCodeVersion: { increment: 1 },
-            matchCodeRegeneratedAt: now,
-            matchCodeRegeneratedByTeamId: current.hostTeamId,
+          select: {
+            id: true,
+            hostTeamId: true,
+            winnerConfirmedAt: true,
           },
+        });
+
+        if (!current) {
+          return reply.status(404).send({ error: 'Scrim series not found' });
+        }
+
+        if (!(await canManageTeam(userId, current.hostTeamId))) {
+          return reply
+            .status(403)
+            .send({
+              error: 'Only host team staff can regenerate this match code',
+            });
+        }
+
+        if (current.winnerConfirmedAt) {
+          return reply
+            .status(400)
+            .send({
+              error:
+                'Result already confirmed. Match code cannot be regenerated.',
+            });
+        }
+
+        const actor = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { username: true },
+        });
+
+        const now = new Date();
+        const newCode = generateScrimMatchCode();
+
+        const updated = await prisma.$transaction(async (tx: any) => {
+          const series = await tx.scrimSeries.update({
+            where: { id: normalizedSeriesId },
+            data: {
+              matchCode: newCode,
+              matchCodeVersion: { increment: 1 },
+              matchCodeRegeneratedAt: now,
+              matchCodeRegeneratedByTeamId: current.hostTeamId,
+            },
+            select: {
+              id: true,
+              hostTeamId: true,
+              guestTeamId: true,
+              scheduledAt: true,
+              matchCode: true,
+              matchCodeVersion: true,
+              hostTeam: {
+                select: {
+                  name: true,
+                  tag: true,
+                },
+              },
+              guestTeam: {
+                select: {
+                  name: true,
+                  tag: true,
+                },
+              },
+            },
+          });
+
+          const hostLabel = buildTeamLabel(series.hostTeam);
+          const guestLabel = buildTeamLabel(series.guestTeam);
+          await createScrimLifecycleFanout(tx, {
+            seriesId: series.id,
+            scheduledAt: series.scheduledAt,
+            lifecycleType: 'MATCH_CODE_REGENERATED',
+            triggeredByUserId: userId,
+            triggeredByUsername: actor?.username || null,
+            entries: [
+              {
+                teamId: series.hostTeamId,
+                title: `Match Code Regenerated • ${hostLabel} vs ${guestLabel}`,
+                message: `You regenerated the match code to ${series.matchCode} (v${series.matchCodeVersion}). Share this updated code with your opponent before start.`,
+                appNotificationType: 'SCRIM_MATCH_CODE_REGENERATED',
+              },
+              {
+                teamId: series.guestTeamId,
+                title: `Match Code Updated • ${hostLabel} vs ${guestLabel}`,
+                message: `Host team ${hostLabel} regenerated the match code to ${series.matchCode} (v${series.matchCodeVersion}). Use this latest code.`,
+                appNotificationType: 'SCRIM_MATCH_CODE_REGENERATED',
+              },
+            ],
+          });
+
+          return series;
+        });
+
+        return reply.send({
+          success: true,
+          series: {
+            id: updated.id,
+            matchCode: updated.matchCode,
+            matchCodeVersion: updated.matchCodeVersion,
+            hostTeamId: updated.hostTeamId,
+            guestTeamId: updated.guestTeamId,
+            scheduledAt: updated.scheduledAt,
+          },
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to regenerate match code' });
+      }
+    },
+  );
+
+  // POST /api/scrims/series/:seriesId/lobby-code-used - Host confirms lobby was created with app match code
+  fastify.post(
+    '/scrims/series/:seriesId/lobby-code-used',
+    async (request: any, reply: any) => {
+      try {
+        const userId = await getUserIdFromRequest(request, reply);
+        if (!userId) return;
+
+        const { seriesId } = request.params as { seriesId: string };
+        const normalizedSeriesId = normalizeString(seriesId);
+        if (!normalizedSeriesId) {
+          return reply.status(400).send({ error: 'seriesId is required' });
+        }
+
+        const series = await prisma.scrimSeries.findUnique({
+          where: { id: normalizedSeriesId },
+          select: {
+            id: true,
+            hostTeamId: true,
+          },
+        });
+
+        if (!series) {
+          return reply.status(404).send({ error: 'Scrim series not found' });
+        }
+
+        if (!(await canManageTeam(userId, series.hostTeamId))) {
+          return reply
+            .status(403)
+            .send({ error: 'Only host team staff can confirm lobby creation' });
+        }
+
+        await prisma.scrimSeries.update({
+          where: { id: series.id },
+          data: {
+            lobbyCodeUsedAt: new Date(),
+            lobbyCodeUsedByUserId: userId,
+          },
+        });
+
+        return reply.send({ success: true });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to confirm lobby code usage' });
+      }
+    },
+  );
+
+  // GET /api/scrims/series/:seriesId/room - Complete Scrim Room for managers and read-only team observers
+  fastify.get(
+    '/scrims/series/:seriesId/room',
+    async (request: any, reply: any) => {
+      try {
+        const userId = await getUserIdFromRequest(request, reply);
+        if (!userId) return;
+
+        const { seriesId } = request.params as { seriesId: string };
+        const series = await prisma.scrimSeries.findUnique({
+          where: { id: normalizeString(seriesId) },
+          include: {
+            hostTeam: {
+              select: {
+                id: true,
+                name: true,
+                tag: true,
+                region: true,
+                iconUrl: true,
+                ownerId: true,
+                discordScrimCodeWebhookUrl: true,
+                members: {
+                  orderBy: { joinedAt: 'asc' },
+                  select: {
+                    role: true,
+                    user: { select: { id: true, username: true } },
+                  },
+                },
+              },
+            },
+            guestTeam: {
+              select: {
+                id: true,
+                name: true,
+                tag: true,
+                region: true,
+                iconUrl: true,
+                ownerId: true,
+                discordScrimCodeWebhookUrl: true,
+                members: {
+                  orderBy: { joinedAt: 'asc' },
+                  select: {
+                    role: true,
+                    user: { select: { id: true, username: true } },
+                  },
+                },
+              },
+            },
+            post: {
+              select: { scrimFormat: true, details: true, timezoneLabel: true },
+            },
+            proposal: {
+              select: {
+                id: true,
+                createdAt: true,
+                decisionAt: true,
+                message: true,
+              },
+            },
+            reviews: true,
+          },
+        });
+
+        if (!series)
+          return reply.status(404).send({ error: 'Scrim room not found' });
+
+        const participantTeamIds = [series.hostTeamId, series.guestTeamId];
+        const membership = await prisma.teamMember.findFirst({
+          where: { userId, teamId: { in: participantTeamIds } },
+          select: { teamId: true, role: true },
+        });
+        const ownedTeamId =
+          series.hostTeam.ownerId === userId
+            ? series.hostTeamId
+            : series.guestTeam.ownerId === userId
+            ? series.guestTeamId
+            : null;
+        const viewerTeamId = ownedTeamId || membership?.teamId || null;
+        if (!viewerTeamId)
+          return reply
+            .status(403)
+            .send({ error: 'You do not have access to this Scrim Room' });
+
+        const canAct = await canManageTeam(userId, viewerTeamId);
+        const opponentTeamId =
+          viewerTeamId === series.hostTeamId
+            ? series.guestTeamId
+            : series.hostTeamId;
+        const review =
+          series.reviews.find(
+            (entry: any) => entry.reviewerTeamId === viewerTeamId,
+          ) || null;
+        const activity = [
+          {
+            type: 'ROOM_CREATED',
+            at: series.createdAt,
+            label: 'Scrim room created',
+          },
+          ...(series.proposal?.decisionAt
+            ? [
+                {
+                  type: 'PROPOSAL_ACCEPTED',
+                  at: series.proposal.decisionAt,
+                  label: 'Proposal accepted',
+                },
+              ]
+            : []),
+          ...(series.matchCodeRegeneratedAt
+            ? [
+                {
+                  type: 'MATCH_CODE_REGENERATED',
+                  at: series.matchCodeRegeneratedAt,
+                  label: 'Lobby code regenerated',
+                },
+              ]
+            : []),
+          ...(series.lobbyCodeUsedAt
+            ? [
+                {
+                  type: 'LOBBY_READY',
+                  at: series.lobbyCodeUsedAt,
+                  label: 'Lobby ready',
+                },
+              ]
+            : []),
+          ...(series.firstReportedAt
+            ? [
+                {
+                  type: 'RESULT_REPORTED',
+                  at: series.firstReportedAt,
+                  label: 'Result submitted for confirmation',
+                },
+              ]
+            : []),
+          ...(series.winnerConfirmedAt
+            ? [
+                {
+                  type: 'RESULT_CONFIRMED',
+                  at: series.winnerConfirmedAt,
+                  label: 'Result confirmed',
+                },
+              ]
+            : []),
+          ...(review
+            ? [
+                {
+                  type: 'REVIEW_SUBMITTED',
+                  at: review.createdAt,
+                  label: 'Opponent review submitted',
+                },
+              ]
+            : []),
+        ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+
+        return reply.send({
+          room: {
+            ...series,
+            hostTeam: {
+              ...series.hostTeam,
+              discordChannelEnabled: Boolean(
+                series.hostTeam.discordScrimCodeWebhookUrl,
+              ),
+              discordScrimCodeWebhookUrl: undefined,
+            },
+            guestTeam: {
+              ...series.guestTeam,
+              discordChannelEnabled: Boolean(
+                series.guestTeam.discordScrimCodeWebhookUrl,
+              ),
+              discordScrimCodeWebhookUrl: undefined,
+            },
+            viewerTeamId,
+            opponentTeamId,
+            canAct,
+            canControlLobby: canAct && viewerTeamId === series.hostTeamId,
+            canReportResult: canAct && !series.winnerConfirmedAt,
+            canReview: canAct && Boolean(series.winnerConfirmedAt) && !review,
+            review,
+            activity,
+          },
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(500).send({ error: 'Failed to load Scrim Room' });
+      }
+    },
+  );
+
+  // GET /api/scrims/series/pending-results - Series awaiting winner agreement from both teams
+  fastify.get(
+    '/scrims/series/pending-results',
+    async (request: any, reply: any) => {
+      try {
+        const userId = await getUserIdFromRequest(request, reply);
+        if (!userId) return;
+
+        await maybeRunDueAutoResultSweep(fastify);
+
+        const manageableTeamIds = await getManageableTeamIds(userId);
+        if (manageableTeamIds.length === 0) {
+          return reply.send({ series: [] });
+        }
+
+        const series = await prisma.scrimSeries.findMany({
+          where: {
+            winnerConfirmedAt: null,
+            OR: [
+              { hostTeamId: { in: manageableTeamIds } },
+              { guestTeamId: { in: manageableTeamIds } },
+            ],
+          },
+          orderBy: [{ scheduledAt: 'desc' }, { createdAt: 'desc' }],
+          take: 120,
+          include: {
+            hostTeam: {
+              select: {
+                id: true,
+                name: true,
+                tag: true,
+              },
+            },
+            guestTeam: {
+              select: {
+                id: true,
+                name: true,
+                tag: true,
+              },
+            },
+            proposal: {
+              select: {
+                id: true,
+                post: {
+                  select: {
+                    id: true,
+                    scrimFormat: true,
+                    startTimeUtc: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        const payload = (series as any[]).map((entry) => {
+          const myTeamIds = [entry.hostTeamId, entry.guestTeamId].filter(
+            (teamId: string) => manageableTeamIds.includes(teamId),
+          );
+          const boGames = scrimFormatToBoGames(
+            entry?.proposal?.post?.scrimFormat,
+          );
+          return {
+            id: entry.id,
+            matchCode: entry.matchCode,
+            matchCodeVersion: entry.matchCodeVersion,
+            matchCodeRegeneratedAt: entry.matchCodeRegeneratedAt,
+            matchCodeRegeneratedByTeamId: entry.matchCodeRegeneratedByTeamId,
+            lobbyCodeUsedAt: entry.lobbyCodeUsedAt,
+            lobbyCodeUsedByUserId: entry.lobbyCodeUsedByUserId,
+            scheduledAt: entry.scheduledAt,
+            hostTeamId: entry.hostTeamId,
+            guestTeamId: entry.guestTeamId,
+            hostTeam: entry.hostTeam,
+            guestTeam: entry.guestTeam,
+            hostCreatesLobby: true,
+            boGames,
+            autoResultStatus: entry.autoResultStatus,
+            autoResultReadyAt: entry.autoResultReadyAt,
+            autoResultAttempts: entry.autoResultAttempts,
+            autoResultFailureReason: entry.autoResultFailureReason,
+            autoResultMatchId: entry.autoResultMatchId,
+            resultSource: entry.resultSource,
+            manualConflictCount: entry.manualConflictCount,
+            escalatedAt: entry.escalatedAt,
+            firstReporterTeamId: entry.firstReporterTeamId,
+            firstReportedWinnerTeamId: entry.firstReportedWinnerTeamId,
+            firstReportedAt: entry.firstReportedAt,
+            proposal: entry.proposal,
+            myTeamIds,
+          };
+        });
+
+        return reply.send({ series: payload });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to fetch pending scrim results' });
+      }
+    },
+  );
+
+  // POST /api/scrims/series/:seriesId/result - Report winner and require opponent agreement
+  fastify.post(
+    '/scrims/series/:seriesId/result',
+    async (request: any, reply: any) => {
+      try {
+        const userId = await getUserIdFromRequest(request, reply);
+        if (!userId) return;
+
+        const { seriesId } = request.params as { seriesId: string };
+        const { reportingTeamId, winnerTeamId } = request.body as {
+          reportingTeamId?: string;
+          winnerTeamId?: string;
+        };
+
+        const normalizedSeriesId = normalizeString(seriesId);
+        const normalizedReportingTeamId = normalizeString(reportingTeamId);
+        const normalizedWinnerTeamId = normalizeString(winnerTeamId);
+
+        if (
+          !normalizedSeriesId ||
+          !normalizedReportingTeamId ||
+          !normalizedWinnerTeamId
+        ) {
+          return reply
+            .status(400)
+            .send({
+              error: 'seriesId, reportingTeamId, and winnerTeamId are required',
+            });
+        }
+
+        if (!(await canManageTeam(userId, normalizedReportingTeamId))) {
+          return reply
+            .status(403)
+            .send({
+              error: 'You are not allowed to report results for this team',
+            });
+        }
+
+        const result = await prisma.$transaction(async (tx: any) => {
+          const current = await tx.scrimSeries.findUnique({
+            where: { id: normalizedSeriesId },
+            select: {
+              id: true,
+              hostTeamId: true,
+              guestTeamId: true,
+              winnerTeamId: true,
+              winnerConfirmedAt: true,
+              resultSource: true,
+              firstReporterTeamId: true,
+              firstReportedWinnerTeamId: true,
+              scheduledAt: true,
+              manualConflictCount: true,
+              escalatedAt: true,
+              lobbyCodeUsedAt: true,
+            },
+          });
+
+          if (!current) {
+            return { errorCode: 404, error: 'Scrim series not found' };
+          }
+
+          if (
+            ![current.hostTeamId, current.guestTeamId].includes(
+              normalizedReportingTeamId,
+            )
+          ) {
+            return {
+              errorCode: 403,
+              error: 'Reporting team is not part of this scrim series',
+            };
+          }
+
+          if (
+            ![current.hostTeamId, current.guestTeamId].includes(
+              normalizedWinnerTeamId,
+            )
+          ) {
+            return {
+              errorCode: 400,
+              error:
+                'winnerTeamId must be one of the teams in this scrim series',
+            };
+          }
+
+          if (current.winnerConfirmedAt) {
+            return {
+              status: 'CONFIRMED',
+              winnerTeamId: current.winnerTeamId,
+              alreadyConfirmed: true,
+              resultSource: current.resultSource || 'MANUAL_AGREEMENT',
+            };
+          }
+
+          const now = new Date();
+
+          if (!current.firstReporterTeamId) {
+            const updated = await tx.scrimSeries.update({
+              where: { id: current.id },
+              data: {
+                firstReporterTeamId: normalizedReportingTeamId,
+                firstReportedWinnerTeamId: normalizedWinnerTeamId,
+                firstReportedAt: now,
+                manualConflictCount: 0,
+              },
+              select: {
+                id: true,
+                firstReporterTeamId: true,
+                firstReportedWinnerTeamId: true,
+              },
+            });
+
+            return {
+              status: 'PENDING_CONFIRMATION',
+              firstReporterTeamId: updated.firstReporterTeamId,
+              firstReportedWinnerTeamId: updated.firstReportedWinnerTeamId,
+              opponentTeamId:
+                normalizedReportingTeamId === current.hostTeamId
+                  ? current.guestTeamId
+                  : current.hostTeamId,
+            };
+          }
+
+          if (current.firstReporterTeamId === normalizedReportingTeamId) {
+            const updated = await tx.scrimSeries.update({
+              where: { id: current.id },
+              data: {
+                firstReportedWinnerTeamId: normalizedWinnerTeamId,
+                firstReportedAt: now,
+                manualConflictCount: 0,
+              },
+              select: {
+                id: true,
+                firstReporterTeamId: true,
+                firstReportedWinnerTeamId: true,
+              },
+            });
+
+            return {
+              status: 'PENDING_CONFIRMATION',
+              firstReporterTeamId: updated.firstReporterTeamId,
+              firstReportedWinnerTeamId: updated.firstReportedWinnerTeamId,
+              opponentTeamId:
+                normalizedReportingTeamId === current.hostTeamId
+                  ? current.guestTeamId
+                  : current.hostTeamId,
+            };
+          }
+
+          if (current.firstReportedWinnerTeamId === normalizedWinnerTeamId) {
+            const confirmed = await tx.scrimSeries.update({
+              where: { id: current.id },
+              data: {
+                winnerTeamId: normalizedWinnerTeamId,
+                winnerConfirmedAt: now,
+                resultSource: 'MANUAL_AGREEMENT',
+                autoResultStatus: 'CONFIRMED',
+                autoResultFailureReason: null,
+              },
+              select: {
+                id: true,
+                winnerTeamId: true,
+                winnerConfirmedAt: true,
+              },
+            });
+
+            return {
+              status: 'CONFIRMED',
+              winnerTeamId: confirmed.winnerTeamId,
+              winnerConfirmedAt: confirmed.winnerConfirmedAt,
+              alreadyConfirmed: false,
+              resultSource: 'MANUAL_AGREEMENT',
+            };
+          }
+
+          const conflictState = await tx.scrimSeries.update({
+            where: { id: current.id },
+            data: {
+              manualConflictCount: { increment: 1 },
+            },
+            select: {
+              manualConflictCount: true,
+              escalatedAt: true,
+              lobbyCodeUsedAt: true,
+            },
+          });
+
+          let escalated = false;
+          let escalatedAt = conflictState.escalatedAt;
+          if (
+            !conflictState.escalatedAt &&
+            conflictState.manualConflictCount >=
+              SCRIM_MANUAL_CONFLICT_ESCALATION_THRESHOLD
+          ) {
+            const escalatedSeries = await tx.scrimSeries.update({
+              where: { id: current.id },
+              data: { escalatedAt: now },
+              select: { escalatedAt: true },
+            });
+            escalated = true;
+            escalatedAt = escalatedSeries.escalatedAt;
+          }
+
+          return {
+            status: 'CONFLICT',
+            expectedWinnerTeamId: current.firstReportedWinnerTeamId,
+            manualConflictCount: conflictState.manualConflictCount,
+            escalated,
+            escalatedAt,
+            lobbyCodeUsedAt: conflictState.lobbyCodeUsedAt,
+          };
+        });
+
+        if ((result as any).errorCode) {
+          return reply
+            .status((result as any).errorCode)
+            .send({ error: (result as any).error });
+        }
+
+        const seriesMeta = await prisma.scrimSeries.findUnique({
+          where: { id: normalizedSeriesId },
           select: {
             id: true,
             hostTeamId: true,
@@ -2578,6 +4117,7 @@ export default async function scrimRoutes(fastify: any) {
             scheduledAt: true,
             matchCode: true,
             matchCodeVersion: true,
+            lobbyCodeUsedAt: true,
             hostTeam: {
               select: {
                 name: true,
@@ -2593,606 +4133,269 @@ export default async function scrimRoutes(fastify: any) {
           },
         });
 
-        const hostLabel = buildTeamLabel(series.hostTeam);
-        const guestLabel = buildTeamLabel(series.guestTeam);
-        await createScrimLifecycleFanout(tx, {
-          seriesId: series.id,
-          scheduledAt: series.scheduledAt,
-          lifecycleType: 'MATCH_CODE_REGENERATED',
-          triggeredByUserId: userId,
-          triggeredByUsername: actor?.username || null,
-          entries: [
-            {
-              teamId: series.hostTeamId,
-              title: `Match Code Regenerated • ${hostLabel} vs ${guestLabel}`,
-              message: `You regenerated the match code to ${series.matchCode} (v${series.matchCodeVersion}). Share this updated code with your opponent before start.`,
-              appNotificationType: 'SCRIM_MATCH_CODE_REGENERATED',
-            },
-            {
-              teamId: series.guestTeamId,
-              title: `Match Code Updated • ${hostLabel} vs ${guestLabel}`,
-              message: `Host team ${hostLabel} regenerated the match code to ${series.matchCode} (v${series.matchCodeVersion}). Use this latest code.`,
-              appNotificationType: 'SCRIM_MATCH_CODE_REGENERATED',
-            },
-          ],
-        });
-
-        return series;
-      });
-
-      return reply.send({
-        success: true,
-        series: {
-          id: updated.id,
-          matchCode: updated.matchCode,
-          matchCodeVersion: updated.matchCodeVersion,
-          hostTeamId: updated.hostTeamId,
-          guestTeamId: updated.guestTeamId,
-          scheduledAt: updated.scheduledAt,
-        },
-      });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to regenerate match code' });
-    }
-  });
-
-  // POST /api/scrims/series/:seriesId/lobby-code-used - Host confirms lobby was created with app match code
-  fastify.post('/scrims/series/:seriesId/lobby-code-used', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
-
-      const { seriesId } = request.params as { seriesId: string };
-      const normalizedSeriesId = normalizeString(seriesId);
-      if (!normalizedSeriesId) {
-        return reply.status(400).send({ error: 'seriesId is required' });
-      }
-
-      const series = await prisma.scrimSeries.findUnique({
-        where: { id: normalizedSeriesId },
-        select: {
-          id: true,
-          hostTeamId: true,
-        },
-      });
-
-      if (!series) {
-        return reply.status(404).send({ error: 'Scrim series not found' });
-      }
-
-      if (!await canManageTeam(userId, series.hostTeamId)) {
-        return reply.status(403).send({ error: 'Only host team staff can confirm lobby creation' });
-      }
-
-      await prisma.scrimSeries.update({
-        where: { id: series.id },
-        data: {
-          lobbyCodeUsedAt: new Date(),
-          lobbyCodeUsedByUserId: userId,
-        },
-      });
-
-      return reply.send({ success: true });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to confirm lobby code usage' });
-    }
-  });
-
-  // GET /api/scrims/series/pending-results - Series awaiting winner agreement from both teams
-  fastify.get('/scrims/series/pending-results', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
-
-      await maybeRunDueAutoResultSweep(fastify);
-
-      const manageableTeamIds = await getManageableTeamIds(userId);
-      if (manageableTeamIds.length === 0) {
-        return reply.send({ series: [] });
-      }
-
-      const series = await prisma.scrimSeries.findMany({
-        where: {
-          winnerConfirmedAt: null,
-          OR: [
-            { hostTeamId: { in: manageableTeamIds } },
-            { guestTeamId: { in: manageableTeamIds } },
-          ],
-        },
-        orderBy: [{ scheduledAt: 'desc' }, { createdAt: 'desc' }],
-        take: 120,
-        include: {
-          hostTeam: {
-            select: {
-              id: true,
-              name: true,
-              tag: true,
-            },
-          },
-          guestTeam: {
-            select: {
-              id: true,
-              name: true,
-              tag: true,
-            },
-          },
-          proposal: {
-            select: {
-              id: true,
-              post: {
-                select: {
-                  id: true,
-                  scrimFormat: true,
-                  startTimeUtc: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      const payload = (series as any[]).map((entry) => {
-        const myTeamIds = [entry.hostTeamId, entry.guestTeamId].filter((teamId: string) => manageableTeamIds.includes(teamId));
-        const boGames = scrimFormatToBoGames(entry?.proposal?.post?.scrimFormat);
-        return {
-          id: entry.id,
-          matchCode: entry.matchCode,
-          matchCodeVersion: entry.matchCodeVersion,
-          matchCodeRegeneratedAt: entry.matchCodeRegeneratedAt,
-          matchCodeRegeneratedByTeamId: entry.matchCodeRegeneratedByTeamId,
-          lobbyCodeUsedAt: entry.lobbyCodeUsedAt,
-          lobbyCodeUsedByUserId: entry.lobbyCodeUsedByUserId,
-          scheduledAt: entry.scheduledAt,
-          hostTeamId: entry.hostTeamId,
-          guestTeamId: entry.guestTeamId,
-          hostTeam: entry.hostTeam,
-          guestTeam: entry.guestTeam,
-          hostCreatesLobby: true,
-          boGames,
-          autoResultStatus: entry.autoResultStatus,
-          autoResultReadyAt: entry.autoResultReadyAt,
-          autoResultAttempts: entry.autoResultAttempts,
-          autoResultFailureReason: entry.autoResultFailureReason,
-          autoResultMatchId: entry.autoResultMatchId,
-          resultSource: entry.resultSource,
-          manualConflictCount: entry.manualConflictCount,
-          escalatedAt: entry.escalatedAt,
-          firstReporterTeamId: entry.firstReporterTeamId,
-          firstReportedWinnerTeamId: entry.firstReportedWinnerTeamId,
-          firstReportedAt: entry.firstReportedAt,
-          proposal: entry.proposal,
-          myTeamIds,
-        };
-      });
-
-      return reply.send({ series: payload });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch pending scrim results' });
-    }
-  });
-
-  // POST /api/scrims/series/:seriesId/result - Report winner and require opponent agreement
-  fastify.post('/scrims/series/:seriesId/result', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
-
-      const { seriesId } = request.params as { seriesId: string };
-      const {
-        reportingTeamId,
-        winnerTeamId,
-      } = request.body as {
-        reportingTeamId?: string;
-        winnerTeamId?: string;
-      };
-
-      const normalizedSeriesId = normalizeString(seriesId);
-      const normalizedReportingTeamId = normalizeString(reportingTeamId);
-      const normalizedWinnerTeamId = normalizeString(winnerTeamId);
-
-      if (!normalizedSeriesId || !normalizedReportingTeamId || !normalizedWinnerTeamId) {
-        return reply.status(400).send({ error: 'seriesId, reportingTeamId, and winnerTeamId are required' });
-      }
-
-      if (!await canManageTeam(userId, normalizedReportingTeamId)) {
-        return reply.status(403).send({ error: 'You are not allowed to report results for this team' });
-      }
-
-      const result = await prisma.$transaction(async (tx: any) => {
-        const current = await tx.scrimSeries.findUnique({
-          where: { id: normalizedSeriesId },
-          select: {
-            id: true,
-            hostTeamId: true,
-            guestTeamId: true,
-            winnerTeamId: true,
-            winnerConfirmedAt: true,
-            resultSource: true,
-            firstReporterTeamId: true,
-            firstReportedWinnerTeamId: true,
-            scheduledAt: true,
-            manualConflictCount: true,
-            escalatedAt: true,
-            lobbyCodeUsedAt: true,
-          },
-        });
-
-        if (!current) {
-          return { errorCode: 404, error: 'Scrim series not found' };
-        }
-
-        if (![current.hostTeamId, current.guestTeamId].includes(normalizedReportingTeamId)) {
-          return { errorCode: 403, error: 'Reporting team is not part of this scrim series' };
-        }
-
-        if (![current.hostTeamId, current.guestTeamId].includes(normalizedWinnerTeamId)) {
-          return { errorCode: 400, error: 'winnerTeamId must be one of the teams in this scrim series' };
-        }
-
-        if (current.winnerConfirmedAt) {
-          return {
-            status: 'CONFIRMED',
-            winnerTeamId: current.winnerTeamId,
-            alreadyConfirmed: true,
-            resultSource: current.resultSource || 'MANUAL_AGREEMENT',
-          };
-        }
-
-        const now = new Date();
-
-        if (!current.firstReporterTeamId) {
-          const updated = await tx.scrimSeries.update({
-            where: { id: current.id },
-            data: {
-              firstReporterTeamId: normalizedReportingTeamId,
-              firstReportedWinnerTeamId: normalizedWinnerTeamId,
-              firstReportedAt: now,
-              manualConflictCount: 0,
-            },
-            select: {
-              id: true,
-              firstReporterTeamId: true,
-              firstReportedWinnerTeamId: true,
-            },
-          });
-
-          return {
-            status: 'PENDING_CONFIRMATION',
-            firstReporterTeamId: updated.firstReporterTeamId,
-            firstReportedWinnerTeamId: updated.firstReportedWinnerTeamId,
-            opponentTeamId: normalizedReportingTeamId === current.hostTeamId ? current.guestTeamId : current.hostTeamId,
-          };
-        }
-
-        if (current.firstReporterTeamId === normalizedReportingTeamId) {
-          const updated = await tx.scrimSeries.update({
-            where: { id: current.id },
-            data: {
-              firstReportedWinnerTeamId: normalizedWinnerTeamId,
-              firstReportedAt: now,
-              manualConflictCount: 0,
-            },
-            select: {
-              id: true,
-              firstReporterTeamId: true,
-              firstReportedWinnerTeamId: true,
-            },
-          });
-
-          return {
-            status: 'PENDING_CONFIRMATION',
-            firstReporterTeamId: updated.firstReporterTeamId,
-            firstReportedWinnerTeamId: updated.firstReportedWinnerTeamId,
-            opponentTeamId: normalizedReportingTeamId === current.hostTeamId ? current.guestTeamId : current.hostTeamId,
-          };
-        }
-
-        if (current.firstReportedWinnerTeamId === normalizedWinnerTeamId) {
-          const confirmed = await tx.scrimSeries.update({
-            where: { id: current.id },
-            data: {
-              winnerTeamId: normalizedWinnerTeamId,
-              winnerConfirmedAt: now,
-              resultSource: 'MANUAL_AGREEMENT',
-              autoResultStatus: 'CONFIRMED',
-              autoResultFailureReason: null,
-            },
-            select: {
-              id: true,
-              winnerTeamId: true,
-              winnerConfirmedAt: true,
-            },
-          });
-
-          return {
-            status: 'CONFIRMED',
-            winnerTeamId: confirmed.winnerTeamId,
-            winnerConfirmedAt: confirmed.winnerConfirmedAt,
-            alreadyConfirmed: false,
-            resultSource: 'MANUAL_AGREEMENT',
-          };
-        }
-
-        const conflictState = await tx.scrimSeries.update({
-          where: { id: current.id },
-          data: {
-            manualConflictCount: { increment: 1 },
-          },
-          select: {
-            manualConflictCount: true,
-            escalatedAt: true,
-            lobbyCodeUsedAt: true,
-          },
-        });
-
-        let escalated = false;
-        let escalatedAt = conflictState.escalatedAt;
-        if (!conflictState.escalatedAt && conflictState.manualConflictCount >= SCRIM_MANUAL_CONFLICT_ESCALATION_THRESHOLD) {
-          const escalatedSeries = await tx.scrimSeries.update({
-            where: { id: current.id },
-            data: { escalatedAt: now },
-            select: { escalatedAt: true },
-          });
-          escalated = true;
-          escalatedAt = escalatedSeries.escalatedAt;
-        }
-
-        return {
-          status: 'CONFLICT',
-          expectedWinnerTeamId: current.firstReportedWinnerTeamId,
-          manualConflictCount: conflictState.manualConflictCount,
-          escalated,
-          escalatedAt,
-          lobbyCodeUsedAt: conflictState.lobbyCodeUsedAt,
-        };
-      });
-
-      if ((result as any).errorCode) {
-        return reply.status((result as any).errorCode).send({ error: (result as any).error });
-      }
-
-      const seriesMeta = await prisma.scrimSeries.findUnique({
-        where: { id: normalizedSeriesId },
-        select: {
-          id: true,
-          hostTeamId: true,
-          guestTeamId: true,
-          scheduledAt: true,
-          matchCode: true,
-          matchCodeVersion: true,
-          lobbyCodeUsedAt: true,
-          hostTeam: {
-            select: {
-              name: true,
-              tag: true,
-            },
-          },
-          guestTeam: {
-            select: {
-              name: true,
-              tag: true,
-            },
-          },
-        },
-      });
-
-      if ((result as any).status === 'PENDING_CONFIRMATION' && seriesMeta && (result as any).opponentTeamId) {
-        const hostLabel = buildTeamLabel(seriesMeta.hostTeam);
-        const guestLabel = buildTeamLabel(seriesMeta.guestTeam);
-        const winnerLabel = (result as any).firstReportedWinnerTeamId === seriesMeta.guestTeamId ? guestLabel : hostLabel;
-        const reporterLabel = (result as any).firstReporterTeamId === seriesMeta.guestTeamId ? guestLabel : hostLabel;
-
-        await createScrimLifecycleFanout(prisma, {
-          seriesId: seriesMeta.id,
-          scheduledAt: seriesMeta.scheduledAt,
-          lifecycleType: 'AUTO_RESULT_MANUAL_REQUIRED',
-          triggeredByUserId: userId,
-          entries: [
-            {
-              teamId: (result as any).opponentTeamId,
-              title: `Winner Confirmation Needed • ${hostLabel} vs ${guestLabel}`,
-              message: `${reporterLabel} reported ${winnerLabel} as winner. Confirm or correct the result in Scrim Finder.`,
-              appNotificationType: 'SCRIM_RESULT_MANUAL_REQUIRED',
-            },
-          ],
-        });
-      }
-
-      if ((result as any).status === 'CONFIRMED' && !(result as any).alreadyConfirmed && seriesMeta) {
-        const hostLabel = buildTeamLabel(seriesMeta.hostTeam);
-        const guestLabel = buildTeamLabel(seriesMeta.guestTeam);
-        const winnerLabel = (result as any).winnerTeamId === seriesMeta.guestTeamId ? guestLabel : hostLabel;
-        const sourceLabel = (result as any).resultSource === 'AUTO_RIOT' ? 'Auto' : 'Manual';
-
-        await createScrimLifecycleFanout(prisma, {
-          seriesId: seriesMeta.id,
-          scheduledAt: seriesMeta.scheduledAt,
-          lifecycleType: 'MANUAL_RESULT_CONFIRMED',
-          triggeredByUserId: userId,
-          entries: [
-            {
-              teamId: seriesMeta.hostTeamId,
-              title: `${sourceLabel} Result Confirmed • ${hostLabel} vs ${guestLabel}`,
-              message: `${sourceLabel} winner agreement confirmed. Winner: ${winnerLabel}.`,
-              appNotificationType: 'SCRIM_RESULT_MANUAL_CONFIRMED',
-            },
-            {
-              teamId: seriesMeta.guestTeamId,
-              title: `${sourceLabel} Result Confirmed • ${hostLabel} vs ${guestLabel}`,
-              message: `${sourceLabel} winner agreement confirmed. Winner: ${winnerLabel}.`,
-              appNotificationType: 'SCRIM_RESULT_MANUAL_CONFIRMED',
-            },
-          ],
-        });
-      }
-
-      if ((result as any).status === 'CONFLICT') {
-        const shouldEscalate = ((result as any).manualConflictCount || 0) >= SCRIM_MANUAL_CONFLICT_ESCALATION_THRESHOLD;
-        const supportDiscordUrl = getSupportDiscordUrl();
-
-        if ((result as any).escalated && seriesMeta) {
+        if (
+          (result as any).status === 'PENDING_CONFIRMATION' &&
+          seriesMeta &&
+          (result as any).opponentTeamId
+        ) {
           const hostLabel = buildTeamLabel(seriesMeta.hostTeam);
           const guestLabel = buildTeamLabel(seriesMeta.guestTeam);
-          const trustHint = seriesMeta.lobbyCodeUsedAt
-            ? 'The host confirmed that this lobby used the RiftEssence app code. Mention that code to speed up support verification.'
-            : 'If the lobby used the app-provided code, mention it in your support report.';
+          const winnerLabel =
+            (result as any).firstReportedWinnerTeamId === seriesMeta.guestTeamId
+              ? guestLabel
+              : hostLabel;
+          const reporterLabel =
+            (result as any).firstReporterTeamId === seriesMeta.guestTeamId
+              ? guestLabel
+              : hostLabel;
 
           await createScrimLifecycleFanout(prisma, {
             seriesId: seriesMeta.id,
             scheduledAt: seriesMeta.scheduledAt,
-            lifecycleType: 'MANUAL_CONFLICT_ESCALATED',
+            lifecycleType: 'AUTO_RESULT_MANUAL_REQUIRED',
             triggeredByUserId: userId,
             entries: [
               {
-                teamId: seriesMeta.hostTeamId,
-                title: `Support Escalation Recommended • ${hostLabel} vs ${guestLabel}`,
-                message: `Both teams still disagree on the winner. Join support Discord (${supportDiscordUrl}) and share scoreboard screenshots from both sides. ${trustHint}`,
-                appNotificationType: 'SCRIM_RESULT_CONFLICT_ESCALATION',
-              },
-              {
-                teamId: seriesMeta.guestTeamId,
-                title: `Support Escalation Recommended • ${hostLabel} vs ${guestLabel}`,
-                message: `Both teams still disagree on the winner. Join support Discord (${supportDiscordUrl}) and share scoreboard screenshots from both sides. ${trustHint}`,
-                appNotificationType: 'SCRIM_RESULT_CONFLICT_ESCALATION',
+                teamId: (result as any).opponentTeamId,
+                title: `Winner Confirmation Needed • ${hostLabel} vs ${guestLabel}`,
+                message: `${reporterLabel} reported ${winnerLabel} as winner. Confirm or correct the result in Scrim Finder.`,
+                appNotificationType: 'SCRIM_RESULT_MANUAL_REQUIRED',
               },
             ],
           });
         }
 
-        return reply.status(409).send({
-          error: shouldEscalate
-            ? 'Teams still disagree on winner. Please escalate to support with screenshot evidence.'
-            : 'Teams did not agree on winner yet. Ask the opponent to align on the reported winner.',
-          expectedWinnerTeamId: (result as any).expectedWinnerTeamId,
-          manualConflictCount: (result as any).manualConflictCount || 0,
-          support: shouldEscalate
-            ? {
-                required: true,
-                url: supportDiscordUrl,
-                guidance: 'Share full post-game scoreboard screenshots from both teams and mention the scrim match code.',
-                trustHint: Boolean((result as any).lobbyCodeUsedAt),
-              }
-            : undefined,
-        });
-      }
+        if (
+          (result as any).status === 'CONFIRMED' &&
+          !(result as any).alreadyConfirmed &&
+          seriesMeta
+        ) {
+          const hostLabel = buildTeamLabel(seriesMeta.hostTeam);
+          const guestLabel = buildTeamLabel(seriesMeta.guestTeam);
+          const winnerLabel =
+            (result as any).winnerTeamId === seriesMeta.guestTeamId
+              ? guestLabel
+              : hostLabel;
+          const sourceLabel =
+            (result as any).resultSource === 'AUTO_RIOT' ? 'Auto' : 'Manual';
 
-      return reply.send({
-        success: true,
-        result,
-      });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to report scrim result' });
-    }
-  });
-
-  // GET /api/scrims/reviews/candidates - Team pairs eligible for first-time review
-  fastify.get('/scrims/reviews/candidates', async (request: any, reply: any) => {
-    try {
-      const userId = await getUserIdFromRequest(request, reply);
-      if (!userId) return;
-
-      const manageableTeamIds = await getManageableTeamIds(userId);
-      if (manageableTeamIds.length === 0) {
-        return reply.send({ candidates: [] });
-      }
-
-      const series = await prisma.scrimSeries.findMany({
-        where: {
-          winnerConfirmedAt: { not: null },
-          OR: [
-            { hostTeamId: { in: manageableTeamIds } },
-            { guestTeamId: { in: manageableTeamIds } },
-          ],
-        },
-        orderBy: { winnerConfirmedAt: 'desc' },
-        take: 200,
-        include: {
-          hostTeam: {
-            select: {
-              id: true,
-              name: true,
-              tag: true,
-            },
-          },
-          guestTeam: {
-            select: {
-              id: true,
-              name: true,
-              tag: true,
-            },
-          },
-        },
-      });
-
-      const involvedTeamIds = Array.from(new Set((series as any[]).flatMap((entry) => [entry.hostTeamId, entry.guestTeamId])));
-      const existingReviews = involvedTeamIds.length > 0
-        ? await prisma.scrimTeamReview.findMany({
-            where: {
-              reviewerTeamId: { in: involvedTeamIds },
-              targetTeamId: { in: involvedTeamIds },
-            },
-            select: {
-              reviewerTeamId: true,
-              targetTeamId: true,
-            },
-          })
-        : [];
-
-      const reviewedPairSet = new Set((existingReviews as Array<{ reviewerTeamId: string; targetTeamId: string }>).map((entry) => `${entry.reviewerTeamId}::${entry.targetTeamId}`));
-      const candidates: Array<Record<string, any>> = [];
-
-      (series as any[]).forEach((entry) => {
-        const pairs: Array<{ reviewerTeamId: string; targetTeamId: string; reviewerTeam: any; targetTeam: any }> = [];
-
-        if (manageableTeamIds.includes(entry.hostTeamId)) {
-          pairs.push({
-            reviewerTeamId: entry.hostTeamId,
-            targetTeamId: entry.guestTeamId,
-            reviewerTeam: entry.hostTeam,
-            targetTeam: entry.guestTeam,
+          await createScrimLifecycleFanout(prisma, {
+            seriesId: seriesMeta.id,
+            scheduledAt: seriesMeta.scheduledAt,
+            lifecycleType: 'MANUAL_RESULT_CONFIRMED',
+            triggeredByUserId: userId,
+            entries: [
+              {
+                teamId: seriesMeta.hostTeamId,
+                title: `${sourceLabel} Result Confirmed • ${hostLabel} vs ${guestLabel}`,
+                message: `${sourceLabel} winner agreement confirmed. Winner: ${winnerLabel}.`,
+                appNotificationType: 'SCRIM_RESULT_MANUAL_CONFIRMED',
+              },
+              {
+                teamId: seriesMeta.guestTeamId,
+                title: `${sourceLabel} Result Confirmed • ${hostLabel} vs ${guestLabel}`,
+                message: `${sourceLabel} winner agreement confirmed. Winner: ${winnerLabel}.`,
+                appNotificationType: 'SCRIM_RESULT_MANUAL_CONFIRMED',
+              },
+            ],
           });
         }
 
-        if (manageableTeamIds.includes(entry.guestTeamId)) {
-          pairs.push({
-            reviewerTeamId: entry.guestTeamId,
-            targetTeamId: entry.hostTeamId,
-            reviewerTeam: entry.guestTeam,
-            targetTeam: entry.hostTeam,
-          });
-        }
+        if ((result as any).status === 'CONFLICT') {
+          const shouldEscalate =
+            ((result as any).manualConflictCount || 0) >=
+            SCRIM_MANUAL_CONFLICT_ESCALATION_THRESHOLD;
+          const supportDiscordUrl = getSupportDiscordUrl();
 
-        pairs.forEach((pair) => {
-          const pairKey = `${pair.reviewerTeamId}::${pair.targetTeamId}`;
-          if (reviewedPairSet.has(pairKey)) {
-            return;
+          if ((result as any).escalated && seriesMeta) {
+            const hostLabel = buildTeamLabel(seriesMeta.hostTeam);
+            const guestLabel = buildTeamLabel(seriesMeta.guestTeam);
+            const trustHint = seriesMeta.lobbyCodeUsedAt
+              ? 'The host confirmed that this lobby used the RiftEssence app code. Mention that code to speed up support verification.'
+              : 'If the lobby used the app-provided code, mention it in your support report.';
+
+            await createScrimLifecycleFanout(prisma, {
+              seriesId: seriesMeta.id,
+              scheduledAt: seriesMeta.scheduledAt,
+              lifecycleType: 'MANUAL_CONFLICT_ESCALATED',
+              triggeredByUserId: userId,
+              entries: [
+                {
+                  teamId: seriesMeta.hostTeamId,
+                  title: `Support Escalation Recommended • ${hostLabel} vs ${guestLabel}`,
+                  message: `Both teams still disagree on the winner. Join support Discord (${supportDiscordUrl}) and share scoreboard screenshots from both sides. ${trustHint}`,
+                  appNotificationType: 'SCRIM_RESULT_CONFLICT_ESCALATION',
+                },
+                {
+                  teamId: seriesMeta.guestTeamId,
+                  title: `Support Escalation Recommended • ${hostLabel} vs ${guestLabel}`,
+                  message: `Both teams still disagree on the winner. Join support Discord (${supportDiscordUrl}) and share scoreboard screenshots from both sides. ${trustHint}`,
+                  appNotificationType: 'SCRIM_RESULT_CONFLICT_ESCALATION',
+                },
+              ],
+            });
           }
 
-          reviewedPairSet.add(pairKey);
-          candidates.push({
-            seriesId: entry.id,
-            matchCode: entry.matchCode,
-            winnerTeamId: entry.winnerTeamId,
-            winnerConfirmedAt: entry.winnerConfirmedAt,
-            scheduledAt: entry.scheduledAt,
-            reviewerTeamId: pair.reviewerTeamId,
-            targetTeamId: pair.targetTeamId,
-            reviewerTeam: pair.reviewerTeam,
-            targetTeam: pair.targetTeam,
+          return reply.status(409).send({
+            error: shouldEscalate
+              ? 'Teams still disagree on winner. Please escalate to support with screenshot evidence.'
+              : 'Teams did not agree on winner yet. Ask the opponent to align on the reported winner.',
+            expectedWinnerTeamId: (result as any).expectedWinnerTeamId,
+            manualConflictCount: (result as any).manualConflictCount || 0,
+            support: shouldEscalate
+              ? {
+                  required: true,
+                  url: supportDiscordUrl,
+                  guidance:
+                    'Share full post-game scoreboard screenshots from both teams and mention the scrim match code.',
+                  trustHint: Boolean((result as any).lobbyCodeUsedAt),
+                }
+              : undefined,
+          });
+        }
+
+        return reply.send({
+          success: true,
+          result,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to report scrim result' });
+      }
+    },
+  );
+
+  // GET /api/scrims/reviews/candidates - Team pairs eligible for first-time review
+  fastify.get(
+    '/scrims/reviews/candidates',
+    async (request: any, reply: any) => {
+      try {
+        const userId = await getUserIdFromRequest(request, reply);
+        if (!userId) return;
+
+        const manageableTeamIds = await getManageableTeamIds(userId);
+        if (manageableTeamIds.length === 0) {
+          return reply.send({ candidates: [] });
+        }
+
+        const series = await prisma.scrimSeries.findMany({
+          where: {
+            winnerConfirmedAt: { not: null },
+            OR: [
+              { hostTeamId: { in: manageableTeamIds } },
+              { guestTeamId: { in: manageableTeamIds } },
+            ],
+          },
+          orderBy: { winnerConfirmedAt: 'desc' },
+          take: 200,
+          include: {
+            hostTeam: {
+              select: {
+                id: true,
+                name: true,
+                tag: true,
+              },
+            },
+            guestTeam: {
+              select: {
+                id: true,
+                name: true,
+                tag: true,
+              },
+            },
+          },
+        });
+
+        const involvedTeamIds = Array.from(
+          new Set(
+            (series as any[]).flatMap((entry) => [
+              entry.hostTeamId,
+              entry.guestTeamId,
+            ]),
+          ),
+        );
+        const existingReviews =
+          involvedTeamIds.length > 0
+            ? await prisma.scrimTeamReview.findMany({
+                where: {
+                  reviewerTeamId: { in: involvedTeamIds },
+                  targetTeamId: { in: involvedTeamIds },
+                },
+                select: {
+                  reviewerTeamId: true,
+                  targetTeamId: true,
+                },
+              })
+            : [];
+
+        const reviewedPairSet = new Set(
+          (
+            existingReviews as Array<{
+              reviewerTeamId: string;
+              targetTeamId: string;
+            }>
+          ).map((entry) => `${entry.reviewerTeamId}::${entry.targetTeamId}`),
+        );
+        const candidates: Array<Record<string, any>> = [];
+
+        (series as any[]).forEach((entry) => {
+          const pairs: Array<{
+            reviewerTeamId: string;
+            targetTeamId: string;
+            reviewerTeam: any;
+            targetTeam: any;
+          }> = [];
+
+          if (manageableTeamIds.includes(entry.hostTeamId)) {
+            pairs.push({
+              reviewerTeamId: entry.hostTeamId,
+              targetTeamId: entry.guestTeamId,
+              reviewerTeam: entry.hostTeam,
+              targetTeam: entry.guestTeam,
+            });
+          }
+
+          if (manageableTeamIds.includes(entry.guestTeamId)) {
+            pairs.push({
+              reviewerTeamId: entry.guestTeamId,
+              targetTeamId: entry.hostTeamId,
+              reviewerTeam: entry.guestTeam,
+              targetTeam: entry.hostTeam,
+            });
+          }
+
+          pairs.forEach((pair) => {
+            const pairKey = `${pair.reviewerTeamId}::${pair.targetTeamId}`;
+            if (reviewedPairSet.has(pairKey)) {
+              return;
+            }
+
+            reviewedPairSet.add(pairKey);
+            candidates.push({
+              seriesId: entry.id,
+              matchCode: entry.matchCode,
+              winnerTeamId: entry.winnerTeamId,
+              winnerConfirmedAt: entry.winnerConfirmedAt,
+              scheduledAt: entry.scheduledAt,
+              reviewerTeamId: pair.reviewerTeamId,
+              targetTeamId: pair.targetTeamId,
+              reviewerTeam: pair.reviewerTeam,
+              targetTeam: pair.targetTeam,
+            });
           });
         });
-      });
 
-      return reply.send({ candidates });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch scrim review candidates' });
-    }
-  });
+        return reply.send({ candidates });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to fetch scrim review candidates' });
+      }
+    },
+  );
 
   // POST /api/scrims/reviews - Submit team-vs-team review once per directed pair
   fastify.post('/scrims/reviews', async (request: any, reply: any) => {
@@ -3222,22 +4425,47 @@ export default async function scrimRoutes(fastify: any) {
       const normalizedReviewerTeamId = normalizeString(reviewerTeamId);
       const normalizedTargetTeamId = normalizeString(targetTeamId);
 
-      if (!normalizedSeriesId || !normalizedReviewerTeamId || !normalizedTargetTeamId) {
-        return reply.status(400).send({ error: 'seriesId, reviewerTeamId, and targetTeamId are required' });
+      if (
+        !normalizedSeriesId ||
+        !normalizedReviewerTeamId ||
+        !normalizedTargetTeamId
+      ) {
+        return reply
+          .status(400)
+          .send({
+            error: 'seriesId, reviewerTeamId, and targetTeamId are required',
+          });
       }
 
       if (normalizedReviewerTeamId === normalizedTargetTeamId) {
-        return reply.status(400).send({ error: 'reviewerTeamId and targetTeamId must be different teams' });
+        return reply
+          .status(400)
+          .send({
+            error: 'reviewerTeamId and targetTeamId must be different teams',
+          });
       }
 
-      const scoreValues = [politeness, punctuality, gameplay].map((value) => Number(value));
-      const hasInvalidScore = scoreValues.some((value) => !Number.isFinite(value) || value < 1 || value > 5);
+      const scoreValues = [politeness, punctuality, gameplay].map((value) =>
+        Number(value),
+      );
+      const hasInvalidScore = scoreValues.some(
+        (value) => !Number.isFinite(value) || value < 1 || value > 5,
+      );
       if (hasInvalidScore) {
-        return reply.status(400).send({ error: 'politeness, punctuality, and gameplay must be numbers from 1 to 5' });
+        return reply
+          .status(400)
+          .send({
+            error:
+              'politeness, punctuality, and gameplay must be numbers from 1 to 5',
+          });
       }
 
-      if (!await canManageTeam(userId, normalizedReviewerTeamId)) {
-        return reply.status(403).send({ error: 'You are not allowed to submit reviews for this team' });
+      if (!(await canManageTeam(userId, normalizedReviewerTeamId))) {
+        return reply
+          .status(403)
+          .send({
+            error: 'You are not allowed to submit reviews for this team',
+          });
       }
 
       const series = await prisma.scrimSeries.findUnique({
@@ -3255,18 +4483,31 @@ export default async function scrimRoutes(fastify: any) {
       }
 
       if (!series.winnerConfirmedAt) {
-        return reply.status(400).send({ error: 'Result agreement must be completed before leaving a review' });
+        return reply
+          .status(400)
+          .send({
+            error: 'Result agreement must be completed before leaving a review',
+          });
       }
 
       const validDirectedPair =
-        (normalizedReviewerTeamId === series.hostTeamId && normalizedTargetTeamId === series.guestTeamId)
-        || (normalizedReviewerTeamId === series.guestTeamId && normalizedTargetTeamId === series.hostTeamId);
+        (normalizedReviewerTeamId === series.hostTeamId &&
+          normalizedTargetTeamId === series.guestTeamId) ||
+        (normalizedReviewerTeamId === series.guestTeamId &&
+          normalizedTargetTeamId === series.hostTeamId);
 
       if (!validDirectedPair) {
-        return reply.status(400).send({ error: 'reviewerTeamId/targetTeamId must match the teams in this scrim series' });
+        return reply
+          .status(400)
+          .send({
+            error:
+              'reviewerTeamId/targetTeamId must match the teams in this scrim series',
+          });
       }
 
-      const averageRating = Number(((scoreValues[0] + scoreValues[1] + scoreValues[2]) / 3).toFixed(2));
+      const averageRating = Number(
+        ((scoreValues[0] + scoreValues[1] + scoreValues[2]) / 3).toFixed(2),
+      );
 
       const created = await prisma.scrimTeamReview.create({
         data: {
@@ -3287,7 +4528,9 @@ export default async function scrimRoutes(fastify: any) {
       });
     } catch (error: any) {
       if (error?.code === 'P2002') {
-        return reply.status(409).send({ error: 'This team pair already has a submitted review.' });
+        return reply
+          .status(409)
+          .send({ error: 'This team pair already has a submitted review.' });
       }
 
       fastify.log.error(error);

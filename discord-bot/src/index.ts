@@ -1,4 +1,28 @@
-import { Client, GatewayIntentBits, Events, REST, Routes, SlashCommandBuilder, ChatInputCommandInteraction, TextChannel, EmbedBuilder, ActivityType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ButtonInteraction, StringSelectMenuInteraction, ModalBuilder, TextInputBuilder, TextInputStyle, ModalSubmitInteraction, Guild } from 'discord.js';
+import {
+  Client,
+  GatewayIntentBits,
+  Events,
+  REST,
+  Routes,
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  TextChannel,
+  EmbedBuilder,
+  ActivityType,
+  PermissionFlagsBits,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  ButtonInteraction,
+  StringSelectMenuInteraction,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ModalSubmitInteraction,
+  Guild,
+} from 'discord.js';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
 
@@ -7,10 +31,15 @@ dotenv.config();
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN!;
 const DISCORD_BOT_API_KEY = process.env.DISCORD_BOT_API_KEY!;
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3333';
-const POLL_INTERVAL_MS = parseInt(process.env.DISCORD_BOT_POLL_INTERVAL_MS || '60000', 10);
+const POLL_INTERVAL_MS = parseInt(
+  process.env.DISCORD_BOT_POLL_INTERVAL_MS || '60000',
+  10,
+);
 
 if (!DISCORD_BOT_TOKEN || !DISCORD_BOT_API_KEY) {
-  console.error('❌ Missing required environment variables: DISCORD_BOT_TOKEN and DISCORD_BOT_API_KEY');
+  console.error(
+    '❌ Missing required environment variables: DISCORD_BOT_TOKEN and DISCORD_BOT_API_KEY',
+  );
   process.exit(1);
 }
 
@@ -28,20 +57,56 @@ const client = new Client({
 // ============================================================
 
 const APP_URL = process.env.APP_URL || 'https://riftessence.app';
-const EMOJI_SOURCE_GUILD_ID = process.env.DISCORD_EMOJI_SOURCE_GUILD_ID || '1051156621860020304';
-const CHAMPION_ICON_SOURCE_GUILD_IDS = (process.env.DISCORD_CHAMPION_ICON_SOURCE_GUILD_IDS
-  || '1161703478851280956,1051156621860020304,1051156621860020304,908030229803581471')
+const EMOJI_SOURCE_GUILD_ID =
+  process.env.DISCORD_EMOJI_SOURCE_GUILD_ID || '1051156621860020304';
+const CHAMPION_ICON_SOURCE_GUILD_IDS = (
+  process.env.DISCORD_CHAMPION_ICON_SOURCE_GUILD_IDS ||
+  '1161703478851280956,1051156621860020304,1051156621860020304,908030229803581471'
+)
   .split(',')
   .map((entry) => entry.trim())
   .filter((entry) => entry.length > 0);
 
-const REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU', 'SG'];
+const REGIONS = [
+  'NA',
+  'EUW',
+  'EUNE',
+  'KR',
+  'JP',
+  'OCE',
+  'LAN',
+  'LAS',
+  'BR',
+  'RU',
+  'SG',
+];
 const ROLES = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
-const RANKS = ['IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'];
+const RANKS = [
+  'IRON',
+  'BRONZE',
+  'SILVER',
+  'GOLD',
+  'PLATINUM',
+  'EMERALD',
+  'DIAMOND',
+  'MASTER',
+  'GRANDMASTER',
+  'CHALLENGER',
+];
 const ROLE_FORWARDING_RANK_KEYS = [...RANKS, 'UNRANKED'];
 const ROLE_FORWARDING_LANGUAGE_KEYS = [
-  'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
-  'Polish', 'Russian', 'Turkish', 'Korean', 'Japanese', 'Chinese',
+  'English',
+  'Spanish',
+  'French',
+  'German',
+  'Italian',
+  'Portuguese',
+  'Polish',
+  'Russian',
+  'Turkish',
+  'Korean',
+  'Japanese',
+  'Chinese',
 ];
 
 const CHAT_REPLY_BUTTON_PREFIX = 'chat_reply_open_';
@@ -73,7 +138,13 @@ const TEAM_EVENT_DATETIME_INPUT = 'team_event_datetime';
 const TEAM_EVENT_DURATION_INPUT = 'team_event_duration';
 const TEAM_EVENT_OPPONENT_INPUT = 'team_event_opponent';
 const TEAM_EVENT_DESCRIPTION_INPUT = 'team_event_description';
-const TEAM_EVENT_TYPES = ['SCRIM', 'PRACTICE', 'VOD_REVIEW', 'TOURNAMENT', 'TEAM_MEETING'] as const;
+const TEAM_EVENT_TYPES = [
+  'SCRIM',
+  'PRACTICE',
+  'VOD_REVIEW',
+  'TOURNAMENT',
+  'TEAM_MEETING',
+] as const;
 const TEAM_AVAILABILITY_BUTTON_PREFIX = 'team_avail_open_';
 const TEAM_AVAILABILITY_MODAL_PREFIX = 'team_avail_modal_';
 const TEAM_AVAILABILITY_DAY_INPUT_PREFIX = 'team_avail_day_';
@@ -88,19 +159,43 @@ const DUO_VC_INPUT = 'duo_vc';
 const CHAMPION_EMOJI_BATCH_COUNT = 4;
 const CHAMPION_POOL_TIER_ORDER = ['S', 'A', 'B', 'C'] as const;
 
-const ROLE_FORWARDING_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_ROLE_FORWARDING_POLL_INTERVAL_MS || '300000', 10);
-const TEAM_AVAILABILITY_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_TEAM_AVAILABILITY_POLL_INTERVAL_MS || '300000', 10);
-const MIRROR_DELETION_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_MIRROR_DELETION_POLL_INTERVAL_MS || '20000', 10);
-const MIRROR_DELETION_BATCH_SIZE = parseInt(process.env.DISCORD_MIRROR_DELETION_BATCH_SIZE || '20', 10);
+const ROLE_FORWARDING_POLL_INTERVAL_MS = parseInt(
+  process.env.DISCORD_ROLE_FORWARDING_POLL_INTERVAL_MS || '300000',
+  10,
+);
+const TEAM_AVAILABILITY_POLL_INTERVAL_MS = parseInt(
+  process.env.DISCORD_TEAM_AVAILABILITY_POLL_INTERVAL_MS || '300000',
+  10,
+);
+const MIRROR_DELETION_POLL_INTERVAL_MS = parseInt(
+  process.env.DISCORD_MIRROR_DELETION_POLL_INTERVAL_MS || '20000',
+  10,
+);
+const MIRROR_DELETION_BATCH_SIZE = parseInt(
+  process.env.DISCORD_MIRROR_DELETION_BATCH_SIZE || '20',
+  10,
+);
 const MIRRORED_MESSAGE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 const RANK_EMOJIS: Record<string, string> = {
-  IRON: '🪨', BRONZE: '🥉', SILVER: '🥈', GOLD: '🥇', PLATINUM: '💎',
-  EMERALD: '💚', DIAMOND: '💠', MASTER: '🟣', GRANDMASTER: '🔴', CHALLENGER: '👑',
+  IRON: '🪨',
+  BRONZE: '🥉',
+  SILVER: '🥈',
+  GOLD: '🥇',
+  PLATINUM: '💎',
+  EMERALD: '💚',
+  DIAMOND: '💠',
+  MASTER: '🟣',
+  GRANDMASTER: '🔴',
+  CHALLENGER: '👑',
 };
 
 const ROLE_EMOJIS: Record<string, string> = {
-  TOP: '🛡️', JUNGLE: '🌿', MID: '⚔️', ADC: '🏹', SUPPORT: '❤️',
+  TOP: '🛡️',
+  JUNGLE: '🌿',
+  MID: '⚔️',
+  ADC: '🏹',
+  SUPPORT: '❤️',
 };
 
 const ROLE_CUSTOM_EMOJI_NAMES: Record<string, string> = {
@@ -150,20 +245,33 @@ function getMirrorIndexKey(postType: MirrorPostType, postId: string): string {
   return `${postType}:${postId}`;
 }
 
-function storeMirroredMessageRef(postType: MirrorPostType, postId: string, guildId: string, channelId: string, messageId: string) {
+function storeMirroredMessageRef(
+  postType: MirrorPostType,
+  postId: string,
+  guildId: string,
+  channelId: string,
+  messageId: string,
+) {
   const key = getMirrorIndexKey(postType, postId);
   const now = Date.now();
   const existing = mirroredMessageRefs.get(key) || [];
 
-  const filtered = existing.filter((entry) => now - entry.createdAtMs <= MIRRORED_MESSAGE_RETENTION_MS);
+  const filtered = existing.filter(
+    (entry) => now - entry.createdAtMs <= MIRRORED_MESSAGE_RETENTION_MS,
+  );
   filtered.push({ guildId, channelId, messageId, createdAtMs: now });
   mirroredMessageRefs.set(key, filtered.slice(-100));
 }
 
-function getMirroredMessageRefs(postType: MirrorPostType, postId: string): MirroredMessageRef[] {
+function getMirroredMessageRefs(
+  postType: MirrorPostType,
+  postId: string,
+): MirroredMessageRef[] {
   const key = getMirrorIndexKey(postType, postId);
   const now = Date.now();
-  const entries = (mirroredMessageRefs.get(key) || []).filter((entry) => now - entry.createdAtMs <= MIRRORED_MESSAGE_RETENTION_MS);
+  const entries = (mirroredMessageRefs.get(key) || []).filter(
+    (entry) => now - entry.createdAtMs <= MIRRORED_MESSAGE_RETENTION_MS,
+  );
   if (entries.length === 0) {
     mirroredMessageRefs.delete(key);
     return [];
@@ -173,9 +281,17 @@ function getMirroredMessageRefs(postType: MirrorPostType, postId: string): Mirro
   return entries;
 }
 
-function removeMirroredMessageRef(postType: MirrorPostType, postId: string, channelId: string, messageId: string) {
+function removeMirroredMessageRef(
+  postType: MirrorPostType,
+  postId: string,
+  channelId: string,
+  messageId: string,
+) {
   const key = getMirrorIndexKey(postType, postId);
-  const remaining = (mirroredMessageRefs.get(key) || []).filter((entry) => !(entry.channelId === channelId && entry.messageId === messageId));
+  const remaining = (mirroredMessageRefs.get(key) || []).filter(
+    (entry) =>
+      !(entry.channelId === channelId && entry.messageId === messageId),
+  );
   if (remaining.length === 0) {
     mirroredMessageRefs.delete(key);
     return;
@@ -188,7 +304,11 @@ function clearMirroredMessageRefs(postType: MirrorPostType, postId: string) {
   mirroredMessageRefs.delete(getMirrorIndexKey(postType, postId));
 }
 
-function formatEmojiMention(emoji: { id: string; name: string | null; animated?: boolean | null }): string | null {
+function formatEmojiMention(emoji: {
+  id: string;
+  name: string | null;
+  animated?: boolean | null;
+}): string | null {
   if (!emoji.name) return null;
   return `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>`;
 }
@@ -197,8 +317,12 @@ async function refreshGlobalEmojiFallbackMap() {
   globalEmojiFallbackMap.clear();
   globalChampionEmojiFallbackMap.clear();
 
-  const sourceGuildIds = Array.from(new Set([EMOJI_SOURCE_GUILD_ID, ...CHAMPION_ICON_SOURCE_GUILD_IDS]));
-  const championSourceGuildIds = Array.from(new Set(CHAMPION_ICON_SOURCE_GUILD_IDS));
+  const sourceGuildIds = Array.from(
+    new Set([EMOJI_SOURCE_GUILD_ID, ...CHAMPION_ICON_SOURCE_GUILD_IDS]),
+  );
+  const championSourceGuildIds = Array.from(
+    new Set(CHAMPION_ICON_SOURCE_GUILD_IDS),
+  );
 
   for (const guildId of sourceGuildIds) {
     try {
@@ -213,28 +337,38 @@ async function refreshGlobalEmojiFallbackMap() {
           globalEmojiFallbackMap.set(key, mention);
         }
 
-        if (championSourceGuildIds.includes(guildId) && !globalChampionEmojiFallbackMap.has(key)) {
+        if (
+          championSourceGuildIds.includes(guildId) &&
+          !globalChampionEmojiFallbackMap.has(key)
+        ) {
           globalChampionEmojiFallbackMap.set(key, mention);
         }
       }
     } catch (error: any) {
       console.warn(
-        `⚠️ Could not load shared emojis from source guild ${guildId}: ${error?.message || error}`
+        `⚠️ Could not load shared emojis from source guild ${guildId}: ${
+          error?.message || error
+        }`,
       );
     }
   }
 
   console.log(
     `😀 Loaded ${globalEmojiFallbackMap.size} shared emojis and ` +
-    `${globalChampionEmojiFallbackMap.size} champion fallback emojis from ${sourceGuildIds.length} source guild(s)`
+      `${globalChampionEmojiFallbackMap.size} champion fallback emojis from ${sourceGuildIds.length} source guild(s)`,
   );
 }
 
-function findCustomEmoji(guild: Guild | null | undefined, emojiName: string): string | null {
+function findCustomEmoji(
+  guild: Guild | null | undefined,
+  emojiName: string,
+): string | null {
   const key = emojiName.toLowerCase();
 
   if (guild) {
-    const found = guild.emojis.cache.find((emoji) => (emoji.name || '').toLowerCase() === key);
+    const found = guild.emojis.cache.find(
+      (emoji) => (emoji.name || '').toLowerCase() === key,
+    );
     const localMention = found ? formatEmojiMention(found) : null;
     if (localMention) return localMention;
   }
@@ -242,11 +376,16 @@ function findCustomEmoji(guild: Guild | null | undefined, emojiName: string): st
   return globalEmojiFallbackMap.get(key) || null;
 }
 
-function findChampionEmoji(guild: Guild | null | undefined, emojiName: string): string | null {
+function findChampionEmoji(
+  guild: Guild | null | undefined,
+  emojiName: string,
+): string | null {
   const key = emojiName.toLowerCase();
 
   if (guild) {
-    const found = guild.emojis.cache.find((emoji) => (emoji.name || '').toLowerCase() === key);
+    const found = guild.emojis.cache.find(
+      (emoji) => (emoji.name || '').toLowerCase() === key,
+    );
     const localMention = found ? formatEmojiMention(found) : null;
     if (localMention) return localMention;
   }
@@ -254,18 +393,28 @@ function findChampionEmoji(guild: Guild | null | undefined, emojiName: string): 
   return globalChampionEmojiFallbackMap.get(key) || null;
 }
 
-function resolveEmoji(guild: Guild | null | undefined, preferredName: string | undefined, fallback: string): string {
+function resolveEmoji(
+  guild: Guild | null | undefined,
+  preferredName: string | undefined,
+  fallback: string,
+): string {
   if (!preferredName) return fallback;
   return findCustomEmoji(guild, preferredName) || fallback;
 }
 
-function truncateForDiscord(text: string | null | undefined, maxLen = 260): string {
+function truncateForDiscord(
+  text: string | null | undefined,
+  maxLen = 260,
+): string {
   const normalized = (text || '').replace(/\s+/g, ' ').trim();
   if (normalized.length <= maxLen) return normalized;
   return `${normalized.slice(0, maxLen - 3)}...`;
 }
 
-function safeDiscordDisplayText(text: string | null | undefined, maxLen = 260): string {
+function safeDiscordDisplayText(
+  text: string | null | undefined,
+  maxLen = 260,
+): string {
   const normalized = truncateForDiscord(text, maxLen)
     .replace(/[\u0000-\u001F\u007F]/g, ' ')
     .replace(/[<>]/g, '')
@@ -280,7 +429,10 @@ function normalizeRankTier(rank: string | null | undefined): string | null {
   return tier || null;
 }
 
-function formatRoleLabelForDiscord(role: string | null | undefined, guild: Guild | null | undefined): string {
+function formatRoleLabelForDiscord(
+  role: string | null | undefined,
+  guild: Guild | null | undefined,
+): string {
   const raw = (role || '').trim().toUpperCase();
   const aliasMap: Record<string, string> = {
     JGL: 'JUNGLE',
@@ -308,18 +460,24 @@ function formatRankLabelForDiscord(
 
   const tier = normalizeRankTier(rank);
   const customEmojiName = tier ? RANK_CUSTOM_EMOJI_NAMES[tier] : undefined;
-  const fallbackEmoji = tier ? (RANK_EMOJIS[tier] || '🏅') : '🏅';
+  const fallbackEmoji = tier ? RANK_EMOJIS[tier] || '🏅' : '🏅';
 
   const hasDivision = Boolean(division && String(division).trim().length > 0);
-  const normalizedDivision = hasDivision ? String(division).trim().toUpperCase() : '';
-  const rankText = hasDivision && !rank.toUpperCase().includes(normalizedDivision)
-    ? `${rank} ${normalizedDivision}`
-    : rank;
+  const normalizedDivision = hasDivision
+    ? String(division).trim().toUpperCase()
+    : '';
+  const rankText =
+    hasDivision && !rank.toUpperCase().includes(normalizedDivision)
+      ? `${rank} ${normalizedDivision}`
+      : rank;
 
   return `${resolveEmoji(guild, customEmojiName, fallbackEmoji)} ${rankText}`;
 }
 
-function formatVcLabelForDiscord(vcPreference: string | null | undefined, guild: Guild | null | undefined): string | null {
+function formatVcLabelForDiscord(
+  vcPreference: string | null | undefined,
+  guild: Guild | null | undefined,
+): string | null {
   const normalized = (vcPreference || '').toUpperCase();
   if (!normalized) return null;
 
@@ -336,7 +494,10 @@ function formatVcLabelForDiscord(vcPreference: string | null | undefined, guild:
   return `${resolveEmoji(guild, undefined, '🎙️')} ${vcPreference}`;
 }
 
-function formatLanguagesForDiscord(languages: string[] | null | undefined, guild: Guild | null | undefined): string | null {
+function formatLanguagesForDiscord(
+  languages: string[] | null | undefined,
+  guild: Guild | null | undefined,
+): string | null {
   if (!Array.isArray(languages) || languages.length === 0) return null;
   const cleaned = languages
     .map((lang) => String(lang || '').trim())
@@ -352,7 +513,10 @@ function normalizeChampionEmojiName(champion: string): string {
   return safe.slice(0, 32);
 }
 
-function formatChampionLabelForDiscord(champion: string | null | undefined, guild: Guild | null | undefined): string {
+function formatChampionLabelForDiscord(
+  champion: string | null | undefined,
+  guild: Guild | null | undefined,
+): string {
   const cleaned = String(champion || '').trim();
   if (!cleaned) {
     return `${resolveEmoji(guild, undefined, '🧩')} Unknown`;
@@ -362,7 +526,9 @@ function formatChampionLabelForDiscord(champion: string | null | undefined, guil
   const compact = normalized.replace(/_/g, '');
   const rawLower = cleaned.toLowerCase();
   const alphaNumeric = rawLower.replace(/[^a-z0-9]/g, '');
-  const candidates = Array.from(new Set([normalized, compact, rawLower, alphaNumeric]));
+  const candidates = Array.from(
+    new Set([normalized, compact, rawLower, alphaNumeric]),
+  );
 
   let emojiMention: string | null = null;
   for (const candidate of candidates) {
@@ -396,35 +562,46 @@ function formatChampionListForDiscord(
 
   const visibleChampions = uniqueChampions.slice(0, Math.max(1, limit));
   const overflow = uniqueChampions.length - visibleChampions.length;
-  const championText = visibleChampions.map((champion) => formatChampionLabelForDiscord(champion, guild)).join(' • ');
+  const championText = visibleChampions
+    .map((champion) => formatChampionLabelForDiscord(champion, guild))
+    .join(' • ');
   return overflow > 0 ? `${championText} • +${overflow} more` : championText;
 }
 
 function buildChampionTierlistFields(
-  championTierlist: { S?: string[]; A?: string[]; B?: string[]; C?: string[] } | null | undefined,
+  championTierlist:
+    | { S?: string[]; A?: string[]; B?: string[]; C?: string[] }
+    | null
+    | undefined,
   guild: Guild | null | undefined,
 ) {
   if (!championTierlist || typeof championTierlist !== 'object') return [];
 
-  return CHAMPION_POOL_TIER_ORDER
-    .map((tier) => {
-      const champions = Array.isArray(championTierlist[tier]) ? championTierlist[tier] || [] : [];
-      const championText = formatChampionListForDiscord(champions, guild, 8);
-      if (!championText) return null;
+  return CHAMPION_POOL_TIER_ORDER.map((tier) => {
+    const champions = Array.isArray(championTierlist[tier])
+      ? championTierlist[tier] || []
+      : [];
+    const championText = formatChampionListForDiscord(champions, guild, 8);
+    if (!championText) return null;
 
-      return {
-        name: `${tier} Tier`,
-        value: championText.slice(0, 1024),
-        inline: false,
-      };
-    })
-    .filter((field): field is { name: string; value: string; inline: boolean } => Boolean(field));
+    return {
+      name: `${tier} Tier`,
+      value: championText.slice(0, 1024),
+      inline: false,
+    };
+  }).filter(
+    (field): field is { name: string; value: string; inline: boolean } =>
+      Boolean(field),
+  );
 }
 
 function buildChampionPoolSummary(
   championPoolMode: string | null | undefined,
   championList: string[] | null | undefined,
-  championTierlist: { S?: string[]; A?: string[]; B?: string[]; C?: string[] } | null | undefined,
+  championTierlist:
+    | { S?: string[]; A?: string[]; B?: string[]; C?: string[] }
+    | null
+    | undefined,
   guild: Guild | null | undefined,
 ): string | null {
   const mode = String(championPoolMode || '').toUpperCase();
@@ -455,7 +632,12 @@ type RoleForwardingSyncMember = {
   rank: string | null;
   languages: string[];
   desiredRoleIds: string[];
-  status: 'ELIGIBLE' | 'MISSING_DISCORD_LINK' | 'MISSING_RIOT_LINK' | 'NO_MATCHING_MAPPING' | string;
+  status:
+    | 'ELIGIBLE'
+    | 'MISSING_DISCORD_LINK'
+    | 'MISSING_RIOT_LINK'
+    | 'NO_MATCHING_MAPPING'
+    | string;
 };
 
 type RoleForwardingSyncPayload = {
@@ -531,17 +713,23 @@ type TeamEventTeamOption = {
 const commands = [
   new SlashCommandBuilder()
     .setName('linkserver')
-    .setDescription('Generate a code to link this Discord server to RiftEssence')
+    .setDescription(
+      'Generate a code to link this Discord server to RiftEssence',
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .toJSON(),
   new SlashCommandBuilder()
     .setName('setup')
-    .setDescription('Set up or manage forwarding for this channel (run /setup in target channel)')
+    .setDescription(
+      'Set up or manage forwarding for this channel (run /setup in target channel)',
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .toJSON(),
   new SlashCommandBuilder()
     .setName('rolemenu')
-    .setDescription('Configure automatic Discord roles from RiftEssence rank/language profile data')
+    .setDescription(
+      'Configure automatic Discord roles from RiftEssence rank/language profile data',
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .toJSON(),
   new SlashCommandBuilder()
@@ -554,12 +742,102 @@ const commands = [
     .setDescription('Create a RiftEssence duo post')
     .toJSON(),
   new SlashCommandBuilder()
+    .setName('scrim')
+    .setDescription('Manage your RiftEssence scrims')
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName('status')
+        .setDescription(
+          'Show proposals, availability, and confirmed Scrim Rooms',
+        ),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName('available')
+        .setDescription('Publish or replace your team availability')
+        .addStringOption((option) =>
+          option
+            .setName('team')
+            .setDescription('Your scrim team')
+            .setRequired(true)
+            .setAutocomplete(true),
+        )
+        .addStringOption((option) =>
+          option
+            .setName('start')
+            .setDescription('ISO date/time, for example 2026-09-20T21:00+02:00')
+            .setRequired(true),
+        )
+        .addStringOption((option) =>
+          option
+            .setName('format')
+            .setDescription('Scrim format')
+            .setRequired(true)
+            .addChoices(
+              { name: 'BO1', value: 'BO1' },
+              { name: 'BO3', value: 'BO3' },
+              { name: 'BO5', value: 'BO5' },
+              { name: 'Fearless BO1', value: 'FEARLESS_BO1' },
+              { name: 'Fearless BO3', value: 'FEARLESS_BO3' },
+              { name: 'Fearless BO5', value: 'FEARLESS_BO5' },
+              { name: 'Fearless block', value: 'BLOCK' },
+            ),
+        )
+        .addStringOption((option) =>
+          option
+            .setName('note')
+            .setDescription('Optional note for opponents')
+            .setRequired(false),
+        ),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName('stop')
+        .setDescription('Stop your active availability')
+        .addStringOption((option) =>
+          option
+            .setName('team')
+            .setDescription('Your scrim team')
+            .setRequired(true)
+            .setAutocomplete(true),
+        ),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName('channel')
+        .setDescription(
+          'Send this team’s scrim activity to the current channel',
+        )
+        .addStringOption((option) =>
+          option
+            .setName('team')
+            .setDescription('Your scrim team')
+            .setRequired(true)
+            .setAutocomplete(true),
+        ),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName('disconnect-channel')
+        .setDescription('Stop sending this team’s activity to its channel')
+        .addStringOption((option) =>
+          option
+            .setName('team')
+            .setDescription('Your scrim team')
+            .setRequired(true)
+            .setAutocomplete(true),
+        ),
+    )
+    .toJSON(),
+  new SlashCommandBuilder()
     .setName('create-team-event')
     .setDescription('Create a team event for one of your linked teams')
     .toJSON(),
   new SlashCommandBuilder()
     .setName('import-league-icons')
-    .setDescription('Import champion, role, or rank icons as custom emojis in this server')
+    .setDescription(
+      'Import champion, role, or rank icons as custom emojis in this server',
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuildExpressions)
     .addStringOption((option) =>
       option
@@ -570,25 +848,29 @@ const commands = [
           { name: 'Champion icons', value: 'CHAMPION' },
           { name: 'Role icons', value: 'ROLE' },
           { name: 'Rank icons', value: 'RANK' },
-        )
+        ),
     )
     .addIntegerOption((option) =>
       option
         .setName('batch')
-        .setDescription('Champion batch to import (only used for champion icons)')
+        .setDescription(
+          'Champion batch to import (only used for champion icons)',
+        )
         .setRequired(false)
         .addChoices(
           { name: 'Batch 1/4', value: 1 },
           { name: 'Batch 2/4', value: 2 },
           { name: 'Batch 3/4', value: 3 },
           { name: 'Batch 4/4', value: 4 },
-        )
+        ),
     )
     .addBooleanOption((option) =>
       option
         .setName('replace_existing')
-        .setDescription('Delete existing matching champion emojis before import')
-        .setRequired(false)
+        .setDescription(
+          'Delete existing matching champion emojis before import',
+        )
+        .setRequired(false),
     )
     .toJSON(),
 ];
@@ -604,23 +886,36 @@ async function registerCommands(clientId: string, guildIds: string[]) {
   } catch (error: any) {
     const code = error?.code;
     const msg = error?.message || error?.toString?.() || 'Unknown error';
-    console.error(`❌ Global command registration failed (code ${code}): ${msg}`);
+    console.error(
+      `❌ Global command registration failed (code ${code}): ${msg}`,
+    );
     // If entry point conflict or other global issue, fall back to per-guild registration
     for (const gid of guildIds) {
       try {
         console.log(`🔄 Registering slash commands for guild ${gid}...`);
-        await rest.put(Routes.applicationGuildCommands(clientId, gid), { body: commands });
+        await rest.put(Routes.applicationGuildCommands(clientId, gid), {
+          body: commands,
+        });
         console.log(`✅ Registered commands for guild ${gid}`);
       } catch (guildErr: any) {
-        console.error(`❌ Failed to register commands for guild ${gid}:`, guildErr?.message || guildErr);
+        console.error(
+          `❌ Failed to register commands for guild ${gid}:`,
+          guildErr?.message || guildErr,
+        );
       }
     }
   }
 
   // Log what commands are visible (global)
   try {
-    const existing = await rest.get(Routes.applicationCommands(clientId)) as any[];
-    console.log(`ℹ️ Global commands now: ${existing.map(c => c.name).join(', ') || 'none'}`);
+    const existing = (await rest.get(
+      Routes.applicationCommands(clientId),
+    )) as any[];
+    console.log(
+      `ℹ️ Global commands now: ${
+        existing.map((c) => c.name).join(', ') || 'none'
+      }`,
+    );
   } catch (err: any) {
     console.error('⚠️ Could not fetch global commands:', err?.message || err);
   }
@@ -635,7 +930,7 @@ async function apiRequest(endpoint: string, method = 'GET', body?: any) {
     const options: any = {
       method,
       headers: {
-        'Authorization': `Bearer ${DISCORD_BOT_API_KEY}`,
+        Authorization: `Bearer ${DISCORD_BOT_API_KEY}`,
       },
     };
     if (body) {
@@ -651,13 +946,240 @@ async function apiRequest(endpoint: string, method = 'GET', body?: any) {
       data = { error: 'Failed to parse response' };
     }
     if (!res.ok) {
-      console.error(`❌ API ${method} ${endpoint} returned ${res.status}:`, data);
+      console.error(
+        `❌ API ${method} ${endpoint} returned ${res.status}:`,
+        data,
+      );
     }
     return { ok: res.ok, status: res.status, data };
   } catch (error: any) {
     console.error(`❌ API request failed for ${endpoint}:`, error.message);
     return { ok: false, status: 500, data: { error: error.message } };
   }
+}
+
+async function getScrimDashboard(discordId: string) {
+  return apiRequest(
+    `/api/scrims/discord/dashboard?discordId=${encodeURIComponent(discordId)}`,
+  );
+}
+
+async function handleScrimAutocomplete(interaction: any) {
+  const result = await getScrimDashboard(interaction.user.id);
+  if (!result.ok) return interaction.respond([]);
+  const focused = String(interaction.options.getFocused() || '').toLowerCase();
+  const identities = Array.isArray(result.data?.identities)
+    ? result.data.identities
+    : [];
+  return interaction.respond(
+    identities
+      .filter((team: any) =>
+        `${team.name} ${team.tag || ''}`.toLowerCase().includes(focused),
+      )
+      .slice(0, 25)
+      .map((team: any) => ({
+        name: `${team.name}${team.tag ? ` [${team.tag}]` : ''}`,
+        value: team.id,
+      })),
+  );
+}
+
+function buildScrimDashboardPayload(data: any) {
+  const identities = Array.isArray(data?.identities) ? data.identities : [];
+  const proposals = Array.isArray(data?.proposals) ? data.proposals : [];
+  const rooms = Array.isArray(data?.rooms) ? data.rooms : [];
+  const identityLines =
+    identities.length > 0
+      ? identities
+          .map((team: any) => {
+            const status = team.activePost
+              ? `available <t:${Math.floor(
+                  new Date(team.activePost.startTimeUtc).getTime() / 1000,
+                )}:R> · ${team.activePost.scrimFormat}`
+              : 'not currently listed';
+            return `• **${team.name}${
+              team.tag ? ` [${team.tag}]` : ''
+            }** — ${status}${team.channelEnabled ? ' · channel on' : ''}`;
+          })
+          .join('\n')
+      : 'No managed Scrim Profile or Team yet. Create one in the app.';
+  const proposalLines =
+    proposals.length > 0
+      ? proposals
+          .slice(0, 4)
+          .map(
+            (proposal: any) =>
+              `• **${proposal.proposerTeam.name}** · ${
+                proposal.post.scrimFormat
+              } · <t:${Math.floor(
+                new Date(proposal.post.startTimeUtc).getTime() / 1000,
+              )}:R>`,
+          )
+          .join('\n')
+      : 'No incoming proposals.';
+  const roomLines =
+    rooms.length > 0
+      ? rooms
+          .slice(0, 4)
+          .map(
+            (room: any) =>
+              `• **${room.hostTeam.name} vs ${
+                room.guestTeam.name
+              }** · <t:${Math.floor(
+                new Date(room.scheduledAt).getTime() / 1000,
+              )}:R> · [Open room](${APP_URL}/scrims/room/${room.id})`,
+          )
+          .join('\n')
+      : 'No confirmed scrims.';
+  const embed = new EmbedBuilder()
+    .setTitle('⚔️ RiftEssence Scrims')
+    .setDescription(
+      'Manage availability, proposals, rooms, and delivery from Discord.',
+    )
+    .setColor(0x2563eb)
+    .addFields(
+      { name: 'Your scrim teams', value: identityLines.slice(0, 1024) },
+      {
+        name: `Incoming proposals (${proposals.length})`,
+        value: proposalLines.slice(0, 1024),
+      },
+      {
+        name: `Active rooms (${rooms.length})`,
+        value: roomLines.slice(0, 1024),
+      },
+    )
+    .setFooter({ text: 'Use /scrim available or /scrim channel to act here.' });
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+  proposals.slice(0, 2).forEach((proposal: any) =>
+    rows.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`scrim_proposal_accept_${proposal.id}`)
+          .setLabel(
+            `Accept ${
+              proposal.proposerTeam.tag || proposal.proposerTeam.name
+            }`.slice(0, 80),
+          )
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`scrim_proposal_delay_${proposal.id}`)
+          .setLabel('Keep as backup')
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(`scrim_proposal_reject_${proposal.id}`)
+          .setLabel('Pass')
+          .setStyle(ButtonStyle.Danger),
+      ),
+    ),
+  );
+  rows.push(
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setLabel('Open Scrim Finder')
+        .setStyle(ButtonStyle.Link)
+        .setURL(`${APP_URL}/scrims`),
+    ),
+  );
+  return { embeds: [embed], components: rows.slice(0, 5) };
+}
+
+async function handleScrimCommand(interaction: ChatInputCommandInteraction) {
+  await interaction.deferReply({ ephemeral: interaction.inGuild() });
+  const subcommand = interaction.options.getSubcommand();
+  if (subcommand === 'status') {
+    const result = await getScrimDashboard(interaction.user.id);
+    if (!result.ok)
+      return interaction.editReply(
+        `❌ ${result.data?.error || 'Could not load Scrims.'}`,
+      );
+    return interaction.editReply(buildScrimDashboardPayload(result.data));
+  }
+
+  const teamId = interaction.options.getString('team', true);
+  if (subcommand === 'available') {
+    const result = await apiRequest(
+      '/api/scrims/discord/availability',
+      'POST',
+      {
+        discordId: interaction.user.id,
+        teamId,
+        startTimeUtc: interaction.options.getString('start', true),
+        scrimFormat: interaction.options.getString('format', true),
+        details: interaction.options.getString('note'),
+      },
+    );
+    if (!result.ok)
+      return interaction.editReply(
+        `❌ ${result.data?.error || 'Could not publish availability.'}`,
+      );
+    return interaction.editReply(
+      `✅ Availability published. Opponents can now challenge you in RiftEssence and Discord.`,
+    );
+  }
+  if (subcommand === 'stop') {
+    const result = await apiRequest(
+      '/api/scrims/discord/availability',
+      'DELETE',
+      { discordId: interaction.user.id, teamId },
+    );
+    return interaction.editReply(
+      result.ok
+        ? '✅ Availability stopped.'
+        : `❌ ${result.data?.error || 'Could not stop availability.'}`,
+    );
+  }
+  if (subcommand === 'disconnect-channel') {
+    const result = await apiRequest('/api/scrims/discord/channel', 'DELETE', {
+      discordId: interaction.user.id,
+      teamId,
+    });
+    return interaction.editReply(
+      result.ok
+        ? '✅ Team channel delivery disabled.'
+        : `❌ ${result.data?.error || 'Could not disconnect the channel.'}`,
+    );
+  }
+  if (subcommand === 'channel') {
+    if (
+      !interaction.guild ||
+      !interaction.channel ||
+      !interaction.channel.isTextBased() ||
+      !('createWebhook' in interaction.channel)
+    ) {
+      return interaction.editReply(
+        '❌ Run this command in the server text channel that should receive scrim activity.',
+      );
+    }
+    try {
+      const webhook = await (interaction.channel as TextChannel).createWebhook({
+        name: 'RiftEssence Scrims',
+        reason: `Configured by ${interaction.user.tag}`,
+      });
+      const result = await apiRequest('/api/scrims/discord/channel', 'POST', {
+        discordId: interaction.user.id,
+        teamId,
+        webhookUrl: webhook.url,
+      });
+      if (!result.ok) {
+        await webhook
+          .delete('RiftEssence configuration rejected')
+          .catch(() => undefined);
+        return interaction.editReply(
+          `❌ ${result.data?.error || 'Could not connect this channel.'}`,
+        );
+      }
+      return interaction.editReply(
+        `✅ Scrim proposals, room updates, results, and review prompts for this team will also appear in <#${interaction.channelId}>.`,
+      );
+    } catch (error: any) {
+      return interaction.editReply(
+        `❌ I need Manage Webhooks permission in this channel. ${
+          error?.message || ''
+        }`.trim(),
+      );
+    }
+  }
+  return interaction.editReply('❌ Unknown scrim action.');
 }
 
 const pendingRoleMenuSessions = new Map<string, PendingRoleMenuSession>();
@@ -678,13 +1200,15 @@ function getTeamEventSessionKey(userId: string, guildId: string) {
 
 function hasSendDraftPermission(member: any): boolean {
   return Boolean(
-    member?.permissions?.has?.(PermissionFlagsBits.Administrator)
-    || member?.permissions?.has?.(PermissionFlagsBits.ManageGuild)
+    member?.permissions?.has?.(PermissionFlagsBits.Administrator) ||
+      member?.permissions?.has?.(PermissionFlagsBits.ManageGuild),
   );
 }
 
 async function fetchSendDraftOptions(guildId: string, discordId: string) {
-  const endpoint = `/api/teams/discord-drafts/options?guildId=${encodeURIComponent(guildId)}&discordId=${encodeURIComponent(discordId)}`;
+  const endpoint = `/api/teams/discord-drafts/options?guildId=${encodeURIComponent(
+    guildId,
+  )}&discordId=${encodeURIComponent(discordId)}`;
   const result = await apiRequest(endpoint);
   if (!result.ok) {
     return {
@@ -699,22 +1223,32 @@ async function fetchSendDraftOptions(guildId: string, discordId: string) {
     ok: true,
     error: null,
     status: String(result.data?.status || 'ERROR'),
-    teams: Array.isArray(result.data?.teams) ? (result.data.teams as SendDraftTeamOption[]) : [],
+    teams: Array.isArray(result.data?.teams)
+      ? (result.data.teams as SendDraftTeamOption[])
+      : [],
   };
 }
 
 async function fetchSendDraftById(draftId: string, discordId: string) {
-  const endpoint = `/api/teams/discord-drafts/${encodeURIComponent(draftId)}?discordId=${encodeURIComponent(discordId)}`;
+  const endpoint = `/api/teams/discord-drafts/${encodeURIComponent(
+    draftId,
+  )}?discordId=${encodeURIComponent(discordId)}`;
   const result = await apiRequest(endpoint);
   if (!result.ok || !result.data?.draft) {
-    return { ok: false, error: result.data?.error || 'Failed to fetch selected draft', draft: null };
+    return {
+      ok: false,
+      error: result.data?.error || 'Failed to fetch selected draft',
+      draft: null,
+    };
   }
 
   return { ok: true, error: null, draft: result.data.draft };
 }
 
 async function fetchTeamEventOptions(guildId: string, discordId: string) {
-  const endpoint = `/api/teams/discord-events/options?guildId=${encodeURIComponent(guildId)}&discordId=${encodeURIComponent(discordId)}`;
+  const endpoint = `/api/teams/discord-events/options?guildId=${encodeURIComponent(
+    guildId,
+  )}&discordId=${encodeURIComponent(discordId)}`;
   const result = await apiRequest(endpoint);
   if (!result.ok) {
     return {
@@ -729,22 +1263,36 @@ async function fetchTeamEventOptions(guildId: string, discordId: string) {
     ok: true,
     error: null,
     status: String(result.data?.status || 'ERROR'),
-    teams: Array.isArray(result.data?.teams) ? (result.data.teams as TeamEventTeamOption[]) : [],
+    teams: Array.isArray(result.data?.teams)
+      ? (result.data.teams as TeamEventTeamOption[])
+      : [],
   };
 }
 
-async function ensureDuoCommunity(interaction: ChatInputCommandInteraction | ButtonInteraction) {
+async function ensureDuoCommunity(
+  interaction: ChatInputCommandInteraction | ButtonInteraction,
+) {
   const guildId = interaction.guildId;
   if (!guildId) {
-    await interaction.reply({ content: '❌ This action must be used in a server.', ephemeral: true });
+    await interaction.reply({
+      content: '❌ This action must be used in a server.',
+      ephemeral: true,
+    });
     return false;
   }
 
-  const communityRes = await apiRequest(`/api/communities?discordServerId=${guildId}`);
+  const communityRes = await apiRequest(
+    `/api/communities?discordServerId=${guildId}`,
+  );
   const communities = communityRes.ok ? communityRes.data?.communities : null;
-  if (!communityRes.ok || !Array.isArray(communities) || communities.length === 0) {
+  if (
+    !communityRes.ok ||
+    !Array.isArray(communities) ||
+    communities.length === 0
+  ) {
     await interaction.reply({
-      content: '❌ No community is linked to this server. Use `/linkserver` and complete community registration first.',
+      content:
+        '❌ No community is linked to this server. Use `/linkserver` and complete community registration first.',
       ephemeral: true,
     });
     return false;
@@ -779,28 +1327,39 @@ async function createTeamEventFromDiscord(payload: {
   };
 }
 
-function buildTeamEventTeamChooserEmbed(guildName: string, teams: TeamEventTeamOption[]) {
-  const lines = teams.map((team) => `• **${team.name}${team.tag ? ` [${team.tag}]` : ''}**`);
+function buildTeamEventTeamChooserEmbed(
+  guildName: string,
+  teams: TeamEventTeamOption[],
+) {
+  const lines = teams.map(
+    (team) => `• **${team.name}${team.tag ? ` [${team.tag}]` : ''}**`,
+  );
   return new EmbedBuilder()
-    .setColor(0x3B82F6)
+    .setColor(0x3b82f6)
     .setTitle('📅 Create Team Event')
     .setDescription(
       `Server: **${guildName}**\n` +
-      'Choose one of your linked teams to continue.'
+        'Choose one of your linked teams to continue.',
     )
     .addFields({
       name: 'Eligible Teams',
       value: lines.join('\n').slice(0, 1024) || 'No eligible teams found.',
     })
-    .setFooter({ text: 'Requires a linked Discord account and owner or manager access.' })
+    .setFooter({
+      text: 'Requires a linked Discord account and owner or manager access.',
+    })
     .setTimestamp();
 }
 
 function buildTeamEventTypeChooserEmbed(team: TeamEventTeamOption) {
   return new EmbedBuilder()
-    .setColor(0x2563EB)
+    .setColor(0x2563eb)
     .setTitle('🗓️ Choose Event Type')
-    .setDescription(`Team: **${team.name}${team.tag ? ` [${team.tag}]` : ''}**\nPick the event type to create.`)
+    .setDescription(
+      `Team: **${team.name}${
+        team.tag ? ` [${team.tag}]` : ''
+      }**\nPick the event type to create.`,
+    )
     .setTimestamp();
 }
 
@@ -859,22 +1418,35 @@ function buildTeamEventModal(team: TeamEventTeamOption, type: string) {
 
 async function handleCreateTeamEvent(interaction: ChatInputCommandInteraction) {
   if (!interaction.guildId || !interaction.guild) {
-    return interaction.reply({ content: '❌ This command can only be used in a server.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ This command can only be used in a server.',
+      ephemeral: true,
+    });
   }
 
-  const options = await fetchTeamEventOptions(interaction.guildId, interaction.user.id);
+  const options = await fetchTeamEventOptions(
+    interaction.guildId,
+    interaction.user.id,
+  );
   if (!options.ok) {
-    return interaction.reply({ content: `❌ ${options.error || 'Failed to load event options.'}`, ephemeral: true });
+    return interaction.reply({
+      content: `❌ ${options.error || 'Failed to load event options.'}`,
+      ephemeral: true,
+    });
   }
 
   if (options.status !== 'READY' || options.teams.length === 0) {
-    const reason = options.status === 'MISSING_DISCORD_LINK'
-      ? 'Link your Discord account in RiftEssence first.'
-      : 'No linked team ownership or manager access was found.';
+    const reason =
+      options.status === 'MISSING_DISCORD_LINK'
+        ? 'Link your Discord account in RiftEssence first.'
+        : 'No linked team ownership or manager access was found.';
     return interaction.reply({ content: `❌ ${reason}`, ephemeral: true });
   }
 
-  const sessionKey = getTeamEventSessionKey(interaction.user.id, interaction.guildId);
+  const sessionKey = getTeamEventSessionKey(
+    interaction.user.id,
+    interaction.guildId,
+  );
   pendingTeamEventSessions.set(sessionKey, {
     guildId: interaction.guildId,
     discordUserId: interaction.user.id,
@@ -887,39 +1459,57 @@ async function handleCreateTeamEvent(interaction: ChatInputCommandInteraction) {
     new StringSelectMenuOptionBuilder()
       .setLabel(team.name.slice(0, 100))
       .setValue(team.id)
-      .setDescription(team.tag ? `[${team.tag}]` : 'Linked team')
+      .setDescription(team.tag ? `[${team.tag}]` : 'Linked team'),
   );
 
   const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(TEAM_EVENT_TEAM_SELECT)
       .setPlaceholder('Choose a team')
-      .addOptions(teamOptions)
+      .addOptions(teamOptions),
   );
 
   return interaction.reply({
-    embeds: [buildTeamEventTeamChooserEmbed(interaction.guild.name, options.teams)],
+    embeds: [
+      buildTeamEventTeamChooserEmbed(interaction.guild.name, options.teams),
+    ],
     components: [row],
     ephemeral: true,
   });
 }
 
-async function handleTeamEventSelectMenu(interaction: StringSelectMenuInteraction) {
+async function handleTeamEventSelectMenu(
+  interaction: StringSelectMenuInteraction,
+) {
   if (!interaction.guildId) {
-    return interaction.reply({ content: '❌ This action must be used in a server.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ This action must be used in a server.',
+      ephemeral: true,
+    });
   }
 
-  const sessionKey = getTeamEventSessionKey(interaction.user.id, interaction.guildId);
+  const sessionKey = getTeamEventSessionKey(
+    interaction.user.id,
+    interaction.guildId,
+  );
   const session = pendingTeamEventSessions.get(sessionKey);
   if (!session) {
-    return interaction.update({ content: '❌ Event menu expired. Run `/create-team-event` again.', embeds: [], components: [] });
+    return interaction.update({
+      content: '❌ Event menu expired. Run `/create-team-event` again.',
+      embeds: [],
+      components: [],
+    });
   }
 
   if (interaction.customId === TEAM_EVENT_TEAM_SELECT) {
     const teamId = interaction.values[0];
     const selectedTeam = session.teams.find((team) => team.id === teamId);
     if (!selectedTeam) {
-      return interaction.update({ content: '❌ Selected team is no longer available.', embeds: [], components: [] });
+      return interaction.update({
+        content: '❌ Selected team is no longer available.',
+        embeds: [],
+        components: [],
+      });
     }
 
     session.selectedTeamId = selectedTeam.id;
@@ -928,14 +1518,14 @@ async function handleTeamEventSelectMenu(interaction: StringSelectMenuInteractio
     const typeOptions = TEAM_EVENT_TYPES.map((eventType) =>
       new StringSelectMenuOptionBuilder()
         .setLabel(eventType.replace('_', ' '))
-        .setValue(eventType)
+        .setValue(eventType),
     );
 
     const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId(TEAM_EVENT_TYPE_SELECT)
         .setPlaceholder('Choose an event type')
-        .addOptions(typeOptions)
+        .addOptions(typeOptions),
     );
 
     return interaction.update({
@@ -945,14 +1535,26 @@ async function handleTeamEventSelectMenu(interaction: StringSelectMenuInteractio
   }
 
   if (interaction.customId === TEAM_EVENT_TYPE_SELECT) {
-    const type = interaction.values[0] as (typeof TEAM_EVENT_TYPES)[number] | undefined;
+    const type = interaction.values[0] as
+      | (typeof TEAM_EVENT_TYPES)[number]
+      | undefined;
     if (!type || !TEAM_EVENT_TYPES.includes(type)) {
-      return interaction.update({ content: '❌ Invalid event type selection.', embeds: [], components: [] });
+      return interaction.update({
+        content: '❌ Invalid event type selection.',
+        embeds: [],
+        components: [],
+      });
     }
 
-    const selectedTeam = session.teams.find((team) => team.id === session.selectedTeamId);
+    const selectedTeam = session.teams.find(
+      (team) => team.id === session.selectedTeamId,
+    );
     if (!selectedTeam) {
-      return interaction.update({ content: '❌ Selected team is no longer available.', embeds: [], components: [] });
+      return interaction.update({
+        content: '❌ Selected team is no longer available.',
+        embeds: [],
+        components: [],
+      });
     }
 
     session.selectedType = type;
@@ -964,48 +1566,82 @@ async function handleTeamEventSelectMenu(interaction: StringSelectMenuInteractio
 
 async function handleTeamEventModalSubmit(interaction: ModalSubmitInteraction) {
   if (!interaction.guildId) {
-    return interaction.reply({ content: '❌ This action must be used in a server.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ This action must be used in a server.',
+      ephemeral: true,
+    });
   }
 
-  const sessionKey = getTeamEventSessionKey(interaction.user.id, interaction.guildId);
+  const sessionKey = getTeamEventSessionKey(
+    interaction.user.id,
+    interaction.guildId,
+  );
   const session = pendingTeamEventSessions.get(sessionKey);
   if (!session || !session.selectedTeamId || !session.selectedType) {
-    return interaction.reply({ content: '❌ Event session expired. Run `/create-team-event` again.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ Event session expired. Run `/create-team-event` again.',
+      ephemeral: true,
+    });
   }
 
-  const title = interaction.fields.getTextInputValue(TEAM_EVENT_TITLE_INPUT).trim();
-  const dateTimeValue = interaction.fields.getTextInputValue(TEAM_EVENT_DATETIME_INPUT).trim();
-  const durationValue = interaction.fields.getTextInputValue(TEAM_EVENT_DURATION_INPUT).trim();
-  const opponentValue = interaction.fields.getTextInputValue(TEAM_EVENT_OPPONENT_INPUT).trim();
-  const description = interaction.fields.getTextInputValue(TEAM_EVENT_DESCRIPTION_INPUT).trim();
+  const title = interaction.fields
+    .getTextInputValue(TEAM_EVENT_TITLE_INPUT)
+    .trim();
+  const dateTimeValue = interaction.fields
+    .getTextInputValue(TEAM_EVENT_DATETIME_INPUT)
+    .trim();
+  const durationValue = interaction.fields
+    .getTextInputValue(TEAM_EVENT_DURATION_INPUT)
+    .trim();
+  const opponentValue = interaction.fields
+    .getTextInputValue(TEAM_EVENT_OPPONENT_INPUT)
+    .trim();
+  const description = interaction.fields
+    .getTextInputValue(TEAM_EVENT_DESCRIPTION_INPUT)
+    .trim();
 
   if (!title || !dateTimeValue) {
-    return interaction.reply({ content: '❌ Title and date/time are required.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ Title and date/time are required.',
+      ephemeral: true,
+    });
   }
 
   const dateTimeNormalized = dateTimeValue.includes('T')
     ? dateTimeValue
     : dateTimeValue.replace(' ', 'T');
-  const dateTimeWithSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dateTimeNormalized)
+  const dateTimeWithSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(
+    dateTimeNormalized,
+  )
     ? `${dateTimeNormalized}:00`
     : dateTimeNormalized;
   const scheduledAt = new Date(dateTimeWithSeconds);
   if (Number.isNaN(scheduledAt.getTime())) {
-    return interaction.reply({ content: '❌ Invalid date/time. Use YYYY-MM-DD HH:MM.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ Invalid date/time. Use YYYY-MM-DD HH:MM.',
+      ephemeral: true,
+    });
   }
 
   let duration: number | undefined;
   if (durationValue) {
     const parsedDuration = Number.parseInt(durationValue, 10);
     if (!Number.isInteger(parsedDuration) || parsedDuration <= 0) {
-      return interaction.reply({ content: '❌ Duration must be a positive whole number of minutes.', ephemeral: true });
+      return interaction.reply({
+        content: '❌ Duration must be a positive whole number of minutes.',
+        ephemeral: true,
+      });
     }
     duration = parsedDuration;
   }
 
-  const needsOpponentLink = session.selectedType === 'SCRIM' || session.selectedType === 'TOURNAMENT';
+  const needsOpponentLink =
+    session.selectedType === 'SCRIM' || session.selectedType === 'TOURNAMENT';
   if (needsOpponentLink && !opponentValue) {
-    return interaction.reply({ content: '❌ Opponent link is required for scrims and tournaments.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ Opponent link is required for scrims and tournaments.',
+      ephemeral: true,
+    });
   }
 
   const createResult = await createTeamEventFromDiscord({
@@ -1020,7 +1656,10 @@ async function handleTeamEventModalSubmit(interaction: ModalSubmitInteraction) {
   });
 
   if (!createResult.ok) {
-    return interaction.reply({ content: `❌ ${createResult.error || 'Failed to create the event.'}`, ephemeral: true });
+    return interaction.reply({
+      content: `❌ ${createResult.error || 'Failed to create the event.'}`,
+      ephemeral: true,
+    });
   }
 
   pendingTeamEventSessions.delete(sessionKey);
@@ -1031,49 +1670,82 @@ async function handleTeamEventModalSubmit(interaction: ModalSubmitInteraction) {
   });
 }
 
-function buildSendDraftTeamChooserEmbed(guildName: string, teams: SendDraftTeamOption[]) {
-  const lines = teams.map((team) => `• **${team.name}${team.tag ? ` [${team.tag}]` : ''}** (${team.drafts.length} drafts)`);
+function buildSendDraftTeamChooserEmbed(
+  guildName: string,
+  teams: SendDraftTeamOption[],
+) {
+  const lines = teams.map(
+    (team) =>
+      `• **${team.name}${team.tag ? ` [${team.tag}]` : ''}** (${
+        team.drafts.length
+      } drafts)`,
+  );
   return new EmbedBuilder()
-    .setColor(0x3B82F6)
+    .setColor(0x3b82f6)
     .setTitle('📋 Send Saved Draft')
     .setDescription(
       `Server: **${guildName}**\n` +
-      `Choose a team first, then pick one of its saved drafts.`
+        `Choose a team first, then pick one of its saved drafts.`,
     )
     .addFields({
       name: 'Eligible Teams',
       value: lines.join('\n').slice(0, 1024) || 'No eligible teams found.',
     })
-    .setFooter({ text: 'Requires linked Discord account, team membership, and at least one saved draft.' })
+    .setFooter({
+      text: 'Requires linked Discord account, team membership, and at least one saved draft.',
+    })
     .setTimestamp();
 }
 
 function buildSendDraftPickChooserEmbed(team: SendDraftTeamOption) {
   return new EmbedBuilder()
-    .setColor(0x2563EB)
+    .setColor(0x2563eb)
     .setTitle('🧠 Choose Draft')
-    .setDescription(`Team: **${team.name}${team.tag ? ` [${team.tag}]` : ''}**\nPick a saved draft to send to this channel.`)
+    .setDescription(
+      `Team: **${team.name}${
+        team.tag ? ` [${team.tag}]` : ''
+      }**\nPick a saved draft to send to this channel.`,
+    )
     .setTimestamp();
 }
 
-function buildDraftRoundLine(label: string, champion: string | null | undefined, role: string | null | undefined, guild: Guild | null | undefined) {
+function buildDraftRoundLine(
+  label: string,
+  champion: string | null | undefined,
+  role: string | null | undefined,
+  guild: Guild | null | undefined,
+) {
   const champ = formatChampionLabelForDiscord(champion, guild);
   const rolePart = role ? ` (${formatRoleLabelForDiscord(role, guild)})` : '';
   return `${label}: ${champ}${rolePart}`;
 }
 
-function buildSendDraftEmbed(draft: any, requestedBy: string, guild: Guild | null | undefined) {
+function buildSendDraftEmbed(
+  draft: any,
+  requestedBy: string,
+  guild: Guild | null | undefined,
+) {
   const picks = Array.isArray(draft?.picks) ? draft.picks : [];
   const blueIndexes = [0, 3, 4, 7, 8];
   const redIndexes = [1, 2, 5, 6, 9];
 
   const blueRounds = blueIndexes.map((pickIndex, i) => {
     const slot = picks[pickIndex] || {};
-    return buildDraftRoundLine(`B${i + 1}`, slot?.champion, slot?.assignedRole || null, guild);
+    return buildDraftRoundLine(
+      `B${i + 1}`,
+      slot?.champion,
+      slot?.assignedRole || null,
+      guild,
+    );
   });
   const redRounds = redIndexes.map((pickIndex, i) => {
     const slot = picks[pickIndex] || {};
-    return buildDraftRoundLine(`R${i + 1}`, slot?.champion, slot?.assignedRole || null, guild);
+    return buildDraftRoundLine(
+      `R${i + 1}`,
+      slot?.champion,
+      slot?.assignedRole || null,
+      guild,
+    );
   });
 
   const blueBans = Array.isArray(draft?.blueBans) ? draft.blueBans : [];
@@ -1085,18 +1757,30 @@ function buildSendDraftEmbed(draft: any, requestedBy: string, guild: Guild | nul
   };
 
   return new EmbedBuilder()
-    .setColor(0x1D4ED8)
+    .setColor(0x1d4ed8)
     .setTitle(`Draft • ${draft?.name || 'Unnamed Draft'}`)
-    .setDescription(`Team: **${draft?.team?.name || 'Unknown Team'}${draft?.team?.tag ? ` [${draft.team.tag}]` : ''}**`)
+    .setDescription(
+      `Team: **${draft?.team?.name || 'Unknown Team'}${
+        draft?.team?.tag ? ` [${draft.team.tag}]` : ''
+      }**`,
+    )
     .addFields(
       {
         name: '🔵 Blue Bans',
-        value: (blueBans.map((entry: string, i: number) => buildBanLine(`B${i + 1}`, entry)).join('\n') || 'None').slice(0, 1024),
+        value: (
+          blueBans
+            .map((entry: string, i: number) => buildBanLine(`B${i + 1}`, entry))
+            .join('\n') || 'None'
+        ).slice(0, 1024),
         inline: true,
       },
       {
         name: '🔴 Red Bans',
-        value: (redBans.map((entry: string, i: number) => buildBanLine(`R${i + 1}`, entry)).join('\n') || 'None').slice(0, 1024),
+        value: (
+          redBans
+            .map((entry: string, i: number) => buildBanLine(`R${i + 1}`, entry))
+            .join('\n') || 'None'
+        ).slice(0, 1024),
         inline: true,
       },
       {
@@ -1110,7 +1794,11 @@ function buildSendDraftEmbed(draft: any, requestedBy: string, guild: Guild | nul
         inline: true,
       },
     )
-    .setFooter({ text: `Sent by ${requestedBy} • Last updated ${new Date(draft?.updatedAt || Date.now()).toLocaleString()}` })
+    .setFooter({
+      text: `Sent by ${requestedBy} • Last updated ${new Date(
+        draft?.updatedAt || Date.now(),
+      ).toLocaleString()}`,
+    })
     .setTimestamp();
 }
 
@@ -1137,14 +1825,20 @@ function getGuildStaticEmojiLimit(guild: Guild): number {
   }
 }
 
-async function fetchChampionIconsForBatch(batchNumber: number): Promise<{ version: string; assets: ChampionIconAsset[] }> {
+async function fetchChampionIconsForBatch(
+  batchNumber: number,
+): Promise<{ version: string; assets: ChampionIconAsset[] }> {
   if (batchNumber < 1 || batchNumber > CHAMPION_EMOJI_BATCH_COUNT) {
-    throw new Error(`Batch must be between 1 and ${CHAMPION_EMOJI_BATCH_COUNT}`);
+    throw new Error(
+      `Batch must be between 1 and ${CHAMPION_EMOJI_BATCH_COUNT}`,
+    );
   }
 
   const sourceGuildId = CHAMPION_ICON_SOURCE_GUILD_IDS[batchNumber - 1];
   if (!sourceGuildId) {
-    throw new Error(`No source guild configured for champion batch ${batchNumber}`);
+    throw new Error(
+      `No source guild configured for champion batch ${batchNumber}`,
+    );
   }
 
   const sourceGuild = await client.guilds.fetch(sourceGuildId);
@@ -1178,14 +1872,20 @@ function getSourceGuildEmojiNames(kind: 'ROLE' | 'RANK'): string[] {
     : Object.values(RANK_CUSTOM_EMOJI_NAMES);
 }
 
-async function fetchSourceGuildEmojiAssets(kind: 'ROLE' | 'RANK'): Promise<EmojiImportAsset[]> {
+async function fetchSourceGuildEmojiAssets(
+  kind: 'ROLE' | 'RANK',
+): Promise<EmojiImportAsset[]> {
   const sourceGuild = await client.guilds.fetch(EMOJI_SOURCE_GUILD_ID);
   await sourceGuild.emojis.fetch();
 
   return getSourceGuildEmojiNames(kind).map((emojiName) => {
-    const emoji = sourceGuild.emojis.cache.find((entry) => (entry.name || '').toLowerCase() === emojiName.toLowerCase());
+    const emoji = sourceGuild.emojis.cache.find(
+      (entry) => (entry.name || '').toLowerCase() === emojiName.toLowerCase(),
+    );
     if (!emoji) {
-      throw new Error(`Could not find ${kind.toLowerCase()} emoji ${emojiName} in source guild`);
+      throw new Error(
+        `Could not find ${kind.toLowerCase()} emoji ${emojiName} in source guild`,
+      );
     }
 
     return {
@@ -1196,7 +1896,9 @@ async function fetchSourceGuildEmojiAssets(kind: 'ROLE' | 'RANK'): Promise<Emoji
   });
 }
 
-async function handleImportChampionEmojis(interaction: ChatInputCommandInteraction) {
+async function handleImportChampionEmojis(
+  interaction: ChatInputCommandInteraction,
+) {
   await interaction.deferReply({ ephemeral: true });
 
   const guild = interaction.guild;
@@ -1205,43 +1907,78 @@ async function handleImportChampionEmojis(interaction: ChatInputCommandInteracti
   }
 
   const member = interaction.member as any;
-  if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator) && !member?.permissions?.has?.(PermissionFlagsBits.ManageGuild)) {
-    return interaction.editReply('❌ You need **Manage Server** or **Administrator** permission to import champion emojis.');
+  if (
+    !member?.permissions?.has?.(PermissionFlagsBits.Administrator) &&
+    !member?.permissions?.has?.(PermissionFlagsBits.ManageGuild)
+  ) {
+    return interaction.editReply(
+      '❌ You need **Manage Server** or **Administrator** permission to import champion emojis.',
+    );
   }
 
   const me = guild.members.me;
   if (!me?.permissions?.has(PermissionFlagsBits.ManageGuildExpressions)) {
-    return interaction.editReply('❌ Bot is missing **Manage Expressions** permission in this server.');
+    return interaction.editReply(
+      '❌ Bot is missing **Manage Expressions** permission in this server.',
+    );
   }
 
-  const assetType = String(interaction.options.getString('asset_type', true) || 'CHAMPION').toUpperCase() as EmojiImportKind;
+  const assetType = String(
+    interaction.options.getString('asset_type', true) || 'CHAMPION',
+  ).toUpperCase() as EmojiImportKind;
   const batch = interaction.options.getInteger('batch') || 1;
-  const replaceExisting = interaction.options.getBoolean('replace_existing') === true;
+  const replaceExisting =
+    interaction.options.getBoolean('replace_existing') === true;
 
-  if (assetType === 'CHAMPION' && (batch < 1 || batch > CHAMPION_EMOJI_BATCH_COUNT)) {
-    return interaction.editReply(`❌ Batch must be between 1 and ${CHAMPION_EMOJI_BATCH_COUNT}.`);
+  if (
+    assetType === 'CHAMPION' &&
+    (batch < 1 || batch > CHAMPION_EMOJI_BATCH_COUNT)
+  ) {
+    return interaction.editReply(
+      `❌ Batch must be between 1 and ${CHAMPION_EMOJI_BATCH_COUNT}.`,
+    );
   }
 
   try {
     await guild.emojis.fetch();
 
-    const assetsResult = assetType === 'ROLE'
-      ? { description: 'role icons', assets: await fetchSourceGuildEmojiAssets('ROLE'), version: null as string | null }
-      : assetType === 'RANK'
-        ? { description: 'rank icons', assets: await fetchSourceGuildEmojiAssets('RANK'), version: null as string | null }
-        : { description: `champion icons batch ${batch}/${CHAMPION_EMOJI_BATCH_COUNT}`, ...(await fetchChampionIconsForBatch(batch)) };
+    const assetsResult =
+      assetType === 'ROLE'
+        ? {
+            description: 'role icons',
+            assets: await fetchSourceGuildEmojiAssets('ROLE'),
+            version: null as string | null,
+          }
+        : assetType === 'RANK'
+        ? {
+            description: 'rank icons',
+            assets: await fetchSourceGuildEmojiAssets('RANK'),
+            version: null as string | null,
+          }
+        : {
+            description: `champion icons batch ${batch}/${CHAMPION_EMOJI_BATCH_COUNT}`,
+            ...(await fetchChampionIconsForBatch(batch)),
+          };
 
     const { version, assets, description } = assetsResult;
     if (assets.length === 0) {
-      return interaction.editReply(`❌ No emoji assets found for ${description}.`);
+      return interaction.editReply(
+        `❌ No emoji assets found for ${description}.`,
+      );
     }
 
     const guildStaticEmojiLimit = getGuildStaticEmojiLimit(guild);
 
-    const existingStatic = guild.emojis.cache.filter((emoji) => !emoji.animated);
-    const existingByName = new Map(existingStatic.map((emoji) => [emoji.name?.toLowerCase() || '', emoji]));
+    const existingStatic = guild.emojis.cache.filter(
+      (emoji) => !emoji.animated,
+    );
+    const existingByName = new Map(
+      existingStatic.map((emoji) => [emoji.name?.toLowerCase() || '', emoji]),
+    );
 
-    const preexisting = assets.filter((asset) => existingByName.has(asset.emojiName.toLowerCase()));
+    const preexisting = assets.filter((asset) =>
+      existingByName.has(asset.emojiName.toLowerCase()),
+    );
 
     let deletedCount = 0;
     if (replaceExisting && preexisting.length > 0) {
@@ -1252,16 +1989,36 @@ async function handleImportChampionEmojis(interaction: ChatInputCommandInteracti
           await existing.delete(`Re-importing champion emoji ${asset.id}`);
           deletedCount += 1;
         } catch (error: any) {
-          console.warn(`⚠️ Could not delete existing emoji ${asset.emojiName}: ${error?.message || error}`);
+          console.warn(
+            `⚠️ Could not delete existing emoji ${asset.emojiName}: ${
+              error?.message || error
+            }`,
+          );
         }
       }
       await guild.emojis.fetch();
     }
 
-    const existingAfterDelete = guild.emojis.cache.filter((emoji) => !emoji.animated).size;
-    const alreadyPresent = assets.filter((asset) => guild.emojis.cache.some((emoji) => !emoji.animated && (emoji.name || '').toLowerCase() === asset.emojiName.toLowerCase()));
-    const candidates = assets.filter((asset) => !alreadyPresent.some((present) => present.emojiName === asset.emojiName));
-    const availableSlots = Math.max(0, guildStaticEmojiLimit - existingAfterDelete);
+    const existingAfterDelete = guild.emojis.cache.filter(
+      (emoji) => !emoji.animated,
+    ).size;
+    const alreadyPresent = assets.filter((asset) =>
+      guild.emojis.cache.some(
+        (emoji) =>
+          !emoji.animated &&
+          (emoji.name || '').toLowerCase() === asset.emojiName.toLowerCase(),
+      ),
+    );
+    const candidates = assets.filter(
+      (asset) =>
+        !alreadyPresent.some(
+          (present) => present.emojiName === asset.emojiName,
+        ),
+    );
+    const availableSlots = Math.max(
+      0,
+      guildStaticEmojiLimit - existingAfterDelete,
+    );
     const uploadQueue = candidates.slice(0, availableSlots);
 
     let created = 0;
@@ -1270,52 +2027,86 @@ async function handleImportChampionEmojis(interaction: ChatInputCommandInteracti
       try {
         const iconResponse = await fetch(asset.iconUrl);
         if (!iconResponse.ok) {
-          console.warn(`⚠️ Emoji asset fetch failed for ${asset.id}: ${iconResponse.status}`);
+          console.warn(
+            `⚠️ Emoji asset fetch failed for ${asset.id}: ${iconResponse.status}`,
+          );
           failed += 1;
           continue;
         }
 
         const iconBuffer = Buffer.from(await iconResponse.arrayBuffer());
-        await guild.emojis.create({ attachment: iconBuffer, name: asset.emojiName });
+        await guild.emojis.create({
+          attachment: iconBuffer,
+          name: asset.emojiName,
+        });
         created += 1;
       } catch (error: any) {
-        console.error(`❌ Failed to create emoji for champion ${asset.id}:`, error?.message || error);
+        console.error(
+          `❌ Failed to create emoji for champion ${asset.id}:`,
+          error?.message || error,
+        );
         failed += 1;
       }
     }
 
-    const skippedForCapacity = Math.max(0, candidates.length - uploadQueue.length);
+    const skippedForCapacity = Math.max(
+      0,
+      candidates.length - uploadQueue.length,
+    );
     const skippedExisting = alreadyPresent.length;
 
     console.log(
       `[EmojiImport] guild=${guild.id} type=${assetType} ${description} ` +
-      `version=${version || 'source'} total=${assets.length} created=${created} failed=${failed} ` +
-      `skippedExisting=${skippedExisting} skippedCapacity=${skippedForCapacity} replaced=${deletedCount} limit=${guildStaticEmojiLimit}`
+        `version=${version || 'source'} total=${
+          assets.length
+        } created=${created} failed=${failed} ` +
+        `skippedExisting=${skippedExisting} skippedCapacity=${skippedForCapacity} replaced=${deletedCount} limit=${guildStaticEmojiLimit}`,
     );
 
     const embed = new EmbedBuilder()
-      .setColor(created > 0 ? 0x22C55E : 0xEAB308)
+      .setColor(created > 0 ? 0x22c55e : 0xeab308)
       .setTitle('Emoji Import Summary')
       .setDescription(
         assetType === 'CHAMPION'
           ? `Batch **${batch}/${CHAMPION_EMOJI_BATCH_COUNT}** from source guild **${version}**`
-          : `Imported **${description}** from the RiftEssence source guild`
+          : `Imported **${description}** from the RiftEssence source guild`,
       )
       .addFields(
         { name: 'Created', value: String(created), inline: true },
         { name: 'Failed', value: String(failed), inline: true },
-        { name: 'Skipped (Existing)', value: String(skippedExisting), inline: true },
-        { name: 'Skipped (Capacity)', value: String(skippedForCapacity), inline: true },
+        {
+          name: 'Skipped (Existing)',
+          value: String(skippedExisting),
+          inline: true,
+        },
+        {
+          name: 'Skipped (Capacity)',
+          value: String(skippedForCapacity),
+          inline: true,
+        },
         { name: 'Replaced', value: String(deletedCount), inline: true },
-        { name: 'Server Static Emoji Count', value: `${guild.emojis.cache.filter((emoji) => !emoji.animated).size}/${guildStaticEmojiLimit}`, inline: true },
+        {
+          name: 'Server Static Emoji Count',
+          value: `${
+            guild.emojis.cache.filter((emoji) => !emoji.animated).size
+          }/${guildStaticEmojiLimit}`,
+          inline: true,
+        },
       )
-      .setFooter({ text: assetType === 'CHAMPION' ? 'Run batches 1, 2, 3, and 4 to clone all champion icon source guilds.' : 'Use the import type that matches the asset pack you want to clone.' })
+      .setFooter({
+        text:
+          assetType === 'CHAMPION'
+            ? 'Run batches 1, 2, 3, and 4 to clone all champion icon source guilds.'
+            : 'Use the import type that matches the asset pack you want to clone.',
+      })
       .setTimestamp();
 
     return interaction.editReply({ embeds: [embed] });
   } catch (error: any) {
     console.error('❌ Emoji import failed:', error?.message || error);
-    return interaction.editReply(`❌ Import failed: ${error?.message || 'Unknown error'}`);
+    return interaction.editReply(
+      `❌ Import failed: ${error?.message || 'Unknown error'}`,
+    );
   }
 }
 
@@ -1323,7 +2114,9 @@ function modeLabel(mode: 'RANK' | 'LANGUAGE') {
   return mode === 'RANK' ? 'Rank roles' : 'Language roles';
 }
 
-function getRoleMenuModeFromCustomId(customId: string): 'RANK' | 'LANGUAGE' | null {
+function getRoleMenuModeFromCustomId(
+  customId: string,
+): 'RANK' | 'LANGUAGE' | null {
   if (!customId.startsWith(ROLE_MENU_MODE_PREFIX)) return null;
   const raw = customId.slice(ROLE_MENU_MODE_PREFIX.length).toUpperCase();
   if (raw === 'RANK' || raw === 'LANGUAGE') return raw;
@@ -1336,14 +2129,12 @@ function getKeyOptions(mode: 'RANK' | 'LANGUAGE') {
       new StringSelectMenuOptionBuilder()
         .setLabel(rank)
         .setValue(rank)
-        .setEmoji(RANK_EMOJIS[rank] || '🏅')
+        .setEmoji(RANK_EMOJIS[rank] || '🏅'),
     );
   }
 
   return ROLE_FORWARDING_LANGUAGE_KEYS.map((language) =>
-    new StringSelectMenuOptionBuilder()
-      .setLabel(language)
-      .setValue(language)
+    new StringSelectMenuOptionBuilder().setLabel(language).setValue(language),
   );
 }
 
@@ -1352,7 +2143,10 @@ function truncateRoleLabel(value: string, maxLen = 90) {
   return `${value.slice(0, maxLen - 3)}...`;
 }
 
-function getPagedGuildRoleOptions(guild: Guild, session: PendingRoleMenuSession) {
+function getPagedGuildRoleOptions(
+  guild: Guild,
+  session: PendingRoleMenuSession,
+) {
   const allRoles = Array.from(guild.roles.cache.values())
     .filter((role) => role.id !== guild.id)
     .sort((a, b) => {
@@ -1361,17 +2155,23 @@ function getPagedGuildRoleOptions(guild: Guild, session: PendingRoleMenuSession)
     });
 
   const totalRoles = allRoles.length;
-  const totalPages = Math.max(1, Math.ceil(totalRoles / ROLE_MENU_ROLES_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(totalRoles / ROLE_MENU_ROLES_PER_PAGE),
+  );
   const safePage = Math.min(Math.max(0, session.rolePage || 0), totalPages - 1);
   const start = safePage * ROLE_MENU_ROLES_PER_PAGE;
-  const currentPageRoles = allRoles.slice(start, start + ROLE_MENU_ROLES_PER_PAGE);
+  const currentPageRoles = allRoles.slice(
+    start,
+    start + ROLE_MENU_ROLES_PER_PAGE,
+  );
 
   const options = currentPageRoles.map((role) =>
     new StringSelectMenuOptionBuilder()
       .setLabel(truncateRoleLabel(role.name))
       .setValue(role.id)
       .setDescription(`Position ${role.position}`)
-      .setDefault(role.id === session.selectedRoleId)
+      .setDefault(role.id === session.selectedRoleId),
   );
 
   return {
@@ -1382,7 +2182,11 @@ function getPagedGuildRoleOptions(guild: Guild, session: PendingRoleMenuSession)
   };
 }
 
-function formatRoleMapSummary(map: Record<string, string>, orderedKeys: string[], iconByKey?: Record<string, string>) {
+function formatRoleMapSummary(
+  map: Record<string, string>,
+  orderedKeys: string[],
+  iconByKey?: Record<string, string>,
+) {
   const lines = orderedKeys
     .filter((key) => Boolean(map[key]))
     .map((key) => `${iconByKey?.[key] || '•'} ${key}: <@&${map[key]}>`);
@@ -1394,32 +2198,44 @@ function formatRoleMapSummary(map: Record<string, string>, orderedKeys: string[]
   return lines.join('\n');
 }
 
-function buildRoleMenuOverviewEmbed(config: RoleForwardingConfig, guildName?: string) {
+function buildRoleMenuOverviewEmbed(
+  config: RoleForwardingConfig,
+  guildName?: string,
+) {
   return new EmbedBuilder()
-    .setColor(0x5865F2)
+    .setColor(0x5865f2)
     .setTitle('🎛️ Role Forwarding Setup')
     .setDescription(
       `Server: **${guildName || config.guildId}**\n` +
-      `Linked community: **${config.communityName}**\n\n` +
-      'Configure automatic role assignments based on RiftEssence profile data.\n\n' +
-      '**How assignment works**\n' +
-      '1) User must link Discord + Riot account in RiftEssence\n' +
-      '2) User should have rank/languages set on profile\n' +
-      '3) Bot sync assigns mapped roles and removes outdated mapped roles'
+        `Linked community: **${config.communityName}**\n\n` +
+        'Configure automatic role assignments based on RiftEssence profile data.\n\n' +
+        '**How assignment works**\n' +
+        '1) User must link Discord + Riot account in RiftEssence\n' +
+        '2) User should have rank/languages set on profile\n' +
+        '3) Bot sync assigns mapped roles and removes outdated mapped roles',
     )
     .addFields(
       {
         name: `🏆 Rank Mappings (${config.configuredRanks})`,
-        value: formatRoleMapSummary(config.rankRoleMap, ROLE_FORWARDING_RANK_KEYS, RANK_EMOJIS),
+        value: formatRoleMapSummary(
+          config.rankRoleMap,
+          ROLE_FORWARDING_RANK_KEYS,
+          RANK_EMOJIS,
+        ),
         inline: false,
       },
       {
         name: `🗣️ Language Mappings (${config.configuredLanguages})`,
-        value: formatRoleMapSummary(config.languageRoleMap, ROLE_FORWARDING_LANGUAGE_KEYS),
+        value: formatRoleMapSummary(
+          config.languageRoleMap,
+          ROLE_FORWARDING_LANGUAGE_KEYS,
+        ),
         inline: false,
-      }
+      },
     )
-    .setFooter({ text: 'Tip: Ensure bot role is above mapped roles and has Manage Roles permission.' })
+    .setFooter({
+      text: 'Tip: Ensure bot role is above mapped roles and has Manage Roles permission.',
+    })
     .setTimestamp();
 }
 
@@ -1453,37 +2269,51 @@ function buildRoleMenuOverviewRows() {
   return [row1, row2];
 }
 
-function buildRoleMenuEditorEmbed(session: PendingRoleMenuSession, config: RoleForwardingConfig) {
-  const currentMap = session.mode === 'RANK' ? config.rankRoleMap : config.languageRoleMap;
+function buildRoleMenuEditorEmbed(
+  session: PendingRoleMenuSession,
+  config: RoleForwardingConfig,
+) {
+  const currentMap =
+    session.mode === 'RANK' ? config.rankRoleMap : config.languageRoleMap;
   const selectedKeyDisplay = session.selectedKey || 'Not selected';
-  const selectedRoleDisplay = session.selectedRoleId ? `<@&${session.selectedRoleId}>` : 'Not selected';
-  const existingRoleDisplay = session.selectedKey && currentMap[session.selectedKey]
-    ? `<@&${currentMap[session.selectedKey]}>`
-    : 'None';
+  const selectedRoleDisplay = session.selectedRoleId
+    ? `<@&${session.selectedRoleId}>`
+    : 'Not selected';
+  const existingRoleDisplay =
+    session.selectedKey && currentMap[session.selectedKey]
+      ? `<@&${currentMap[session.selectedKey]}>`
+      : 'None';
 
   return new EmbedBuilder()
     .setColor(0x0a84ff)
     .setTitle(`⚙️ Configure ${modeLabel(session.mode)}`)
     .setDescription(
       'Pick a key and a Discord role, then click **Save Mapping**.\n' +
-      'Use **Clear Mapping** to remove a mapped role from the selected key.'
+        'Use **Clear Mapping** to remove a mapped role from the selected key.',
     )
     .addFields(
       { name: 'Selected Key', value: selectedKeyDisplay, inline: true },
       { name: 'Selected Role', value: selectedRoleDisplay, inline: true },
       { name: 'Current Mapping', value: existingRoleDisplay, inline: true },
     )
-    .setFooter({ text: `${config.communityName} • ${modeLabel(session.mode)}` });
+    .setFooter({
+      text: `${config.communityName} • ${modeLabel(session.mode)}`,
+    });
 }
 
-function buildRoleMenuEditorRows(session: PendingRoleMenuSession, guild?: Guild | null) {
+function buildRoleMenuEditorRows(
+  session: PendingRoleMenuSession,
+  guild?: Guild | null,
+) {
   const keyOptions = getKeyOptions(session.mode).map((option) =>
-    option.setDefault(option.data.value === session.selectedKey)
+    option.setDefault(option.data.value === session.selectedKey),
   );
 
   const keyMenu = new StringSelectMenuBuilder()
     .setCustomId(ROLE_MENU_SELECT_KEY)
-    .setPlaceholder(`Choose ${session.mode === 'RANK' ? 'a rank tier' : 'a language'}`)
+    .setPlaceholder(
+      `Choose ${session.mode === 'RANK' ? 'a rank tier' : 'a language'}`,
+    )
     .setMinValues(1)
     .setMaxValues(1)
     .addOptions(keyOptions);
@@ -1497,12 +2327,14 @@ function buildRoleMenuEditorRows(session: PendingRoleMenuSession, guild?: Guild 
   const roleOptions = guild ? getPagedGuildRoleOptions(guild, session) : null;
   if (roleOptions && roleOptions.options.length > 0) {
     roleMenu
-      .setPlaceholder(`Choose a Discord role (${roleOptions.page + 1}/${roleOptions.totalPages})`)
+      .setPlaceholder(
+        `Choose a Discord role (${roleOptions.page + 1}/${
+          roleOptions.totalPages
+        })`,
+      )
       .addOptions(roleOptions.options);
   } else {
-    roleMenu
-      .setDisabled(true)
-      .setPlaceholder('No server roles found');
+    roleMenu.setDisabled(true).setPlaceholder('No server roles found');
   }
 
   const rows: ActionRowBuilder<any>[] = [
@@ -1551,10 +2383,20 @@ function buildRoleMenuEditorRows(session: PendingRoleMenuSession, guild?: Guild 
   return rows;
 }
 
-async function fetchRoleForwardingConfig(guildId: string): Promise<{ ok: true; config: RoleForwardingConfig } | { ok: false; error: string }> {
-  const result = await apiRequest(`/api/discord/role-forwarding?guildId=${guildId}`);
+async function fetchRoleForwardingConfig(
+  guildId: string,
+): Promise<
+  { ok: true; config: RoleForwardingConfig } | { ok: false; error: string }
+> {
+  const result = await apiRequest(
+    `/api/discord/role-forwarding?guildId=${guildId}`,
+  );
   if (!result.ok) {
-    return { ok: false, error: result.data?.error || 'Failed to load role forwarding configuration.' };
+    return {
+      ok: false,
+      error:
+        result.data?.error || 'Failed to load role forwarding configuration.',
+    };
   }
 
   return {
@@ -1571,36 +2413,60 @@ async function fetchRoleForwardingConfig(guildId: string): Promise<{ ok: true; c
   };
 }
 
-async function syncRoleForwardingForGuild(guildId: string, guildHint?: Guild, silentNoop = false) {
-  const syncResult = await apiRequest('/api/discord/role-forwarding/sync', 'POST', { guildId });
+async function syncRoleForwardingForGuild(
+  guildId: string,
+  guildHint?: Guild,
+  silentNoop = false,
+) {
+  const syncResult = await apiRequest(
+    '/api/discord/role-forwarding/sync',
+    'POST',
+    { guildId },
+  );
   if (!syncResult.ok) {
     return {
       ok: false,
-      message: syncResult.data?.error || 'Failed to prepare role forwarding sync payload.',
+      message:
+        syncResult.data?.error ||
+        'Failed to prepare role forwarding sync payload.',
     };
   }
 
   const payload = syncResult.data as RoleForwardingSyncPayload;
-  if (!payload.enabled || !Array.isArray(payload.managedRoleIds) || payload.managedRoleIds.length === 0) {
+  if (
+    !payload.enabled ||
+    !Array.isArray(payload.managedRoleIds) ||
+    payload.managedRoleIds.length === 0
+  ) {
     return {
       ok: true,
-      message: silentNoop ? '' : 'No role mappings configured yet. Configure at least one rank/language role first.',
+      message: silentNoop
+        ? ''
+        : 'No role mappings configured yet. Configure at least one rank/language role first.',
       summary: payload.summary,
     };
   }
 
-  const guild = guildHint || await client.guilds.fetch(guildId).catch(() => null);
+  const guild =
+    guildHint || (await client.guilds.fetch(guildId).catch(() => null));
   if (!guild) {
     return { ok: false, message: 'Bot cannot access this guild right now.' };
   }
 
   const botMember = await guild.members.fetchMe().catch(() => null);
   if (!botMember) {
-    return { ok: false, message: 'Failed to resolve bot member in this guild.' };
+    return {
+      ok: false,
+      message: 'Failed to resolve bot member in this guild.',
+    };
   }
 
   if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
-    return { ok: false, message: 'Missing Manage Roles permission. Grant it to the bot and retry.' };
+    return {
+      ok: false,
+      message:
+        'Missing Manage Roles permission. Grant it to the bot and retry.',
+    };
   }
 
   const manageableRoleIds = new Set<string>();
@@ -1619,7 +2485,8 @@ async function syncRoleForwardingForGuild(guildId: string, guildHint?: Guild, si
   if (manageableRoleIds.size === 0) {
     return {
       ok: false,
-      message: 'All configured roles are above the bot role. Move the bot role above mapped roles and retry.',
+      message:
+        'All configured roles are above the bot role. Move the bot role above mapped roles and retry.',
     };
   }
 
@@ -1636,19 +2503,27 @@ async function syncRoleForwardingForGuild(guildId: string, guildHint?: Guild, si
 
     eligibleProcessed += 1;
 
-    const guildMember = await guild.members.fetch(member.discordId).catch(() => null);
+    const guildMember = await guild.members
+      .fetch(member.discordId)
+      .catch(() => null);
     if (!guildMember) {
       notFoundMembers += 1;
       continue;
     }
 
-    const desiredRoleIds = member.desiredRoleIds.filter((id) => manageableRoleIds.has(id));
+    const desiredRoleIds = member.desiredRoleIds.filter((id) =>
+      manageableRoleIds.has(id),
+    );
     const currentManagedRoleIds = guildMember.roles.cache
       .filter((role) => manageableRoleIds.has(role.id))
       .map((role) => role.id);
 
-    const toAdd = desiredRoleIds.filter((roleId) => !guildMember.roles.cache.has(roleId));
-    const toRemove = currentManagedRoleIds.filter((roleId) => !desiredRoleIds.includes(roleId));
+    const toAdd = desiredRoleIds.filter(
+      (roleId) => !guildMember.roles.cache.has(roleId),
+    );
+    const toRemove = currentManagedRoleIds.filter(
+      (roleId) => !desiredRoleIds.includes(roleId),
+    );
 
     if (toAdd.length === 0 && toRemove.length === 0) {
       unchangedMembers += 1;
@@ -1660,12 +2535,17 @@ async function syncRoleForwardingForGuild(guildId: string, guildHint?: Guild, si
         await guildMember.roles.add(toAdd, 'RiftEssence role forwarding sync');
       }
       if (toRemove.length > 0) {
-        await guildMember.roles.remove(toRemove, 'RiftEssence role forwarding sync');
+        await guildMember.roles.remove(
+          toRemove,
+          'RiftEssence role forwarding sync',
+        );
       }
       updatedMembers += 1;
     } catch (error: any) {
       failedMembers += 1;
-      console.error(`❌ Role sync failed for ${member.username} (${member.discordId}): ${error.message}`);
+      console.error(
+        `❌ Role sync failed for ${member.username} (${member.discordId}): ${error.message}`,
+      );
     }
   }
 
@@ -1698,7 +2578,9 @@ async function pollRoleForwardingSync() {
   for (const guild of guildEntries) {
     const result = await syncRoleForwardingForGuild(guild.id, guild, true);
     if (!result.ok) {
-      console.warn(`⚠️ Role forwarding sync failed for guild ${guild.id}: ${result.message}`);
+      console.warn(
+        `⚠️ Role forwarding sync failed for guild ${guild.id}: ${result.message}`,
+      );
     } else if (result.message) {
       console.log(`🔁 Role forwarding sync (${guild.name}): ${result.message}`);
     }
@@ -1709,7 +2591,10 @@ function buildChatReplyButtonCustomId(conversationId: string) {
   return `${CHAT_REPLY_BUTTON_PREFIX}${conversationId}`;
 }
 
-function extractConversationIdFromChatReplyCustomId(customId: string, prefix: string) {
+function extractConversationIdFromChatReplyCustomId(
+  customId: string,
+  prefix: string,
+) {
   if (!customId.startsWith(prefix)) return null;
   const conversationId = customId.slice(prefix.length).trim();
   return conversationId || null;
@@ -1732,7 +2617,9 @@ async function handleLinkServer(interaction: ChatInputCommandInteraction) {
   // Double-check administrator permission
   const member = interaction.member as any;
   if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
-    return interaction.editReply('❌ You need **Administrator** permissions to link this server.');
+    return interaction.editReply(
+      '❌ You need **Administrator** permissions to link this server.',
+    );
   }
 
   // Request a link code from the API
@@ -1742,20 +2629,24 @@ async function handleLinkServer(interaction: ChatInputCommandInteraction) {
   });
 
   if (!result.ok) {
-    return interaction.editReply(`❌ ${result.data.error || 'Failed to generate link code.'}`);
+    return interaction.editReply(
+      `❌ ${result.data.error || 'Failed to generate link code.'}`,
+    );
   }
 
   const { code, expiresAt } = result.data;
-  const expiresIn = Math.round((new Date(expiresAt).getTime() - Date.now()) / 60000);
+  const expiresIn = Math.round(
+    (new Date(expiresAt).getTime() - Date.now()) / 60000,
+  );
 
   const embed = new EmbedBuilder()
     .setColor(0x0a84ff)
     .setTitle('🔗 Server Link Code')
     .setDescription(
       `Your link code is:\n\n` +
-      `# \`${code}\`\n\n` +
-      `Go to **${APP_URL}/communities/register** and enter this code to link your server.\n\n` +
-      `⏳ This code expires in **${expiresIn} minutes**.`
+        `# \`${code}\`\n\n` +
+        `Go to **${APP_URL}/communities/register** and enter this code to link your server.\n\n` +
+        `⏳ This code expires in **${expiresIn} minutes**.`,
     )
     .setFooter({ text: 'Only administrators can generate link codes.' })
     .setTimestamp();
@@ -1768,37 +2659,45 @@ async function handleLinkServer(interaction: ChatInputCommandInteraction) {
 // ============================================================
 
 // Temporary state for multi-step setup flows (keyed by `${userId}-${channelId}`)
-const pendingSetups = new Map<string, {
-  feedType: 'DUO' | 'LFT' | 'SCRIM';
-  channelId: string;
-  guildId: string;
-  communityId: string;
-  filterRegions: string[];
-  filterRoles: string[];
-  filterLanguages: string[];
-  filterMinRank: string | null;
-  filterMaxRank: string | null;
-}>();
+const pendingSetups = new Map<
+  string,
+  {
+    feedType: 'DUO' | 'LFT' | 'SCRIM';
+    channelId: string;
+    guildId: string;
+    communityId: string;
+    filterRegions: string[];
+    filterRoles: string[];
+    filterLanguages: string[];
+    filterMinRank: string | null;
+    filterMaxRank: string | null;
+  }
+>();
 
 async function handleSetup(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ ephemeral: true });
 
   const guildId = interaction.guildId;
-  if (!guildId) return interaction.editReply('❌ This command must be used in a server.');
+  if (!guildId)
+    return interaction.editReply('❌ This command must be used in a server.');
 
   // Verify community link
-  const communityRes = await apiRequest(`/api/communities?discordServerId=${guildId}`);
+  const communityRes = await apiRequest(
+    `/api/communities?discordServerId=${guildId}`,
+  );
   if (!communityRes.ok || !communityRes.data.communities?.length) {
     return interaction.editReply(
-      '❌ No community is linked to this Discord server.\nUse `/linkserver` first, then register the community on the app.'
+      '❌ No community is linked to this Discord server.\nUse `/linkserver` first, then register the community on the app.',
     );
   }
   const community = communityRes.data.communities[0];
 
   // Fetch existing channels for this guild
-  const channelsRes = await apiRequest(`/api/discord/feed/channels?guildId=${guildId}`);
+  const channelsRes = await apiRequest(
+    `/api/discord/feed/channels?guildId=${guildId}`,
+  );
   const existingChannels = channelsRes.ok
-    ? (channelsRes.data.channels || channelsRes.data || [])
+    ? channelsRes.data.channels || channelsRes.data || []
     : [];
 
   // Build the main setup embed
@@ -1807,25 +2706,40 @@ async function handleSetup(interaction: ChatInputCommandInteraction) {
     .setTitle('⚙️ RiftEssence Feed Setup')
     .setDescription(
       `Community: **${community.name}**\n` +
-      `Channel: <#${interaction.channelId}>\n\n` +
-      `Choose what type of posts to forward to **this channel**, or manage existing channels.\n` +
-      `Run **/setup** in the exact destination channel if you want forwarding there.\n\n` +
-      `📌 Max 5 feed channels per server (currently ${existingChannels.length}/5).`
+        `Channel: <#${interaction.channelId}>\n\n` +
+        `Choose what type of posts to forward to **this channel**, or manage existing channels.\n` +
+        `Run **/setup** in the exact destination channel if you want forwarding there.\n\n` +
+        `📌 Max 5 feed channels per server (currently ${existingChannels.length}/5).`,
     )
     .setFooter({ text: 'Only administrators can configure feeds.' });
 
   if (existingChannels.length > 0) {
-    const list = existingChannels.map((fc: any) =>
-      `• <#${fc.channelId}> — **${fc.feedType}**${describeFilters(fc)}`
-    ).join('\n');
+    const list = existingChannels
+      .map(
+        (fc: any) =>
+          `• <#${fc.channelId}> — **${fc.feedType}**${describeFilters(fc)}`,
+      )
+      .join('\n');
     embed.addFields({ name: '📋 Current Channels', value: list });
   }
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId('setup_duo').setLabel('🤝 Duo Feed').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('setup_lft').setLabel('👥 LFT Feed').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('setup_scrim').setLabel('⚔️ Scrim Feed').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('setup_remove').setLabel('🗑️ Remove Channel').setStyle(ButtonStyle.Danger)
+    new ButtonBuilder()
+      .setCustomId('setup_duo')
+      .setLabel('🤝 Duo Feed')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('setup_lft')
+      .setLabel('👥 LFT Feed')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('setup_scrim')
+      .setLabel('⚔️ Scrim Feed')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('setup_remove')
+      .setLabel('🗑️ Remove Channel')
+      .setStyle(ButtonStyle.Danger)
       .setDisabled(existingChannels.length === 0),
   );
 
@@ -1844,7 +2758,9 @@ async function handleRoleMenu(interaction: ChatInputCommandInteraction) {
 
   const member = interaction.member as any;
   if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
-    return interaction.editReply('❌ You need **Administrator** permissions to configure role forwarding.');
+    return interaction.editReply(
+      '❌ You need **Administrator** permissions to configure role forwarding.',
+    );
   }
 
   const configResult = await fetchRoleForwardingConfig(guildId);
@@ -1875,25 +2791,37 @@ async function handleSendDraft(interaction: ChatInputCommandInteraction) {
 
   const member = interaction.member as any;
   if (!hasSendDraftPermission(member)) {
-    return interaction.editReply('❌ You need **Manage Server** or **Administrator** permission to send drafts.');
+    return interaction.editReply(
+      '❌ You need **Manage Server** or **Administrator** permission to send drafts.',
+    );
   }
 
   const options = await fetchSendDraftOptions(guildId, interaction.user.id);
   if (!options.ok) {
-    return interaction.editReply(`❌ ${options.error || 'Failed to load draft options.'}`);
+    return interaction.editReply(
+      `❌ ${options.error || 'Failed to load draft options.'}`,
+    );
   }
 
   if (options.status === 'MISSING_DISCORD_LINK') {
-    return interaction.editReply('❌ Your Discord account is not linked to RiftEssence. Link it from your profile first.');
+    return interaction.editReply(
+      '❌ Your Discord account is not linked to RiftEssence. Link it from your profile first.',
+    );
   }
 
   if (options.status === 'NO_TEAM_MEMBERSHIP') {
-    return interaction.editReply('❌ You are not part of any RiftEssence team. Join or create a team first.');
+    return interaction.editReply(
+      '❌ You are not part of any RiftEssence team. Join or create a team first.',
+    );
   }
 
-  const teamsWithDrafts = options.teams.filter((team) => Array.isArray(team.drafts) && team.drafts.length > 0);
+  const teamsWithDrafts = options.teams.filter(
+    (team) => Array.isArray(team.drafts) && team.drafts.length > 0,
+  );
   if (options.status === 'NO_SAVED_DRAFTS' || teamsWithDrafts.length === 0) {
-    return interaction.editReply('❌ No saved drafts found. Create and save at least one draft in the Team Draft Room first.');
+    return interaction.editReply(
+      '❌ No saved drafts found. Create and save at least one draft in the Team Draft Room first.',
+    );
   }
 
   const sessionKey = getSendDraftSessionKey(interaction.user.id, guildId);
@@ -1908,14 +2836,14 @@ async function handleSendDraft(interaction: ChatInputCommandInteraction) {
     new StringSelectMenuOptionBuilder()
       .setLabel(`${team.name}${team.tag ? ` [${team.tag}]` : ''}`.slice(0, 100))
       .setValue(team.id)
-      .setDescription(`${team.drafts.length} saved drafts`.slice(0, 100))
+      .setDescription(`${team.drafts.length} saved drafts`.slice(0, 100)),
   );
 
   const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(SEND_DRAFT_TEAM_SELECT)
       .setPlaceholder('Choose a team')
-      .addOptions(teamOptions)
+      .addOptions(teamOptions),
   );
 
   return interaction.editReply({
@@ -1959,7 +2887,9 @@ function buildDuoPostModal() {
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(false)
     .setMaxLength(500)
-    .setPlaceholder('Tell teammates what you want to play, rank goals, availability, etc.');
+    .setPlaceholder(
+      'Tell teammates what you want to play, rank goals, availability, etc.',
+    );
 
   const vcInput = new TextInputBuilder()
     .setCustomId(DUO_VC_INPUT)
@@ -1988,16 +2918,27 @@ async function handleDuoPost(interaction: ChatInputCommandInteraction) {
 
 async function handleDuoPostModalSubmit(interaction: ModalSubmitInteraction) {
   if (!interaction.guildId) {
-    return interaction.reply({ content: '❌ This action must be used in a server.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ This action must be used in a server.',
+      ephemeral: true,
+    });
   }
 
   const riotId = interaction.fields.getTextInputValue(DUO_RIOT_ID_INPUT).trim();
   const roles = interaction.fields.getTextInputValue(DUO_ROLES_INPUT).trim();
-  const languages = interaction.fields.getTextInputValue(DUO_LANGUAGES_INPUT).trim();
-  const message = interaction.fields.getTextInputValue(DUO_MESSAGE_INPUT).trim();
-  const vcPreference = interaction.fields.getTextInputValue(DUO_VC_INPUT).trim();
+  const languages = interaction.fields
+    .getTextInputValue(DUO_LANGUAGES_INPUT)
+    .trim();
+  const message = interaction.fields
+    .getTextInputValue(DUO_MESSAGE_INPUT)
+    .trim();
+  const vcPreference = interaction.fields
+    .getTextInputValue(DUO_VC_INPUT)
+    .trim();
 
-  const rawTag = interaction.user.tag || `${interaction.user.username}#${interaction.user.discriminator}`;
+  const rawTag =
+    interaction.user.tag ||
+    `${interaction.user.username}#${interaction.user.discriminator}`;
   const discordTag = rawTag.endsWith('#0') ? interaction.user.username : rawTag;
 
   const payload = {
@@ -2017,7 +2958,10 @@ async function handleDuoPostModalSubmit(interaction: ModalSubmitInteraction) {
   const result = await apiRequest('/api/discord/ingest', 'POST', payload);
   if (!result.ok) {
     const errorMessage = result.data?.error || 'Failed to create duo post.';
-    return interaction.reply({ content: `❌ ${errorMessage}`, ephemeral: true });
+    return interaction.reply({
+      content: `❌ ${errorMessage}`,
+      ephemeral: true,
+    });
   }
 
   return interaction.reply({
@@ -2028,9 +2972,12 @@ async function handleDuoPostModalSubmit(interaction: ModalSubmitInteraction) {
 
 function describeFilters(fc: any): string {
   const parts: string[] = [];
-  if (fc.filterRegions?.length > 0) parts.push(`Regions: ${fc.filterRegions.join(', ')}`);
-  if (fc.filterRoles?.length > 0) parts.push(`Roles: ${fc.filterRoles.join(', ')}`);
-  if (fc.filterLanguages?.length > 0) parts.push(`Languages: ${fc.filterLanguages.join(', ')}`);
+  if (fc.filterRegions?.length > 0)
+    parts.push(`Regions: ${fc.filterRegions.join(', ')}`);
+  if (fc.filterRoles?.length > 0)
+    parts.push(`Roles: ${fc.filterRoles.join(', ')}`);
+  if (fc.filterLanguages?.length > 0)
+    parts.push(`Languages: ${fc.filterLanguages.join(', ')}`);
   if (fc.filterMinRank) parts.push(`Min: ${fc.filterMinRank}`);
   if (fc.filterMaxRank) parts.push(`Max: ${fc.filterMaxRank}`);
   return parts.length > 0 ? ` (${parts.join(' | ')})` : ' (Global)';
@@ -2058,34 +3005,55 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
 
   const customId = interaction.customId;
   const key = `${interaction.user.id}-${interaction.channelId}`;
-  const roleMenuSessionKey = getRoleMenuSessionKey(interaction.user.id, guildId);
+  const roleMenuSessionKey = getRoleMenuSessionKey(
+    interaction.user.id,
+    guildId,
+  );
 
   if (customId === ROLE_MENU_CLOSE) {
     pendingRoleMenuSessions.delete(roleMenuSessionKey);
-    return interaction.update({ content: 'Role forwarding menu closed.', embeds: [], components: [] });
+    return interaction.update({
+      content: 'Role forwarding menu closed.',
+      embeds: [],
+      components: [],
+    });
   }
 
   if (customId === ROLE_MENU_REFRESH) {
     const configResult = await fetchRoleForwardingConfig(guildId);
     if (!configResult.ok) {
-      return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+      return interaction.update({
+        content: `❌ ${configResult.error}`,
+        embeds: [],
+        components: [],
+      });
     }
 
     pendingRoleMenuSessions.delete(roleMenuSessionKey);
     return interaction.update({
       content: '🔁 Refreshed role forwarding configuration.',
-      embeds: [buildRoleMenuOverviewEmbed(configResult.config, interaction.guild?.name)],
+      embeds: [
+        buildRoleMenuOverviewEmbed(
+          configResult.config,
+          interaction.guild?.name,
+        ),
+      ],
       components: buildRoleMenuOverviewRows(),
     });
   }
 
   if (customId === ROLE_MENU_SYNC) {
-    const syncResult = await syncRoleForwardingForGuild(guildId, interaction.guild || undefined);
+    const syncResult = await syncRoleForwardingForGuild(
+      guildId,
+      interaction.guild || undefined,
+    );
     const configResult = await fetchRoleForwardingConfig(guildId);
 
     if (!configResult.ok) {
       return interaction.update({
-        content: `${syncResult.ok ? '✅' : '❌'} ${syncResult.message}\n⚠️ Could not refresh role menu: ${configResult.error}`,
+        content: `${syncResult.ok ? '✅' : '❌'} ${
+          syncResult.message
+        }\n⚠️ Could not refresh role menu: ${configResult.error}`,
         embeds: [],
         components: [],
       });
@@ -2093,7 +3061,12 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
 
     return interaction.update({
       content: `${syncResult.ok ? '✅' : '❌'} ${syncResult.message}`,
-      embeds: [buildRoleMenuOverviewEmbed(configResult.config, interaction.guild?.name)],
+      embeds: [
+        buildRoleMenuOverviewEmbed(
+          configResult.config,
+          interaction.guild?.name,
+        ),
+      ],
       components: buildRoleMenuOverviewRows(),
     });
   }
@@ -2102,7 +3075,11 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
   if (roleMenuMode) {
     const configResult = await fetchRoleForwardingConfig(guildId);
     if (!configResult.ok) {
-      return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+      return interaction.update({
+        content: `❌ ${configResult.error}`,
+        embeds: [],
+        components: [],
+      });
     }
 
     const session: PendingRoleMenuSession = {
@@ -2121,10 +3098,17 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
     });
   }
 
-  if (customId === ROLE_MENU_ROLE_PAGE_PREV || customId === ROLE_MENU_ROLE_PAGE_NEXT) {
+  if (
+    customId === ROLE_MENU_ROLE_PAGE_PREV ||
+    customId === ROLE_MENU_ROLE_PAGE_NEXT
+  ) {
     const session = pendingRoleMenuSessions.get(roleMenuSessionKey);
     if (!session) {
-      return interaction.update({ content: '❌ Role menu session expired. Run `/rolemenu` again.', embeds: [], components: [] });
+      return interaction.update({
+        content: '❌ Role menu session expired. Run `/rolemenu` again.',
+        embeds: [],
+        components: [],
+      });
     }
 
     const delta = customId === ROLE_MENU_ROLE_PAGE_PREV ? -1 : 1;
@@ -2133,7 +3117,11 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
 
     const configResult = await fetchRoleForwardingConfig(guildId);
     if (!configResult.ok) {
-      return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+      return interaction.update({
+        content: `❌ ${configResult.error}`,
+        embeds: [],
+        components: [],
+      });
     }
 
     return interaction.update({
@@ -2146,13 +3134,22 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
   if (customId === ROLE_MENU_BACK) {
     const configResult = await fetchRoleForwardingConfig(guildId);
     if (!configResult.ok) {
-      return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+      return interaction.update({
+        content: `❌ ${configResult.error}`,
+        embeds: [],
+        components: [],
+      });
     }
 
     pendingRoleMenuSessions.delete(roleMenuSessionKey);
     return interaction.update({
       content: '',
-      embeds: [buildRoleMenuOverviewEmbed(configResult.config, interaction.guild?.name)],
+      embeds: [
+        buildRoleMenuOverviewEmbed(
+          configResult.config,
+          interaction.guild?.name,
+        ),
+      ],
       components: buildRoleMenuOverviewRows(),
     });
   }
@@ -2160,13 +3157,21 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
   if (customId === ROLE_MENU_SAVE || customId === ROLE_MENU_CLEAR) {
     const session = pendingRoleMenuSessions.get(roleMenuSessionKey);
     if (!session) {
-      return interaction.update({ content: '❌ Role menu session expired. Run `/rolemenu` again.', embeds: [], components: [] });
+      return interaction.update({
+        content: '❌ Role menu session expired. Run `/rolemenu` again.',
+        embeds: [],
+        components: [],
+      });
     }
 
     if (!session.selectedKey) {
       const configResult = await fetchRoleForwardingConfig(guildId);
       if (!configResult.ok) {
-        return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+        return interaction.update({
+          content: `❌ ${configResult.error}`,
+          embeds: [],
+          components: [],
+        });
       }
 
       return interaction.update({
@@ -2179,7 +3184,11 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
     if (customId === ROLE_MENU_SAVE && !session.selectedRoleId) {
       const configResult = await fetchRoleForwardingConfig(guildId);
       if (!configResult.ok) {
-        return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+        return interaction.update({
+          content: `❌ ${configResult.error}`,
+          embeds: [],
+          components: [],
+        });
       }
 
       return interaction.update({
@@ -2189,21 +3198,33 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       });
     }
 
-    const updateResult = await apiRequest('/api/discord/role-forwarding', 'PATCH', {
-      guildId,
-      type: session.mode,
-      key: session.selectedKey,
-      roleId: customId === ROLE_MENU_CLEAR ? null : session.selectedRoleId,
-    });
+    const updateResult = await apiRequest(
+      '/api/discord/role-forwarding',
+      'PATCH',
+      {
+        guildId,
+        type: session.mode,
+        key: session.selectedKey,
+        roleId: customId === ROLE_MENU_CLEAR ? null : session.selectedRoleId,
+      },
+    );
 
     if (!updateResult.ok) {
       const configResult = await fetchRoleForwardingConfig(guildId);
       if (!configResult.ok) {
-        return interaction.update({ content: `❌ ${updateResult.data?.error || 'Failed to update mapping.'}`, embeds: [], components: [] });
+        return interaction.update({
+          content: `❌ ${
+            updateResult.data?.error || 'Failed to update mapping.'
+          }`,
+          embeds: [],
+          components: [],
+        });
       }
 
       return interaction.update({
-        content: `❌ ${updateResult.data?.error || 'Failed to update mapping.'}`,
+        content: `❌ ${
+          updateResult.data?.error || 'Failed to update mapping.'
+        }`,
         embeds: [buildRoleMenuEditorEmbed(session, configResult.config)],
         components: buildRoleMenuEditorRows(session, interaction.guild || null),
       });
@@ -2221,24 +3242,44 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
     pendingRoleMenuSessions.delete(roleMenuSessionKey);
     const actionText = customId === ROLE_MENU_CLEAR ? 'cleared' : 'saved';
     return interaction.update({
-      content: `✅ ${modeLabel(session.mode)} mapping ${actionText}: **${session.selectedKey}** ${customId === ROLE_MENU_CLEAR ? '' : `→ <@&${session.selectedRoleId}>`}`,
-      embeds: [buildRoleMenuOverviewEmbed(configResult.config, interaction.guild?.name)],
+      content: `✅ ${modeLabel(session.mode)} mapping ${actionText}: **${
+        session.selectedKey
+      }** ${
+        customId === ROLE_MENU_CLEAR ? '' : `→ <@&${session.selectedRoleId}>`
+      }`,
+      embeds: [
+        buildRoleMenuOverviewEmbed(
+          configResult.config,
+          interaction.guild?.name,
+        ),
+      ],
       components: buildRoleMenuOverviewRows(),
     });
   }
 
   // ── Choose feed type ──
-  if (customId === 'setup_duo' || customId === 'setup_lft' || customId === 'setup_scrim') {
-    const feedType = customId === 'setup_duo'
-      ? 'DUO'
-      : customId === 'setup_lft'
+  if (
+    customId === 'setup_duo' ||
+    customId === 'setup_lft' ||
+    customId === 'setup_scrim'
+  ) {
+    const feedType =
+      customId === 'setup_duo'
+        ? 'DUO'
+        : customId === 'setup_lft'
         ? 'LFT'
         : 'SCRIM';
 
-    const communityRes = await apiRequest(`/api/communities?discordServerId=${guildId}`);
+    const communityRes = await apiRequest(
+      `/api/communities?discordServerId=${guildId}`,
+    );
     const community = communityRes.data?.communities?.[0];
     if (!community) {
-      return interaction.update({ content: '❌ Community not found.', embeds: [], components: [] });
+      return interaction.update({
+        content: '❌ Community not found.',
+        embeds: [],
+        components: [],
+      });
     }
 
     pendingSetups.set(key, {
@@ -2258,13 +3299,22 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       .setTitle(`${feedTypeTitle(feedType)} Feed Setup`)
       .setDescription(
         `Setting up **${feedType}** forwarding in <#${interaction.channelId}>.\n\n` +
-        'Choose a mode:'
+          'Choose a mode:',
       );
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId('setup_global').setLabel('🌐 Global (All Posts)').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('setup_filters').setLabel('⚙️ Custom Filters').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('setup_cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('setup_global')
+        .setLabel('🌐 Global (All Posts)')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('setup_filters')
+        .setLabel('⚙️ Custom Filters')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('setup_cancel')
+        .setLabel('Cancel')
+        .setStyle(ButtonStyle.Secondary),
     );
 
     return interaction.update({ embeds: [embed], components: [row] });
@@ -2273,7 +3323,12 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
   // ── Global (no filters) ──
   if (customId === 'setup_global') {
     const setup = pendingSetups.get(key);
-    if (!setup) return interaction.update({ content: '❌ Setup session expired. Run `/setup` again.', embeds: [], components: [] });
+    if (!setup)
+      return interaction.update({
+        content: '❌ Setup session expired. Run `/setup` again.',
+        embeds: [],
+        components: [],
+      });
 
     const res = await apiRequest('/api/discord/feed/channels', 'POST', {
       communityId: setup.communityId,
@@ -2289,18 +3344,29 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       const verb = res.data.updated ? 'updated' : 'configured';
       return interaction.update({
         content: `✅ **${label} Feed** ${verb} for <#${setup.channelId}> — **Global** (all posts).`,
-        embeds: [], components: [],
+        embeds: [],
+        components: [],
       });
     }
-    return interaction.update({ content: `❌ ${res.data.error || 'Failed to save channel.'}`, embeds: [], components: [] });
+    return interaction.update({
+      content: `❌ ${res.data.error || 'Failed to save channel.'}`,
+      embeds: [],
+      components: [],
+    });
   }
 
   // ── Custom Filters: show select menus ──
   if (customId === 'setup_filters') {
     const setup = pendingSetups.get(key);
-    if (!setup) return interaction.update({ content: '❌ Setup session expired. Run `/setup` again.', embeds: [], components: [] });
+    if (!setup)
+      return interaction.update({
+        content: '❌ Setup session expired. Run `/setup` again.',
+        embeds: [],
+        components: [],
+      });
 
-    const rows: ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>[] = [];
+    const rows: ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>[] =
+      [];
 
     // Row 1: Region select
     const regionMenu = new StringSelectMenuBuilder()
@@ -2308,8 +3374,14 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       .setPlaceholder('Select regions (leave empty = all)')
       .setMinValues(0)
       .setMaxValues(REGIONS.length)
-      .addOptions(REGIONS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r)));
-    rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(regionMenu));
+      .addOptions(
+        REGIONS.map((r) =>
+          new StringSelectMenuOptionBuilder().setLabel(r).setValue(r),
+        ),
+      );
+    rows.push(
+      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(regionMenu),
+    );
 
     // Row 2: Language select (DUO + LFT)
     const languageMenu = new StringSelectMenuBuilder()
@@ -2319,10 +3391,16 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       .setMaxValues(Math.min(ROLE_FORWARDING_LANGUAGE_KEYS.length, 25))
       .addOptions(
         ROLE_FORWARDING_LANGUAGE_KEYS.map((language) =>
-          new StringSelectMenuOptionBuilder().setLabel(language).setValue(language)
-        )
+          new StringSelectMenuOptionBuilder()
+            .setLabel(language)
+            .setValue(language),
+        ),
       );
-    rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(languageMenu));
+    rows.push(
+      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+        languageMenu,
+      ),
+    );
 
     // Row 3: Role select (DUO only)
     if (setup.feedType === 'DUO') {
@@ -2331,8 +3409,17 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
         .setPlaceholder('Select roles (leave empty = all)')
         .setMinValues(0)
         .setMaxValues(ROLES.length)
-        .addOptions(ROLES.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(ROLE_EMOJIS[r] || '🎮')));
-      rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(roleMenu));
+        .addOptions(
+          ROLES.map((r) =>
+            new StringSelectMenuOptionBuilder()
+              .setLabel(r)
+              .setValue(r)
+              .setEmoji(ROLE_EMOJIS[r] || '🎮'),
+          ),
+        );
+      rows.push(
+        new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(roleMenu),
+      );
     }
 
     // Row 4: Rank range (single row to stay within Discord's 5-row component limit)
@@ -2346,30 +3433,42 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
           new StringSelectMenuOptionBuilder()
             .setLabel(`Min: ${r}`)
             .setValue(`min:${r}`)
-            .setEmoji(RANK_EMOJIS[r] || '🏆')
+            .setEmoji(RANK_EMOJIS[r] || '🏆'),
         ),
         ...RANKS.map((r) =>
           new StringSelectMenuOptionBuilder()
             .setLabel(`Max: ${r}`)
             .setValue(`max:${r}`)
-            .setEmoji(RANK_EMOJIS[r] || '🏆')
+            .setEmoji(RANK_EMOJIS[r] || '🏆'),
         ),
       ]);
-    rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(rankRangeMenu));
+    rows.push(
+      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+        rankRangeMenu,
+      ),
+    );
 
     // Row 5: Confirm / Cancel
-    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId('setup_confirm').setLabel('✅ Confirm').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('setup_cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary),
-    ));
+    rows.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId('setup_confirm')
+          .setLabel('✅ Confirm')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId('setup_cancel')
+          .setLabel('Cancel')
+          .setStyle(ButtonStyle.Secondary),
+      ),
+    );
 
     const embed = new EmbedBuilder()
       .setColor(0x0a84ff)
       .setTitle(`⚙️ Custom Filters — ${setup.feedType}`)
       .setDescription(
         'Use the dropdown menus below to set filters.\n' +
-        'Leave a menu empty to accept all values for that filter.\n' +
-        'Press **Confirm** when done.'
+          'Leave a menu empty to accept all values for that filter.\n' +
+          'Press **Confirm** when done.',
       );
 
     return interaction.update({ embeds: [embed], components: rows });
@@ -2378,7 +3477,12 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
   // ── Confirm filtered setup ──
   if (customId === 'setup_confirm') {
     const setup = pendingSetups.get(key);
-    if (!setup) return interaction.update({ content: '❌ Setup session expired. Run `/setup` again.', embeds: [], components: [] });
+    if (!setup)
+      return interaction.update({
+        content: '❌ Setup session expired. Run `/setup` again.',
+        embeds: [],
+        components: [],
+      });
 
     const res = await apiRequest('/api/discord/feed/channels', 'POST', {
       communityId: setup.communityId,
@@ -2400,25 +3504,42 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       const filterDesc = describeFilters(setup);
       return interaction.update({
         content: `✅ **${label} Feed** ${verb} for <#${setup.channelId}>${filterDesc}.`,
-        embeds: [], components: [],
+        embeds: [],
+        components: [],
       });
     }
-    return interaction.update({ content: `❌ ${res.data.error || 'Failed to save channel.'}`, embeds: [], components: [] });
+    return interaction.update({
+      content: `❌ ${res.data.error || 'Failed to save channel.'}`,
+      embeds: [],
+      components: [],
+    });
   }
 
   // ── Cancel ──
   if (customId === 'setup_cancel') {
     pendingSetups.delete(key);
-    return interaction.update({ content: 'Setup cancelled.', embeds: [], components: [] });
+    return interaction.update({
+      content: 'Setup cancelled.',
+      embeds: [],
+      components: [],
+    });
   }
 
   // ── Remove channel flow ──
   if (customId === 'setup_remove') {
-    const channelsRes = await apiRequest(`/api/discord/feed/channels?guildId=${guildId}`);
-    const channels = channelsRes.ok ? (channelsRes.data.channels || channelsRes.data || []) : [];
+    const channelsRes = await apiRequest(
+      `/api/discord/feed/channels?guildId=${guildId}`,
+    );
+    const channels = channelsRes.ok
+      ? channelsRes.data.channels || channelsRes.data || []
+      : [];
 
     if (channels.length === 0) {
-      return interaction.update({ content: 'ℹ️ No feed channels to remove.', embeds: [], components: [] });
+      return interaction.update({
+        content: 'ℹ️ No feed channels to remove.',
+        embeds: [],
+        components: [],
+      });
     }
 
     const menu = new StringSelectMenuBuilder()
@@ -2426,48 +3547,90 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
       .setPlaceholder('Select a channel config to remove')
       .setMinValues(1)
       .setMaxValues(1)
-      .addOptions(channels.slice(0, 25).map((fc: any) =>
-        new StringSelectMenuOptionBuilder()
-          .setLabel(`#${fc.channelId} — ${fc.feedType}${fc.filterRegions?.length ? ` (${fc.filterRegions.join(',')})` : ' (Global)'}`)
-          .setValue(fc.id)
-      ));
+      .addOptions(
+        channels
+          .slice(0, 25)
+          .map((fc: any) =>
+            new StringSelectMenuOptionBuilder()
+              .setLabel(
+                `#${fc.channelId} — ${fc.feedType}${
+                  fc.filterRegions?.length
+                    ? ` (${fc.filterRegions.join(',')})`
+                    : ' (Global)'
+                }`,
+              )
+              .setValue(fc.id),
+          ),
+      );
 
-    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
-    return interaction.update({ content: 'Select a feed channel configuration to remove:', embeds: [], components: [row] });
+    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+      menu,
+    );
+    return interaction.update({
+      content: 'Select a feed channel configuration to remove:',
+      embeds: [],
+      components: [row],
+    });
   }
 
   // ── Remove channel button after selecting from delete list ──
   if (customId.startsWith('remove_confirm_')) {
     const channelConfigId = customId.replace('remove_confirm_', '');
-    const deleteRes = await apiRequest(`/api/discord/feed/channels/${channelConfigId}`, 'DELETE');
+    const deleteRes = await apiRequest(
+      `/api/discord/feed/channels/${channelConfigId}`,
+      'DELETE',
+    );
     if (deleteRes.ok) {
-      return interaction.update({ content: '✅ Feed channel removed.', components: [] });
+      return interaction.update({
+        content: '✅ Feed channel removed.',
+        components: [],
+      });
     }
-    return interaction.update({ content: `❌ ${deleteRes.data.error || 'Failed to remove.'}`, components: [] });
+    return interaction.update({
+      content: `❌ ${deleteRes.data.error || 'Failed to remove.'}`,
+      components: [],
+    });
   }
 }
 
-async function handleSelectMenuInteraction(interaction: StringSelectMenuInteraction) {
+async function handleSelectMenuInteraction(
+  interaction: StringSelectMenuInteraction,
+) {
   const key = `${interaction.user.id}-${interaction.channelId}`;
   const customId = interaction.customId;
   const guildId = interaction.guildId;
 
-  if (customId === SEND_DRAFT_TEAM_SELECT || customId === SEND_DRAFT_PICK_SELECT) {
+  if (
+    customId === SEND_DRAFT_TEAM_SELECT ||
+    customId === SEND_DRAFT_PICK_SELECT
+  ) {
     if (!guildId) {
-      return interaction.update({ content: '❌ This action must be used in a server.', embeds: [], components: [] });
+      return interaction.update({
+        content: '❌ This action must be used in a server.',
+        embeds: [],
+        components: [],
+      });
     }
 
     const sessionKey = getSendDraftSessionKey(interaction.user.id, guildId);
     const session = pendingSendDraftSessions.get(sessionKey);
     if (!session) {
-      return interaction.update({ content: '❌ Draft menu expired. Run `/send-draft` again.', embeds: [], components: [] });
+      return interaction.update({
+        content: '❌ Draft menu expired. Run `/send-draft` again.',
+        embeds: [],
+        components: [],
+      });
     }
 
     if (customId === SEND_DRAFT_TEAM_SELECT) {
       const teamId = interaction.values[0];
       const selectedTeam = session.teams.find((team) => team.id === teamId);
       if (!selectedTeam) {
-        return interaction.update({ content: '❌ Selected team is no longer available.', embeds: [], components: [] });
+        return interaction.update({
+          content: '❌ Selected team is no longer available.',
+          embeds: [],
+          components: [],
+        });
       }
 
       session.selectedTeamId = selectedTeam.id;
@@ -2477,14 +3640,19 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
         new StringSelectMenuOptionBuilder()
           .setLabel(draft.name.slice(0, 100))
           .setValue(`${selectedTeam.id}::${draft.id}`)
-          .setDescription(`Updated ${new Date(draft.updatedAt).toLocaleString()}`.slice(0, 100))
+          .setDescription(
+            `Updated ${new Date(draft.updatedAt).toLocaleString()}`.slice(
+              0,
+              100,
+            ),
+          ),
       );
 
       const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId(SEND_DRAFT_PICK_SELECT)
           .setPlaceholder('Choose a saved draft')
-          .addOptions(draftOptions)
+          .addOptions(draftOptions),
       );
 
       return interaction.update({
@@ -2496,26 +3664,46 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
     const encoded = interaction.values[0] || '';
     const [teamId, draftId] = encoded.split('::');
     if (!teamId || !draftId) {
-      return interaction.update({ content: '❌ Invalid draft selection.', embeds: [], components: [] });
+      return interaction.update({
+        content: '❌ Invalid draft selection.',
+        embeds: [],
+        components: [],
+      });
     }
 
     const selectedTeam = session.teams.find((team) => team.id === teamId);
     if (!selectedTeam) {
-      return interaction.update({ content: '❌ Selected team is no longer available.', embeds: [], components: [] });
+      return interaction.update({
+        content: '❌ Selected team is no longer available.',
+        embeds: [],
+        components: [],
+      });
     }
 
     const draftResult = await fetchSendDraftById(draftId, interaction.user.id);
     if (!draftResult.ok || !draftResult.draft) {
-      return interaction.update({ content: `❌ ${draftResult.error || 'Failed to load selected draft.'}`, embeds: [], components: [] });
+      return interaction.update({
+        content: `❌ ${draftResult.error || 'Failed to load selected draft.'}`,
+        embeds: [],
+        components: [],
+      });
     }
 
     try {
       if (!interaction.channel || !interaction.channel.isTextBased()) {
-        return interaction.update({ content: '❌ Could not find a text channel to post this draft.', embeds: [], components: [] });
+        return interaction.update({
+          content: '❌ Could not find a text channel to post this draft.',
+          embeds: [],
+          components: [],
+        });
       }
 
       const channel = interaction.channel as TextChannel;
-      const embed = buildSendDraftEmbed(draftResult.draft, interaction.user.username, channel.guild);
+      const embed = buildSendDraftEmbed(
+        draftResult.draft,
+        interaction.user.username,
+        channel.guild,
+      );
       await channel.send({ embeds: [embed] });
 
       pendingSendDraftSessions.delete(sessionKey);
@@ -2525,9 +3713,13 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
         components: [],
       });
     } catch (error: any) {
-      console.error('❌ Failed to send selected draft embed:', error?.message || error);
+      console.error(
+        '❌ Failed to send selected draft embed:',
+        error?.message || error,
+      );
       return interaction.update({
-        content: '❌ Failed to send the draft embed to this channel. Check bot channel permissions and try again.',
+        content:
+          '❌ Failed to send the draft embed to this channel. Check bot channel permissions and try again.',
         embeds: [],
         components: [],
       });
@@ -2537,10 +3729,17 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
   if (customId === ROLE_MENU_SELECT_KEY) {
     if (!guildId) return interaction.deferUpdate();
 
-    const roleMenuSessionKey = getRoleMenuSessionKey(interaction.user.id, guildId);
+    const roleMenuSessionKey = getRoleMenuSessionKey(
+      interaction.user.id,
+      guildId,
+    );
     const session = pendingRoleMenuSessions.get(roleMenuSessionKey);
     if (!session) {
-      return interaction.update({ content: '❌ Role menu session expired. Run `/rolemenu` again.', embeds: [], components: [] });
+      return interaction.update({
+        content: '❌ Role menu session expired. Run `/rolemenu` again.',
+        embeds: [],
+        components: [],
+      });
     }
 
     session.selectedKey = interaction.values[0] || null;
@@ -2548,7 +3747,11 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
 
     const configResult = await fetchRoleForwardingConfig(guildId);
     if (!configResult.ok) {
-      return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+      return interaction.update({
+        content: `❌ ${configResult.error}`,
+        embeds: [],
+        components: [],
+      });
     }
 
     return interaction.update({
@@ -2561,10 +3764,17 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
   if (customId === ROLE_MENU_SELECT_ROLE) {
     if (!guildId) return interaction.deferUpdate();
 
-    const roleMenuSessionKey = getRoleMenuSessionKey(interaction.user.id, guildId);
+    const roleMenuSessionKey = getRoleMenuSessionKey(
+      interaction.user.id,
+      guildId,
+    );
     const session = pendingRoleMenuSessions.get(roleMenuSessionKey);
     if (!session) {
-      return interaction.update({ content: '❌ Role menu session expired. Run `/rolemenu` again.', embeds: [], components: [] });
+      return interaction.update({
+        content: '❌ Role menu session expired. Run `/rolemenu` again.',
+        embeds: [],
+        components: [],
+      });
     }
 
     session.selectedRoleId = interaction.values[0] || null;
@@ -2572,7 +3782,11 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
 
     const configResult = await fetchRoleForwardingConfig(guildId);
     if (!configResult.ok) {
-      return interaction.update({ content: `❌ ${configResult.error}`, embeds: [], components: [] });
+      return interaction.update({
+        content: `❌ ${configResult.error}`,
+        embeds: [],
+        components: [],
+      });
     }
 
     return interaction.update({
@@ -2598,11 +3812,18 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
 
     if (customId === 'filter_region') setup.filterRegions = interaction.values;
     if (customId === 'filter_role') setup.filterRoles = interaction.values;
-    if (customId === SETUP_FILTER_LANGUAGE) setup.filterLanguages = interaction.values;
+    if (customId === SETUP_FILTER_LANGUAGE)
+      setup.filterLanguages = interaction.values;
 
     if (customId === SETUP_FILTER_RANK_RANGE) {
-      const selectedMin = interaction.values.find((value) => value.startsWith('min:'))?.slice(4) || null;
-      const selectedMax = interaction.values.find((value) => value.startsWith('max:'))?.slice(4) || null;
+      const selectedMin =
+        interaction.values
+          .find((value) => value.startsWith('min:'))
+          ?.slice(4) || null;
+      const selectedMax =
+        interaction.values
+          .find((value) => value.startsWith('max:'))
+          ?.slice(4) || null;
 
       let min = selectedMin;
       let max = selectedMax;
@@ -2620,8 +3841,10 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
       setup.filterMaxRank = max;
     }
 
-    if (customId === 'filter_min_rank') setup.filterMinRank = interaction.values[0] || null;
-    if (customId === 'filter_max_rank') setup.filterMaxRank = interaction.values[0] || null;
+    if (customId === 'filter_min_rank')
+      setup.filterMinRank = interaction.values[0] || null;
+    if (customId === 'filter_max_rank')
+      setup.filterMaxRank = interaction.values[0] || null;
 
     return interaction.deferUpdate();
   }
@@ -2632,18 +3855,33 @@ async function handleSelectMenuInteraction(interaction: StringSelectMenuInteract
     if (!channelConfigId) return interaction.deferUpdate();
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId(`remove_confirm_${channelConfigId}`).setLabel('🗑️ Confirm Remove').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId('setup_cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`remove_confirm_${channelConfigId}`)
+        .setLabel('🗑️ Confirm Remove')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('setup_cancel')
+        .setLabel('Cancel')
+        .setStyle(ButtonStyle.Secondary),
     );
 
-    return interaction.update({ content: 'Are you sure you want to remove this feed channel?', components: [row] });
+    return interaction.update({
+      content: 'Are you sure you want to remove this feed channel?',
+      components: [row],
+    });
   }
 }
 
 async function handleChatReplyButton(interaction: ButtonInteraction) {
-  const conversationId = extractConversationIdFromChatReplyCustomId(interaction.customId, CHAT_REPLY_BUTTON_PREFIX);
+  const conversationId = extractConversationIdFromChatReplyCustomId(
+    interaction.customId,
+    CHAT_REPLY_BUTTON_PREFIX,
+  );
   if (!conversationId) {
-    return interaction.reply({ content: '❌ Invalid reply action.', ephemeral: interaction.inGuild() });
+    return interaction.reply({
+      content: '❌ Invalid reply action.',
+      ephemeral: interaction.inGuild(),
+    });
   }
 
   const modal = new ModalBuilder()
@@ -2656,7 +3894,9 @@ async function handleChatReplyButton(interaction: ButtonInteraction) {
     .setStyle(TextInputStyle.Paragraph)
     .setMinLength(1)
     .setMaxLength(2000)
-    .setPlaceholder('Type your reply. It will be sent to the same conversation in the app.')
+    .setPlaceholder(
+      'Type your reply. It will be sent to the same conversation in the app.',
+    )
     .setRequired(true);
 
   const row = new ActionRowBuilder<TextInputBuilder>().addComponents(input);
@@ -2666,14 +3906,26 @@ async function handleChatReplyButton(interaction: ButtonInteraction) {
 }
 
 async function handleChatReplyModalSubmit(interaction: ModalSubmitInteraction) {
-  const conversationId = extractConversationIdFromChatReplyCustomId(interaction.customId, CHAT_REPLY_MODAL_PREFIX);
+  const conversationId = extractConversationIdFromChatReplyCustomId(
+    interaction.customId,
+    CHAT_REPLY_MODAL_PREFIX,
+  );
   if (!conversationId) {
-    return interaction.reply({ content: '❌ Invalid reply context. Please try again from the DM notification.', ephemeral: interaction.inGuild() });
+    return interaction.reply({
+      content:
+        '❌ Invalid reply context. Please try again from the DM notification.',
+      ephemeral: interaction.inGuild(),
+    });
   }
 
-  const content = interaction.fields.getTextInputValue(CHAT_REPLY_TEXT_INPUT_ID)?.trim();
+  const content = interaction.fields
+    .getTextInputValue(CHAT_REPLY_TEXT_INPUT_ID)
+    ?.trim();
   if (!content) {
-    return interaction.reply({ content: '❌ Message cannot be empty.', ephemeral: interaction.inGuild() });
+    return interaction.reply({
+      content: '❌ Message cannot be empty.',
+      ephemeral: interaction.inGuild(),
+    });
   }
 
   const sendResult = await apiRequest('/api/discord/dm-reply', 'POST', {
@@ -2683,8 +3935,12 @@ async function handleChatReplyModalSubmit(interaction: ModalSubmitInteraction) {
   });
 
   if (!sendResult.ok) {
-    const errorMessage = sendResult.data?.error || 'Failed to send reply from Discord.';
-    return interaction.reply({ content: `❌ ${errorMessage}`, ephemeral: interaction.inGuild() });
+    const errorMessage =
+      sendResult.data?.error || 'Failed to send reply from Discord.';
+    return interaction.reply({
+      content: `❌ ${errorMessage}`,
+      ephemeral: interaction.inGuild(),
+    });
   }
 
   return interaction.reply({
@@ -2708,19 +3964,25 @@ async function ingestDiscordMessage(message: any) {
   const content = message.content;
 
   // Check if this channel is a registered feed channel
-  const channelsRes = await apiRequest(`/api/discord/feed/channels?guildId=${guildId}`);
+  const channelsRes = await apiRequest(
+    `/api/discord/feed/channels?guildId=${guildId}`,
+  );
   if (!channelsRes.ok) return;
 
   const channels = Array.isArray(channelsRes.data?.channels)
     ? channelsRes.data.channels
     : Array.isArray(channelsRes.data)
-      ? channelsRes.data
-      : [];
-  
-  const isRegisteredChannel = channels.some((fc: any) => fc.channelId === channelId);
+    ? channelsRes.data
+    : [];
+
+  const isRegisteredChannel = channels.some(
+    (fc: any) => fc.channelId === channelId,
+  );
   if (!isRegisteredChannel) return; // Not a feed channel
 
-  console.log(`📥 Ingesting message from ${discordUsername} in guild ${guildId}`);
+  console.log(
+    `📥 Ingesting message from ${discordUsername} in guild ${guildId}`,
+  );
 
   const payload = {
     guildId,
@@ -2729,7 +3991,9 @@ async function ingestDiscordMessage(message: any) {
     authorDiscordId: discordUserId,
     authorDiscordUsername: discordUsername,
     content,
-    timestamp: message.createdTimestamp ? new Date(message.createdTimestamp).toISOString() : new Date().toISOString(),
+    timestamp: message.createdTimestamp
+      ? new Date(message.createdTimestamp).toISOString()
+      : new Date().toISOString(),
   };
 
   const result = await apiRequest('/api/discord/ingest', 'POST', payload);
@@ -2748,7 +4012,9 @@ let lastPollTime = new Date().toISOString();
 
 async function pollOutgoingPosts() {
   try {
-    const result = await apiRequest(`/api/discord/outgoing?since=${encodeURIComponent(lastPollTime)}`);
+    const result = await apiRequest(
+      `/api/discord/outgoing?since=${encodeURIComponent(lastPollTime)}`,
+    );
     if (!result.ok) {
       console.error('❌ Failed to poll outgoing posts:', result.data.error);
       return;
@@ -2757,8 +4023,8 @@ async function pollOutgoingPosts() {
     const posts = Array.isArray(result.data?.posts)
       ? result.data.posts
       : Array.isArray(result.data)
-        ? result.data
-        : [];
+      ? result.data
+      : [];
 
     lastPollTime = new Date().toISOString();
 
@@ -2774,45 +4040,103 @@ async function pollOutgoingPosts() {
   }
 }
 
-function buildDuoForwardEmbed(post: any, guild: Guild | null | undefined): EmbedBuilder {
-  const { id, author, riotAccount, message, role, region, vcPreference, languages, communityName } = post;
+function buildDuoForwardEmbed(
+  post: any,
+  guild: Guild | null | undefined,
+): EmbedBuilder {
+  const {
+    id,
+    author,
+    riotAccount,
+    message,
+    role,
+    region,
+    vcPreference,
+    languages,
+    communityName,
+  } = post;
 
-  const mainAccount = riotAccount || { gameName: 'Unknown', tagLine: '', rank: '', division: '', winrate: null };
-  const rawDisplayName = mainAccount.gameName && mainAccount.tagLine
-    ? `${mainAccount.gameName}#${mainAccount.tagLine}`
-    : mainAccount.summonerName || 'Unknown';
+  const mainAccount = riotAccount || {
+    gameName: 'Unknown',
+    tagLine: '',
+    rank: '',
+    division: '',
+    winrate: null,
+  };
+  const rawDisplayName =
+    mainAccount.gameName && mainAccount.tagLine
+      ? `${mainAccount.gameName}#${mainAccount.tagLine}`
+      : mainAccount.summonerName || 'Unknown';
   const displayName = safeDiscordDisplayText(rawDisplayName, 80);
   const authorName = safeDiscordDisplayText(author?.username || 'Unknown', 80);
   const safeMessage = safeDiscordDisplayText(message, 320);
   const safeCommunityName = safeDiscordDisplayText(communityName, 80);
 
   const postUrl = `${APP_URL}/share/post/${id}`;
-  const regionLine = `${resolveEmoji(guild, 'region', '🌍')} **${region || 'Unknown'}** • ${formatRoleLabelForDiscord(role, guild)}`;
-  const rankLine = formatRankLabelForDiscord(mainAccount.rank, mainAccount.division, guild);
-  const winrateLine = mainAccount.winrate !== null && mainAccount.winrate !== undefined
-    ? `${resolveEmoji(guild, 'winrate', '📈')} ${Number(mainAccount.winrate).toFixed(1)}%`
-    : null;
+  const regionLine = `${resolveEmoji(guild, 'region', '🌍')} **${
+    region || 'Unknown'
+  }** • ${formatRoleLabelForDiscord(role, guild)}`;
+  const rankLine = formatRankLabelForDiscord(
+    mainAccount.rank,
+    mainAccount.division,
+    guild,
+  );
+  const winrateLine =
+    mainAccount.winrate !== null && mainAccount.winrate !== undefined
+      ? `${resolveEmoji(guild, 'winrate', '📈')} ${Number(
+          mainAccount.winrate,
+        ).toFixed(1)}%`
+      : null;
   const vcLine = formatVcLabelForDiscord(vcPreference, guild);
   const languagesLine = formatLanguagesForDiscord(languages, guild);
-  const championSummary = buildChampionPoolSummary(post.championPoolMode, post.championList, post.championTierlist, guild);
+  const championSummary = buildChampionPoolSummary(
+    post.championPoolMode,
+    post.championList,
+    post.championTierlist,
+    guild,
+  );
   const verification = post.verification || null;
-  const verificationMissing = Array.isArray(verification?.missing) ? verification.missing : [];
+  const verificationMissing = Array.isArray(verification?.missing)
+    ? verification.missing
+    : [];
   const isVerified = verification?.isVerified === true;
-  const verificationMissingLabel = verificationMissing.length > 0
-    ? verificationMissing
-        .map((value: string) => (value === 'riot' ? 'Riot link' : value === 'discord' ? 'Discord link' : value))
-        .join(', ')
-    : '';
+  const verificationMissingLabel =
+    verificationMissing.length > 0
+      ? verificationMissing
+          .map((value: string) =>
+            value === 'riot'
+              ? 'Riot link'
+              : value === 'discord'
+              ? 'Discord link'
+              : value,
+          )
+          .join(', ')
+      : '';
   const verificationLine = verification
-    ? (isVerified
+    ? isVerified
       ? `${resolveEmoji(guild, 'verified', '✅')} Verified`
-      : `${resolveEmoji(guild, 'unverified', '⚠️')} Unverified${verificationMissingLabel ? ` • Missing ${verificationMissingLabel}` : ''}`)
+      : `${resolveEmoji(guild, 'unverified', '⚠️')} Unverified${
+          verificationMissingLabel
+            ? ` • Missing ${verificationMissingLabel}`
+            : ''
+        }`
     : null;
-  const embedColor = verification ? (isVerified ? 0x22C55E : 0xEF4444) : 0x3B82F6;
-  const missingFields = Array.isArray(post.missingFields) ? post.missingFields : [];
-  const missingFieldsLabel = missingFields.length > 0 ? missingFields.join(', ') : '';
+  const embedColor = verification
+    ? isVerified
+      ? 0x22c55e
+      : 0xef4444
+    : 0x3b82f6;
+  const missingFields = Array.isArray(post.missingFields)
+    ? post.missingFields
+    : [];
+  const missingFieldsLabel =
+    missingFields.length > 0 ? missingFields.join(', ') : '';
   const missingInfoLine = missingFieldsLabel
-    ? `${resolveEmoji(guild, 'missing', '🧩')} Missing info: ${missingFieldsLabel}`
+    ? `${resolveEmoji(
+        guild,
+        'missing',
+        '🧩',
+      )} Missing info: ${missingFieldsLabel}`
     : null;
 
   const descriptionParts = [
@@ -2861,7 +4185,7 @@ function buildForwardMessagePayload(
       new ButtonBuilder()
         .setStyle(ButtonStyle.Link)
         .setLabel('💬 Message in App')
-        .setURL(messageUrl)
+        .setURL(messageUrl),
     );
   }
 
@@ -2870,12 +4194,14 @@ function buildForwardMessagePayload(
       new ButtonBuilder()
         .setStyle(ButtonStyle.Primary)
         .setCustomId(extraButton.customId)
-        .setLabel(extraButton.label)
+        .setLabel(extraButton.label),
     );
   }
 
   if (buttons.length > 0) {
-    payload.components = [new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons)];
+    payload.components = [
+      new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons),
+    ];
   }
 
   return payload;
@@ -2885,9 +4211,14 @@ async function mirrorPostToDiscord(post: any) {
   const { id, feedChannels } = post;
 
   // Mark as mirrored FIRST to prevent duplicate processing
-  const markResult = await apiRequest(`/api/discord/posts/${id}/mirrored`, 'PATCH');
+  const markResult = await apiRequest(
+    `/api/discord/posts/${id}/mirrored`,
+    'PATCH',
+  );
   if (!markResult.ok) {
-    console.error(`❌ Failed to mark post ${id} as mirrored, skipping to prevent duplicates`);
+    console.error(
+      `❌ Failed to mark post ${id} as mirrored, skipping to prevent duplicates`,
+    );
     return;
   }
 
@@ -2907,14 +4238,23 @@ async function mirrorPostToDiscord(post: any) {
             embed,
             post.author?.discordId,
             `${APP_URL}/share/post/${id}`,
-            { label: 'Send my own post', customId: DUO_POST_MODAL_BUTTON }
-          )
+            { label: 'Send my own post', customId: DUO_POST_MODAL_BUTTON },
+          ),
         );
-        storeMirroredMessageRef('DUO', id, textChannel.guild.id, fc.channelId, sent.id);
+        storeMirroredMessageRef(
+          'DUO',
+          id,
+          textChannel.guild.id,
+          fc.channelId,
+          sent.id,
+        );
         console.log(`✅ Mirrored duo post ${id} to channel ${fc.channelId}`);
       }
     } catch (error: any) {
-      console.error(`❌ Failed to send to channel ${fc.channelId}:`, error.message);
+      console.error(
+        `❌ Failed to send to channel ${fc.channelId}:`,
+        error.message,
+      );
     }
   }
 }
@@ -2934,8 +4274,8 @@ async function pollOutgoingLftPosts() {
     const posts = Array.isArray(result.data?.posts)
       ? result.data.posts
       : Array.isArray(result.data)
-        ? result.data
-        : [];
+      ? result.data
+      : [];
 
     if (!posts || posts.length === 0) return;
 
@@ -2949,31 +4289,48 @@ async function pollOutgoingLftPosts() {
   }
 }
 
-function buildLftForwardEmbed(post: any, guild: Guild | null | undefined): EmbedBuilder {
+function buildLftForwardEmbed(
+  post: any,
+  guild: Guild | null | undefined,
+): EmbedBuilder {
   const isTeam = post.type === 'TEAM';
   const appUrl = `${APP_URL}/lft`;
   const regionPrefix = resolveEmoji(guild, 'region', '🌍');
 
   if (isTeam) {
     const teamName = post.teamName || 'Unnamed Team';
-    const rankLabel = formatRankLabelForDiscord(post.averageRank, post.averageDivision, guild);
+    const rankLabel = formatRankLabelForDiscord(
+      post.averageRank,
+      post.averageDivision,
+      guild,
+    );
     const rolesNeeded = Array.isArray(post.rolesNeeded)
-      ? post.rolesNeeded.map((role: string) => formatRoleLabelForDiscord(role, guild)).join(' • ')
+      ? post.rolesNeeded
+          .map((role: string) => formatRoleLabelForDiscord(role, guild))
+          .join(' • ')
       : '';
 
     const descriptionParts = [
-      truncateForDiscord(post.details || post.description, 340) ? `> ${truncateForDiscord(post.details || post.description, 340)}` : null,
+      truncateForDiscord(post.details || post.description, 340)
+        ? `> ${truncateForDiscord(post.details || post.description, 340)}`
+        : null,
       post.region ? `${regionPrefix} **${post.region}**` : null,
       rankLabel,
       rolesNeeded ? `🎯 ${rolesNeeded}` : null,
-      typeof post.scrims === 'boolean' ? `⚔️ Scrims: ${post.scrims ? 'Yes' : 'No'}` : null,
-      post.minAvailability ? `📅 Min availability: ${post.minAvailability}` : null,
-      post.coachingAvailability ? `🧠 Coaching: ${post.coachingAvailability}` : null,
+      typeof post.scrims === 'boolean'
+        ? `⚔️ Scrims: ${post.scrims ? 'Yes' : 'No'}`
+        : null,
+      post.minAvailability
+        ? `📅 Min availability: ${post.minAvailability}`
+        : null,
+      post.coachingAvailability
+        ? `🧠 Coaching: ${post.coachingAvailability}`
+        : null,
       `↗ [open in app](${appUrl})`,
     ].filter(Boolean);
 
     return new EmbedBuilder()
-      .setColor(0x22C55E)
+      .setColor(0x22c55e)
       .setTitle(`Team LFT • ${teamName}`)
       .setURL(appUrl)
       .setDescription(descriptionParts.join('\n'))
@@ -2984,33 +4341,52 @@ function buildLftForwardEmbed(post: any, guild: Guild | null | undefined): Embed
   const authorName = post.author?.username || 'Unknown';
   const candidateType = String(post.candidateType || 'PLAYER').toUpperCase();
   const candidateColorMap: Record<string, number> = {
-    PLAYER: 0x3B82F6,
-    MANAGER: 0x14B8A6,
-    COACH: 0xF97316,
-    OTHER: 0xA855F7,
+    PLAYER: 0x3b82f6,
+    MANAGER: 0x14b8a6,
+    COACH: 0xf97316,
+    OTHER: 0xa855f7,
   };
-  const candidateLabel = candidateType === 'PLAYER'
-    ? 'Player'
-    : candidateType.charAt(0) + candidateType.slice(1).toLowerCase();
-  const customOtherName = candidateType === 'OTHER' && typeof post.representedName === 'string' && post.representedName.trim().length > 0
-    ? post.representedName.trim()
-    : null;
+  const candidateLabel =
+    candidateType === 'PLAYER'
+      ? 'Player'
+      : candidateType.charAt(0) + candidateType.slice(1).toLowerCase();
+  const customOtherName =
+    candidateType === 'OTHER' &&
+    typeof post.representedName === 'string' &&
+    post.representedName.trim().length > 0
+      ? post.representedName.trim()
+      : null;
   const listingName = customOtherName || authorName;
   const rankLabel = formatRankLabelForDiscord(post.rank, post.division, guild);
   const languagesLine = formatLanguagesForDiscord(post.languages, guild);
-  const championTierFields = buildChampionTierlistFields(post.championTierlist, guild);
-  const championPoolSummary = buildChampionPoolSummary(post.championPoolMode, post.championPool, post.championTierlist, guild);
-  const showTierFields = candidateType === 'PLAYER' && championTierFields.length > 0;
+  const championTierFields = buildChampionTierlistFields(
+    post.championTierlist,
+    guild,
+  );
+  const championPoolSummary = buildChampionPoolSummary(
+    post.championPoolMode,
+    post.championPool,
+    post.championTierlist,
+    guild,
+  );
+  const showTierFields =
+    candidateType === 'PLAYER' && championTierFields.length > 0;
 
   const descriptionParts = [
-    truncateForDiscord(post.details || post.description, 340) ? `> ${truncateForDiscord(post.details || post.description, 340)}` : null,
+    truncateForDiscord(post.details || post.description, 340)
+      ? `> ${truncateForDiscord(post.details || post.description, 340)}`
+      : null,
     post.region ? `${regionPrefix} **${post.region}**` : null,
-    candidateType === 'PLAYER' && post.mainRole ? formatRoleLabelForDiscord(post.mainRole, guild) : null,
+    candidateType === 'PLAYER' && post.mainRole
+      ? formatRoleLabelForDiscord(post.mainRole, guild)
+      : null,
     rankLabel,
     post.experience ? `🧩 Experience: ${post.experience}` : null,
     post.availability ? `📅 Availability: ${post.availability}` : null,
     languagesLine,
-    candidateType === 'PLAYER' && !showTierFields && championPoolSummary ? `🗡️ Champion Pool\n${championPoolSummary}` : null,
+    candidateType === 'PLAYER' && !showTierFields && championPoolSummary
+      ? `🗡️ Champion Pool\n${championPoolSummary}`
+      : null,
     post.author?.discordUsername ? `💬 ${post.author.discordUsername}` : null,
     `↗ [open in app](${appUrl})`,
   ].filter(Boolean);
@@ -3034,7 +4410,10 @@ async function mirrorLftPostToDiscord(post: any) {
   const { id, feedChannels } = post;
 
   // Mark as mirrored FIRST
-  const markResult = await apiRequest(`/api/discord/lft-posts/${id}/mirrored`, 'PATCH');
+  const markResult = await apiRequest(
+    `/api/discord/lft-posts/${id}/mirrored`,
+    'PATCH',
+  );
   if (!markResult.ok) {
     console.error(`❌ Failed to mark LFT post ${id} as mirrored, skipping`);
     return;
@@ -3051,13 +4430,27 @@ async function mirrorLftPostToDiscord(post: any) {
       if (channel && channel.isTextBased() && 'guild' in channel) {
         const textChannel = channel as TextChannel;
         const embed = buildLftForwardEmbed(post, textChannel.guild);
-        const messageUrl = post.type === 'TEAM' && post.teamId ? `${APP_URL}/teams/${post.teamId}` : `${APP_URL}/lft`;
-        const sent = await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId, messageUrl));
-        storeMirroredMessageRef('LFT', id, textChannel.guild.id, fc.channelId, sent.id);
+        const messageUrl =
+          post.type === 'TEAM' && post.teamId
+            ? `${APP_URL}/teams/${post.teamId}`
+            : `${APP_URL}/lft`;
+        const sent = await textChannel.send(
+          buildForwardMessagePayload(embed, post.author?.discordId, messageUrl),
+        );
+        storeMirroredMessageRef(
+          'LFT',
+          id,
+          textChannel.guild.id,
+          fc.channelId,
+          sent.id,
+        );
         console.log(`✅ Mirrored LFT post ${id} to channel ${fc.channelId}`);
       }
     } catch (error: any) {
-      console.error(`❌ Failed to send LFT to channel ${fc.channelId}:`, error.message);
+      console.error(
+        `❌ Failed to send LFT to channel ${fc.channelId}:`,
+        error.message,
+      );
     }
   }
 }
@@ -3070,15 +4463,18 @@ async function pollOutgoingScrimPosts() {
   try {
     const result = await apiRequest('/api/discord/outgoing-scrims');
     if (!result.ok) {
-      console.error('❌ Failed to poll outgoing SCRIM posts:', result.data.error);
+      console.error(
+        '❌ Failed to poll outgoing SCRIM posts:',
+        result.data.error,
+      );
       return;
     }
 
     const posts = Array.isArray(result.data?.posts)
       ? result.data.posts
       : Array.isArray(result.data)
-        ? result.data
-        : [];
+      ? result.data
+      : [];
 
     if (!posts || posts.length === 0) return;
 
@@ -3092,29 +4488,48 @@ async function pollOutgoingScrimPosts() {
   }
 }
 
-function buildScrimForwardEmbed(post: any, guild: Guild | null | undefined): EmbedBuilder {
-  const appUrl = `${APP_URL}/teams/scrims`;
-  const teamLabel = post.teamTag ? `${post.teamName} [${post.teamTag}]` : post.teamName;
-  const rankLabel = formatRankLabelForDiscord(post.averageRank, post.averageDivision, guild);
+function buildScrimForwardEmbed(
+  post: any,
+  guild: Guild | null | undefined,
+): EmbedBuilder {
+  const appUrl = `${APP_URL}/scrims`;
+  const teamLabel = post.teamTag
+    ? `${post.teamName} [${post.teamTag}]`
+    : post.teamName;
+  const rankLabel = formatRankLabelForDiscord(
+    post.averageRank,
+    post.averageDivision,
+    guild,
+  );
   const startDate = new Date(post.startTimeUtc);
   const startTimestamp = Number.isFinite(startDate.getTime())
     ? `<t:${Math.floor(startDate.getTime() / 1000)}:F>`
     : String(post.startTimeUtc || 'Unknown');
 
   const descriptionParts = [
-    truncateForDiscord(post.details, 320) ? `> ${truncateForDiscord(post.details, 320)}` : null,
+    truncateForDiscord(post.details, 320)
+      ? `> ${truncateForDiscord(post.details, 320)}`
+      : null,
     `${resolveEmoji(guild, 'region', '🌍')} **${post.region || 'Unknown'}**`,
     rankLabel,
     `⚔️ Format: **${post.scrimFormat || 'N/A'}**`,
     `🕒 Start: ${startTimestamp}`,
     `📌 Status: **${post.status || 'AVAILABLE'}**`,
-    typeof post.proposalCount === 'number' ? `📨 Proposals: **${post.proposalCount}**` : null,
-    post.opggMultisearchUrl ? `🔎 [OP.GG multisearch](${post.opggMultisearchUrl.startsWith('http') ? post.opggMultisearchUrl : `https://${post.opggMultisearchUrl}`})` : null,
+    typeof post.proposalCount === 'number'
+      ? `📨 Proposals: **${post.proposalCount}**`
+      : null,
+    post.opggMultisearchUrl
+      ? `🔎 [OP.GG multisearch](${
+          post.opggMultisearchUrl.startsWith('http')
+            ? post.opggMultisearchUrl
+            : `https://${post.opggMultisearchUrl}`
+        })`
+      : null,
     `↗ [open in app](${appUrl})`,
   ].filter(Boolean);
 
   return new EmbedBuilder()
-    .setColor(0x2563EB)
+    .setColor(0x2563eb)
     .setTitle(`Scrim Finder • ${teamLabel}`)
     .setURL(appUrl)
     .setDescription(descriptionParts.join('\n'))
@@ -3125,7 +4540,10 @@ function buildScrimForwardEmbed(post: any, guild: Guild | null | undefined): Emb
 async function mirrorScrimPostToDiscord(post: any) {
   const { id, feedChannels } = post;
 
-  const markResult = await apiRequest(`/api/discord/scrim-posts/${id}/mirrored`, 'PATCH');
+  const markResult = await apiRequest(
+    `/api/discord/scrim-posts/${id}/mirrored`,
+    'PATCH',
+  );
   if (!markResult.ok) {
     console.error(`❌ Failed to mark SCRIM post ${id} as mirrored, skipping`);
     return;
@@ -3142,12 +4560,27 @@ async function mirrorScrimPostToDiscord(post: any) {
       if (channel && channel.isTextBased() && 'guild' in channel) {
         const textChannel = channel as TextChannel;
         const embed = buildScrimForwardEmbed(post, textChannel.guild);
-        const sent = await textChannel.send(buildForwardMessagePayload(embed, post.author?.discordId, `${APP_URL}/teams/scrims`));
-        storeMirroredMessageRef('SCRIM', id, textChannel.guild.id, fc.channelId, sent.id);
+        const sent = await textChannel.send(
+          buildForwardMessagePayload(
+            embed,
+            post.author?.discordId,
+            `${APP_URL}/scrims`,
+          ),
+        );
+        storeMirroredMessageRef(
+          'SCRIM',
+          id,
+          textChannel.guild.id,
+          fc.channelId,
+          sent.id,
+        );
         console.log(`✅ Mirrored SCRIM post ${id} to channel ${fc.channelId}`);
       }
     } catch (error: any) {
-      console.error(`❌ Failed to send SCRIM to channel ${fc.channelId}:`, error.message);
+      console.error(
+        `❌ Failed to send SCRIM to channel ${fc.channelId}:`,
+        error.message,
+      );
     }
   }
 }
@@ -3160,9 +4593,14 @@ async function processMirrorDeletionEvent(event: MirrorDeletionEvent) {
   const refs = getMirroredMessageRefs(event.postType, event.postId);
 
   if (refs.length === 0) {
-    const ackResult = await apiRequest(`/api/discord/mirror-deletions/${event.id}/acked`, 'PATCH');
+    const ackResult = await apiRequest(
+      `/api/discord/mirror-deletions/${event.id}/acked`,
+      'PATCH',
+    );
     if (!ackResult.ok) {
-      console.error(`❌ Failed to ack mirror deletion ${event.id} with empty refs`);
+      console.error(
+        `❌ Failed to ack mirror deletion ${event.id} with empty refs`,
+      );
     }
     return;
   }
@@ -3173,24 +4611,39 @@ async function processMirrorDeletionEvent(event: MirrorDeletionEvent) {
     try {
       const channel = await client.channels.fetch(ref.channelId);
       if (!channel || !channel.isTextBased() || !('messages' in channel)) {
-        removeMirroredMessageRef(event.postType, event.postId, ref.channelId, ref.messageId);
+        removeMirroredMessageRef(
+          event.postType,
+          event.postId,
+          ref.channelId,
+          ref.messageId,
+        );
         continue;
       }
 
       const textChannel = channel as TextChannel;
       await textChannel.messages.delete(ref.messageId);
-      removeMirroredMessageRef(event.postType, event.postId, ref.channelId, ref.messageId);
+      removeMirroredMessageRef(
+        event.postType,
+        event.postId,
+        ref.channelId,
+        ref.messageId,
+      );
     } catch (error: any) {
       const discordCode = error?.code || error?.rawError?.code;
 
       // Unknown message/channel means already gone, so we can safely drop this ref.
       if (discordCode === 10008 || discordCode === 10003) {
-        removeMirroredMessageRef(event.postType, event.postId, ref.channelId, ref.messageId);
+        removeMirroredMessageRef(
+          event.postType,
+          event.postId,
+          ref.channelId,
+          ref.messageId,
+        );
       } else {
         hasRetriableFailure = true;
         console.error(
           `❌ Failed deleting mirrored ${event.postType} post ${event.postId} message ${ref.messageId} in ${ref.channelId}:`,
-          error?.message || error
+          error?.message || error,
         );
       }
     }
@@ -3204,24 +4657,36 @@ async function processMirrorDeletionEvent(event: MirrorDeletionEvent) {
   }
 
   clearMirroredMessageRefs(event.postType, event.postId);
-  const ackResult = await apiRequest(`/api/discord/mirror-deletions/${event.id}/acked`, 'PATCH');
+  const ackResult = await apiRequest(
+    `/api/discord/mirror-deletions/${event.id}/acked`,
+    'PATCH',
+  );
   if (!ackResult.ok) {
     console.error(`❌ Failed to ack mirror deletion ${event.id}`);
   } else {
-    console.log(`🧹 Synced Discord deletion for ${event.postType} post ${event.postId}`);
+    console.log(
+      `🧹 Synced Discord deletion for ${event.postType} post ${event.postId}`,
+    );
   }
 }
 
 async function pollMirrorDeletions() {
   try {
     const safeLimit = Math.max(1, Math.min(100, MIRROR_DELETION_BATCH_SIZE));
-    const result = await apiRequest(`/api/discord/mirror-deletions?limit=${safeLimit}`);
+    const result = await apiRequest(
+      `/api/discord/mirror-deletions?limit=${safeLimit}`,
+    );
     if (!result.ok) {
-      console.error('❌ Failed to poll mirror deletions:', result.data?.error || result.status);
+      console.error(
+        '❌ Failed to poll mirror deletions:',
+        result.data?.error || result.status,
+      );
       return;
     }
 
-    const events = Array.isArray(result.data?.events) ? (result.data.events as MirrorDeletionEvent[]) : [];
+    const events = Array.isArray(result.data?.events)
+      ? (result.data.events as MirrorDeletionEvent[])
+      : [];
     if (events.length === 0) return;
 
     console.log(`🧹 Found ${events.length} mirror deletion event(s)`);
@@ -3229,7 +4694,10 @@ async function pollMirrorDeletions() {
       await processMirrorDeletionEvent(event);
     }
   } catch (error: any) {
-    console.error('❌ Error in mirror deletion polling loop:', error?.message || error);
+    console.error(
+      '❌ Error in mirror deletion polling loop:',
+      error?.message || error,
+    );
   }
 }
 
@@ -3237,7 +4705,10 @@ async function pollMirrorDeletions() {
 // Discord DM Notifications for Chat Messages
 // ============================================================
 
-const DM_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_DM_POLL_INTERVAL_MS || '15000', 10);
+const DM_POLL_INTERVAL_MS = parseInt(
+  process.env.DISCORD_DM_POLL_INTERVAL_MS || '15000',
+  10,
+);
 
 async function pollDmQueue() {
   try {
@@ -3274,9 +4745,14 @@ async function sendChatDmNotification(dm: {
   embedFooter?: string | null;
   embedImageUrl?: string | null;
 }) {
-  const markResult = await apiRequest(`/api/discord/dm-queue/${dm.id}/sent`, 'PATCH');
+  const markResult = await apiRequest(
+    `/api/discord/dm-queue/${dm.id}/sent`,
+    'PATCH',
+  );
   if (!markResult.ok) {
-    console.error(`❌ Failed to mark DM ${dm.id} as sent, skipping to prevent duplicates`);
+    console.error(
+      `❌ Failed to mark DM ${dm.id} as sent, skipping to prevent duplicates`,
+    );
     return;
   }
 
@@ -3287,15 +4763,23 @@ async function sendChatDmNotification(dm: {
       return;
     }
 
-    const isAdRequestNotification = typeof dm.conversationId === 'string' && dm.conversationId.startsWith('ad-request:');
+    const isAdRequestNotification =
+      typeof dm.conversationId === 'string' &&
+      dm.conversationId.startsWith('ad-request:');
 
     if (dm.kind === 'ADMIN_EMBED') {
       const colorHex = (dm.embedColor || '#5865F2').replace('#', '');
-      const embedColor = /^[0-9a-fA-F]{6}$/.test(colorHex) ? parseInt(colorHex, 16) : 0x5865f2;
+      const embedColor = /^[0-9a-fA-F]{6}$/.test(colorHex)
+        ? parseInt(colorHex, 16)
+        : 0x5865f2;
       const embed = new EmbedBuilder()
         .setColor(embedColor)
-        .setTitle((dm.embedTitle || 'RiftEssence Announcement').substring(0, 256))
-        .setDescription((dm.embedDescription || dm.messagePreview || '').substring(0, 4000))
+        .setTitle(
+          (dm.embedTitle || 'RiftEssence Announcement').substring(0, 256),
+        )
+        .setDescription(
+          (dm.embedDescription || dm.messagePreview || '').substring(0, 4000),
+        )
         .setTimestamp();
 
       if (dm.embedUrl) {
@@ -3305,7 +4789,9 @@ async function sendChatDmNotification(dm: {
       if (dm.embedFooter) {
         embed.setFooter({ text: dm.embedFooter.substring(0, 2048) });
       } else {
-        embed.setFooter({ text: 'You can disable DM notifications in your RiftEssence settings.' });
+        embed.setFooter({
+          text: 'You can disable DM notifications in your RiftEssence settings.',
+        });
       }
 
       if (dm.embedImageUrl) {
@@ -3313,7 +4799,9 @@ async function sendChatDmNotification(dm: {
       }
 
       await user.send({ embeds: [embed] });
-      console.log(`âœ… Sent admin broadcast DM embed to ${dm.recipientDiscordId}`);
+      console.log(
+        `âœ… Sent admin broadcast DM embed to ${dm.recipientDiscordId}`,
+      );
       return;
     }
 
@@ -3321,29 +4809,36 @@ async function sendChatDmNotification(dm: {
       const embed = new EmbedBuilder()
         .setColor(0x22c55e)
         .setTitle('📢 New ad request on RiftEssence')
-        .setDescription(`**${dm.senderUsername}** submitted an ad request for admin review.`)
+        .setDescription(
+          `**${dm.senderUsername}** submitted an ad request for admin review.`,
+        )
         .addFields({
           name: 'Request Summary',
-          value: dm.messagePreview.length > 180
-            ? dm.messagePreview.substring(0, 180) + '...'
-            : dm.messagePreview,
+          value:
+            dm.messagePreview.length > 180
+              ? dm.messagePreview.substring(0, 180) + '...'
+              : dm.messagePreview,
         })
         .addFields({
           name: '🔗 Review Queue',
           value: `[Open Admin Ads queue](${APP_URL}/admin/ads)`,
         })
-        .setFooter({ text: 'You can disable DM notifications in your RiftEssence settings.' })
+        .setFooter({
+          text: 'You can disable DM notifications in your RiftEssence settings.',
+        })
         .setTimestamp();
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
           .setLabel('Open Admin Ads')
           .setStyle(ButtonStyle.Link)
-          .setURL(`${APP_URL}/admin/ads`)
+          .setURL(`${APP_URL}/admin/ads`),
       );
 
       await user.send({ embeds: [embed], components: [row] });
-      console.log(`✅ Sent ad request DM notification to ${dm.recipientDiscordId}`);
+      console.log(
+        `✅ Sent ad request DM notification to ${dm.recipientDiscordId}`,
+      );
       return;
     }
 
@@ -3353,15 +4848,18 @@ async function sendChatDmNotification(dm: {
       .setDescription(`**${dm.senderUsername}** sent you a message:`)
       .addFields({
         name: 'Message',
-        value: dm.messagePreview.length > 180
-          ? dm.messagePreview.substring(0, 180) + '...'
-          : dm.messagePreview,
+        value:
+          dm.messagePreview.length > 180
+            ? dm.messagePreview.substring(0, 180) + '...'
+            : dm.messagePreview,
       })
       .addFields({
         name: '🔗 Reply',
         value: `[Open conversation on RiftEssence](${APP_URL})`,
       })
-      .setFooter({ text: 'You can disable DM notifications in your RiftEssence settings.' })
+      .setFooter({
+        text: 'You can disable DM notifications in your RiftEssence settings.',
+      })
       .setTimestamp();
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -3372,16 +4870,23 @@ async function sendChatDmNotification(dm: {
       new ButtonBuilder()
         .setLabel('Open in RiftEssence')
         .setStyle(ButtonStyle.Link)
-        .setURL(APP_URL)
+        .setURL(APP_URL),
     );
 
     await user.send({ embeds: [embed], components: [row] });
-    console.log(`✅ Sent DM notification to ${dm.recipientDiscordId} for message from ${dm.senderUsername}`);
+    console.log(
+      `✅ Sent DM notification to ${dm.recipientDiscordId} for message from ${dm.senderUsername}`,
+    );
   } catch (error: any) {
     if (error.code === 50007) {
-      console.warn(`⚠️ Cannot send DM to ${dm.recipientDiscordId} (DMs disabled or bot not in mutual server)`);
+      console.warn(
+        `⚠️ Cannot send DM to ${dm.recipientDiscordId} (DMs disabled or bot not in mutual server)`,
+      );
     } else {
-      console.error(`❌ Failed to send DM to ${dm.recipientDiscordId}:`, error.message);
+      console.error(
+        `❌ Failed to send DM to ${dm.recipientDiscordId}:`,
+        error.message,
+      );
     }
   }
 }
@@ -3390,7 +4895,10 @@ async function sendChatDmNotification(dm: {
 // Scrim Proposal Discord Notifications
 // ============================================================
 
-const SCRIM_NOTIFICATION_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_SCRIM_NOTIFICATION_POLL_INTERVAL_MS || '15000', 10);
+const SCRIM_NOTIFICATION_POLL_INTERVAL_MS = parseInt(
+  process.env.DISCORD_SCRIM_NOTIFICATION_POLL_INTERVAL_MS || '15000',
+  10,
+);
 
 type ScrimDiscordNotification = {
   id: string;
@@ -3426,11 +4934,16 @@ type ScrimDiscordNotification = {
   };
 };
 
-function buildScrimNotificationComponents(notification: ScrimDiscordNotification): ActionRowBuilder<ButtonBuilder>[] {
+function buildScrimNotificationComponents(
+  notification: ScrimDiscordNotification,
+): ActionRowBuilder<ButtonBuilder>[] {
   const appLink = `${APP_URL}/notifications`;
   if (!notification.actionRequired) {
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setLabel('Open Notifications').setStyle(ButtonStyle.Link).setURL(appLink)
+      new ButtonBuilder()
+        .setLabel('Open Notifications')
+        .setStyle(ButtonStyle.Link)
+        .setURL(appLink),
     );
     return [row];
   }
@@ -3457,7 +4970,9 @@ function buildScrimNotificationComponents(notification: ScrimDiscordNotification
   return [row];
 }
 
-function buildScrimNotificationEmbed(notification: ScrimDiscordNotification): EmbedBuilder {
+function buildScrimNotificationEmbed(
+  notification: ScrimDiscordNotification,
+): EmbedBuilder {
   const proposal = notification.proposal;
   const teamLabel = proposal.proposerTeam.tag
     ? `${proposal.proposerTeam.name} [${proposal.proposerTeam.tag}]`
@@ -3471,11 +4986,11 @@ function buildScrimNotificationEmbed(notification: ScrimDiscordNotification): Em
     : proposal.post.startTimeUtc;
 
   const colorByType: Record<string, number> = {
-    PROPOSAL_RECEIVED: 0x3B82F6,
-    PROPOSAL_ACCEPTED: 0x22C55E,
-    PROPOSAL_REJECTED: 0xEF4444,
-    PROPOSAL_DELAYED: 0x8B5CF6,
-    PROPOSAL_AUTO_REJECTED: 0xF59E0B,
+    PROPOSAL_RECEIVED: 0x3b82f6,
+    PROPOSAL_ACCEPTED: 0x22c55e,
+    PROPOSAL_REJECTED: 0xef4444,
+    PROPOSAL_DELAYED: 0x8b5cf6,
+    PROPOSAL_AUTO_REJECTED: 0xf59e0b,
   };
 
   const titleByType: Record<string, string> = {
@@ -3487,7 +5002,7 @@ function buildScrimNotificationEmbed(notification: ScrimDiscordNotification): Em
   };
 
   const embed = new EmbedBuilder()
-    .setColor(colorByType[notification.type] || 0x3B82F6)
+    .setColor(colorByType[notification.type] || 0x3b82f6)
     .setTitle(titleByType[notification.type] || 'Scrim Update')
     .setDescription(notification.message)
     .addFields(
@@ -3503,14 +5018,17 @@ function buildScrimNotificationEmbed(notification: ScrimDiscordNotification): Em
       },
       {
         name: 'Region',
-        value: proposal.targetTeam.region || proposal.proposerTeam.region || 'Unknown',
+        value:
+          proposal.targetTeam.region ||
+          proposal.proposerTeam.region ||
+          'Unknown',
         inline: true,
       },
       {
         name: 'Status',
         value: proposal.status,
         inline: true,
-      }
+      },
     )
     .setFooter({ text: 'RiftEssence Scrim Finder' })
     .setTimestamp();
@@ -3537,17 +5055,15 @@ function buildScrimNotificationEmbed(notification: ScrimDiscordNotification): Em
   return embed;
 }
 
-async function sendScrimDiscordNotification(notification: ScrimDiscordNotification) {
-  const markResult = await apiRequest(`/api/scrims/discord-notifications/${notification.id}/processed`, 'PATCH');
-  if (!markResult.ok) {
-    console.error(`❌ Failed to mark scrim notification ${notification.id} as processed, skipping to avoid duplicates`);
-    return;
-  }
-
+async function sendScrimDiscordNotification(
+  notification: ScrimDiscordNotification,
+) {
   try {
     const user = await client.users.fetch(notification.recipientDiscordId);
     if (!user) {
-      console.warn(`⚠️ Could not fetch Discord user ${notification.recipientDiscordId} for scrim notification`);
+      console.warn(
+        `⚠️ Could not fetch Discord user ${notification.recipientDiscordId} for scrim notification`,
+      );
       return;
     }
 
@@ -3556,14 +5072,32 @@ async function sendScrimDiscordNotification(notification: ScrimDiscordNotificati
       components: buildScrimNotificationComponents(notification),
     });
 
-    console.log(`✅ Sent scrim Discord notification ${notification.id} to ${notification.recipientDiscordId}`);
-  } catch (error: any) {
-    if (error.code === 50007) {
-      console.warn(`⚠️ Cannot DM ${notification.recipientDiscordId} for scrim notification (DMs disabled or no mutual server)`);
+    const markResult = await apiRequest(
+      `/api/scrims/discord-notifications/${notification.id}/processed`,
+      'PATCH',
+    );
+    if (!markResult.ok) {
+      console.error(
+        `❌ Sent scrim notification ${notification.id}, but failed to acknowledge delivery`,
+      );
       return;
     }
 
-    console.error(`❌ Failed to send scrim notification ${notification.id}:`, error.message);
+    console.log(
+      `✅ Sent scrim Discord notification ${notification.id} to ${notification.recipientDiscordId}`,
+    );
+  } catch (error: any) {
+    if (error.code === 50007) {
+      console.warn(
+        `⚠️ Cannot DM ${notification.recipientDiscordId} for scrim notification (DMs disabled or no mutual server)`,
+      );
+      return;
+    }
+
+    console.error(
+      `❌ Failed to send scrim notification ${notification.id}:`,
+      error.message,
+    );
   }
 }
 
@@ -3571,7 +5105,10 @@ async function pollScrimDiscordNotifications() {
   try {
     const result = await apiRequest('/api/scrims/discord-notifications');
     if (!result.ok) {
-      console.error('❌ Failed to poll scrim Discord notifications:', result.data.error);
+      console.error(
+        '❌ Failed to poll scrim Discord notifications:',
+        result.data.error,
+      );
       return;
     }
 
@@ -3581,12 +5118,17 @@ async function pollScrimDiscordNotifications() {
 
     if (notifications.length === 0) return;
 
-    console.log(`⚔️ Found ${notifications.length} pending scrim Discord notifications`);
+    console.log(
+      `⚔️ Found ${notifications.length} pending scrim Discord notifications`,
+    );
     for (const notification of notifications as ScrimDiscordNotification[]) {
       await sendScrimDiscordNotification(notification);
     }
   } catch (error: any) {
-    console.error('❌ Error polling scrim Discord notifications:', error.message);
+    console.error(
+      '❌ Error polling scrim Discord notifications:',
+      error.message,
+    );
   }
 }
 
@@ -3599,29 +5141,38 @@ async function handleScrimProposalButton(interaction: ButtonInteraction) {
 
   const actionRaw = parts[2].toUpperCase();
   const proposalId = parts.slice(3).join('_');
-  const action = actionRaw === 'ACCEPT'
-    ? 'ACCEPT'
-    : actionRaw === 'DELAY'
+  const action =
+    actionRaw === 'ACCEPT'
+      ? 'ACCEPT'
+      : actionRaw === 'DELAY'
       ? 'DELAY'
       : actionRaw === 'REJECT'
-        ? 'REJECT'
-        : null;
+      ? 'REJECT'
+      : null;
 
   if (!action) {
-    await interaction.reply({ content: '❌ Unknown scrim action.', ephemeral: interaction.inGuild() });
+    await interaction.reply({
+      content: '❌ Unknown scrim action.',
+      ephemeral: interaction.inGuild(),
+    });
     return true;
   }
 
   await interaction.deferReply({ ephemeral: interaction.inGuild() });
 
   try {
-    const result = await apiRequest(`/api/scrims/proposals/${proposalId}/discord-decision`, 'POST', {
-      discordId: interaction.user.id,
-      action,
-    });
+    const result = await apiRequest(
+      `/api/scrims/proposals/${proposalId}/discord-decision`,
+      'POST',
+      {
+        discordId: interaction.user.id,
+        action,
+      },
+    );
 
     if (!result.ok) {
-      const errorMessage = result.data?.error || 'Failed to apply scrim decision.';
+      const errorMessage =
+        result.data?.error || 'Failed to apply scrim decision.';
       if (errorMessage.includes('not linked')) {
         return interaction.editReply({
           content: `❌ Your Discord account is not linked to RiftEssence. Link it in ${APP_URL}/settings.`,
@@ -3631,7 +5182,12 @@ async function handleScrimProposalButton(interaction: ButtonInteraction) {
       return interaction.editReply({ content: `❌ ${errorMessage}` });
     }
 
-    const label = action === 'ACCEPT' ? 'accepted' : action === 'DELAY' ? 'delayed' : 'rejected';
+    const label =
+      action === 'ACCEPT'
+        ? 'accepted'
+        : action === 'DELAY'
+        ? 'delayed'
+        : 'rejected';
 
     try {
       await interaction.message.edit({ components: [] });
@@ -3642,7 +5198,9 @@ async function handleScrimProposalButton(interaction: ButtonInteraction) {
     return interaction.editReply({ content: `✅ Proposal ${label}.` });
   } catch (error: any) {
     console.error('❌ Error handling scrim proposal button:', error.message);
-    return interaction.editReply({ content: '❌ An unexpected error occurred. Please try again.' });
+    return interaction.editReply({
+      content: '❌ An unexpected error occurred. Please try again.',
+    });
   }
 }
 
@@ -3650,8 +5208,14 @@ async function handleScrimProposalButton(interaction: ButtonInteraction) {
 // Team Event Notifications
 // ============================================================
 
-const TEAM_EVENT_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_TEAM_EVENT_POLL_INTERVAL_MS || '15000', 10);
-const TEAM_REMINDER_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_TEAM_REMINDER_POLL_INTERVAL_MS || '15000', 10);
+const TEAM_EVENT_POLL_INTERVAL_MS = parseInt(
+  process.env.DISCORD_TEAM_EVENT_POLL_INTERVAL_MS || '15000',
+  10,
+);
+const TEAM_REMINDER_POLL_INTERVAL_MS = parseInt(
+  process.env.DISCORD_TEAM_REMINDER_POLL_INTERVAL_MS || '15000',
+  10,
+);
 const TEAM_CHANNEL_PING_COOLDOWN_MS = 60 * 60 * 1000;
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -3663,11 +5227,11 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
 };
 
 const EVENT_TYPE_COLORS: Record<string, number> = {
-  SCRIM: 0x22C55E,      // Green
-  PRACTICE: 0x3B82F6,   // Blue
-  VOD_REVIEW: 0xF59E0B, // Amber
-  TOURNAMENT: 0xEF4444, // Red
-  TEAM_MEETING: 0x8B5CF6, // Purple
+  SCRIM: 0x22c55e, // Green
+  PRACTICE: 0x3b82f6, // Blue
+  VOD_REVIEW: 0xf59e0b, // Amber
+  TOURNAMENT: 0xef4444, // Red
+  TEAM_MEETING: 0x8b5cf6, // Purple
 };
 
 type TeamEventMember = {
@@ -3734,17 +5298,24 @@ type ReminderAvailabilityBuckets = {
   noResponse: TeamEventMember[];
 };
 
-const TEAM_EVENT_WEBHOOK_REGEX = /^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/(\d{6,30})\/([A-Za-z0-9._-]{20,})$/i;
+const TEAM_EVENT_WEBHOOK_REGEX =
+  /^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/(\d{6,30})\/([A-Za-z0-9._-]{20,})$/i;
 
-function normalizeDiscordWebhookUrl(rawUrl: string | null | undefined): string | null {
+function normalizeDiscordWebhookUrl(
+  rawUrl: string | null | undefined,
+): string | null {
   if (!rawUrl) return null;
 
   try {
     const parsed = new URL(rawUrl.trim());
     const hostname = parsed.hostname.toLowerCase();
     if (parsed.protocol !== 'https:') return null;
-    if (hostname !== 'discord.com' && hostname !== 'discordapp.com') return null;
-    if (!/^\/api\/webhooks\/\d{6,30}\/[A-Za-z0-9._-]{20,}$/.test(parsed.pathname)) return null;
+    if (hostname !== 'discord.com' && hostname !== 'discordapp.com')
+      return null;
+    if (
+      !/^\/api\/webhooks\/\d{6,30}\/[A-Za-z0-9._-]{20,}$/.test(parsed.pathname)
+    )
+      return null;
 
     parsed.username = '';
     parsed.password = '';
@@ -3765,33 +5336,62 @@ async function pollBugReports() {
   let channel;
   try {
     channel = await client.channels.fetch(channelId);
-    if (!channel || !channel.isTextBased() || !('send' in channel)) throw new Error('Bot cannot post to this channel');
+    if (!channel || !channel.isTextBased() || !('send' in channel))
+      throw new Error('Bot cannot post to this channel');
   } catch (error: any) {
-    console.error('❌ Bug report channel unavailable:', error?.message || error);
+    console.error(
+      '❌ Bug report channel unavailable:',
+      error?.message || error,
+    );
     return;
   }
 
   for (const report of result.data.reports) {
     try {
       const evidenceFields = report.evidenceUrls?.length
-        ? report.evidenceUrls.map((url: string, index: number) => ({ name: `Evidence ${index + 1}`, value: url }))
+        ? report.evidenceUrls.map((url: string, index: number) => ({
+            name: `Evidence ${index + 1}`,
+            value: url,
+          }))
         : [{ name: 'Evidence', value: 'None provided' }];
       const embed = new EmbedBuilder()
         .setTitle(`Bug report ${report.id}`)
         .setDescription(report.description)
         .setColor(0xe74c3c)
         .addFields(
-          { name: 'Reporter', value: report.reporter?.username || 'Guest', inline: true },
-          { name: 'Discord contact', value: report.contactDiscord || report.reporter?.discordAccount?.username || 'Not provided', inline: true },
+          {
+            name: 'Reporter',
+            value: report.reporter?.username || 'Guest',
+            inline: true,
+          },
+          {
+            name: 'Discord contact',
+            value:
+              report.contactDiscord ||
+              report.reporter?.discordAccount?.username ||
+              'Not provided',
+            inline: true,
+          },
           { name: 'Page', value: report.pageUrl || 'Unknown' },
           ...evidenceFields,
         )
         .setTimestamp(new Date(report.createdAt));
-      const message = await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
-      const acknowledgment = await apiRequest(`/api/discord/bug-reports/${encodeURIComponent(report.id)}/forwarded`, 'PATCH', { messageId: message.id });
-      if (!acknowledgment.ok) throw new Error('Bug report delivery acknowledgment failed');
+      const message = await channel.send({
+        embeds: [embed],
+        allowedMentions: { parse: [] },
+      });
+      const acknowledgment = await apiRequest(
+        `/api/discord/bug-reports/${encodeURIComponent(report.id)}/forwarded`,
+        'PATCH',
+        { messageId: message.id },
+      );
+      if (!acknowledgment.ok)
+        throw new Error('Bug report delivery acknowledgment failed');
     } catch (error: any) {
-      console.error(`❌ Could not forward bug report ${report.id}:`, error?.message || error);
+      console.error(
+        `❌ Could not forward bug report ${report.id}:`,
+        error?.message || error,
+      );
     }
   }
 }
@@ -3805,7 +5405,10 @@ function parseIsoDateToMs(value: string | null | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function syncTeamLastPingCache(teamId: string, lastChannelPingAt: string | null | undefined) {
+function syncTeamLastPingCache(
+  teamId: string,
+  lastChannelPingAt: string | null | undefined,
+) {
   const parsed = parseIsoDateToMs(lastChannelPingAt);
   if (parsed === null) {
     return;
@@ -3832,7 +5435,10 @@ function resolveMentionForDispatch(
   }
 
   const lastPingAt = teamLastChannelPingCache.get(notification.teamId);
-  if (typeof lastPingAt === 'number' && Date.now() - lastPingAt < TEAM_CHANNEL_PING_COOLDOWN_MS) {
+  if (
+    typeof lastPingAt === 'number' &&
+    Date.now() - lastPingAt < TEAM_CHANNEL_PING_COOLDOWN_MS
+  ) {
     return { content: '', mentionAllowed: false, throttled: true };
   }
 
@@ -3843,29 +5449,38 @@ function recordChannelMentionDispatch(teamId: string) {
   teamLastChannelPingCache.set(teamId, Date.now());
 }
 
-function buildTeamEventEmbed(notification: TeamEventNotification, teamDisplay: string) {
+function buildTeamEventEmbed(
+  notification: TeamEventNotification,
+  teamDisplay: string,
+) {
   const scheduledDate = new Date(notification.scheduledAt);
-  const typeLabel = EVENT_TYPE_LABELS[notification.eventType] || notification.eventType;
-  const color = EVENT_TYPE_COLORS[notification.eventType] || 0xC8AA6E;
+  const typeLabel =
+    EVENT_TYPE_LABELS[notification.eventType] || notification.eventType;
+  const color = EVENT_TYPE_COLORS[notification.eventType] || 0xc8aa6e;
 
-  const isScrimLifecycle = typeof notification.notificationType === 'string'
-    && notification.notificationType.startsWith('SCRIM_');
+  const isScrimLifecycle =
+    typeof notification.notificationType === 'string' &&
+    notification.notificationType.startsWith('SCRIM_');
 
   if (isScrimLifecycle) {
     const lifecycleColor: Record<string, number> = {
-      SCRIM_SERIES_ACCEPTED: 0x2563EB,
-      SCRIM_MATCH_CODE_REGENERATED: 0xF59E0B,
-      SCRIM_RESULT_AUTO_CONFIRMED: 0x22C55E,
-      SCRIM_RESULT_MANUAL_CONFIRMED: 0x14B8A6,
-      SCRIM_RESULT_MANUAL_REQUIRED: 0xEF4444,
-      SCRIM_RESULT_CONFLICT_ESCALATION: 0xDC2626,
+      SCRIM_PROPOSAL_RECEIVED: 0x3b82f6,
+      SCRIM_SERIES_ACCEPTED: 0x2563eb,
+      SCRIM_MATCH_CODE_REGENERATED: 0xf59e0b,
+      SCRIM_RESULT_AUTO_CONFIRMED: 0x22c55e,
+      SCRIM_RESULT_MANUAL_CONFIRMED: 0x14b8a6,
+      SCRIM_RESULT_MANUAL_REQUIRED: 0xef4444,
+      SCRIM_RESULT_CONFLICT_ESCALATION: 0xdc2626,
     };
 
     const embed = new EmbedBuilder()
       .setTimestamp()
-      .setColor(lifecycleColor[notification.notificationType] || 0x2563EB)
+      .setColor(lifecycleColor[notification.notificationType] || 0x2563eb)
       .setTitle(notification.eventTitle || 'Scrim Lifecycle Update')
-      .setDescription(notification.description || 'A scrim lifecycle update is available in Scrim Finder.')
+      .setDescription(
+        notification.description ||
+          'A scrim lifecycle update is available in Scrim Finder.',
+      )
       .addFields({
         name: '📅 Scheduled Start',
         value: scheduledDate.toLocaleString('en-US', {
@@ -3894,7 +5509,7 @@ function buildTeamEventEmbed(notification: TeamEventNotification, teamDisplay: s
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      timeZoneName: 'short'
+      timeZoneName: 'short',
     }),
     inline: true,
   });
@@ -3916,7 +5531,9 @@ function buildTeamEventEmbed(notification: TeamEventNotification, teamDisplay: s
   }
 
   if (notification.enemyLink) {
-    const linkUrl = notification.enemyLink.startsWith('http') ? notification.enemyLink : `https://${notification.enemyLink}`;
+    const linkUrl = notification.enemyLink.startsWith('http')
+      ? notification.enemyLink
+      : `https://${notification.enemyLink}`;
     fields.push({
       name: '🎯 Enemy Team',
       value: `[View Link](${linkUrl})`,
@@ -3933,12 +5550,12 @@ function buildTeamEventEmbed(notification: TeamEventNotification, teamDisplay: s
     embed
       .setTitle(`📝 Event Updated: ${notification.eventTitle}`)
       .setDescription(`**${teamDisplay}** - ${typeLabel}`)
-      .setColor(0xF59E0B);
+      .setColor(0xf59e0b);
   } else if (notification.notificationType === 'DELETED') {
     embed
       .setTitle(`🗑️ Event Cancelled: ${notification.eventTitle}`)
       .setDescription(`**${teamDisplay}** - ${typeLabel}`)
-      .setColor(0xEF4444);
+      .setColor(0xef4444);
     fields.splice(0);
     fields.push({
       name: '📅 Was Scheduled For',
@@ -3955,7 +5572,13 @@ function buildTeamEventEmbed(notification: TeamEventNotification, teamDisplay: s
 
   embed.addFields(fields);
   embed.setFooter({
-    text: `${notification.notificationType === 'DELETED' ? 'Cancelled' : notification.notificationType === 'UPDATED' ? 'Updated' : 'Created'} by ${notification.triggeredBy} • ${teamDisplay}`,
+    text: `${
+      notification.notificationType === 'DELETED'
+        ? 'Cancelled'
+        : notification.notificationType === 'UPDATED'
+        ? 'Updated'
+        : 'Created'
+    } by ${notification.triggeredBy} • ${teamDisplay}`,
   });
 
   return embed;
@@ -3972,7 +5595,9 @@ function normalizeRoleId(raw: string | null | undefined): string | null {
 
 function getConcernedMembers(notification: TeamEventDeliveryPayload) {
   const explicitConcerned = Array.isArray(notification.concernedMemberIds)
-    ? notification.concernedMemberIds.filter((id) => typeof id === 'string' && id.length > 0)
+    ? notification.concernedMemberIds.filter(
+        (id) => typeof id === 'string' && id.length > 0,
+      )
     : [];
 
   if (explicitConcerned.length === 0) {
@@ -3983,10 +5608,16 @@ function getConcernedMembers(notification: TeamEventDeliveryPayload) {
   return notification.members.filter((member) => idSet.has(member.id));
 }
 
-function normalizeAttendanceStatus(raw: string | null | undefined): 'PRESENT' | 'ABSENT' | 'UNSURE' | null {
+function normalizeAttendanceStatus(
+  raw: string | null | undefined,
+): 'PRESENT' | 'ABSENT' | 'UNSURE' | null {
   if (!raw || typeof raw !== 'string') return null;
   const normalized = raw.toUpperCase();
-  if (normalized === 'PRESENT' || normalized === 'ABSENT' || normalized === 'UNSURE') {
+  if (
+    normalized === 'PRESENT' ||
+    normalized === 'ABSENT' ||
+    normalized === 'UNSURE'
+  ) {
     return normalized;
   }
   return null;
@@ -3994,7 +5625,7 @@ function normalizeAttendanceStatus(raw: string | null | undefined): 'PRESENT' | 
 
 function summarizeReminderAvailability(
   reminder: TeamEventReminder,
-  concernedMembers: TeamEventMember[]
+  concernedMembers: TeamEventMember[],
 ): ReminderAvailabilityBuckets {
   const statusByUserId = new Map<string, 'PRESENT' | 'ABSENT' | 'UNSURE'>();
 
@@ -4029,7 +5660,10 @@ function summarizeReminderAvailability(
   return buckets;
 }
 
-function formatAvailabilityNames(members: TeamEventMember[], maxShown = 20): string {
+function formatAvailabilityNames(
+  members: TeamEventMember[],
+  maxShown = 20,
+): string {
   if (!members.length) {
     return 'None';
   }
@@ -4046,7 +5680,10 @@ function formatAvailabilityNames(members: TeamEventMember[], maxShown = 20): str
   return `${names.slice(0, maxShown).join(', ')}, +${remaining} more`;
 }
 
-function buildReminderDmPrompt(member: TeamEventMember, availability: ReminderAvailabilityBuckets): string | null {
+function buildReminderDmPrompt(
+  member: TeamEventMember,
+  availability: ReminderAvailabilityBuckets,
+): string | null {
   if (availability.noResponse.some((entry) => entry.id === member.id)) {
     return 'You have not responded to this event yet. Please tap Present, Absent, or Unsure below.';
   }
@@ -4056,7 +5693,7 @@ function buildReminderDmPrompt(member: TeamEventMember, availability: ReminderAv
 
 function buildMentionContent(
   notification: TeamEventDeliveryPayload,
-  concernedMembers: TeamEventMember[]
+  concernedMembers: TeamEventMember[],
 ): string {
   const mode = (notification.mentionMode || 'EVERYONE').toUpperCase();
 
@@ -4066,9 +5703,10 @@ function buildMentionContent(
   }
 
   if (mode === 'TEAM_ROLE_MAP') {
-    const map = notification.roleMentions && typeof notification.roleMentions === 'object'
-      ? notification.roleMentions
-      : {};
+    const map =
+      notification.roleMentions && typeof notification.roleMentions === 'object'
+        ? notification.roleMentions
+        : {};
     const roleMentions = new Set<string>();
 
     for (const member of concernedMembers) {
@@ -4097,17 +5735,19 @@ function formatReminderLead(reminderMinutes: number): string {
     return `${hours} hour${hours === 1 ? '' : 's'}`;
   }
 
-  return `${hours} hour${hours === 1 ? '' : 's'} ${minutes} minute${minutes === 1 ? '' : 's'}`;
+  return `${hours} hour${hours === 1 ? '' : 's'} ${minutes} minute${
+    minutes === 1 ? '' : 's'
+  }`;
 }
 
 function buildTeamEventReminderEmbed(
   reminder: TeamEventReminder,
   teamDisplay: string,
-  availability: ReminderAvailabilityBuckets
+  availability: ReminderAvailabilityBuckets,
 ) {
   const scheduledDate = new Date(reminder.scheduledAt);
   const typeLabel = EVENT_TYPE_LABELS[reminder.eventType] || reminder.eventType;
-  const color = EVENT_TYPE_COLORS[reminder.eventType] || 0xC8AA6E;
+  const color = EVENT_TYPE_COLORS[reminder.eventType] || 0xc8aa6e;
   const leadTime = formatReminderLead(reminder.reminderMinutes);
 
   const embed = new EmbedBuilder()
@@ -4131,7 +5771,7 @@ function buildTeamEventReminderEmbed(
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      timeZoneName: 'short'
+      timeZoneName: 'short',
     }),
     inline: true,
   });
@@ -4153,7 +5793,9 @@ function buildTeamEventReminderEmbed(
   }
 
   if (reminder.enemyLink) {
-    const linkUrl = reminder.enemyLink.startsWith('http') ? reminder.enemyLink : `https://${reminder.enemyLink}`;
+    const linkUrl = reminder.enemyLink.startsWith('http')
+      ? reminder.enemyLink
+      : `https://${reminder.enemyLink}`;
     fields.push({
       name: '🎯 Enemy Team',
       value: `[View Link](${linkUrl})`,
@@ -4186,11 +5828,16 @@ function buildTeamEventReminderEmbed(
   });
 
   embed.addFields(fields);
-  embed.setFooter({ text: `Reminder sent ${leadTime} before start • ${teamDisplay}` });
+  embed.setFooter({
+    text: `Reminder sent ${leadTime} before start • ${teamDisplay}`,
+  });
   return embed;
 }
 
-function buildTeamEventActionComponents(teamId: string, eventId: string): ActionRowBuilder<ButtonBuilder>[] {
+function buildTeamEventActionComponents(
+  teamId: string,
+  eventId: string,
+): ActionRowBuilder<ButtonBuilder>[] {
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`team_event_present_${eventId}`)
@@ -4207,19 +5854,47 @@ function buildTeamEventActionComponents(teamId: string, eventId: string): Action
     new ButtonBuilder()
       .setLabel('View on RiftEssence')
       .setStyle(ButtonStyle.Link)
-      .setURL(`${APP_URL}/teams/${teamId}`)
+      .setURL(`${APP_URL}/teams/${teamId}`),
   );
 
   return [row];
 }
 
-function buildTeamEventComponents(notification: TeamEventNotification): ActionRowBuilder<ButtonBuilder>[] {
-  if (typeof notification.notificationType === 'string' && notification.notificationType.startsWith('SCRIM_')) {
+function buildTeamEventComponents(
+  notification: TeamEventNotification,
+): ActionRowBuilder<ButtonBuilder>[] {
+  if (notification.notificationType === 'SCRIM_PROPOSAL_RECEIVED') {
+    return [
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`scrim_proposal_accept_${notification.eventId}`)
+          .setLabel('Accept')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`scrim_proposal_delay_${notification.eventId}`)
+          .setLabel('Delay')
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(`scrim_proposal_reject_${notification.eventId}`)
+          .setLabel('Reject')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setLabel('Open Scrim Finder')
+          .setStyle(ButtonStyle.Link)
+          .setURL(`${APP_URL}/scrims`),
+      ),
+    ];
+  }
+
+  if (
+    typeof notification.notificationType === 'string' &&
+    notification.notificationType.startsWith('SCRIM_')
+  ) {
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setLabel('Open Scrim Finder')
         .setStyle(ButtonStyle.Link)
-        .setURL(`${APP_URL}/teams/scrims`)
+        .setURL(`${APP_URL}/scrims/room/${notification.eventId}`),
     );
     return [row];
   }
@@ -4228,14 +5903,17 @@ function buildTeamEventComponents(notification: TeamEventNotification): ActionRo
     return [];
   }
 
-  return buildTeamEventActionComponents(notification.teamId, notification.eventId);
+  return buildTeamEventActionComponents(
+    notification.teamId,
+    notification.eventId,
+  );
 }
 
 async function sendTeamEventChannelNotification(
   notification: TeamEventDeliveryPayload,
   content: string,
   embed: EmbedBuilder,
-  components: ActionRowBuilder<ButtonBuilder>[]
+  components: ActionRowBuilder<ButtonBuilder>[],
 ): Promise<{ sent: boolean; messageId?: string }> {
   if (!notification.webhookUrl) {
     return { sent: false };
@@ -4243,7 +5921,9 @@ async function sendTeamEventChannelNotification(
 
   const safeWebhookUrl = normalizeDiscordWebhookUrl(notification.webhookUrl);
   if (!safeWebhookUrl) {
-    console.warn(`Skipping invalid Discord webhook URL for team ${notification.teamName}`);
+    console.warn(
+      `Skipping invalid Discord webhook URL for team ${notification.teamName}`,
+    );
     return { sent: false };
   }
 
@@ -4262,13 +5942,19 @@ async function sendTeamEventChannelNotification(
             embeds: [embed],
             components,
           });
-          console.log(`✅ Sent team event notification to channel ${webhook.channelId} for "${notification.eventTitle}"`);
+          console.log(
+            `✅ Sent team event notification to channel ${webhook.channelId} for "${notification.eventTitle}"`,
+          );
           return { sent: true, messageId: message.id };
         }
       }
-      console.warn(`⚠️ Could not resolve text channel from webhook for team ${notification.teamName}, falling back to raw webhook send`);
+      console.warn(
+        `⚠️ Could not resolve text channel from webhook for team ${notification.teamName}, falling back to raw webhook send`,
+      );
     } catch (error: any) {
-      console.warn(`⚠️ Bot channel send failed for team ${notification.teamName}, falling back to webhook send: ${error.message}`);
+      console.warn(
+        `⚠️ Bot channel send failed for team ${notification.teamName}, falling back to webhook send: ${error.message}`,
+      );
     }
   }
 
@@ -4287,15 +5973,21 @@ async function sendTeamEventChannelNotification(
 
     if (!response.ok) {
       const text = await response.text().catch(() => 'No response body');
-      console.error(`❌ Failed team event webhook send (${response.status}): ${text}`);
+      console.error(
+        `❌ Failed team event webhook send (${response.status}): ${text}`,
+      );
       return { sent: false };
     }
 
     const body: any = await response.json().catch(() => null);
-    console.log(`✅ Sent team event notification via webhook for "${notification.eventTitle}"`);
+    console.log(
+      `✅ Sent team event notification via webhook for "${notification.eventTitle}"`,
+    );
     return { sent: true, messageId: body?.id };
   } catch (error: any) {
-    console.error(`❌ Error sending team event notification via webhook: ${error.message}`);
+    console.error(
+      `❌ Error sending team event notification via webhook: ${error.message}`,
+    );
     return { sent: false };
   }
 }
@@ -4305,7 +5997,7 @@ async function sendTeamEventDmNotification(
   notification: { eventTitle: string },
   embed: EmbedBuilder,
   components: ActionRowBuilder<ButtonBuilder>[],
-  dmPrompt?: string | null
+  dmPrompt?: string | null,
 ): Promise<boolean> {
   if (!member.discordId || !member.dmEnabled) {
     return false;
@@ -4314,7 +6006,9 @@ async function sendTeamEventDmNotification(
   try {
     const user = await client.users.fetch(member.discordId);
     if (!user) {
-      console.warn(`⚠️ Could not fetch Discord user ${member.discordId} for team event DM`);
+      console.warn(
+        `⚠️ Could not fetch Discord user ${member.discordId} for team event DM`,
+      );
       return false;
     }
 
@@ -4324,14 +6018,20 @@ async function sendTeamEventDmNotification(
       components,
     });
 
-    console.log(`✅ Sent team event DM to ${member.username} (${member.discordId}) for "${notification.eventTitle}"`);
+    console.log(
+      `✅ Sent team event DM to ${member.username} (${member.discordId}) for "${notification.eventTitle}"`,
+    );
     return true;
   } catch (error: any) {
     if (error.code === 50007) {
-      console.warn(`⚠️ Cannot DM ${member.username} (${member.discordId}) - DMs disabled or no mutual server`);
+      console.warn(
+        `⚠️ Cannot DM ${member.username} (${member.discordId}) - DMs disabled or no mutual server`,
+      );
       return false;
     }
-    console.error(`❌ Failed team event DM to ${member.username} (${member.discordId}): ${error.message}`);
+    console.error(
+      `❌ Failed team event DM to ${member.username} (${member.discordId}): ${error.message}`,
+    );
     return false;
   }
 }
@@ -4340,14 +6040,21 @@ async function pollTeamEventNotifications() {
   try {
     const result = await apiRequest('/api/discord/team-events');
     if (!result.ok) {
-      console.error('❌ Failed to poll team event notifications:', result.data.error);
+      console.error(
+        '❌ Failed to poll team event notifications:',
+        result.data.error,
+      );
       return;
     }
 
-    const notifications = Array.isArray(result.data?.notifications) ? result.data.notifications : [];
+    const notifications = Array.isArray(result.data?.notifications)
+      ? result.data.notifications
+      : [];
     if (notifications.length === 0) return;
 
-    console.log(`📅 Found ${notifications.length} pending team event notifications`);
+    console.log(
+      `📅 Found ${notifications.length} pending team event notifications`,
+    );
 
     for (const notification of notifications) {
       await sendTeamEventNotification(notification);
@@ -4361,11 +6068,16 @@ async function pollTeamEventReminders() {
   try {
     const result = await apiRequest('/api/discord/team-event-reminders');
     if (!result.ok) {
-      console.error('❌ Failed to poll team event reminders:', result.data.error);
+      console.error(
+        '❌ Failed to poll team event reminders:',
+        result.data.error,
+      );
       return;
     }
 
-    const reminders = Array.isArray(result.data?.reminders) ? result.data.reminders : [];
+    const reminders = Array.isArray(result.data?.reminders)
+      ? result.data.reminders
+      : [];
     if (reminders.length === 0) return;
 
     console.log(`⏰ Found ${reminders.length} due team event reminders`);
@@ -4380,34 +6092,58 @@ async function pollTeamEventReminders() {
 
 async function sendTeamEventNotification(notification: TeamEventNotification) {
   if (!notification.notifyEnabled) {
-    const markSkipped = await apiRequest(`/api/discord/team-events/${notification.id}/processed`, 'PATCH');
+    const markSkipped = await apiRequest(
+      `/api/discord/team-events/${notification.id}/processed`,
+      'PATCH',
+    );
     if (!markSkipped.ok) {
-      console.error(`❌ Failed to mark skipped team notification ${notification.id} as processed`);
+      console.error(
+        `❌ Failed to mark skipped team notification ${notification.id} as processed`,
+      );
     }
-    console.log(`⏭️ Skipping team notification ${notification.id} (notifications disabled)`);
+    console.log(
+      `⏭️ Skipping team notification ${notification.id} (notifications disabled)`,
+    );
     return;
   }
 
-  const teamDisplay = notification.teamTag ? `[${notification.teamTag}] ${notification.teamName}` : notification.teamName;
+  const teamDisplay = notification.teamTag
+    ? `[${notification.teamTag}] ${notification.teamName}`
+    : notification.teamName;
   const embed = buildTeamEventEmbed(notification, teamDisplay);
   const components = buildTeamEventComponents(notification);
   const concernedMembers = getConcernedMembers(notification);
   const mentionContent = buildMentionContent(notification, concernedMembers);
-  const mentionDispatch = resolveMentionForDispatch(notification, mentionContent);
+  const mentionDispatch = resolveMentionForDispatch(
+    notification,
+    mentionContent,
+  );
 
-  if (notification.concernedMemberIds?.length > 0 && concernedMembers.length === 0) {
-    console.warn(`⚠️ Team event ${notification.eventId} has explicit concernedMemberIds but no matching active members`);
+  if (
+    notification.concernedMemberIds?.length > 0 &&
+    concernedMembers.length === 0
+  ) {
+    console.warn(
+      `⚠️ Team event ${notification.eventId} has explicit concernedMemberIds but no matching active members`,
+    );
   }
 
   if (mentionDispatch.throttled) {
-    console.log(`🔕 Team ${notification.teamName} mention throttled (ping recurrence disabled, last ping < 1h)`);
+    console.log(
+      `🔕 Team ${notification.teamName} mention throttled (ping recurrence disabled, last ping < 1h)`,
+    );
   }
 
   let channelSent = false;
   let channelMentionSent = false;
   let channelMessageId: string | undefined;
   if (notification.webhookUrl) {
-    const channelResult = await sendTeamEventChannelNotification(notification, mentionDispatch.content, embed, components);
+    const channelResult = await sendTeamEventChannelNotification(
+      notification,
+      mentionDispatch.content,
+      embed,
+      components,
+    );
     channelSent = channelResult.sent;
     channelMessageId = channelResult.messageId;
     if (channelSent && mentionDispatch.mentionAllowed) {
@@ -4415,111 +6151,176 @@ async function sendTeamEventNotification(notification: TeamEventNotification) {
       recordChannelMentionDispatch(notification.teamId);
     }
   } else {
-    console.log(`ℹ️ Team ${notification.teamName} has no channel webhook configured; DM-only delivery path will be used`);
+    console.log(
+      `ℹ️ Team ${notification.teamName} has no channel webhook configured; DM-only delivery path will be used`,
+    );
   }
 
-  if (channelMessageId && (notification.notificationType === 'CREATED' || notification.notificationType === 'UPDATED')) {
-    const storeResult = await apiRequest(`/api/discord/team-events/${notification.eventId}/message`, 'PATCH', { messageId: channelMessageId });
+  if (
+    channelMessageId &&
+    (notification.notificationType === 'CREATED' ||
+      notification.notificationType === 'UPDATED')
+  ) {
+    const storeResult = await apiRequest(
+      `/api/discord/team-events/${notification.eventId}/message`,
+      'PATCH',
+      { messageId: channelMessageId },
+    );
     if (!storeResult.ok) {
-      console.warn(`⚠️ Could not persist Discord message ID ${channelMessageId} for event ${notification.eventId}`);
+      console.warn(
+        `⚠️ Could not persist Discord message ID ${channelMessageId} for event ${notification.eventId}`,
+      );
     }
   }
 
-  const dmTargets = concernedMembers.filter((member) => Boolean(member.discordId && member.dmEnabled));
+  const dmTargets = concernedMembers.filter((member) =>
+    Boolean(member.discordId && member.dmEnabled),
+  );
   let dmSentCount = 0;
 
   for (const member of dmTargets) {
-    const sent = await sendTeamEventDmNotification(member, notification, embed, components);
+    const sent = await sendTeamEventDmNotification(
+      member,
+      notification,
+      embed,
+      components,
+    );
     if (sent) {
       dmSentCount += 1;
     }
   }
 
   if (dmTargets.length === 0) {
-    console.log(`ℹ️ No eligible DM recipients for team ${notification.teamName} (concerned + linked + opted-in)`);
+    console.log(
+      `ℹ️ No eligible DM recipients for team ${notification.teamName} (concerned + linked + opted-in)`,
+    );
   }
 
   if (!channelSent && dmSentCount === 0) {
-    console.warn(`⚠️ Team event notification ${notification.id} had no successful deliveries`);
+    console.warn(
+      `⚠️ Team event notification ${notification.id} had no successful deliveries`,
+    );
   }
 
   const markResult = await apiRequest(
     `/api/discord/team-events/${notification.id}/processed`,
     'PATCH',
-    channelMentionSent ? { recordPing: true } : undefined
+    channelMentionSent ? { recordPing: true } : undefined,
   );
   if (!markResult.ok) {
-    console.error(`❌ Failed to mark team notification ${notification.id} as processed after delivery attempts`);
+    console.error(
+      `❌ Failed to mark team notification ${notification.id} as processed after delivery attempts`,
+    );
     return;
   }
 
   console.log(
-    `✅ Processed team notification ${notification.id} (channelSent=${channelSent}, channelMention=${channelMentionSent}, dmSent=${dmSentCount}/${dmTargets.length})`
+    `✅ Processed team notification ${notification.id} (channelSent=${channelSent}, channelMention=${channelMentionSent}, dmSent=${dmSentCount}/${dmTargets.length})`,
   );
 }
 
 async function sendTeamEventReminder(reminder: TeamEventReminder) {
-  const teamDisplay = reminder.teamTag ? `[${reminder.teamTag}] ${reminder.teamName}` : reminder.teamName;
+  const teamDisplay = reminder.teamTag
+    ? `[${reminder.teamTag}] ${reminder.teamName}`
+    : reminder.teamName;
   const concernedMembers = getConcernedMembers(reminder);
-  const availability = summarizeReminderAvailability(reminder, concernedMembers);
-  const embed = buildTeamEventReminderEmbed(reminder, teamDisplay, availability);
-  const components = buildTeamEventActionComponents(reminder.teamId, reminder.eventId);
+  const availability = summarizeReminderAvailability(
+    reminder,
+    concernedMembers,
+  );
+  const embed = buildTeamEventReminderEmbed(
+    reminder,
+    teamDisplay,
+    availability,
+  );
+  const components = buildTeamEventActionComponents(
+    reminder.teamId,
+    reminder.eventId,
+  );
   const mentionContent = buildMentionContent(reminder, concernedMembers);
   const mentionDispatch = resolveMentionForDispatch(reminder, mentionContent);
 
-  if (reminder.concernedMemberIds?.length > 0 && concernedMembers.length === 0) {
-    console.warn(`⚠️ Team event reminder ${reminder.id} has explicit concernedMemberIds but no matching active members`);
+  if (
+    reminder.concernedMemberIds?.length > 0 &&
+    concernedMembers.length === 0
+  ) {
+    console.warn(
+      `⚠️ Team event reminder ${reminder.id} has explicit concernedMemberIds but no matching active members`,
+    );
   }
 
   if (mentionDispatch.throttled) {
-    console.log(`🔕 Team ${reminder.teamName} reminder mention throttled (ping recurrence disabled, last ping < 1h)`);
+    console.log(
+      `🔕 Team ${reminder.teamName} reminder mention throttled (ping recurrence disabled, last ping < 1h)`,
+    );
   }
 
   let channelSent = false;
   let channelMentionSent = false;
   if (reminder.webhookUrl) {
-    const channelResult = await sendTeamEventChannelNotification(reminder, mentionDispatch.content, embed, components);
+    const channelResult = await sendTeamEventChannelNotification(
+      reminder,
+      mentionDispatch.content,
+      embed,
+      components,
+    );
     channelSent = channelResult.sent;
     if (channelSent && mentionDispatch.mentionAllowed) {
       channelMentionSent = true;
       recordChannelMentionDispatch(reminder.teamId);
     }
   } else {
-    console.log(`ℹ️ Team ${reminder.teamName} has no channel webhook configured; reminder DM-only delivery path will be used`);
+    console.log(
+      `ℹ️ Team ${reminder.teamName} has no channel webhook configured; reminder DM-only delivery path will be used`,
+    );
   }
 
-  const dmTargets = concernedMembers.filter((member) => Boolean(member.discordId && member.dmEnabled));
+  const dmTargets = concernedMembers.filter((member) =>
+    Boolean(member.discordId && member.dmEnabled),
+  );
   let dmSentCount = 0;
 
   for (const member of dmTargets) {
     const dmPrompt = buildReminderDmPrompt(member, availability);
-    const sent = await sendTeamEventDmNotification(member, reminder, embed, components, dmPrompt);
+    const sent = await sendTeamEventDmNotification(
+      member,
+      reminder,
+      embed,
+      components,
+      dmPrompt,
+    );
     if (sent) {
       dmSentCount += 1;
     }
   }
 
   if (dmTargets.length === 0) {
-    console.log(`ℹ️ No eligible reminder DM recipients for team ${reminder.teamName} (concerned + linked + opted-in)`);
+    console.log(
+      `ℹ️ No eligible reminder DM recipients for team ${reminder.teamName} (concerned + linked + opted-in)`,
+    );
   }
 
   if (!channelSent && dmSentCount === 0) {
-    console.warn(`⚠️ Team event reminder ${reminder.id} had no successful deliveries`);
+    console.warn(
+      `⚠️ Team event reminder ${reminder.id} had no successful deliveries`,
+    );
   }
 
   const markResult = await apiRequest(
     `/api/discord/team-event-reminders/${reminder.id}/processed`,
     'PATCH',
-    channelMentionSent ? { recordPing: true } : undefined
+    channelMentionSent ? { recordPing: true } : undefined,
   );
 
   if (!markResult.ok) {
-    console.error(`❌ Failed to mark reminder ${reminder.id} as processed after delivery attempts`);
+    console.error(
+      `❌ Failed to mark reminder ${reminder.id} as processed after delivery attempts`,
+    );
     return;
   }
 
   console.log(
-    `✅ Processed team reminder ${reminder.id} (channelSent=${channelSent}, channelMention=${channelMentionSent}, dmSent=${dmSentCount}/${dmTargets.length})`
+    `✅ Processed team reminder ${reminder.id} (channelSent=${channelSent}, channelMention=${channelMentionSent}, dmSent=${dmSentCount}/${dmTargets.length})`,
   );
 }
 
@@ -4528,15 +6329,25 @@ function formatAvailabilityWeekLabel(weekStart: string): string {
   if (Number.isNaN(start.getTime())) return 'next week';
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
-  return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  return `${start.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 }
 
-function buildTeamAvailabilityCustomId(scope: 'week' | 'weekend', teamId: string, weekStart: string) {
+function buildTeamAvailabilityCustomId(
+  scope: 'week' | 'weekend',
+  teamId: string,
+  weekStart: string,
+) {
   const datePart = new Date(weekStart).toISOString().slice(0, 10);
   return `${TEAM_AVAILABILITY_BUTTON_PREFIX}${scope}_${teamId}_${datePart}`;
 }
 
-function parseTeamAvailabilityCustomId(customId: string, prefix: string): { scope: 'week' | 'weekend'; teamId: string; weekStart: string } | null {
+function parseTeamAvailabilityCustomId(
+  customId: string,
+  prefix: string,
+): { scope: 'week' | 'weekend'; teamId: string; weekStart: string } | null {
   if (!customId.startsWith(prefix)) return null;
   const parts = customId.slice(prefix.length).split('_');
   if (parts.length < 3) return null;
@@ -4545,108 +6356,195 @@ function parseTeamAvailabilityCustomId(customId: string, prefix: string): { scop
   return { scope, teamId: parts[1], weekStart: parts.slice(2).join('_') };
 }
 
-function buildTeamAvailabilityComponents(reminder: TeamAvailabilityReminder): ActionRowBuilder<ButtonBuilder>[] {
+function buildTeamAvailabilityComponents(
+  reminder: TeamAvailabilityReminder,
+): ActionRowBuilder<ButtonBuilder>[] {
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId(buildTeamAvailabilityCustomId('week', reminder.teamId, reminder.weekStart)).setLabel('Set week availability').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(buildTeamAvailabilityCustomId('weekend', reminder.teamId, reminder.weekStart)).setLabel('Set weekend availability').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setLabel('Open full planner').setStyle(ButtonStyle.Link).setURL(`${APP_URL}/teams/schedule`)
+    new ButtonBuilder()
+      .setCustomId(
+        buildTeamAvailabilityCustomId(
+          'week',
+          reminder.teamId,
+          reminder.weekStart,
+        ),
+      )
+      .setLabel('Set week availability')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(
+        buildTeamAvailabilityCustomId(
+          'weekend',
+          reminder.teamId,
+          reminder.weekStart,
+        ),
+      )
+      .setLabel('Set weekend availability')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setLabel('Open full planner')
+      .setStyle(ButtonStyle.Link)
+      .setURL(`${APP_URL}/teams/schedule`),
   );
   return [row];
 }
 
 function buildTeamAvailabilityEmbed(reminder: TeamAvailabilityReminder) {
-  const teamDisplay = reminder.teamTag ? `[${reminder.teamTag}] ${reminder.teamName}` : reminder.teamName;
+  const teamDisplay = reminder.teamTag
+    ? `[${reminder.teamTag}] ${reminder.teamName}`
+    : reminder.teamName;
   return new EmbedBuilder()
     .setTitle('Fill your team availability')
-    .setDescription(`Help **${teamDisplay}** choose better event times for **${formatAvailabilityWeekLabel(reminder.weekStart)}**.`)
-    .setColor(0x5865F2)
+    .setDescription(
+      `Help **${teamDisplay}** choose better event times for **${formatAvailabilityWeekLabel(
+        reminder.weekStart,
+      )}**.`,
+    )
+    .setColor(0x5865f2)
     .addFields(
-      { name: 'Discord shortcut', value: 'Use the buttons below to fill weekdays or weekend without leaving Discord.', inline: false },
-      { name: 'Recommended format', value: '`18h30 - 23h`, `11AM - 5PM`, or `13h20 - 14h30, 18h30 - 23h`', inline: false },
-      { name: 'Full interface', value: `[Open the weekly planner](${APP_URL}/teams/schedule) for the easier visual view.`, inline: false }
+      {
+        name: 'Discord shortcut',
+        value:
+          'Use the buttons below to fill weekdays or weekend without leaving Discord.',
+        inline: false,
+      },
+      {
+        name: 'Recommended format',
+        value: '`18h30 - 23h`, `11AM - 5PM`, or `13h20 - 14h30, 18h30 - 23h`',
+        inline: false,
+      },
+      {
+        name: 'Full interface',
+        value: `[Open the weekly planner](${APP_URL}/teams/schedule) for the easier visual view.`,
+        inline: false,
+      },
     )
     .setTimestamp()
     .setFooter({ text: 'RiftEssence Team Availability' });
 }
 
-function buildTeamAvailabilityModal(scope: 'week' | 'weekend', teamId: string, weekStart: string) {
-  const days = scope === 'week'
-    ? [{ index: 0, label: 'Monday' }, { index: 1, label: 'Tuesday' }, { index: 2, label: 'Wednesday' }, { index: 3, label: 'Thursday' }, { index: 4, label: 'Friday' }]
-    : [{ index: 5, label: 'Saturday' }, { index: 6, label: 'Sunday' }];
+function buildTeamAvailabilityModal(
+  scope: 'week' | 'weekend',
+  teamId: string,
+  weekStart: string,
+) {
+  const days =
+    scope === 'week'
+      ? [
+          { index: 0, label: 'Monday' },
+          { index: 1, label: 'Tuesday' },
+          { index: 2, label: 'Wednesday' },
+          { index: 3, label: 'Thursday' },
+          { index: 4, label: 'Friday' },
+        ]
+      : [
+          { index: 5, label: 'Saturday' },
+          { index: 6, label: 'Sunday' },
+        ];
 
   const modal = new ModalBuilder()
-    .setCustomId(`${TEAM_AVAILABILITY_MODAL_PREFIX}${scope}_${teamId}_${weekStart}`)
+    .setCustomId(
+      `${TEAM_AVAILABILITY_MODAL_PREFIX}${scope}_${teamId}_${weekStart}`,
+    )
     .setTitle(scope === 'week' ? 'Week availability' : 'Weekend availability');
 
-  modal.addComponents(...days.map((day) => new ActionRowBuilder<TextInputBuilder>().addComponents(
-    new TextInputBuilder()
-      .setCustomId(`${TEAM_AVAILABILITY_DAY_INPUT_PREFIX}${day.index}`)
-      .setLabel(day.label)
-      .setStyle(TextInputStyle.Short)
-      .setRequired(false)
-      .setMaxLength(240)
-      .setPlaceholder(day.index < 5 ? '18h30 - 23h' : '11AM - 5PM, 20h - 23h')
-  )));
+  modal.addComponents(
+    ...days.map((day) =>
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId(`${TEAM_AVAILABILITY_DAY_INPUT_PREFIX}${day.index}`)
+          .setLabel(day.label)
+          .setStyle(TextInputStyle.Short)
+          .setRequired(false)
+          .setMaxLength(240)
+          .setPlaceholder(
+            day.index < 5 ? '18h30 - 23h' : '11AM - 5PM, 20h - 23h',
+          ),
+      ),
+    ),
+  );
 
   return modal;
 }
 
-async function sendTeamAvailabilityReminder(reminder: TeamAvailabilityReminder) {
+async function sendTeamAvailabilityReminder(
+  reminder: TeamAvailabilityReminder,
+) {
   const embed = buildTeamAvailabilityEmbed(reminder);
   const components = buildTeamAvailabilityComponents(reminder);
   let channelSent = false;
   let dmSentCount = 0;
 
   if (reminder.webhookUrl) {
-    const result = await sendTeamEventChannelNotification({
-      ...reminder,
-      eventId: `availability-${reminder.teamId}`,
-      eventTitle: 'Fill team availability',
-      eventType: 'TEAM_MEETING',
-      scheduledAt: reminder.weekStart,
-      duration: null,
-      description: null,
-      enemyLink: null,
-      concernedMemberIds: [],
-      mentionMode: 'EVERYONE',
-      mentionRoleId: null,
-      roleMentions: {},
-      pingRecurrenceEnabled: false,
-      lastChannelPingAt: null,
-    }, '', embed, components);
+    const result = await sendTeamEventChannelNotification(
+      {
+        ...reminder,
+        eventId: `availability-${reminder.teamId}`,
+        eventTitle: 'Fill team availability',
+        eventType: 'TEAM_MEETING',
+        scheduledAt: reminder.weekStart,
+        duration: null,
+        description: null,
+        enemyLink: null,
+        concernedMemberIds: [],
+        mentionMode: 'EVERYONE',
+        mentionRoleId: null,
+        roleMentions: {},
+        pingRecurrenceEnabled: false,
+        lastChannelPingAt: null,
+      },
+      '',
+      embed,
+      components,
+    );
     channelSent = result.sent;
   }
 
-  const dmTargets = reminder.members.filter((member) => Boolean(member.discordId && member.dmEnabled));
+  const dmTargets = reminder.members.filter((member) =>
+    Boolean(member.discordId && member.dmEnabled),
+  );
   for (const member of dmTargets) {
     const sent = await sendTeamEventDmNotification(
       member,
       { eventTitle: 'Fill team availability' },
       embed,
       components,
-      'This Discord modal is a quick shortcut. The full weekly planner is easier to use on RiftEssence.'
+      'This Discord modal is a quick shortcut. The full weekly planner is easier to use on RiftEssence.',
     );
     if (sent) dmSentCount += 1;
   }
 
-  const markResult = await apiRequest(`/api/teams/discord-availability-reminders/${reminder.teamId}/processed`, 'PATCH');
+  const markResult = await apiRequest(
+    `/api/teams/discord-availability-reminders/${reminder.teamId}/processed`,
+    'PATCH',
+  );
   if (!markResult.ok) {
-    console.error(`Failed to mark availability reminder for team ${reminder.teamName} as processed`);
+    console.error(
+      `Failed to mark availability reminder for team ${reminder.teamName} as processed`,
+    );
     return;
   }
 
-  console.log(`Processed availability reminder for ${reminder.teamName} (channelSent=${channelSent}, dmSent=${dmSentCount}/${dmTargets.length})`);
+  console.log(
+    `Processed availability reminder for ${reminder.teamName} (channelSent=${channelSent}, dmSent=${dmSentCount}/${dmTargets.length})`,
+  );
 }
 
 async function pollTeamAvailabilityReminders() {
   try {
-    const result = await apiRequest('/api/teams/discord-availability-reminders');
+    const result = await apiRequest(
+      '/api/teams/discord-availability-reminders',
+    );
     if (!result.ok) {
-      console.error('Failed to poll team availability reminders:', result.data.error);
+      console.error(
+        'Failed to poll team availability reminders:',
+        result.data.error,
+      );
       return;
     }
 
-    const reminders = Array.isArray(result.data?.reminders) ? result.data.reminders : [];
+    const reminders = Array.isArray(result.data?.reminders)
+      ? result.data.reminders
+      : [];
     if (reminders.length === 0) return;
 
     console.log(`Found ${reminders.length} due team availability reminders`);
@@ -4659,13 +6557,23 @@ async function pollTeamAvailabilityReminders() {
 }
 
 async function handleTeamAvailabilityButton(interaction: ButtonInteraction) {
-  const parsed = parseTeamAvailabilityCustomId(interaction.customId, TEAM_AVAILABILITY_BUTTON_PREFIX);
+  const parsed = parseTeamAvailabilityCustomId(
+    interaction.customId,
+    TEAM_AVAILABILITY_BUTTON_PREFIX,
+  );
   if (!parsed) return false;
-  return interaction.showModal(buildTeamAvailabilityModal(parsed.scope, parsed.teamId, parsed.weekStart));
+  return interaction.showModal(
+    buildTeamAvailabilityModal(parsed.scope, parsed.teamId, parsed.weekStart),
+  );
 }
 
-async function handleTeamAvailabilityModalSubmit(interaction: ModalSubmitInteraction) {
-  const parsed = parseTeamAvailabilityCustomId(interaction.customId, TEAM_AVAILABILITY_MODAL_PREFIX);
+async function handleTeamAvailabilityModalSubmit(
+  interaction: ModalSubmitInteraction,
+) {
+  const parsed = parseTeamAvailabilityCustomId(
+    interaction.customId,
+    TEAM_AVAILABILITY_MODAL_PREFIX,
+  );
   if (!parsed) return false;
 
   await interaction.deferReply({ ephemeral: interaction.inGuild() });
@@ -4673,7 +6581,10 @@ async function handleTeamAvailabilityModalSubmit(interaction: ModalSubmitInterac
   const dayIndexes = parsed.scope === 'week' ? [0, 1, 2, 3, 4] : [5, 6];
   const days = dayIndexes.map((dayOfWeek) => ({
     dayOfWeek,
-    rawText: interaction.fields.getTextInputValue(`${TEAM_AVAILABILITY_DAY_INPUT_PREFIX}${dayOfWeek}`) || '',
+    rawText:
+      interaction.fields.getTextInputValue(
+        `${TEAM_AVAILABILITY_DAY_INPUT_PREFIX}${dayOfWeek}`,
+      ) || '',
   }));
 
   const result = await apiRequest('/api/teams/discord-availability', 'POST', {
@@ -4684,10 +6595,19 @@ async function handleTeamAvailabilityModalSubmit(interaction: ModalSubmitInterac
   });
 
   if (!result.ok) {
-    return interaction.editReply({ content: `Error: ${result.data?.error || 'Failed to save availability. Try the full planner on RiftEssence.'}` });
+    return interaction.editReply({
+      content: `Error: ${
+        result.data?.error ||
+        'Failed to save availability. Try the full planner on RiftEssence.'
+      }`,
+    });
   }
 
-  return interaction.editReply({ content: `Availability saved for ${formatAvailabilityWeekLabel(parsed.weekStart)}. You can refine it anytime here: ${APP_URL}/teams/schedule` });
+  return interaction.editReply({
+    content: `Availability saved for ${formatAvailabilityWeekLabel(
+      parsed.weekStart,
+    )}. You can refine it anytime here: ${APP_URL}/teams/schedule`,
+  });
 }
 
 // Handle team event attendance button clicks
@@ -4706,14 +6626,23 @@ async function handleTeamEventButton(interaction: ButtonInteraction) {
   await interaction.deferReply({ ephemeral: interaction.inGuild() });
 
   try {
-    const result = await apiRequest(`/api/discord/team-events/${eventId}/attendance`, 'POST', {
-      discordId,
-      status: status === 'PRESENT' ? 'PRESENT' : status === 'ABSENT' ? 'ABSENT' : 'UNSURE',
-    });
+    const result = await apiRequest(
+      `/api/discord/team-events/${eventId}/attendance`,
+      'POST',
+      {
+        discordId,
+        status:
+          status === 'PRESENT'
+            ? 'PRESENT'
+            : status === 'ABSENT'
+            ? 'ABSENT'
+            : 'UNSURE',
+      },
+    );
 
     if (!result.ok) {
       const errorMsg = result.data.error || 'Failed to update attendance';
-      
+
       if (errorMsg === 'User not linked to Discord') {
         return interaction.editReply({
           content: `❌ Your Discord account is not linked to RiftEssence. Please link it in your [settings](${APP_URL}/settings).`,
@@ -4729,19 +6658,27 @@ async function handleTeamEventButton(interaction: ButtonInteraction) {
           content: '❌ You are not targeted by this event notification.',
         });
       }
-      
+
       return interaction.editReply({ content: `❌ ${errorMsg}` });
     }
 
-    const statusEmoji = status === 'PRESENT' ? '✅' : status === 'ABSENT' ? '❌' : '❓';
-    const statusText = status === 'PRESENT' ? 'Present' : status === 'ABSENT' ? 'Absent' : 'Unsure';
-    
+    const statusEmoji =
+      status === 'PRESENT' ? '✅' : status === 'ABSENT' ? '❌' : '❓';
+    const statusText =
+      status === 'PRESENT'
+        ? 'Present'
+        : status === 'ABSENT'
+        ? 'Absent'
+        : 'Unsure';
+
     return interaction.editReply({
       content: `${statusEmoji} Your attendance has been updated to **${statusText}**!`,
     });
   } catch (error: any) {
     console.error('❌ Error handling team event button:', error.message);
-    return interaction.editReply({ content: '❌ An error occurred. Please try again later.' });
+    return interaction.editReply({
+      content: '❌ An error occurred. Please try again later.',
+    });
   }
 }
 
@@ -4749,14 +6686,21 @@ async function handleTeamEventButton(interaction: ButtonInteraction) {
 // Bot Events
 // ============================================================
 
-function startGuardedPollLoop(name: string, pollFn: () => Promise<void>, intervalMs: number, initialDelayMs: number) {
+function startGuardedPollLoop(
+  name: string,
+  pollFn: () => Promise<void>,
+  intervalMs: number,
+  initialDelayMs: number,
+) {
   let running = false;
   const safeIntervalMs = Math.max(5000, intervalMs);
   const safeInitialDelayMs = Math.max(0, initialDelayMs);
 
   const tick = async () => {
     if (running) {
-      console.warn(`⏭️ Skipping ${name} poll tick because a previous run is still in progress`);
+      console.warn(
+        `⏭️ Skipping ${name} poll tick because a previous run is still in progress`,
+      );
       return;
     }
 
@@ -4764,7 +6708,10 @@ function startGuardedPollLoop(name: string, pollFn: () => Promise<void>, interva
     try {
       await pollFn();
     } catch (error: any) {
-      console.error(`❌ Unhandled error in ${name} poll loop:`, error?.message || error);
+      console.error(
+        `❌ Unhandled error in ${name} poll loop:`,
+        error?.message || error,
+      );
     } finally {
       running = false;
     }
@@ -4780,13 +6727,15 @@ function startGuardedPollLoop(name: string, pollFn: () => Promise<void>, interva
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`✅ Bot logged in as ${c.user.tag}`);
-  client.user?.setActivity('RiftEssence | /setup', { type: ActivityType.Playing });
+  client.user?.setActivity('RiftEssence | /setup', {
+    type: ActivityType.Playing,
+  });
 
   // Load shared emoji fallback map (source guild), used when target guild lacks custom emojis.
   await refreshGlobalEmojiFallbackMap();
 
   // Register slash commands
-  const guildIds = client.guilds.cache.map(g => g.id);
+  const guildIds = client.guilds.cache.map((g) => g.id);
   await registerCommands(c.user.id, guildIds);
 
   // Start polling for outgoing duo posts
@@ -4794,44 +6743,115 @@ client.once(Events.ClientReady, async (c) => {
   startGuardedPollLoop('duo post', pollOutgoingPosts, POLL_INTERVAL_MS, 1500);
 
   // Start polling for outgoing LFT posts
-  const LFT_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_LFT_POLL_INTERVAL_MS || '30000', 10);
-  console.log(`🔄 Starting LFT post poll (interval: ${LFT_POLL_INTERVAL_MS}ms)`);
-  startGuardedPollLoop('LFT post', pollOutgoingLftPosts, LFT_POLL_INTERVAL_MS, 6500);
+  const LFT_POLL_INTERVAL_MS = parseInt(
+    process.env.DISCORD_LFT_POLL_INTERVAL_MS || '30000',
+    10,
+  );
+  console.log(
+    `🔄 Starting LFT post poll (interval: ${LFT_POLL_INTERVAL_MS}ms)`,
+  );
+  startGuardedPollLoop(
+    'LFT post',
+    pollOutgoingLftPosts,
+    LFT_POLL_INTERVAL_MS,
+    6500,
+  );
 
   // Start polling for outgoing Scrim Finder posts
-  const SCRIM_POLL_INTERVAL_MS = parseInt(process.env.DISCORD_SCRIM_POLL_INTERVAL_MS || '30000', 10);
-  console.log(`🔄 Starting SCRIM post poll (interval: ${SCRIM_POLL_INTERVAL_MS}ms)`);
-  startGuardedPollLoop('SCRIM post', pollOutgoingScrimPosts, SCRIM_POLL_INTERVAL_MS, 9000);
+  const SCRIM_POLL_INTERVAL_MS = parseInt(
+    process.env.DISCORD_SCRIM_POLL_INTERVAL_MS || '30000',
+    10,
+  );
+  console.log(
+    `🔄 Starting SCRIM post poll (interval: ${SCRIM_POLL_INTERVAL_MS}ms)`,
+  );
+  startGuardedPollLoop(
+    'SCRIM post',
+    pollOutgoingScrimPosts,
+    SCRIM_POLL_INTERVAL_MS,
+    9000,
+  );
 
   // Start polling for mirrored message deletions triggered by app-side deletes
-  console.log(`🧹 Starting mirror deletion poll (interval: ${MIRROR_DELETION_POLL_INTERVAL_MS}ms)`);
-  startGuardedPollLoop('mirror deletion', pollMirrorDeletions, MIRROR_DELETION_POLL_INTERVAL_MS, 10500);
+  console.log(
+    `🧹 Starting mirror deletion poll (interval: ${MIRROR_DELETION_POLL_INTERVAL_MS}ms)`,
+  );
+  startGuardedPollLoop(
+    'mirror deletion',
+    pollMirrorDeletions,
+    MIRROR_DELETION_POLL_INTERVAL_MS,
+    10500,
+  );
 
   // Start polling for DM notifications
-  console.log(`📨 Starting DM notification poll (interval: ${DM_POLL_INTERVAL_MS}ms)`);
+  console.log(
+    `📨 Starting DM notification poll (interval: ${DM_POLL_INTERVAL_MS}ms)`,
+  );
   startGuardedPollLoop('DM queue', pollDmQueue, DM_POLL_INTERVAL_MS, 12000);
 
   // Start polling for scrim-specific Discord notifications with decision buttons
-  console.log(`⚔️ Starting scrim notification poll (interval: ${SCRIM_NOTIFICATION_POLL_INTERVAL_MS}ms)`);
-  startGuardedPollLoop('scrim notification', pollScrimDiscordNotifications, SCRIM_NOTIFICATION_POLL_INTERVAL_MS, 14500);
+  console.log(
+    `⚔️ Starting scrim notification poll (interval: ${SCRIM_NOTIFICATION_POLL_INTERVAL_MS}ms)`,
+  );
+  startGuardedPollLoop(
+    'scrim notification',
+    pollScrimDiscordNotifications,
+    SCRIM_NOTIFICATION_POLL_INTERVAL_MS,
+    14500,
+  );
 
   // Start polling for team event notifications
-  console.log(`📅 Starting team event poll (interval: ${TEAM_EVENT_POLL_INTERVAL_MS}ms)`);
-  startGuardedPollLoop('team event', pollTeamEventNotifications, TEAM_EVENT_POLL_INTERVAL_MS, 18000);
+  console.log(
+    `📅 Starting team event poll (interval: ${TEAM_EVENT_POLL_INTERVAL_MS}ms)`,
+  );
+  startGuardedPollLoop(
+    'team event',
+    pollTeamEventNotifications,
+    TEAM_EVENT_POLL_INTERVAL_MS,
+    18000,
+  );
 
   // Start polling for team event reminders
-  console.log(`⏰ Starting team reminder poll (interval: ${TEAM_REMINDER_POLL_INTERVAL_MS}ms)`);
-  startGuardedPollLoop('team reminder', pollTeamEventReminders, TEAM_REMINDER_POLL_INTERVAL_MS, 21000);
-  console.log(`Starting team availability reminder poll (interval: ${TEAM_AVAILABILITY_POLL_INTERVAL_MS}ms)`);
-  startGuardedPollLoop('team availability reminder', pollTeamAvailabilityReminders, TEAM_AVAILABILITY_POLL_INTERVAL_MS, 22500);
+  console.log(
+    `⏰ Starting team reminder poll (interval: ${TEAM_REMINDER_POLL_INTERVAL_MS}ms)`,
+  );
+  startGuardedPollLoop(
+    'team reminder',
+    pollTeamEventReminders,
+    TEAM_REMINDER_POLL_INTERVAL_MS,
+    21000,
+  );
+  console.log(
+    `Starting team availability reminder poll (interval: ${TEAM_AVAILABILITY_POLL_INTERVAL_MS}ms)`,
+  );
+  startGuardedPollLoop(
+    'team availability reminder',
+    pollTeamAvailabilityReminders,
+    TEAM_AVAILABILITY_POLL_INTERVAL_MS,
+    22500,
+  );
 
   // Start polling for Discord role forwarding sync
-  console.log(`🏷️ Starting role forwarding sync poll (interval: ${ROLE_FORWARDING_POLL_INTERVAL_MS}ms)`);
-  startGuardedPollLoop('role forwarding sync', pollRoleForwardingSync, ROLE_FORWARDING_POLL_INTERVAL_MS, 24000);
+  console.log(
+    `🏷️ Starting role forwarding sync poll (interval: ${ROLE_FORWARDING_POLL_INTERVAL_MS}ms)`,
+  );
+  startGuardedPollLoop(
+    'role forwarding sync',
+    pollRoleForwardingSync,
+    ROLE_FORWARDING_POLL_INTERVAL_MS,
+    24000,
+  );
   startGuardedPollLoop('bug reports', pollBugReports, 30000, 27000);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isAutocomplete()) {
+    if (interaction.commandName === 'scrim') {
+      await handleScrimAutocomplete(interaction);
+    }
+    return;
+  }
+
   // Slash commands
   if (interaction.isChatInputCommand()) {
     const { commandName } = interaction;
@@ -4845,9 +6865,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleSendDraft(interaction);
     } else if (commandName === 'duo') {
       await handleDuoPost(interaction);
+    } else if (commandName === 'scrim') {
+      await handleScrimCommand(interaction);
     } else if (commandName === 'create-team-event') {
       await handleCreateTeamEvent(interaction);
-    } else if (commandName === 'import-league-icons' || commandName === 'import-champion-emojis') {
+    } else if (
+      commandName === 'import-league-icons' ||
+      commandName === 'import-champion-emojis'
+    ) {
       await handleImportChampionEmojis(interaction);
     }
     return;
@@ -4883,11 +6908,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!ok) return;
       return interaction.showModal(buildDuoPostModal());
     }
-    
+
     // Only allow administrators for setup buttons
     const member = interaction.member as any;
     if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
-      return interaction.reply({ content: '❌ Only administrators can configure bot settings.', ephemeral: true });
+      return interaction.reply({
+        content: '❌ Only administrators can configure bot settings.',
+        ephemeral: true,
+      });
     }
     await handleButtonInteraction(interaction as ButtonInteraction);
     return;
@@ -4896,26 +6924,43 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // Select menu interactions (filter menus)
   if (interaction.isStringSelectMenu()) {
     const member = interaction.member as any;
-    const isSendDraftMenu = interaction.customId === SEND_DRAFT_TEAM_SELECT || interaction.customId === SEND_DRAFT_PICK_SELECT;
-    const isTeamEventMenu = interaction.customId === TEAM_EVENT_TEAM_SELECT || interaction.customId === TEAM_EVENT_TYPE_SELECT;
+    const isSendDraftMenu =
+      interaction.customId === SEND_DRAFT_TEAM_SELECT ||
+      interaction.customId === SEND_DRAFT_PICK_SELECT;
+    const isTeamEventMenu =
+      interaction.customId === TEAM_EVENT_TEAM_SELECT ||
+      interaction.customId === TEAM_EVENT_TYPE_SELECT;
 
     if (isSendDraftMenu) {
       if (!hasSendDraftPermission(member)) {
-        return interaction.reply({ content: '❌ You need **Manage Server** or **Administrator** permission to send drafts.', ephemeral: true });
+        return interaction.reply({
+          content:
+            '❌ You need **Manage Server** or **Administrator** permission to send drafts.',
+          ephemeral: true,
+        });
       }
-      await handleSelectMenuInteraction(interaction as StringSelectMenuInteraction);
+      await handleSelectMenuInteraction(
+        interaction as StringSelectMenuInteraction,
+      );
       return;
     }
 
     if (isTeamEventMenu) {
-      await handleTeamEventSelectMenu(interaction as StringSelectMenuInteraction);
+      await handleTeamEventSelectMenu(
+        interaction as StringSelectMenuInteraction,
+      );
       return;
     }
 
     if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
-      return interaction.reply({ content: '❌ Only administrators can configure bot settings.', ephemeral: true });
+      return interaction.reply({
+        content: '❌ Only administrators can configure bot settings.',
+        ephemeral: true,
+      });
     }
-    await handleSelectMenuInteraction(interaction as StringSelectMenuInteraction);
+    await handleSelectMenuInteraction(
+      interaction as StringSelectMenuInteraction,
+    );
     return;
   }
 
@@ -4926,8 +6971,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleDuoPostModalSubmit(interaction as ModalSubmitInteraction);
     } else if (interaction.customId === TEAM_EVENT_MODAL) {
       await handleTeamEventModalSubmit(interaction as ModalSubmitInteraction);
-    } else if (interaction.customId.startsWith(TEAM_AVAILABILITY_MODAL_PREFIX)) {
-      await handleTeamAvailabilityModalSubmit(interaction as ModalSubmitInteraction);
+    } else if (
+      interaction.customId.startsWith(TEAM_AVAILABILITY_MODAL_PREFIX)
+    ) {
+      await handleTeamAvailabilityModalSubmit(
+        interaction as ModalSubmitInteraction,
+      );
     }
     return;
   }

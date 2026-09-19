@@ -676,7 +676,7 @@ const TeamsDashboardPage: React.FC = () => {
 
             {/* Scrim Finder - Clickable Link */}
             <Link
-              href="/teams/scrims"
+              href="/scrims"
               className="border p-6 rounded-xl block transition-all hover:scale-[1.02] hover:shadow-lg group"
               style={{
                 backgroundColor: 'var(--color-bg-secondary)',

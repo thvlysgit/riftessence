@@ -770,7 +770,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         if (hasTeamWebhook && next['configure-scrim'] !== 'skipped') {
           next['configure-scrim'] = 'completed';
         }
-        if ((scrimFeedCount > 0 || pathname === '/teams/scrims') && next['post-scrim'] !== 'skipped') {
+        if ((scrimFeedCount > 0 || pathname === '/scrims' || pathname.startsWith('/scrims/room/')) && next['post-scrim'] !== 'skipped') {
           next['post-scrim'] = 'completed';
         }
         if (hasUpcomingTeamEvents && next['start-match'] !== 'skipped') {
