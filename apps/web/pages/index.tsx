@@ -52,7 +52,7 @@ const STUDIO_FEATURES: StudioFeature[] = [
   {
     title: 'Run Scrims',
     summary: 'Schedule practice, find opponents, and keep recurring team activity from turning into message chaos.',
-    href: '/teams/scrims',
+    href: '/scrims',
     accent: '#22c55e',
     soft: 'rgba(34, 197, 94, 0.14)',
     icon: HiOutlineBeaker,

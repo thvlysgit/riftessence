@@ -733,7 +733,10 @@ export default async function teamsRoutes(fastify: any) {
       if (!userId) return;
 
       const memberships = await prisma.teamMember.findMany({
-        where: { userId },
+        where: {
+          userId,
+          team: { isScrimProfile: false },
+        },
         include: {
           team: {
             include: {

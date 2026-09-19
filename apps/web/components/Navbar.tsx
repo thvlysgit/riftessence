@@ -296,7 +296,7 @@ export default function Navbar() {
           icon: FiCalendar,
         },
         {
-          href: '/teams/scrims',
+          href: '/scrims',
           label: t('navbar.scrimFinder'),
           icon: FiTarget,
         },

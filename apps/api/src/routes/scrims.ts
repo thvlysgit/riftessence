@@ -11,6 +11,8 @@ const SCRIM_FORMATS = [...REGULAR_SCRIM_FORMATS, ...FEARLESS_SCRIM_FORMATS] as c
 const SCRIM_POST_STATUSES = ['AVAILABLE', 'CANDIDATES', 'SETTLED'] as const;
 const SCRIM_PROPOSAL_DECISIONS = ['ACCEPT', 'REJECT', 'DELAY'] as const;
 const MANAGEABLE_TEAM_ROLES = ['OWNER', 'MANAGER', 'COACH'] as const;
+const SCRIM_REGIONS = ['NA', 'EUW', 'EUNE', 'KR', 'JP', 'OCE', 'LAN', 'LAS', 'BR', 'RU'] as const;
+const SCRIM_CONTACT_PREFERENCES = ['DISCORD', 'APP', 'EITHER'] as const;
 const RANK_ORDER = [
   'IRON',
   'BRONZE',
@@ -1687,6 +1689,192 @@ export default async function scrimRoutes(fastify: any) {
     } catch (error: any) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to mark scrim Discord notification as processed' });
+    }
+  });
+
+  // GET /api/scrims/identities - Lightweight Scrim Profiles plus full Teams that can be used in Scrim Finder
+  fastify.get('/scrims/identities', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const manageableTeamIds = await getManageableTeamIds(userId);
+      const [profiles, teams] = await Promise.all([
+        prisma.scrimProfile.findMany({
+          where: { ownerId: userId },
+          orderBy: { updatedAt: 'desc' },
+          include: {
+            team: {
+              select: {
+                id: true,
+                name: true,
+                tag: true,
+                region: true,
+              },
+            },
+          },
+        }),
+        manageableTeamIds.length > 0
+          ? prisma.team.findMany({
+            where: {
+              id: { in: manageableTeamIds },
+              isScrimProfile: false,
+            },
+            orderBy: { updatedAt: 'desc' },
+            select: {
+              id: true,
+              name: true,
+              tag: true,
+              region: true,
+            },
+          })
+          : Promise.resolve([]),
+      ]);
+
+      return reply.send({
+        profiles: (profiles as any[]).map((profile) => ({
+          id: profile.id,
+          teamId: profile.teamId,
+          name: profile.team.name,
+          tag: profile.team.tag,
+          region: profile.team.region,
+          averageRank: profile.defaultAverageRank,
+          averageDivision: profile.defaultDivision,
+          averageLp: profile.defaultAverageLp,
+          defaultAverageRank: profile.defaultAverageRank,
+          defaultDivision: profile.defaultDivision,
+          defaultAverageLp: profile.defaultAverageLp,
+          opggMultisearchUrl: profile.opggMultisearchUrl,
+          contactPreference: profile.contactPreference,
+          createdAt: profile.createdAt,
+          updatedAt: profile.updatedAt,
+        })),
+        teams,
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch scrim identities' });
+    }
+  });
+
+  // POST /api/scrims/profiles - Create a persistent lightweight identity backed by the existing secure team lifecycle
+  fastify.post('/scrims/profiles', async (request: any, reply: any) => {
+    try {
+      const userId = await getUserIdFromRequest(request, reply);
+      if (!userId) return;
+
+      const {
+        name,
+        tag,
+        region,
+        defaultAverageRank,
+        defaultDivision,
+        defaultAverageLp,
+        opggMultisearchUrl,
+        contactPreference,
+      } = request.body as any;
+
+      const normalizedName = normalizeString(name);
+      const normalizedTag = normalizeOptionalString(tag);
+      const normalizedRegion = normalizeString(region).toUpperCase();
+      const normalizedRank = normalizeOptionalString(defaultAverageRank)?.toUpperCase() || null;
+      const normalizedDivisionInput = normalizeOptionalString(defaultDivision)?.toUpperCase() || null;
+      const normalizedContactPreference = normalizeOptionalString(contactPreference)?.toUpperCase() || 'DISCORD';
+      const parsedAverageLp = parseOptionalNonNegativeInt(defaultAverageLp);
+
+      if (normalizedName.length < 2 || normalizedName.length > 50) {
+        return reply.status(400).send({ error: 'Scrim Profile name must be 2-50 characters' });
+      }
+
+      if (normalizedTag && (normalizedTag.length < 2 || normalizedTag.length > 5)) {
+        return reply.status(400).send({ error: 'Scrim Profile tag must be 2-5 characters' });
+      }
+
+      if (!SCRIM_REGIONS.includes(normalizedRegion as any)) {
+        return reply.status(400).send({ error: 'A valid region is required' });
+      }
+
+      if (normalizedRank && !RANK_ORDER.includes(normalizedRank as RankName)) {
+        return reply.status(400).send({ error: 'defaultAverageRank is invalid' });
+      }
+
+      const masterPlus = normalizedRank && MASTER_PLUS_RANKS.includes(normalizedRank as any);
+      if (normalizedDivisionInput && (!normalizedRank || masterPlus || normalizedRank === 'UNRANKED' || !DIVISION_ORDER.includes(normalizedDivisionInput as any))) {
+        return reply.status(400).send({ error: 'defaultDivision is invalid for the selected rank' });
+      }
+
+      if (parsedAverageLp !== null && (!masterPlus || parsedAverageLp > 5000)) {
+        return reply.status(400).send({ error: 'defaultAverageLp is only supported for Master+ and must be 5000 or less' });
+      }
+
+      if (!SCRIM_CONTACT_PREFERENCES.includes(normalizedContactPreference as any)) {
+        return reply.status(400).send({ error: 'contactPreference must be DISCORD, APP, or EITHER' });
+      }
+
+      const existingProfileCount = await prisma.scrimProfile.count({ where: { ownerId: userId } });
+      if (existingProfileCount >= 5) {
+        return reply.status(400).send({ error: 'You can create up to 5 Scrim Profiles' });
+      }
+
+      const profile = await prisma.scrimProfile.create({
+        data: {
+          ownerId: userId,
+          defaultAverageRank: normalizedRank as any,
+          defaultDivision: masterPlus || normalizedRank === 'UNRANKED' ? null : normalizedDivisionInput,
+          defaultAverageLp: masterPlus ? parsedAverageLp : null,
+          opggMultisearchUrl: normalizeOptionalString(opggMultisearchUrl),
+          contactPreference: normalizedContactPreference,
+          team: {
+            create: {
+              name: normalizedName,
+              tag: normalizedTag,
+              region: normalizedRegion as any,
+              ownerId: userId,
+              isScrimProfile: true,
+              members: {
+                create: {
+                  userId,
+                  role: 'SUBS',
+                },
+              },
+            },
+          },
+        },
+        include: {
+          team: {
+            select: {
+              id: true,
+              name: true,
+              tag: true,
+              region: true,
+            },
+          },
+        },
+      });
+
+      return reply.status(201).send({
+        success: true,
+        profile: {
+          id: profile.id,
+          teamId: profile.teamId,
+          name: profile.team.name,
+          tag: profile.team.tag,
+          region: profile.team.region,
+          averageRank: profile.defaultAverageRank,
+          averageDivision: profile.defaultDivision,
+          averageLp: profile.defaultAverageLp,
+          defaultAverageRank: profile.defaultAverageRank,
+          defaultDivision: profile.defaultDivision,
+          defaultAverageLp: profile.defaultAverageLp,
+          opggMultisearchUrl: profile.opggMultisearchUrl,
+          contactPreference: profile.contactPreference,
+          createdAt: profile.createdAt,
+          updatedAt: profile.updatedAt,
+        },
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to create Scrim Profile' });
     }
   });
 

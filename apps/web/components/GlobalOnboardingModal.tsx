@@ -197,7 +197,7 @@ export default function GlobalOnboardingModal() {
         }
 
         if (stepId === 'post-scrim') {
-          router.push(`/teams/scrims?returnUrl=${encodeURIComponent(router.asPath)}`);
+          router.push(`/scrims?returnUrl=${encodeURIComponent(router.asPath)}`);
           return;
         }
 

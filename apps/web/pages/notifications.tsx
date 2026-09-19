@@ -348,7 +348,7 @@ export default function NotificationsPage() {
                         Reject
                       </button>
                       <Link
-                        href="/teams/scrims"
+                        href="/scrims"
                         className="px-3 py-1.5 rounded text-xs font-semibold border"
                         style={{ borderColor: 'var(--color-border)', color: 'var(--accent-primary)' }}
                       >

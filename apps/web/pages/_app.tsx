@@ -69,6 +69,7 @@ function shouldNoIndex(pathname: string, asPath: string): boolean {
     '/teams/drafts',
     '/teams/schedule',
     '/teams/scrims',
+    '/scrims',
   ]);
 
   return exactNoIndex.has(pathname) || pathname.startsWith('/admin/');
@@ -100,6 +101,7 @@ function RouteAccessGate({ children }: { children: ReactNode }) {
   const requiresAccount = pathname === '/profile'
     || pathname === '/settings'
     || pathname === '/notifications'
+    || pathname === '/scrims'
     || pathname === '/purse'
     || pathname.startsWith('/ads/dashboard')
     || pathname.startsWith('/teams/dashboard');
