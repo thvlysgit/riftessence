@@ -7,14 +7,24 @@ export function buildScrimRequestInit(
   token: string | null,
   init: RequestInit = {},
 ): RequestInit {
+  const method = String(init.method || 'GET').toUpperCase();
   const headers = new Headers(init.headers);
 
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  // Fastify rejects an empty request when JSON is declared. Only advertise JSON
-  // when the request actually contains a body.
+  // Fastify rejects bodyless POST requests when intermediaries inject an
+  // unsupported or empty content type. Send a valid empty JSON payload for
+  // POSTs that intentionally have no business data, while leaving truly bodyless
+  // non-POST requests alone.
+  if (method === 'POST' && init.body === undefined) {
+    init = {
+      ...init,
+      body: '{}',
+    };
+  }
+
   if (init.body !== undefined && init.body !== null && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }

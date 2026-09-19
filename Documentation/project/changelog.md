@@ -4,6 +4,23 @@
 
 ---
 
+## 2026-09-19 - Fix Scrim Room 415s for bodyless POST actions
+
+### Objective: Prevent unsupported media type rejections when host-only scrim actions post without a JSON payload
+
+Overview: Fixed the frontend request helper used by the Scrim Room actions so bodyless POSTs send a valid minimal JSON payload instead of relying on browser/proxy defaults that can trigger Fastify 415 rejections before the route handler runs.
+
+Changes:
+
+- Updated [apps/web/utils/scrimApi.ts](apps/web/utils/scrimApi.ts): bodyless `POST` requests now send `{}` with `Content-Type: application/json`, while genuine bodyless `GET`/`DELETE` requests remain untyped.
+- Added a regression check in [apps/web/__tests__/scrimApi.test.ts](apps/web/__tests__/scrimApi.test.ts) covering the bodyless POST case and ensuring non-POST requests stay unchanged.
+
+Verification:
+
+- `npx jest apps/web/__tests__/scrimApi.test.ts --runInBand --config jest.config.cjs` passes.
+
+---
+
 ## 2026-09-04 - API Crash Diagnostics and Polling-Safe Rate Limits
 
 ### Objective: Preserve API failure evidence and prevent read polling from locking out active users
