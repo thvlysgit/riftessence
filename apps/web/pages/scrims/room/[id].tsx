@@ -18,9 +18,7 @@ import SEOHead from '@components/SEOHead';
 import NoAccess from '@components/NoAccess';
 import { useGlobalUI } from '@components/GlobalUI';
 import { useAuth } from '../../../contexts/AuthContext';
-import { getAuthToken } from '../../../utils/auth';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+import { scrimApiRequest } from '../../../utils/scrimApi';
 
 type Member = { role: string; user: { id: string; username: string } };
 type Team = {
@@ -194,20 +192,7 @@ export default function ScrimRoomPage() {
     message: '',
   });
 
-  const request = useCallback(async (path: string, init?: RequestInit) => {
-    const token = await getAuthToken();
-    const response = await fetch(`${API_URL}/api${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...(init?.headers || {}),
-      },
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || 'Something went wrong');
-    return payload;
-  }, []);
+  const request = useCallback(scrimApiRequest, []);
 
   const loadRoom = useCallback(async () => {
     if (!user || !router.isReady || typeof router.query.id !== 'string') return;
@@ -257,6 +242,7 @@ export default function ScrimRoomPage() {
         body: body ? JSON.stringify(body) : undefined,
       });
       await loadRoom();
+      window.dispatchEvent(new Event('riftessence:scrim-room-changed'));
       if (success) showToast(success, 'success');
     } catch (error: any) {
       showToast(error.message || 'Action failed', 'error');

@@ -30,6 +30,7 @@ import { CookieConsentProvider } from '../contexts/CookieConsentContext';
 import LegalAcceptanceGate from '../components/LegalAcceptanceGate';
 import { OnboardingProvider } from '../contexts/OnboardingContext';
 import GlobalOnboardingModal from '../components/GlobalOnboardingModal';
+import ActiveScrimRoomBanner from '../components/ActiveScrimRoomBanner';
 import { globalOgImageUrl } from '../utils/ogImage';
 import { installApiFetchCredentials } from '../utils/auth';
 
@@ -326,6 +327,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
                  <OnboardingProvider>
                 <ChatProvider>
                   <GlobalUIProvider>
+                    <ActiveScrimRoomBanner />
                     <Navbar />
                     <BugReportButton /> {/* TODO: TEMPORARY - Remove after bug reporting period */}
                     <LegalAcceptanceGate>

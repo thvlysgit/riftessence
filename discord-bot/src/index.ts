@@ -25,6 +25,10 @@ import {
 } from 'discord.js';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
+import {
+  scrimAvailabilityLabel,
+  scrimEmbedColor,
+} from './scrimPresentation';
 
 dotenv.config();
 
@@ -4514,7 +4518,7 @@ function buildScrimForwardEmbed(
     rankLabel,
     `⚔️ Format: **${post.scrimFormat || 'N/A'}**`,
     `🕒 Start: ${startTimestamp}`,
-    `📌 Status: **${post.status || 'AVAILABLE'}**`,
+    `📌 Status: **${scrimAvailabilityLabel(post.status)}**`,
     typeof post.proposalCount === 'number'
       ? `📨 Proposals: **${post.proposalCount}**`
       : null,
@@ -4529,7 +4533,7 @@ function buildScrimForwardEmbed(
   ].filter(Boolean);
 
   return new EmbedBuilder()
-    .setColor(0x2563eb)
+    .setColor(scrimEmbedColor(post.status, post.averageRank))
     .setTitle(`Scrim Finder • ${teamLabel}`)
     .setURL(appUrl)
     .setDescription(descriptionParts.join('\n'))
@@ -4540,41 +4544,69 @@ function buildScrimForwardEmbed(
 async function mirrorScrimPostToDiscord(post: any) {
   const { id, feedChannels } = post;
 
-  const markResult = await apiRequest(
-    `/api/discord/scrim-posts/${id}/mirrored`,
-    'PATCH',
-  );
-  if (!markResult.ok) {
-    console.error(`❌ Failed to mark SCRIM post ${id} as mirrored, skipping`);
-    return;
-  }
-
   if (!feedChannels || feedChannels.length === 0) {
-    console.warn(`⚠️ SCRIM post ${id} has no feed channels, skipping`);
     return;
   }
 
   for (const fc of feedChannels) {
+    const postUpdatedAt = new Date(post.updatedAt).getTime();
+    const syncedAt = fc.syncedPostUpdatedAt
+      ? new Date(fc.syncedPostUpdatedAt).getTime()
+      : 0;
+    if (fc.messageId && syncedAt >= postUpdatedAt) continue;
+    if (!fc.messageId && post.status === 'SETTLED') continue;
+
     try {
       const channel = await client.channels.fetch(fc.channelId);
       if (channel && channel.isTextBased() && 'guild' in channel) {
         const textChannel = channel as TextChannel;
         const embed = buildScrimForwardEmbed(post, textChannel.guild);
-        const sent = await textChannel.send(
-          buildForwardMessagePayload(
-            embed,
-            post.author?.discordId,
-            `${APP_URL}/scrims`,
-          ),
+        const payload = buildForwardMessagePayload(
+          embed,
+          post.author?.discordId,
+          `${APP_URL}/scrims`,
         );
+        let messageId = fc.messageId as string | null;
+
+        if (messageId) {
+          try {
+            const existing = await textChannel.messages.fetch(messageId);
+            await existing.edit(payload);
+          } catch (error: any) {
+            const discordCode = error?.code || error?.rawError?.code;
+            if (discordCode !== 10008) throw error;
+            const replacement = await textChannel.send(payload);
+            messageId = replacement.id;
+          }
+        } else {
+          const sent = await textChannel.send(payload);
+          messageId = sent.id;
+        }
+
+        const persistResult = await apiRequest(
+          `/api/discord/scrim-posts/${id}/messages`,
+          'PUT',
+          {
+            guildId: textChannel.guild.id,
+            channelId: fc.channelId,
+            messageId,
+            syncedPostUpdatedAt: post.updatedAt,
+          },
+        );
+        if (!persistResult.ok) {
+          console.error(
+            `❌ SCRIM message ${messageId} sent but its sync state was not persisted`,
+          );
+          continue;
+        }
         storeMirroredMessageRef(
           'SCRIM',
           id,
           textChannel.guild.id,
           fc.channelId,
-          sent.id,
+          messageId,
         );
-        console.log(`✅ Mirrored SCRIM post ${id} to channel ${fc.channelId}`);
+        console.log(`✅ Synced SCRIM post ${id} in channel ${fc.channelId}`);
       }
     } catch (error: any) {
       console.error(

@@ -1181,7 +1181,6 @@ export default async function discordFeedRoutes(fastify: any) {
               return false;
             return true;
           });
-
           return {
             id: post.id,
             createdAt: post.createdAt,
@@ -1391,22 +1390,36 @@ export default async function discordFeedRoutes(fastify: any) {
     { preHandler: validateBotAuth },
     async (request: any, reply: any) => {
       try {
-        const { since, limit = 50 } = request.query as any;
+        const { limit = 200 } = request.query as any;
+        const parsedLimit = Number.parseInt(String(limit), 10);
+        const safeLimit = Number.isFinite(parsedLimit)
+          ? Math.max(1, Math.min(500, parsedLimit))
+          : 200;
+        const now = new Date();
+        const recentlyClosedAfter = new Date(
+          now.getTime() - 7 * 24 * 60 * 60 * 1000,
+        );
+
+        await prisma.scrimPost.updateMany({
+          where: {
+            status: { in: ['AVAILABLE', 'CANDIDATES'] },
+            startTimeUtc: { lt: now },
+          },
+          data: { status: 'SETTLED', settledAt: now },
+        });
 
         const where: any = {
-          source: 'app',
-          discordMirrored: false,
+          OR: [
+            { status: { in: ['AVAILABLE', 'CANDIDATES'] } },
+            { status: 'SETTLED', updatedAt: { gte: recentlyClosedAfter } },
+          ],
         };
-
-        if (since) {
-          where.createdAt = { gt: new Date(since) };
-        }
 
         const [posts, feedChannels] = await Promise.all([
           prisma.scrimPost.findMany({
             where,
-            take: parseInt(limit),
-            orderBy: { createdAt: 'asc' },
+            take: safeLimit,
+            orderBy: { updatedAt: 'asc' },
             include: {
               team: {
                 select: {
@@ -1435,6 +1448,7 @@ export default async function discordFeedRoutes(fastify: any) {
                   status: true,
                 },
               },
+              discordMessages: true,
             },
           }),
           prisma.discordFeedChannel.findMany({
@@ -1454,11 +1468,26 @@ export default async function discordFeedRoutes(fastify: any) {
               return false;
             return true;
           });
+          const targetChannels = new Map(
+            matchingChannels.map((channel: any) => [
+              channel.channelId,
+              { channelId: channel.channelId, guildId: channel.guildId },
+            ]),
+          );
+          post.discordMessages.forEach((delivery: any) => {
+            if (!targetChannels.has(delivery.channelId)) {
+              targetChannels.set(delivery.channelId, {
+                channelId: delivery.channelId,
+                guildId: delivery.guildId,
+              });
+            }
+          });
 
           return {
             id: post.id,
             teamId: post.teamId,
             createdAt: post.createdAt,
+            updatedAt: post.updatedAt,
             region: post.region,
             teamName: post.teamName,
             teamTag: post.teamTag,
@@ -1470,7 +1499,9 @@ export default async function discordFeedRoutes(fastify: any) {
             opggMultisearchUrl: post.opggMultisearchUrl,
             details: post.details,
             status: post.status,
-            proposalCount: post.proposals.length,
+            proposalCount: post.proposals.filter((proposal: any) =>
+              ['PENDING', 'DELAYED'].includes(proposal.status),
+            ).length,
             team: post.team,
             author: {
               id: post.author.id,
@@ -1478,10 +1509,18 @@ export default async function discordFeedRoutes(fastify: any) {
               discordUsername: post.author.discordAccount?.username || null,
               discordId: post.author.discordAccount?.discordId || null,
             },
-            feedChannels: matchingChannels.map((fc: any) => ({
-              channelId: fc.channelId,
-              guildId: fc.guildId,
-            })),
+            feedChannels: Array.from(targetChannels.values()).map((fc: any) => {
+              const delivery = post.discordMessages.find(
+                (entry: any) => entry.channelId === fc.channelId,
+              );
+              return {
+                channelId: fc.channelId,
+                guildId: fc.guildId,
+                messageId: delivery?.messageId || null,
+                syncedPostUpdatedAt:
+                  delivery?.syncedPostUpdatedAt || null,
+              };
+            }),
           };
         });
 
@@ -1491,6 +1530,58 @@ export default async function discordFeedRoutes(fastify: any) {
         return reply
           .status(500)
           .send({ error: 'Failed to fetch outgoing scrim posts' });
+      }
+    },
+  );
+
+  // PUT /api/discord/scrim-posts/:postId/messages - Persist a successful send/edit
+  fastify.put(
+    '/discord/scrim-posts/:postId/messages',
+    { preHandler: validateBotAuth },
+    async (request: any, reply: any) => {
+      try {
+        const { postId } = request.params as { postId: string };
+        const { guildId, channelId, messageId, syncedPostUpdatedAt } =
+          request.body || {};
+
+        if (!guildId || !channelId || !messageId || !syncedPostUpdatedAt) {
+          return reply.status(400).send({
+            error:
+              'guildId, channelId, messageId, and syncedPostUpdatedAt are required',
+          });
+        }
+
+        const syncedAt = new Date(syncedPostUpdatedAt);
+        if (!Number.isFinite(syncedAt.getTime())) {
+          return reply
+            .status(400)
+            .send({ error: 'syncedPostUpdatedAt must be a valid date' });
+        }
+
+        const delivery = await prisma.scrimDiscordMessage.upsert({
+          where: {
+            postId_channelId: { postId, channelId: String(channelId) },
+          },
+          create: {
+            postId,
+            guildId: String(guildId),
+            channelId: String(channelId),
+            messageId: String(messageId),
+            syncedPostUpdatedAt: syncedAt,
+          },
+          update: {
+            guildId: String(guildId),
+            messageId: String(messageId),
+            syncedPostUpdatedAt: syncedAt,
+          },
+        });
+
+        return reply.send({ success: true, delivery });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply
+          .status(500)
+          .send({ error: 'Failed to persist scrim Discord message' });
       }
     },
   );

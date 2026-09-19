@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   FiCheckCircle,
@@ -13,9 +13,7 @@ import SEOHead from '@components/SEOHead';
 import NoAccess from '@components/NoAccess';
 import { useGlobalUI } from '@components/GlobalUI';
 import { useAuth } from '../contexts/AuthContext';
-import { getAuthToken } from '../utils/auth';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+import { scrimApiRequest } from '../utils/scrimApi';
 const REGIONS = [
   'NA',
   'EUW',
@@ -71,6 +69,7 @@ type Identity = {
   activePost: Post | null;
   reputation: { rating: number | null; count: number };
   completedScrims: number;
+  recommendedRegion?: string | null;
 };
 type Post = {
   id: string;
@@ -285,29 +284,17 @@ function ScrimsPage() {
     details: '',
   });
   const [message, setMessage] = useState('');
+  const regionInitialized = useRef(false);
 
   const selected =
     identities.find((identity) => identity.id === selectedId) ||
     identities[0] ||
     null;
-  const request = useCallback(async (path: string, init?: RequestInit) => {
-    const token = await getAuthToken();
-    const response = await fetch(`${API_URL}/api${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...(init?.headers || {}),
-      },
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || 'Something went wrong');
-    return payload;
-  }, []);
+  const request = useCallback(scrimApiRequest, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!user) return;
-    setLoadingData(true);
+    if (!silent) setLoadingData(true);
     try {
       const query = new URLSearchParams();
       if (region) query.set('region', region);
@@ -336,18 +323,41 @@ function ScrimsPage() {
           ? current
           : next[0]?.id || '',
       );
+      if (!regionInitialized.current) {
+        const preferredRegion =
+          next[0]?.recommendedRegion ||
+          identityData.preferredRegion ||
+          next[0]?.region ||
+          '';
+        setRegion(preferredRegion);
+        setProfile((current) => ({
+          ...current,
+          region: preferredRegion || current.region,
+        }));
+        regionInitialized.current = true;
+      }
       setPosts(postData.posts || []);
       setProposals(proposalData.proposals || []);
       setRooms(roomData.series || []);
     } catch (error: any) {
       showToast(error.message || 'Could not load Scrims', 'error');
     } finally {
-      setLoadingData(false);
+      if (!silent) setLoadingData(false);
     }
   }, [formatFilter, region, request, showToast, user]);
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    if (!user) return;
+    const refresh = () => void load(true);
+    const interval = window.setInterval(refresh, 30_000);
+    window.addEventListener('focus', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [load, user]);
 
   const visiblePosts = useMemo(
     () => posts.filter((post) => post.teamId !== selected?.teamId),
@@ -470,6 +480,8 @@ function ScrimsPage() {
         'success',
       );
       if (result.seriesId)
+        window.dispatchEvent(new Event('riftessence:scrim-room-changed'));
+      if (result.seriesId)
         window.location.assign(`/scrims/room/${result.seriesId}`);
     } catch (error: any) {
       showToast(error.message, 'error');
@@ -576,7 +588,18 @@ function ScrimsPage() {
                       <select
                         aria-label="Scrim team"
                         value={selectedId}
-                        onChange={(event) => setSelectedId(event.target.value)}
+                        onChange={(event) => {
+                          const nextId = event.target.value;
+                          const nextIdentity = identities.find(
+                            (identity) => identity.id === nextId,
+                          );
+                          setSelectedId(nextId);
+                          setRegion(
+                            nextIdentity?.recommendedRegion ||
+                              nextIdentity?.region ||
+                              '',
+                          );
+                        }}
                         className="rounded-lg border px-3 py-2 text-sm"
                         style={{
                           borderColor: 'var(--color-border)',
@@ -780,8 +803,13 @@ function ScrimsPage() {
                             className="mt-1 text-xs"
                             style={{ color: 'var(--color-text-secondary)' }}
                           >
+                            {post.proposalStats.pendingCount}{' '}
+                            {post.proposalStats.pendingCount === 1
+                              ? 'proposal'
+                              : 'proposals'}
+                            {' · '}
                             {post.proposalStats.averageResponseMinutes
-                              ? `Replies in ~${post.proposalStats.averageResponseMinutes}m`
+                              ? `replies in ~${post.proposalStats.averageResponseMinutes}m`
                               : `${post.reputation?.count || 0} reviews`}
                           </p>
                         </div>

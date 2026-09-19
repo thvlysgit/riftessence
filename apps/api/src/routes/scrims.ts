@@ -2,7 +2,8 @@ import prisma from '../prisma';
 import { getUserIdFromRequest } from '../middleware/auth';
 import { randomUUID } from 'crypto';
 import { getRecentMatchIds, getMatchDetails } from '../riotClient';
-import { enqueueMirrorDeletion } from '../services/discordMirrorDeletionQueue';
+import { choosePreferredScrimRegion } from '../utils/scrimPreferences';
+import { createScrimProfileIdentity } from '../services/scrimProfiles';
 import {
   markWorkerFailed,
   markWorkerStarted,
@@ -348,6 +349,26 @@ async function getManageableTeamIds(userId: string): Promise<string[]> {
   memberships.forEach((entry: any) => ids.add(entry.teamId));
   ownedTeams.forEach((entry: any) => ids.add(entry.id));
   return Array.from(ids);
+}
+
+async function getParticipatingTeamIds(userId: string): Promise<string[]> {
+  const [memberships, ownedTeams] = await Promise.all([
+    prisma.teamMember.findMany({
+      where: { userId },
+      select: { teamId: true },
+    }),
+    prisma.team.findMany({
+      where: { ownerId: userId },
+      select: { id: true },
+    }),
+  ]);
+
+  return Array.from(
+    new Set([
+      ...memberships.map((entry: any) => entry.teamId),
+      ...ownedTeams.map((entry: any) => entry.id),
+    ]),
+  );
 }
 
 async function canManageTeam(userId: string, teamId: string): Promise<boolean> {
@@ -1263,6 +1284,11 @@ async function autoRejectExpiredProposals(): Promise<void> {
           where: { id: latest.postId },
           data: { status: 'AVAILABLE' },
         });
+      } else if (currentPost?.status !== 'SETTLED') {
+        await tx.scrimPost.update({
+          where: { id: latest.postId },
+          data: { updatedAt: now },
+        });
       }
 
       return true;
@@ -1557,6 +1583,11 @@ async function applyScrimProposalDecision(params: {
           where: { id: latest.postId },
           data: { status: 'AVAILABLE' },
         });
+      } else if (currentPost?.status !== 'SETTLED') {
+        await tx.scrimPost.update({
+          where: { id: latest.postId },
+          data: { updatedAt: now },
+        });
       }
 
       return { status: 'REJECTED' };
@@ -1589,6 +1620,11 @@ async function applyScrimProposalDecision(params: {
         message: `${proposal.post.teamName} marked your proposal as low priority fallback.`,
       },
     ]);
+
+    await tx.scrimPost.update({
+      where: { id: latest.postId },
+      data: { updatedAt: now },
+    });
 
     return { status: 'DELAYED' };
   });
@@ -2192,12 +2228,27 @@ export default async function scrimRoutes(fastify: any) {
         if (!team)
           return reply.status(404).send({ error: 'Scrim team not found.' });
         const post = await prisma.$transaction(async (tx: any) => {
-          await tx.scrimPost.deleteMany({
+          const activePosts = await tx.scrimPost.findMany({
             where: {
               teamId: normalizedTeamId,
               status: { in: ['AVAILABLE', 'CANDIDATES'] },
             },
+            select: { id: true },
           });
+          if (activePosts.length > 0) {
+            const ids = activePosts.map((entry: any) => entry.id);
+            await tx.scrimProposal.updateMany({
+              where: {
+                postId: { in: ids },
+                status: { in: ['PENDING', 'DELAYED'] },
+              },
+              data: { status: 'REJECTED', decisionAt: new Date() },
+            });
+            await tx.scrimPost.updateMany({
+              where: { id: { in: ids } },
+              data: { status: 'SETTLED', settledAt: new Date() },
+            });
+          }
           return tx.scrimPost.create({
             data: {
               teamId: normalizedTeamId,
@@ -2248,19 +2299,28 @@ export default async function scrimRoutes(fastify: any) {
             .status(403)
             .send({ error: 'You cannot stop availability for this team.' });
         }
-        const active = await prisma.scrimPost.findMany({
-          where: {
-            teamId: normalizedTeamId,
-            status: { in: ['AVAILABLE', 'CANDIDATES'] },
-          },
-          select: { id: true, source: true, discordMirrored: true },
+        await prisma.$transaction(async (tx: any) => {
+          const active = await tx.scrimPost.findMany({
+            where: {
+              teamId: normalizedTeamId,
+              status: { in: ['AVAILABLE', 'CANDIDATES'] },
+            },
+            select: { id: true },
+          });
+          if (active.length === 0) return;
+          const ids = active.map((post: any) => post.id);
+          await tx.scrimProposal.updateMany({
+            where: {
+              postId: { in: ids },
+              status: { in: ['PENDING', 'DELAYED'] },
+            },
+            data: { status: 'REJECTED', decisionAt: new Date() },
+          });
+          await tx.scrimPost.updateMany({
+            where: { id: { in: ids } },
+            data: { status: 'SETTLED', settledAt: new Date() },
+          });
         });
-        await prisma.scrimPost.deleteMany({
-          where: { id: { in: active.map((post: any) => post.id) } },
-        });
-        active
-          .filter((post: any) => post.source === 'app' && post.discordMirrored)
-          .forEach((post: any) => enqueueMirrorDeletion('SCRIM', post.id));
         return reply.send({ success: true });
       } catch (error: any) {
         fastify.log.error(error);
@@ -2315,7 +2375,7 @@ export default async function scrimRoutes(fastify: any) {
                           where: { OR: [{ isMain: true }, { hidden: false }] },
                           orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
                           take: 1,
-                          select: { rank: true, division: true },
+                          select: { rank: true, division: true, region: true },
                         },
                       },
                     },
@@ -2327,6 +2387,13 @@ export default async function scrimRoutes(fastify: any) {
         prisma.user.findUnique({
           where: { id: userId },
           select: {
+            region: true,
+            riotAccounts: {
+              where: { OR: [{ isMain: true }, { hidden: false }] },
+              orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
+              take: 1,
+              select: { region: true },
+            },
             discordDmNotifications: true,
             discordAccount: { select: { discordId: true, username: true } },
           },
@@ -2402,6 +2469,8 @@ export default async function scrimRoutes(fastify: any) {
         reputation: reviewMap.get(team.id) || { rating: null, count: 0 },
         completedScrims: completedMap.get(team.id) || 0,
       });
+      const managerRegion =
+        account?.riotAccounts?.[0]?.region || account?.region || null;
       const fullTeamIdentity = (team: any) => {
         const scores = (team.members || [])
           .map((member: any) =>
@@ -2422,6 +2491,13 @@ export default async function scrimRoutes(fastify: any) {
         const { members: _members, ...publicTeam } = team;
         return {
           ...publicTeam,
+          recommendedRegion: choosePreferredScrimRegion(
+            (team.members || []).map(
+              (member: any) => member.user?.riotAccounts?.[0]?.region,
+            ),
+            managerRegion,
+            team.region,
+          ),
           averageRank: suggestion.averageRank,
           averageDivision: suggestion.averageDivision,
           averageLp: null,
@@ -2436,6 +2512,11 @@ export default async function scrimRoutes(fastify: any) {
           name: profile.team.name,
           tag: profile.team.tag,
           region: profile.team.region,
+          recommendedRegion: choosePreferredScrimRegion(
+            [],
+            managerRegion,
+            profile.team.region,
+          ),
           averageRank: profile.defaultAverageRank,
           averageDivision: profile.defaultDivision,
           averageLp: profile.defaultAverageLp,
@@ -2449,6 +2530,7 @@ export default async function scrimRoutes(fastify: any) {
           updatedAt: profile.updatedAt,
         })),
         teams: (teams as any[]).map(fullTeamIdentity),
+        preferredRegion: managerRegion,
       });
     } catch (error: any) {
       fastify.log.error(error);
@@ -2551,43 +2633,21 @@ export default async function scrimRoutes(fastify: any) {
           .send({ error: 'You can create up to 5 Scrim Profiles' });
       }
 
-      const profile = await prisma.scrimProfile.create({
-        data: {
-          ownerId: userId,
-          defaultAverageRank: normalizedRank as any,
-          defaultDivision:
-            masterPlus || normalizedRank === 'UNRANKED'
-              ? null
-              : normalizedDivisionInput,
-          defaultAverageLp: masterPlus ? parsedAverageLp : null,
-          opggMultisearchUrl: normalizeOptionalString(opggMultisearchUrl),
-          contactPreference: normalizedContactPreference,
-          team: {
-            create: {
-              name: normalizedName,
-              tag: normalizedTag,
-              region: normalizedRegion as any,
-              ownerId: userId,
-              isScrimProfile: true,
-              members: {
-                create: {
-                  userId,
-                  role: 'MANAGER',
-                },
-              },
-            },
-          },
-        },
-        include: {
-          team: {
-            select: {
-              id: true,
-              name: true,
-              tag: true,
-              region: true,
-            },
-          },
-        },
+      // Keep the lightweight identity creation explicit and atomic. This path
+      // deliberately does not depend on the user already owning a full Team.
+      const profile = await createScrimProfileIdentity(prisma, {
+        userId,
+        name: normalizedName,
+        tag: normalizedTag,
+        region: normalizedRegion,
+        defaultAverageRank: normalizedRank,
+        defaultDivision:
+          masterPlus || normalizedRank === 'UNRANKED'
+            ? null
+            : normalizedDivisionInput,
+        defaultAverageLp: masterPlus ? parsedAverageLp : null,
+        opggMultisearchUrl: normalizeOptionalString(opggMultisearchUrl),
+        contactPreference: normalizedContactPreference,
       });
 
       return reply.status(201).send({
@@ -2880,8 +2940,6 @@ export default async function scrimRoutes(fastify: any) {
         return reply.status(404).send({ error: 'Team not found' });
       }
 
-      const replacedMirroredPostIds = new Set<string>();
-
       const created = await prisma.$transaction(async (tx: any) => {
         const activePosts = await tx.scrimPost.findMany({
           where: {
@@ -2890,8 +2948,6 @@ export default async function scrimRoutes(fastify: any) {
           },
           select: {
             id: true,
-            source: true,
-            discordMirrored: true,
             proposals: {
               where: { status: { in: ['PENDING', 'DELAYED'] } },
               select: {
@@ -2936,20 +2992,23 @@ export default async function scrimRoutes(fastify: any) {
         }
 
         if (activePosts.length > 0) {
-          for (const post of activePosts as Array<{
-            id: string;
-            source: string | null;
-            discordMirrored: boolean;
-          }>) {
-            if (post.source === 'app' && post.discordMirrored) {
-              replacedMirroredPostIds.add(post.id);
-            }
-          }
-
-          await tx.scrimPost.deleteMany({
+          const activePostIds = activePosts.map(
+            (post: { id: string }) => post.id,
+          );
+          await tx.scrimProposal.updateMany({
             where: {
-              id: { in: activePosts.map((post: { id: string }) => post.id) },
+              postId: { in: activePostIds },
+              status: { in: ['PENDING', 'DELAYED'] },
             },
+            data: {
+              status: 'REJECTED',
+              decisionAt: new Date(),
+              decisionByUserId: userId,
+            },
+          });
+          await tx.scrimPost.updateMany({
+            where: { id: { in: activePostIds } },
+            data: { status: 'SETTLED', settledAt: new Date() },
           });
         }
 
@@ -2977,10 +3036,6 @@ export default async function scrimRoutes(fastify: any) {
 
         return post;
       });
-
-      for (const postId of replacedMirroredPostIds) {
-        enqueueMirrorDeletion('SCRIM', postId);
-      }
 
       return reply.status(201).send({
         success: true,
@@ -3010,8 +3065,6 @@ export default async function scrimRoutes(fastify: any) {
           id: true,
           teamId: true,
           authorId: true,
-          source: true,
-          discordMirrored: true,
         },
       });
 
@@ -3030,13 +3083,23 @@ export default async function scrimRoutes(fastify: any) {
           .send({ error: 'You are not allowed to delete this scrim post' });
       }
 
-      await prisma.scrimPost.delete({
-        where: { id: post.id },
+      await prisma.$transaction(async (tx: any) => {
+        await tx.scrimProposal.updateMany({
+          where: {
+            postId: post.id,
+            status: { in: ['PENDING', 'DELAYED'] },
+          },
+          data: {
+            status: 'REJECTED',
+            decisionAt: new Date(),
+            decisionByUserId: userId,
+          },
+        });
+        await tx.scrimPost.update({
+          where: { id: post.id },
+          data: { status: 'SETTLED', settledAt: new Date() },
+        });
       });
-
-      if (post.source === 'app' && post.discordMirrored) {
-        enqueueMirrorDeletion('SCRIM', post.id);
-      }
 
       return reply.send({ success: true });
     } catch (error: any) {
@@ -3171,12 +3234,10 @@ export default async function scrimRoutes(fastify: any) {
                 },
               });
 
-          if (post.status === 'AVAILABLE') {
-            await tx.scrimPost.update({
-              where: { id: postId },
-              data: { status: 'CANDIDATES' },
-            });
-          }
+          await tx.scrimPost.update({
+            where: { id: postId },
+            data: { status: 'CANDIDATES' },
+          });
 
           const receiverIds = await getTeamDecisionRecipientIds(
             tx,
@@ -3797,8 +3858,8 @@ export default async function scrimRoutes(fastify: any) {
 
         await maybeRunDueAutoResultSweep(fastify);
 
-        const manageableTeamIds = await getManageableTeamIds(userId);
-        if (manageableTeamIds.length === 0) {
+        const participatingTeamIds = await getParticipatingTeamIds(userId);
+        if (participatingTeamIds.length === 0) {
           return reply.send({ series: [] });
         }
 
@@ -3806,8 +3867,8 @@ export default async function scrimRoutes(fastify: any) {
           where: {
             winnerConfirmedAt: null,
             OR: [
-              { hostTeamId: { in: manageableTeamIds } },
-              { guestTeamId: { in: manageableTeamIds } },
+              { hostTeamId: { in: participatingTeamIds } },
+              { guestTeamId: { in: participatingTeamIds } },
             ],
           },
           orderBy: [{ scheduledAt: 'desc' }, { createdAt: 'desc' }],
@@ -3844,7 +3905,7 @@ export default async function scrimRoutes(fastify: any) {
 
         const payload = (series as any[]).map((entry) => {
           const myTeamIds = [entry.hostTeamId, entry.guestTeamId].filter(
-            (teamId: string) => manageableTeamIds.includes(teamId),
+            (teamId: string) => participatingTeamIds.includes(teamId),
           );
           const boGames = scrimFormatToBoGames(
             entry?.proposal?.post?.scrimFormat,

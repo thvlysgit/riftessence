@@ -1490,6 +1490,7 @@ model ScrimPost {
 
   proposals ScrimProposal[]
   series    ScrimSeries[]
+  discordMessages ScrimDiscordMessage[]
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
@@ -1499,6 +1500,24 @@ model ScrimPost {
   @@index([region, status, createdAt])
   @@index([scrimFormat, createdAt])
   @@index([source, discordMirrored])
+}
+
+// Durable references let the bot edit availability embeds after restarts when
+// status or proposal counts change.
+model ScrimDiscordMessage {
+  id                    String    @id @default(cuid())
+  post                  ScrimPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId                String
+  guildId               String
+  channelId             String
+  messageId             String
+  syncedPostUpdatedAt   DateTime
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([postId, channelId])
+  @@unique([channelId, messageId])
+  @@index([postId, syncedPostUpdatedAt])
 }
 
 // A lightweight, persistent competitive identity for people who use Scrim Finder
